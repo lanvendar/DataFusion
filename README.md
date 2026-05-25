@@ -6,20 +6,17 @@ DataFusion 是一个企业级数据集成平台。提供元数据管理、数据
 ### 1. dataFusion 项目模块结构
 ```
     |- datafusion
-        |- datafusion-common-data (公共对象模块:命名规则为一级包名为[模块名],类路径与模块中保持一致)
-            | - common 
+        |- datafusion-common (公共模块:公共对象包、轻量级工具包[形成模块后可抽出独立模块],例如:datafusion-common-datasource) 
             | - datasource 
             | - scheduler
             | - manager
             | - agent
             | - api
-        |- datafusion-common (公共模块:轻量级工具包,形成模块后可抽出独立模块) 
-        |- datafusion-common-web (Spring相关依赖模块)
-        |- datafusion-datasource (数据源核心框架)
-        |- datafusion-scheduler (调度引擎框架)
-            | - master
-            | - worker  
-        |- datafusion-manager (页面api + 调度运行入口)
+        |- datafusion-common-spring (Spring相关依赖模块)
+        |- datafusion-common-datasource (数据源核心框架)
+        |- datafusion-scheduler-master (数据调度—调度节点)
+        |- datafusion-scheduler-worker (数据调度—执行节点)
+        |- datafusion-manager (管理页面-后端)
             | - metadata (元数据) 
                 | - controller
                 | - service
@@ -41,10 +38,11 @@ DataFusion 是一个企业级数据集成平台。提供元数据管理、数据
                 | - master (调度引擎实现) 
             | - system (系统管理) 
                 | - controller
-                | - service   
-        |- datafusion-worker (工作节点)
-        |- datafusion-api (API接口服务, 提供查询服务)
+                | - service
+        |- datafusion-web (管理页面-前端)   
+        |- datafusion-agent (管理插件的工作节点)
         |- datafusion-plugin (插件)
+            |- datafusion-plugin-api (API接口查询插件)
             |- datafusion-plugin-flink (Flink插件)
             |- datafusion-plugin-spark (Spark插件)
             |- datafusion-plugin-datax (DataX插件)
