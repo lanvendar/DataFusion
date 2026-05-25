@@ -1,0 +1,16 @@
+com\datafusion\common\spring\dto\request\QueryLimit.class
+com\datafusion\common\spring\dto\request\page\SimplePageQuery.class
+com\datafusion\common\spring\po\BaseEntity.class
+com\datafusion\common\spring\po\BaseIdEntity.class
+com\datafusion\common\spring\dto\request\page\PageQueryOrder.class
+com\datafusion\common\spring\utils\ApplicationContextUtil.class
+com\datafusion\common\spring\dto\request\page\PageQuery.class
+com\datafusion\common\spring\dto\response\PageResponse.class
+com\datafusion\common\spring\typehandler\JsonObjectHandler.class
+com\datafusion\common\spring\typehandler\PropertiesTypeHandler.class
+com\datafusion\common\spring\dto\request\Query.class
+com\datafusion\common\spring\dto\response\Result.class
+com\datafusion\common\spring\dto\request\page\Order.class
+com\datafusion\common\spring\typehandler\PostgresJsonObjectHandler.class
+com\datafusion\common\spring\typehandler\JsonNodeTypeHandler.class
+com\datafusion\common\spring\typehandler\UuidTypeHandler.class

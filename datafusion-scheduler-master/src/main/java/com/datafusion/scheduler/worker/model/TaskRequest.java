@@ -1,0 +1,60 @@
+package com.datafusion.scheduler.worker.model;
+
+import com.datafusion.scheduler.enums.StatusEnum;
+import com.fasterxml.jackson.databind.JsonNode;
+import lombok.Data;
+
+/**
+ * 任务动作请求发送报文.
+ *
+ * @author lanvendar
+ * @version 1.0.0, 2024/12/5
+ * @since 2024/12/5
+ */
+@Data
+public class TaskRequest {
+    //region 请求和返回公共字段
+
+    /**
+     * 流程实例ID.
+     */
+    private String flowInstanceId;
+
+    /**
+     * 任务实例ID.
+     */
+    private String taskInstanceId;
+
+    /**
+     * 任务名称.
+     */
+    private String taskName;
+
+    /**
+     * 任务状态.
+     */
+    private StatusEnum taskState;
+    //endregion
+    //region 请求字段
+
+    /**
+     * 任务定义.
+     */
+    private JsonNode definition;
+
+    /**
+     * 第三方插件运行唯一主键 appId.
+     */
+    private String appId;
+
+    /**
+     * 组件.
+     */
+    private String pluginType;
+
+    /**
+     * 组件数据.
+     */
+    private JsonNode pluginParam;
+    //endregion
+}

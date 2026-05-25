@@ -1,0 +1,262 @@
+/*
+ * Copyright © 2020-2023 Nimbus Corporation All rights reserved.
+ *
+ * 使本项目源码前请仔细阅读以下协议内容，如果你同意以下协议才能使用本项目所有的功能,
+ * 否则如果你违反了以下协议，有可能陷入法律纠纷和赔偿，作者保留追究法律责任的权利.
+ *
+ * 1、本代码为商业源代码，只允许已授权内部人员查看使用
+ * 2、任何人员无权将代码泄露或者授权给其他未被授权人员使用
+ * 3、任何修改请保留原始作者信息，不得擅自删除及修改
+ *
+ * 请保留以上版权信息，否则作者将保留追究法律责任.
+ */
+
+package com.datafusion.common.utils;
+
+import cn.hutool.core.collection.CollectionUtil;
+import cn.hutool.core.map.MapUtil;
+import cn.hutool.core.util.StrUtil;
+import com.datafusion.common.exception.CommonException;
+import com.datafusion.common.exception.ErrorCodeEnum;
+
+import java.util.Collection;
+import java.util.Map;
+
+/**
+ * AssertUtils.
+ *
+ * @author pxh
+ * @version 1.0.0, 2022/1/6
+ */
+public class AssertUtils {
+
+    /**
+     * 私有构造方法.
+     */
+    private AssertUtils() {
+
+    }
+
+    /**
+     * Assert a boolean expression, throwing an {@code IllegalArgumentException}
+     * if the expression evaluates to {@code false}.
+     * <pre class="code">Assert.isTrue(i &gt; 0, "The value must be greater than zero");</pre>
+     *
+     * @param expression a boolean expression
+     * @param message    the exception message to use if the assertion fails
+     * @throws IllegalArgumentException if {@code expression} is {@code false}
+     */
+    public static void isTrue(boolean expression, String message) {
+        if (!expression) {
+            throw new CommonException(ErrorCodeEnum.USER_INVALID_PARAM_A0154, message);
+        }
+    }
+
+    /**
+     * Assert that an object is {@code null}.
+     * <pre class="code">Assert.isNull(value, "The value must be null");</pre>
+     *
+     * @param object  the object to check
+     * @param message the exception message to use if the assertion fails
+     * @throws IllegalArgumentException if the object is not {@code null}
+     */
+    public static void isNull(Object object, String message) {
+        if (object != null) {
+            throw new CommonException(ErrorCodeEnum.USER_INVALID_PARAM_A0154, message);
+        }
+    }
+
+    /**
+     * Assert that an object is not {@code null}.
+     * <pre class="code">Assert.notNull(clazz, "The class must not be null");</pre>
+     *
+     * @param object  the object to check
+     * @param message the exception message to use if the assertion fails
+     * @throws IllegalArgumentException if the object is {@code null}
+     */
+    public static void notNull(Object object, String message) {
+        if (object == null) {
+            throw new CommonException(ErrorCodeEnum.USER_INVALID_PARAM_A0154, message);
+        }
+    }
+
+    /**
+     * Assert that the given text does not contain the given substring.
+     * <pre class="code">Assert.doesNotContain(name, "rod", "Name must not contain 'rod'");</pre>
+     *
+     * @param textToSearch the text to search
+     * @param substring    the substring to find within the text
+     * @param message      the exception message to use if the assertion fails
+     * @throws IllegalArgumentException if the text contains the substring
+     */
+    public static void doesNotContain(String textToSearch, String substring, String message) {
+        if (StrUtil.isNotEmpty(textToSearch)
+                && StrUtil.isNotEmpty(substring)
+                && textToSearch.contains(substring)) {
+            throw new CommonException(ErrorCodeEnum.USER_INVALID_PARAM_A0154, message);
+        }
+    }
+
+    /**
+     * Assert that a collection contains elements; that is, it must not be
+     * {@code null} and must contain at least one element.
+     * <pre class="code">Assert.notEmpty(collection, "Collection must contain elements");</pre>
+     *
+     * @param collection the collection to check
+     * @param message    the exception message to use if the assertion fails
+     * @throws IllegalArgumentException if the collection is {@code null} or
+     *                                  contains no elements
+     */
+    public static void notEmpty(Collection<?> collection, String message) {
+        if (CollectionUtil.isEmpty(collection)) {
+            throw new CommonException(ErrorCodeEnum.USER_INVALID_PARAM_A0154, message);
+        }
+    }
+
+    /**
+     * Assert that a Map contains entries; that is, it must not be {@code null}
+     * and must contain at least one entry.
+     * <pre class="code">Assert.notEmpty(map, "Map must contain entries");</pre>
+     *
+     * @param map     the map to check
+     * @param message the exception message to use if the assertion fails
+     * @throws IllegalArgumentException if the map is {@code null} or contains no entries
+     */
+    public static void notEmpty(Map<?, ?> map, String message) {
+        if (MapUtil.isEmpty(map)) {
+            throw new CommonException(ErrorCodeEnum.USER_INVALID_PARAM_A0154, message);
+        }
+    }
+
+    /**
+     * Assert that the provided object is an instance of the provided class.
+     * <pre class="code">Assert.instanceOf(Foo.class, foo, "Foo expected");</pre>
+     *
+     * @param type    the type to check against
+     * @param obj     the object to check
+     * @param message a message which will be prepended to provide further context.
+     *                If it is empty or ends in ":" or ";" or "," or ".", a full exception message
+     *                will be appended. If it ends in a space, the name of the offending object's
+     *                type will be appended. In any other case, a ":" with a space and the name
+     *                of the offending object's type will be appended.
+     * @throws IllegalArgumentException if the object is not an instance of type
+     */
+    public static void isInstanceOf(Class<?> type, Object obj, String message) {
+        notNull(type, "Type to check against must not be null");
+        if (!type.isInstance(obj)) {
+            instanceCheckFailed(type, obj, message);
+        }
+    }
+
+    /**
+     * Assert that the provided object is an instance of the provided class.
+     * <pre class="code">Assert.instanceOf(Foo.class, foo);</pre>
+     *
+     * @param type the type to check against
+     * @param obj  the object to check
+     * @throws IllegalArgumentException if the object is not an instance of type
+     */
+    public static void isInstanceOf(Class<?> type, Object obj) {
+        isInstanceOf(type, obj, "");
+    }
+
+    /**
+     * Assert that {@code superType.isAssignableFrom(subType)} is {@code true}.
+     * <pre class="code">Assert.isAssignable(Number.class, myClass, "Number expected");</pre>
+     *
+     * @param superType the super type to check against
+     * @param subType   the sub type to check
+     * @param message   a message which will be prepended to provide further context.
+     *                  If it is empty or ends in ":" or ";" or "," or ".", a full exception message
+     *                  will be appended. If it ends in a space, the name of the offending sub type
+     *                  will be appended. In any other case, a ":" with a space and the name of the
+     *                  offending sub type will be appended.
+     * @throws IllegalArgumentException if the classes are not assignable
+     */
+    public static void isAssignable(Class<?> superType, Class<?> subType, String message) {
+        notNull(superType, "Super type to check against must not be null");
+        if (subType == null || !superType.isAssignableFrom(subType)) {
+            assignableCheckFailed(superType, subType, message);
+        }
+    }
+
+    /**
+     * Assert that {@code superType.isAssignableFrom(subType)} is {@code true}.
+     * <pre class="code">Assert.isAssignable(Number.class, myClass);</pre>
+     *
+     * @param superType the super type to check
+     * @param subType   the sub type to check
+     * @throws IllegalArgumentException if the classes are not assignable
+     */
+    public static void isAssignable(Class<?> superType, Class<?> subType) {
+        isAssignable(superType, subType, "");
+    }
+
+    /**
+     * 校验是否属于某个class.
+     *
+     * @param type class类型
+     * @param obj  待校验对象
+     * @param msg  错误消息
+     */
+    private static void instanceCheckFailed(Class<?> type, Object obj, String msg) {
+        String className = (obj != null ? obj.getClass().getName() : "null");
+        String result = "";
+        boolean defaultMessage = true;
+        if (StrUtil.isNotEmpty(msg)) {
+            if (endsWithSeparator(msg)) {
+                result = msg + " ";
+            } else {
+                result = messageWithTypeName(msg, className);
+                defaultMessage = false;
+            }
+        }
+        if (defaultMessage) {
+            result = result + ("Object of class [" + className + "] must be an instance of " + type);
+        }
+        throw new CommonException(ErrorCodeEnum.USER_INVALID_PARAM_A0154, result);
+    }
+
+    /**
+     * 类型校验失败.
+     *
+     * @param superType 父类型class
+     * @param subType   子类型class
+     * @param msg       错误消息
+     */
+    private static void assignableCheckFailed(Class<?> superType, Class<?> subType, String msg) {
+        String result = "";
+        boolean defaultMessage = true;
+        if (StrUtil.isNotEmpty(msg)) {
+            if (endsWithSeparator(msg)) {
+                result = msg + " ";
+            } else {
+                result = messageWithTypeName(msg, subType);
+                defaultMessage = false;
+            }
+        }
+        if (defaultMessage) {
+            result = result + (subType + " is not assignable to " + superType);
+        }
+        throw new CommonException(ErrorCodeEnum.USER_INVALID_PARAM_A0154, result);
+    }
+
+    /**
+     * 判断消息是否含有指定符号.
+     *
+     * @param msg 消息
+     */
+    private static boolean endsWithSeparator(String msg) {
+        return (msg.endsWith(":") || msg.endsWith(";") || msg.endsWith(",") || msg.endsWith("."));
+    }
+
+    /**
+     * 组装class类型消息.
+     *
+     * @param msg      消息
+     * @param typeName class类型
+     */
+    private static String messageWithTypeName(String msg, Object typeName) {
+        return msg + (msg.endsWith(" ") ? "" : ": ") + typeName;
+    }
+}

@@ -1,0 +1,11 @@
+com.datafusion.common.type.DmType
+com.datafusion.common.type.ExcelType
+com.datafusion.common.type.HiveType
+com.datafusion.common.type.HologresType
+com.datafusion.common.type.MaxComputeType
+com.datafusion.common.type.MysqlType
+com.datafusion.common.type.OracleType
+com.datafusion.common.type.PaimonType
+com.datafusion.common.type.PostgresType
+com.datafusion.common.type.SqlserverType
+com.datafusion.common.type.StarrocksType

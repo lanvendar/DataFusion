@@ -1,0 +1,10 @@
+com\datafusion\scheduler\model\TaskResult$TaskResultBuilder.class
+com\datafusion\scheduler\enums\StatusEnum.class
+com\datafusion\scheduler\enums\VarType.class
+com\datafusion\scheduler\enums\ActionType.class
+com\datafusion\scheduler\model\Variable.class
+com\datafusion\scheduler\model\ParamData.class
+com\datafusion\scheduler\enums\StatusPhaseEnum.class
+com\datafusion\scheduler\model\PluginData.class
+com\datafusion\scheduler\model\TaskResult.class
+com\datafusion\scheduler\enums\StatusEnum$EnableState.class

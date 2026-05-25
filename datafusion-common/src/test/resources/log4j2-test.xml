@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    status="WARN"：用于设置 Log4j2 内部事件的日志级别。
+    对于一般应用，设置为 WARN 或 ERROR 即可。
+-->
+<Configuration status="WARN">
+    <Appenders>
+        <!-- 定义一个名为 Console 的 Appender，用于输出到控制台 -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <!-- 定义日志输出的格式 -->
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <!--
+            Root logger，所有 logger 的根。
+            level="info"：表示默认只记录 info、warn、error 级别的日志。
+        -->
+        <Root level="debug">
+            <!-- 将日志输出到上面定义的 Console Appender -->
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>

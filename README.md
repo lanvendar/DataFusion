@@ -6,7 +6,8 @@ DataFusion 是一个企业级数据集成平台。提供元数据管理、数据
 ### 1. dataFusion 项目模块结构
 ```
     |- datafusion
-        |- datafusion-common (公共模块:公共对象包、轻量级工具包[形成模块后可抽出独立模块],例如:datafusion-datasource) 
+        |- datafusion-common (公共模块:轻量级工具包,形成模块后可抽出独立模块,例如:datafusion-datasource) 
+        |- datafusion-common-data (公共对象模块:命名规则为一级包名为[模块名],类路径与模块中保持一致)
             | - datasource 
             | - scheduler
             | - manager
