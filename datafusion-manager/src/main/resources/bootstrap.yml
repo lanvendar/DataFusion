@@ -37,7 +37,7 @@ spring:
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
-  type-handlers-package: com.datafusion.common.web.typehandler
+  type-handlers-package: com.datafusion.common.spring.typehandler
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
