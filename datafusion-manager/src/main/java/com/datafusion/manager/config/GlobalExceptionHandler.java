@@ -3,7 +3,7 @@ package com.datafusion.manager.config;
 import cn.hutool.core.util.StrUtil;
 import com.datafusion.common.exception.CommonException;
 import com.datafusion.common.exception.ErrorCodeEnum;
-import com.datafusion.common.web.dto.response.Result;
+import com.datafusion.common.spring.dto.response.Result;
 import org.springframework.core.annotation.Order;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;

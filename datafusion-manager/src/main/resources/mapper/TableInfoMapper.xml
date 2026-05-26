@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.metadata.dao.TableInfoMapper">
+
+
+    <select id="getTableList" resultType="com.datafusion.manager.metadata.dto.TableInfoDto">
+        select t1.database_type, t1.schema_name, t1.database_name,t1.name as databaseConnectName, t.*
+        from metadata_table_info t
+        inner join metadata_datasource_info t1 on t1.id = t.datasource_id
+        <where>
+            <if test="query != null">
+                <if test="query.datasourceId != null">
+                    and t.datasource_id = #{query.datasourceId}
+                </if>
+
+                <if test="query.schemaName != null and query.schemaName != ''">
+                    and t1.schema_name like concat('%', #{query.schemaName}, '%')
+                </if>
+
+                <if test="query.databaseConnectName != null and query.databaseConnectName != ''">
+                    and t1.name like concat('%', #{query.databaseConnectName}, '%')
+                </if>
+
+                <if test="query.databaseName != null and query.databaseName != ''">
+                    and t1.database_name like concat('%', #{query.databaseName}, '%')
+                </if>
+
+                <if test="query.tableName != null and query.tableName != ''">
+                    and t.table_name like concat('%', #{query.tableName}, '%')
+                </if>
+
+                <if test="query.tableDesc != null and query.tableDesc != ''">
+                    and t.table_desc like concat('%', #{query.tableDesc}, '%')
+                </if>
+
+                <if test="query.isModify != null">
+                    and t.is_modify = #{query.isModify}
+                </if>
+
+                <if test="query.isView != null">
+                    and t.is_view = #{query.isView}
+                </if>
+
+                <if test="query.isEqual != null">
+                    and t.is_equal = #{query.isEqual}
+                </if>
+
+            </if>
+        </where>
+        order by t.create_time desc
+    </select>
+
+    <resultMap id="dataSourceTableColumnDtoMap" type="com.datafusion.manager.metadata.dto.DataSourceTableColumnDto">
+        <!-- 主键映射，如果你的datasourceId是主键 -->
+        <result column="datasourceName" property="datasourceName" javaType="java.lang.String"/>
+        <result column="databaseType" property="databaseType" javaType="java.lang.String"/>
+        <result column="databaseName" property="databaseName" javaType="java.lang.String"/>
+        <result column="schemaName" property="schemaName" javaType="java.lang.String"/>
+        <!-- 表信息映射 -->
+        <result column="tableName" property="tableName" javaType="java.lang.String"/>
+        <!-- 字段信息映射 -->
+        <result column="datasourceId" property="datasourceId" javaType="java.lang.String"/>
+        <result column="columnName" property="columnName" javaType="java.lang.String"/>
+        <result column="columnType" property="columnType" javaType="java.lang.String"/>
+        <result column="columnJavaType" property="columnJavaType" javaType="java.lang.String"/>
+    </resultMap>
+
+    <select id="getDataSourceTableColumns" resultMap="dataSourceTableColumnDtoMap">
+        select t1.database_type as databaseType,
+        t1.name as datasourceName,
+        t1.database_name as databaseName,
+        t1.schema_name   as schemaName,
+        t.table_name     as tableName,
+        t2.column_name   as columnName,
+        t2.column_type   as columnType,
+        t2.java_type     as columnJavaType,
+        t.datasource_id as datasourceId
+        from metadata_table_info t
+        join metadata_datasource_info t1 on t1.id = t.datasource_id
+        join metadata_column_info t2 on t.id = t2.table_id
+        where
+            t.datasource_id = #{datasourceId}
+            <if test="tables != null">
+                and t.table_name in
+                    <foreach collection='tables' item='name' open='(' separator=',' close=
+                    ')'>#{name}</foreach>
+            </if>
+        order by t.table_name,t2.column_serial asc
+    </select>
+
+
+    <select id="getPageTableList" resultType="com.datafusion.manager.metadata.dto.TableInfoDto">
+        select t1.database_type, t1.schema_name, t1.database_name,t1.name as databaseConnectName, t.*
+        from metadata_table_info t
+        inner join metadata_datasource_info t1 on t1.id = t.datasource_id
+        <where>
+            <if test="query.option != null">
+                <if test="query.option.datasourceId != null">
+                    and t.datasource_id = #{query.option.datasourceId}
+                </if>
+
+                <if test="query.option.schemaName != null and query.option.schemaName != ''">
+                    and t1.schema_name like concat('%', #{query.option.schemaName}, '%')
+                </if>
+
+                <if test="query.option.databaseConnectName != null and query.option.databaseConnectName != ''">
+                    and t1.name like concat('%', #{query.option.databaseConnectName}, '%')
+                </if>
+
+                <if test="query.option.databaseName != null and query.option.databaseName != ''">
+                    and t1.database_name like concat('%', #{query.option.databaseName}, '%')
+                </if>
+
+                <if test="query.option.tableName != null and query.option.tableName != ''">
+                    and t.table_name like concat('%', #{query.option.tableName}, '%')
+                </if>
+
+                <if test="query.option.tableDesc != null and query.option.tableDesc != ''">
+                    and t.table_desc like concat('%', #{query.option.tableDesc}, '%')
+                </if>
+
+                <if test="query.option.isModify != null">
+                    and t.is_modify = #{query.option.isModify}
+                </if>
+
+                <if test="query.option.isView != null">
+                    and t.is_view = #{query.option.isView}
+                </if>
+
+                <if test="query.option.isEqual != null">
+                    and t.is_equal = #{query.option.isEqual}
+                </if>
+
+            </if>
+        </where>
+        order by t.create_time desc
+        limit #{query.size} offset #{query.offset}
+    </select>
+
+    <select id="getPageTotalCount" resultType="int">
+        select count(0)
+        from metadata_table_info t
+        inner join metadata_datasource_info t1 on t1.id = t.datasource_id
+        <where>
+            <if test="query.option != null">
+                <if test="query.option.datasourceId != null">
+                    and t.datasource_id = #{query.option.datasourceId}
+                </if>
+
+                <if test="query.option.schemaName != null and query.option.schemaName != ''">
+                    and t1.schema_name like concat('%', #{query.option.schemaName}, '%')
+                </if>
+
+                <if test="query.option.databaseConnectName != null and query.option.databaseConnectName != ''">
+                    and t1.name like concat('%', #{query.option.databaseConnectName}, '%')
+                </if>
+
+                <if test="query.option.databaseName != null and query.option.databaseName != ''">
+                    and t1.database_name like concat('%', #{query.option.databaseName}, '%')
+                </if>
+
+                <if test="query.option.tableName != null and query.option.tableName != ''">
+                    and t.table_name like concat('%', #{query.option.tableName}, '%')
+                </if>
+
+                <if test="query.option.tableDesc != null and query.option.tableDesc != ''">
+                    and t.table_desc like concat('%', #{query.option.tableDesc}, '%')
+                </if>
+
+                <if test="query.option.isModify != null">
+                    and t.is_modify = #{query.option.isModify}
+                </if>
+
+                <if test="query.option.isView != null">
+                    and t.is_view = #{query.option.isView}
+                </if>
+
+                <if test="query.option.isEqual != null">
+                    and t.is_equal = #{query.option.isEqual}
+                </if>
+            </if>
+        </where>
+    </select>
+
+    <select id="getTableInfo" resultType="com.datafusion.manager.metadata.dto.TableInfoDto">
+        select t1.database_type, t1.schema_name, t1.database_name, t.*
+        from metadata_table_info t
+                 inner join metadata_datasource_info t1 on t1.id = t.datasource_id
+        where t.id = #{id}
+    </select>
+
+    <select id="getTableCount" resultType="java.lang.Long">
+        select count(1)
+        from metadata_table_info t
+        <where>
+            <if test="datasourceId != null">
+                and t.datasource_id = #{datasourceId}
+            </if>
+        </where>
+    </select>
+
+    <delete id="deleteTablesByDataSourceId">
+        DELETE FROM datafusion.metadata_table_info
+        WHERE datasource_id = #{query.datasourceId}
+    </delete>
+</mapper>

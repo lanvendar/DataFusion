@@ -1,7 +1,7 @@
 package com.datafusion.manager.development.dao;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.datafusion.common.web.dto.request.page.PageQuery;
+import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.manager.development.dto.DevelopScriptSqlTaskDto;
 import com.datafusion.manager.development.dto.DevelopScriptSqlTaskQueryDto;
 import com.datafusion.manager.development.po.DevelopScriptSqlTaskEntity;

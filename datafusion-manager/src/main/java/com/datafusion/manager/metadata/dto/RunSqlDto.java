@@ -27,7 +27,7 @@ public class RunSqlDto {
     /**
      * 执行的sql脚本.
      */
-    @Schema(name = "sql", description = "执行的sql脚本")
+    @Schema(name = "init_db", description = "执行的sql脚本")
     @NotNull
     private String sql;
 }

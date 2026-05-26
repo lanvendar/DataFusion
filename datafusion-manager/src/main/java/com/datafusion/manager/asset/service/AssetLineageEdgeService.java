@@ -1950,7 +1950,7 @@ public class AssetLineageEdgeService {
             }
 
             String fileNameWithExt = snapshot.has("fileName") ? snapshot.get("fileName").asText() : null;
-            String sql = snapshot.has("sql") ? snapshot.get("sql").asText() : null;
+            String sql = snapshot.has("init_db") ? snapshot.get("init_db").asText() : null;
 
             if (fileNameWithExt == null || sql == null) {
                 continue;

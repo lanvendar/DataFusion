@@ -23,7 +23,7 @@ public class ExecSqlStatementStatusDto {
     /**
      * 待执行的SQL文本.
      */
-    @Schema(name = "sql", description = "待执行的SQL文本")
+    @Schema(name = "init_db", description = "待执行的SQL文本")
     private String sql;
 
     /**

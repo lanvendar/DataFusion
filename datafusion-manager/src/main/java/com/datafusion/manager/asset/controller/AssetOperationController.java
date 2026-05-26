@@ -1,7 +1,7 @@
 package com.datafusion.manager.asset.controller;
 
 import cn.hutool.core.collection.CollectionUtil;
-import com.datafusion.common.web.dto.response.Result;
+import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.manager.asset.dto.EtlReImportRequestVo;
 import com.datafusion.manager.asset.dto.EtlSqlUpAndDownVo;
 import com.datafusion.manager.asset.job.EtlGitLabJob;

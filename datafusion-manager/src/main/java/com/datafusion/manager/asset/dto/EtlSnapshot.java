@@ -74,7 +74,7 @@ public class EtlSnapshot {
     /**
      * sql 脚本.
      */
-    @Schema(name = "sql", description = "etl sql脚本")
+    @Schema(name = "init_db", description = "etl sql脚本")
     private String sql;
     
 }

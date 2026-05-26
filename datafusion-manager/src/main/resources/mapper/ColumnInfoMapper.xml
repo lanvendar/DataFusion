@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.metadata.dao.ColumnInfoMapper">
+    <select id="getColumnList" resultType="com.datafusion.manager.metadata.dto.ColumnInfoDto">
+        select t.*
+          from metadata_column_info t
+        <where>
+            <if test="query != null">
+                <if test="query.tableId != null">
+                    and t.table_id = #{query.tableId}
+                </if>
+
+                <if test="query.columnName != null and query.columnName != ''">
+                    and (t.column_name like concat('%', #{query.columnName}, '%') or t.column_desc like concat('%', #{query.columnName}, '%'))
+                </if>
+            </if>
+        </where>
+        order by t.column_serial asc
+    </select>
+    <delete id="deleteColumnsByDataSourceId">
+        DELETE FROM datafusion.metadata_column_info
+        WHERE table_id IN (
+            SELECT id
+            FROM datafusion.metadata_table_info
+            WHERE datasource_id = #{query.datasourceId}
+        )
+    </delete>
+    <delete id="deleteTablesByDataSourceId">
+        DELETE FROM datafusion.metadata_table_info
+        WHERE datasource_id = #{query.datasourceId}
+    </delete>
+</mapper>

@@ -1,8 +1,8 @@
 package com.datafusion.manager.asset.controller;
 
-import com.datafusion.common.web.dto.request.page.PageQuery;
-import com.datafusion.common.web.dto.response.PageResponse;
-import com.datafusion.common.web.dto.response.Result;
+import com.datafusion.common.spring.dto.request.page.PageQuery;
+import com.datafusion.common.spring.dto.response.PageResponse;
+import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.manager.asset.dto.AssetLineageNodeResourceVo;
 import com.datafusion.manager.asset.dto.AssetNodeRequestVo;
 import com.datafusion.manager.asset.dto.AssetNodeResourceDto;

@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.ingestion.dao.IngestionTaskDefinitionMapper">
+
+    <!-- 查询条件片段 -->
+    <sql id="queryCondition">
+        <if test="query != null and query.option != null">
+            <if test="query.option.taskName != null and query.option.taskName != ''">
+                AND t1.task_name LIKE concat('%', #{query.option.taskName}, '%')
+            </if>
+            <if test="query.option.taskCode != null and query.option.taskCode != ''">
+                AND t1.task_code = #{query.option.taskCode}
+            </if>
+            <if test="query.option.taskType != null and query.option.taskType != ''">
+                AND t1.task_type = #{query.option.taskType}
+            </if>
+            <if test="query.option.publishStatus != null">
+                AND t1.publish_status = #{query.option.publishStatus}
+            </if>
+            <if test="query.option.flowId != null">
+                AND t1.flow_id = #{query.option.flowId}
+            </if>
+        </if>
+    </sql>
+
+    <!-- 分页查询最新版本 -->
+    <select id="pageLatestList" resultType="com.datafusion.manager.ingestion.dto.IngestionTaskDefinitionDto">
+        select
+        t2.id, t2.task_name, t2.task_code, t2.description,
+        t2.task_type_id, t2.task_type, t2.task_param, t2.definition,
+        t2.version, t2.model_status, t2.publish_status, t2.publish_time,
+        t2.flow_id, t2.creator, t2.create_time
+        FROM (
+        SELECT t1.id, t1.task_name, t1.task_code, t1.description,
+        t1.task_type_id, t1.task_type, t1.task_param, t1.definition,
+        t1.version, t1.model_status, t1.publish_status, t1.publish_time,
+        t1.flow_id, t1.creator, t1.create_time,row_number() OVER(partition by t1.task_code order by t1.version DESC) AS
+        row_num
+        FROM ingestion_task_definition_log t1
+        WHERE t1.model_status = 0
+        <include refid="queryCondition"/>
+        ) t2
+        WHERE t2.row_num = 1
+        ORDER BY t2.create_time DESC
+        LIMIT #{query.size} OFFSET #{query.offset}
+    </select>
+
+    <!-- 分页总数(最新版本) -->
+    <select id="pageLatestCount" resultType="int">
+        SELECT COUNT(0)
+        FROM (
+        SELECT t1.id, t1.task_name, t1.task_code, t1.description,
+        t1.task_type_id, t1.task_type, t1.task_param, t1.definition,
+        t1.version, t1.model_status, t1.publish_status, t1.publish_time,
+        t1.flow_id, t1.creator, t1.create_time,row_number() OVER(partition by t1.task_code order by t1.version DESC) AS
+        row_num
+        FROM ingestion_task_definition_log t1
+        WHERE t1.model_status = 0
+        <include refid="queryCondition"/>
+        ) t2
+        WHERE t2.row_num = 1
+    </select>
+
+    <!-- 列表查询最新版本(不分页) -->
+    <select id="listLatest" resultType="com.datafusion.manager.ingestion.dto.IngestionTaskDefinitionDto">
+        SELECT t1.id, t1.task_name, t1.task_code, t1.description,
+               t1.task_type_id, t1.task_type, t1.task_param, t1.definition,
+               t1.version, t1.model_status, t1.publish_status, t1.publish_time,
+               t1.flow_id, t1.creator, t1.create_time
+        FROM ingestion_task_definition_log t1
+        WHERE t1.model_status = 0
+          AND t1.id IN (
+              SELECT id FROM ingestion_task_definition_log
+              WHERE model_status = 0
+              GROUP BY task_code
+              HAVING version = MAX(version)
+          )
+        <if test="_parameter != null">
+            <include refid="queryCondition">
+                <property name="query" value="_parameter"/>
+            </include>
+        </if>
+        ORDER BY t1.create_time DESC
+    </select>
+
+    <!-- 查询指定taskCode所有版本 -->
+    <select id="listByTaskCode" resultType="com.datafusion.manager.ingestion.dto.IngestionTaskDefinitionDto">
+        SELECT t1.id, t1.task_name, t1.task_code, t1.description,
+               t1.task_type_id, t1.task_type, t1.task_param, t1.definition,
+               t1.version, t1.model_status, t1.publish_status, t1.publish_time,
+               t1.flow_id, t1.creator, t1.create_time
+        FROM ingestion_task_definition_log t1
+        WHERE t1.task_code = #{taskCode}
+          AND t1.model_status = 0
+        ORDER BY t1.version DESC
+    </select>
+
+    <!-- 批量下线同taskCode已发布版本 -->
+    <update id="unpublishByTaskCode">
+        UPDATE ingestion_task_definition_log
+        SET publish_status = false,
+            publish_time = NULL,
+            updater = 'system',
+            update_time = NOW()
+        WHERE task_code = #{taskCode}
+          AND publish_status = true
+          AND model_status = 0
+          AND id != #{excludeId}
+    </update>
+
+    <!-- 批量逻辑删除同taskCode所有版本 -->
+    <update id="deleteByTaskCode">
+        UPDATE ingestion_task_definition_log
+        SET model_status = 1,
+            updater = 'system',
+            update_time = NOW()
+        WHERE task_code = #{taskCode}
+          AND model_status = 0
+    </update>
+
+    <!-- 查询当天最大taskCode序号 -->
+    <select id="selectMaxTaskCodeSeq" resultType="string">
+        SELECT task_code
+        FROM ingestion_task_definition_log
+        WHERE task_code LIKE concat(#{prefix}, '%')
+        ORDER BY task_code DESC
+        LIMIT 1
+    </select>
+
+</mapper>

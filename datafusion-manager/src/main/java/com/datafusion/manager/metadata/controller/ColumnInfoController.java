@@ -1,9 +1,9 @@
 package com.datafusion.manager.metadata.controller;
 
 import com.datafusion.common.exception.ErrorCodeEnum;
-import com.datafusion.common.web.dto.request.page.PageQuery;
-import com.datafusion.common.web.dto.response.PageResponse;
-import com.datafusion.common.web.dto.response.Result;
+import com.datafusion.common.spring.dto.request.page.PageQuery;
+import com.datafusion.common.spring.dto.response.PageResponse;
+import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.manager.metadata.dto.ColumnInfoDto;
 import com.datafusion.manager.metadata.dto.ColumnInfoQueryDto;
 import com.datafusion.manager.metadata.dto.ColumnInfoSaveDto;

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.metadata.dao.DataSourceInfoMapper">
+
+    <select id="pageList" resultType="com.datafusion.manager.metadata.dto.DataSourceInfoDto">
+        select (select count(1) from metadata_table_info t where t.datasource_id = t1.id) sync_count, t1.*
+        from metadata_datasource_info t1
+        <where>
+            <if test="query != null and query.option != null">
+                <if test="query.option.name != null and query.option.name != ''">
+                    and t1.name like concat('%',#{query.option.name},'%')
+                </if>
+                <if test="query.option.databaseType != null and query.option.databaseType != ''">
+                    and t1.database_type = #{query.option.databaseType}
+                </if>
+                <if test="query.option.schemaName != null and query.option.schemaName != ''">
+                    and t1.schema_name = #{query.option.schemaName}
+                </if>
+                <if test="query.option.databaseName != null and query.option.databaseName != ''">
+                    and t1.database_name like concat('%',#{query.option.databaseName},'%')
+                </if>
+            </if>
+        </where>
+        order by t1.create_time desc
+        limit #{query.size} offset #{query.offset}
+    </select>
+
+    <select id="pageCount" resultType="int">
+        select count(0)
+        from metadata_datasource_info t1
+        <where>
+            <if test="query.option != null">
+                <if test="query.option.name != null and query.option.name != ''">
+                    and t1.name like concat('%',#{query.option.name},'%')
+                </if>
+                <if test="query.option.databaseType != null and query.option.databaseType != ''">
+                    and t1.database_type = #{query.option.databaseType}
+                </if>
+                <if test="query.option.schemaName != null and query.option.schemaName != ''">
+                    and t1.schema_name = #{query.option.schemaName}
+                </if>
+                <if test="query.option.databaseName != null and query.option.databaseName != ''">
+                    and t1.database_name like concat('%',#{query.option.databaseName},'%')
+                </if>
+            </if>
+        </where>
+
+    </select>
+
+    <select id="list" resultType="com.datafusion.manager.metadata.dto.DataSourceInfoDto">
+        select (select count(1) from metadata_table_info t where t.datasource_id = t1.id) sync_count, t1.*
+        from metadata_datasource_info t1
+        <where>
+            <if test="query != null">
+                <if test="query.name != null and query.name != ''">
+                    and t1.name like concat('%',#{query.name},'%')
+                </if>
+                <if test="query.databaseType != null and query.databaseType != ''">
+                    and t1.database_type = #{query.databaseType}
+                </if>
+                <if test="query.schemaName != null and query.schemaName != ''">
+                    and t1.schema_name = #{query.schemaName}
+                </if>
+                <if test="query.databaseName != null and query.databaseName != ''">
+                    and t1.database_name like concat('%',#{query.databaseName},'%')
+                </if>
+            </if>
+        </where>
+        order by t1.create_time desc
+    </select>
+
+    <select id="countByJdbcUrl" resultType="int">
+        SELECT COUNT(1) FROM metadata_datasource_info
+        <where>
+            split_part(jdbc_url, '?', 1) = #{jdbcUrl}
+            <if test="id != null">
+                and id != #{id}
+            </if>
+            <if test="schemaName != null and schemaName != ''">
+                and schema_name = #{schemaName}
+            </if>
+            <if test="databaseName != null and databaseName != ''">
+                and database_name = #{databaseName}
+            </if>
+        </where>
+    </select>
+
+    <select id="getDataSourceByTableId" resultType="com.datafusion.manager.metadata.dto.DataSourceInfoDto">
+        select t1.*
+        from metadata_datasource_info t1
+                 inner join metadata_table_info t2 on t1.id = t2.datasource_id and t2.model_status = 1
+        where t1.model_status = 1
+          and t2.id = #{tableId}
+    </select>
+
+    <select id="listByTableIds" resultType="com.datafusion.manager.metadata.po.DataSourceInfoEntity">
+        select t.*
+        from metadata_datasource_info t
+        where exists (select 1
+        from metadata_table_info t1
+        where t.id = t1.datasource_id
+        and t1.id in  <foreach collection='tableIds' item='id' open='(' separator=',' close=
+            ')'>#{id}</foreach>)
+    </select>
+</mapper>

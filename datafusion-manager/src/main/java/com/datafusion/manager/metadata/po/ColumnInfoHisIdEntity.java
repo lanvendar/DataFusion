@@ -2,7 +2,7 @@ package com.datafusion.manager.metadata.po;
 
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.datafusion.common.web.po.BaseEntity;
+import com.datafusion.common.spring.po.BaseEntity;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 

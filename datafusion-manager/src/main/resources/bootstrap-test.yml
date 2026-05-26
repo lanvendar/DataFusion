@@ -1,0 +1,13 @@
+spring:
+  cloud:
+    nacos:
+      config:
+        server-addr: 10.197.12.1:8848
+        encode: UTF-8
+        timeout: 35000
+        namespace: 9001ba0a-8080-4695-bb72-2fab8a1927d1
+        file-extension: yaml
+        username: nacos
+        password: nacos
+        #        本地debug group 改成 dev
+        group: dev

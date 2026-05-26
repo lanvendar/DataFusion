@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.development.dao.DevelopScriptSqlTaskMapper">
+
+    <sql id="queryCondition">
+        AND t1.model_status = 0
+        <if test="query != null and query.option != null">
+            <if test="query.option.name != null and query.option.name != ''">
+                AND t1."name" ILIKE concat('%', #{query.option.name}, '%')
+            </if>
+            <if test="query.option.code != null and query.option.code != ''">
+                AND t1.code ILIKE concat('%', #{query.option.code}, '%')
+            </if>
+            <if test="query.option.groupId != null">
+                AND t1.group_id = #{query.option.groupId}
+            </if>
+            <if test="query.option.publishStatus != null">
+                AND t1.publish_status = #{query.option.publishStatus}
+            </if>
+        </if>
+    </sql>
+
+    <sql id="listCondition">
+        AND t1.model_status = 0
+        <if test="query != null">
+            <if test="query.name != null and query.name != ''">
+                AND t1."name" ILIKE concat('%', #{query.name}, '%')
+            </if>
+            <if test="query.code != null and query.code != ''">
+                AND t1.code ILIKE concat('%', #{query.code}, '%')
+            </if>
+            <if test="query.groupId != null">
+                AND t1.group_id = #{query.groupId}
+            </if>
+            <if test="query.publishStatus != null">
+                AND t1.publish_status = #{query.publishStatus}
+            </if>
+        </if>
+    </sql>
+
+    <select id="pageTaskList" resultType="com.datafusion.manager.development.dto.DevelopScriptSqlTaskDto">
+        SELECT t1.id,
+               t1."name",
+               t1.code,
+               t1.description,
+               t1.script,
+               t1.variables,
+               t1.publish_status,
+               t1.model_status,
+               t1.publish_time,
+               t1.group_id,
+               t1.creator,
+               t1.create_time,
+               t1.updater,
+               t1.update_time
+        FROM develop_script_sql_task t1
+        <where>
+            <include refid="queryCondition"/>
+        </where>
+        ORDER BY t1.create_time DESC
+        LIMIT #{query.size} OFFSET #{query.offset}
+    </select>
+
+    <select id="pageTaskCount" resultType="int">
+        SELECT COUNT(0)
+        FROM develop_script_sql_task t1
+        <where>
+            <include refid="queryCondition"/>
+        </where>
+    </select>
+
+    <select id="listTask" resultType="com.datafusion.manager.development.dto.DevelopScriptSqlTaskDto">
+        SELECT t1.id,
+               t1."name",
+               t1.code,
+               t1.description,
+               t1.script,
+               t1.variables,
+               t1.publish_status,
+               t1.model_status,
+               t1.publish_time,
+               t1.group_id,
+               t1.creator,
+               t1.create_time,
+               t1.updater,
+               t1.update_time
+        FROM develop_script_sql_task t1
+        <where>
+            <include refid="listCondition"/>
+        </where>
+        ORDER BY t1.create_time DESC
+    </select>
+
+    <select id="selectMaxTaskCodeSeq" resultType="string">
+        SELECT code
+        FROM develop_script_sql_task
+        WHERE model_status = 0
+          AND code LIKE concat(#{prefix}, '%')
+        ORDER BY code DESC
+        LIMIT 1
+    </select>
+</mapper>

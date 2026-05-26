@@ -1,7 +1,7 @@
 package com.datafusion.manager.metadata.service;
 
-import com.datafusion.common.web.dto.request.page.PageQuery;
-import com.datafusion.common.web.dto.response.PageResponse;
+import com.datafusion.common.spring.dto.request.page.PageQuery;
+import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.manager.metadata.dto.BatchCreateTableCheckDto;
 import com.datafusion.manager.metadata.dto.BatchCreateTableCheckResultDto;
 import com.datafusion.manager.metadata.dto.BatchCreateTableDdlDto;

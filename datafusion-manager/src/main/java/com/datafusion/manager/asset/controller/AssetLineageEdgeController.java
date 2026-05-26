@@ -1,6 +1,6 @@
 package com.datafusion.manager.asset.controller;
 
-import com.datafusion.common.web.dto.response.Result;
+import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.manager.asset.dto.EdgeNodeRequestVo;
 import com.datafusion.manager.asset.dto.EdgeRequestVo;
 import com.datafusion.manager.asset.dto.LineEdgeNodeVoV2;

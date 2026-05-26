@@ -1,8 +1,8 @@
 package com.datafusion.manager.scheduler.controller;
 
-import com.datafusion.common.web.dto.request.page.PageQuery;
-import com.datafusion.common.web.dto.response.PageResponse;
-import com.datafusion.common.web.dto.response.Result;
+import com.datafusion.common.spring.dto.request.page.PageQuery;
+import com.datafusion.common.spring.dto.response.PageResponse;
+import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.manager.scheduler.dto.EventInfoDto;
 import com.datafusion.manager.scheduler.dto.EventInfoQueryDto;
 import com.datafusion.manager.scheduler.dto.EventInfoSaveDto;

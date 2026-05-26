@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.ingestion.dao.DatasyncTaskMapper">
+
+    <!-- 查询条件片段 -->
+    <sql id="queryCondition">
+        <if test="query != null and query.option != null">
+            <if test="query.option.name != null and query.option.name != ''">
+                AND t1."name" LIKE concat('%', #{query.option.name}, '%')
+            </if>
+            <if test="query.option.code != null and query.option.code != ''">
+                AND t1.code = #{query.option.code}
+            </if>
+            <if test="query.option.sourceDsType != null and query.option.sourceDsType != ''">
+                AND t1.source_ds_type = #{query.option.sourceDsType}
+            </if>
+            <if test="query.option.targetDsType != null and query.option.targetDsType != ''">
+                AND t1.target_ds_type = #{query.option.targetDsType}
+            </if>
+            <if test="query.option.publishStatus != null">
+                AND t1.publish_status = #{query.option.publishStatus}
+            </if>
+            <if test="query.option.sourceDsId != null">
+                AND t1.source_ds_id = #{query.option.sourceDsId}
+            </if>
+            <if test="query.option.targetDsId != null">
+                AND t1.target_ds_id = #{query.option.targetDsId}
+            </if>
+        </if>
+    </sql>
+
+    <!-- 分页查询 -->
+    <select id="pageTaskList" resultType="com.datafusion.manager.ingestion.dto.DatasyncTaskDto">
+        SELECT t1.id, t1."name", t1.code, t1.description,
+               t1.source_ds_type, t1.source_ds_id, t1.source_entity_id, t1.source_config,
+               t1.target_ds_type, t1.target_ds_id, t1.target_entity_id, t1.target_config,
+               t1.publish_status, t1.publish_time, t1.variables,
+               t1.creator, t1.create_time
+        FROM ingestion_datasync_task t1
+        <if test="query != null and query.option != null">
+            <where>
+                <include refid="queryCondition">
+                    <property name="query" value="query.option"/>
+                </include>
+            </where>
+        </if>
+        ORDER BY t1.create_time DESC
+        LIMIT #{query.size} OFFSET #{query.offset}
+    </select>
+
+    <!-- 分页总数 -->
+    <select id="pageTaskCount" resultType="int">
+        SELECT COUNT(0)
+        FROM ingestion_datasync_task t1
+        <if test="query != null and query.option != null">
+            <where>
+                <include refid="queryCondition">
+                    <property name="query" value="query.option"/>
+                </include>
+            </where>
+        </if>
+    </select>
+
+    <!-- 列表查询(不分页) -->
+    <select id="listTask" resultType="com.datafusion.manager.ingestion.dto.DatasyncTaskDto">
+        SELECT t1.id, t1."name", t1.code, t1.description,
+               t1.source_ds_type, t1.source_ds_id, t1.source_entity_id, t1.source_config,
+               t1.target_ds_type, t1.target_ds_id, t1.target_entity_id, t1.target_config,
+               t1.publish_status, t1.publish_time, t1.variables,
+               t1.creator, t1.create_time
+        FROM ingestion_datasync_task t1
+        <where>
+            <include refid="queryCondition"/>
+        </where>
+        ORDER BY t1.create_time DESC
+    </select>
+
+    <!-- 查询当天最大code序号 -->
+    <select id="selectMaxTaskCodeSeq" resultType="string">
+        SELECT code
+        FROM ingestion_datasync_task
+        WHERE code LIKE concat(#{prefix}, '%')
+        ORDER BY code DESC
+        LIMIT 1
+    </select>
+
+</mapper>

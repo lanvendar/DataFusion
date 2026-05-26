@@ -28,7 +28,7 @@ public class ExecuteCreateTableDto {
     /**
      * 建表语句.
      */
-    @Schema(name = "sql", description = "建表SQL脚本")
+    @Schema(name = "init_db", description = "建表SQL脚本")
     @NotEmpty(message = "sql不能为空")
     private String sql;
 }

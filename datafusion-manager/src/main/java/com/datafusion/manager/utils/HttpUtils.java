@@ -4,7 +4,7 @@ import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.StrUtil;
 import com.datafusion.common.exception.CommonException;
 import com.datafusion.common.exception.ErrorCodeEnum;
-import com.datafusion.common.web.utils.ApplicationContextUtil;
+import com.datafusion.common.spring.utils.ApplicationContextUtil;
 import com.datafusion.manager.auth.SecurityInterceptor;
 import com.datafusion.manager.auth.dto.UserPrincipleNoAuth;
 import org.springframework.web.context.request.RequestContextHolder;

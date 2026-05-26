@@ -2,8 +2,8 @@ package com.datafusion.manager.ingestion.po;
 
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.datafusion.common.web.po.BaseIdEntity;
-import com.datafusion.common.web.typehandler.JsonNodeTypeHandler;
+import com.datafusion.common.spring.po.BaseIdEntity;
+import com.datafusion.common.spring.typehandler.JsonNodeTypeHandler;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
 import lombok.Data;

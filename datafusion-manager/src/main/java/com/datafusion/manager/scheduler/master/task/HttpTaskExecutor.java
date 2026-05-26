@@ -2,7 +2,7 @@ package com.datafusion.manager.scheduler.master.task;
 
 import com.datafusion.common.exception.ErrorCodeEnum;
 import com.datafusion.common.utils.JacksonUtils;
-import com.datafusion.common.web.dto.response.Result;
+import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.scheduler.exception.SchedulerException;
 import com.datafusion.scheduler.exception.SchedulerExceptionCode;
 import com.datafusion.scheduler.master.task.TaskExecutor;
