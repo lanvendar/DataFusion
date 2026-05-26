@@ -2,7 +2,7 @@ package com.datafusion.manager.scheduler.po;
 
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.datafusion.common.web.po.BaseIdEntity;
+import com.datafusion.common.spring.po.BaseIdEntity;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 

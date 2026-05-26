@@ -1,8 +1,8 @@
 package com.datafusion.manager.scheduler.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.datafusion.common.web.dto.request.page.PageQuery;
-import com.datafusion.common.web.dto.response.PageResponse;
+import com.datafusion.common.spring.dto.request.page.PageQuery;
+import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.manager.scheduler.dto.TriggerInfoDto;
 import com.datafusion.manager.scheduler.dto.TriggerInfoQueryDto;
 import com.datafusion.manager.scheduler.dto.TriggerInfoSaveDto;

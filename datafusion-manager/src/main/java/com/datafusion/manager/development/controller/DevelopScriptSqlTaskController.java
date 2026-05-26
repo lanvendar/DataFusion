@@ -1,8 +1,8 @@
 package com.datafusion.manager.development.controller;
 
-import com.datafusion.common.web.dto.request.page.PageQuery;
-import com.datafusion.common.web.dto.response.PageResponse;
-import com.datafusion.common.web.dto.response.Result;
+import com.datafusion.common.spring.dto.request.page.PageQuery;
+import com.datafusion.common.spring.dto.response.PageResponse;
+import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.manager.development.dto.DevelopScriptSqlTaskDto;
 import com.datafusion.manager.development.dto.DevelopScriptSqlTaskQueryDto;
 import com.datafusion.manager.development.dto.DevelopScriptSqlTaskSaveDto;

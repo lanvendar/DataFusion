@@ -1,8 +1,8 @@
 package com.datafusion.manager.metadata.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.datafusion.common.web.dto.request.page.PageQuery;
-import com.datafusion.common.web.dto.response.PageResponse;
+import com.datafusion.common.spring.dto.request.page.PageQuery;
+import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.manager.metadata.dto.DataSourceInfoCopyDto;
 import com.datafusion.manager.metadata.dto.DataSourceInfoDto;
 import com.datafusion.manager.metadata.dto.DataSourceInfoQueryDto;

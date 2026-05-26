@@ -1,6 +1,6 @@
 package com.datafusion.manager.ingestion.controller;
 
-import com.datafusion.common.web.dto.response.Result;
+import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.manager.ingestion.dto.ExecuteCreateTableDto;
 import com.datafusion.manager.ingestion.dto.ExecuteCreateTableResultDto;
 import com.datafusion.manager.ingestion.service.IngestionSqlService;

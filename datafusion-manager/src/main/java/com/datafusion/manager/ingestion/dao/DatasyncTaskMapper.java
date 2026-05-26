@@ -1,7 +1,7 @@
 package com.datafusion.manager.ingestion.dao;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.datafusion.common.web.dto.request.page.PageQuery;
+import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.manager.ingestion.dto.DatasyncTaskDto;
 import com.datafusion.manager.ingestion.dto.DatasyncTaskQueryDto;
 import com.datafusion.manager.ingestion.po.IngestionDatasyncTaskEntity;

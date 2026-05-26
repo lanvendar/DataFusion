@@ -1,6 +1,6 @@
 package com.datafusion.manager.development.controller;
 
-import com.datafusion.common.web.dto.response.Result;
+import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.manager.development.dto.ExecSqlJobIdDto;
 import com.datafusion.manager.development.dto.ExecSqlJobStatusDto;
 import com.datafusion.manager.development.dto.ExecSqlResultDto;

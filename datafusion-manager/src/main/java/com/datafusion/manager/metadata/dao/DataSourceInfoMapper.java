@@ -1,7 +1,7 @@
 package com.datafusion.manager.metadata.dao;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.datafusion.common.web.dto.request.page.PageQuery;
+import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.manager.metadata.dto.DataSourceInfoDto;
 import com.datafusion.manager.metadata.dto.DataSourceInfoQueryDto;
 import com.datafusion.manager.metadata.po.DataSourceInfoEntity;
