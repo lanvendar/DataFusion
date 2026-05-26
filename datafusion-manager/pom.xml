@@ -39,12 +39,12 @@
         </dependency>
         <dependency>
             <groupId>com.datafusion</groupId>
-            <artifactId>datafusion-common-web</artifactId>
+            <artifactId>datafusion-common-spring</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>com.datafusion</groupId>
-            <artifactId>datafusion-scheduler</artifactId>
+            <artifactId>datafusion-scheduler-master</artifactId>
             <version>${project.version}</version>
         </dependency>
         <!-- 数据库依赖 -->
