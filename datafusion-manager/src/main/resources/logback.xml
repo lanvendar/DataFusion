@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="60 seconds" debug="false">
+    <!-- 日志存放路径 -->
+    <property name="log.path" value="/datafusion/manager/logs"/>
+    <property name="log.collect.path" value="/app-logs/datafusion-manager" />
+    <!-- 日志输出格式 -->
+    <property name="log.sift.pattern"
+        value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5p %logger{20} - [%method,%line] - [%X{flowInsId}][%X{taskInsId}] - %msg%n"/>
+        
+    <property name="log.pattern" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5p %logger{20} [%method,%line] %msg%n"/>
+    
+    <!-- 控制台输出 -->
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${log.pattern}</pattern>
+        </encoder>
+    </appender>
+    
+    <appender name="sift_error" class="ch.qos.logback.classic.sift.SiftingAppender">
+        <discriminator>
+            <Key>flowInsId</Key>
+            <DefaultValue>datafusion-manager-main</DefaultValue>
+        </discriminator>
+        <sift class="ch.qos.logback.classic.sift.MDCBasedDiscriminator">
+            <!-- 系统日志输出 -->
+            <appender name="FILE-error" class="ch.qos.logback.core.rolling.RollingFileAppender">
+                <file>${log.path}/${flowInsId}.err.log</file>
+                <!-- 循环政策：基于时间创建日志文件 -->
+                <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                    <!-- 日志文件名格式 -->
+                    <fileNamePattern>${log.path}/${flowInsId}.%d{yyyy-MM-dd}.err.log</fileNamePattern>
+                    <!-- 日志最大的历史 14 天 -->
+                    <maxHistory>14</maxHistory>
+                </rollingPolicy>
+                <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+                    <pattern>${log.sift.pattern}</pattern>
+                </encoder>
+                <filter class="ch.qos.logback.classic.filter.LevelFilter">
+                    <!-- 过滤的级别 -->
+                    <level>ERROR</level>
+                    <!-- 匹配时的操作：接收（记录） -->
+                    <onMatch>ACCEPT</onMatch>
+                    <!-- 不匹配时的操作：拒绝（不记录） -->
+                    <onMismatch>DENY</onMismatch>
+                </filter>
+            </appender>
+        </sift>
+    </appender>
+    
+    <appender name="sift_info" class="ch.qos.logback.classic.sift.SiftingAppender">
+        <discriminator>
+            <Key>flowInsId</Key>
+            <DefaultValue>datafusion-manager-main</DefaultValue>
+        </discriminator>
+        <sift class="ch.qos.logback.classic.sift.MDCBasedDiscriminator">
+            <!-- 系统日志输出 -->
+            <appender name="FILE-info" class="ch.qos.logback.core.rolling.RollingFileAppender">
+                <file>${log.path}/${flowInsId}.log</file>
+                <!-- 循环政策：基于时间创建日志文件 -->
+                <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                    <!-- 日志文件名格式 -->
+                    <fileNamePattern>${log.path}/${flowInsId}.%d{yyyy-MM-dd}.log</fileNamePattern>
+                    <!-- 日志最大的历史 14 天 -->
+                    <maxHistory>14</maxHistory>
+                </rollingPolicy>
+                <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+                    <pattern>${log.sift.pattern}</pattern>
+                </encoder>
+            </appender>
+        </sift>
+    </appender>
+    
+    <!-- 系统日志输出-->
+   <!-- <appender name="file_log" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${log.collect.path}/datafusion-manager-full.log</file>
+        &lt;!&ndash; 循环政策：基于时间创建日志文件 &ndash;&gt;
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            &lt;!&ndash; 日志文件名格式 &ndash;&gt;
+            <fileNamePattern>${log.collect.path}/datafusion-manager-full.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            &lt;!&ndash; 单个文件最大大小 &ndash;&gt;
+            <maxFileSize>100MB</maxFileSize>
+            &lt;!&ndash; 日志最大的历史 7 天 &ndash;&gt;
+            <maxHistory>7</maxHistory>
+            &lt;!&ndash; 日志总大小 &ndash;&gt;
+            <totalSizeCap>10GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="com.nimbus.common.spring.log.NimbusPatternLayoutEncoder">
+            <pattern>${log.pattern}</pattern>
+        </encoder>
+    </appender>-->
+    
+    <!-- 系统模块日志级别控制  -->
+    <!-- <logger name="com.nimbus" level="debug"/> -->
+    <!-- Spring日志级别控制  -->
+    <logger name="org.springframework" level="warn"/>
+    <!-- Nacos 注册中心客户端心跳日志禁用 get changedGroupKeys:[] 刷屏
+         nacos-client 1.2.1 存在此问题,升级 1.3.0 以上可以解决 -->
+<!--    <logger name="com.alibaba.nacos.client.config.impl" level="warn"/>-->
+<!--    <logger name="com.nimbus.datafusion.master.scheduler.schedule" level="DEBUG" />-->
+<!--    <logger name="com.nimbus.datafusion.master.engine.flow.action" level="DEBUG" />-->
+<!--    <logger name="com.nimbus.datafusion.master.engine.actor.action" level="DEBUG" />-->
+<!--    <logger name="com.nimbus.datafusion.master.engine.task" level="DEBUG" />-->
+<!--    <logger name="com.nimbus.datafusion.master.engine.flow.action" level="DEBUG" />-->
+<!--    <logger name="com.nimbus.datafusion.master.engine.impl" level="DEBUG" />-->
+<!--    <logger name="com.nimbus.datafusion.master.engine.actor" level="DEBUG" />-->
+<!--    <logger name="com.nimbus.datafusion.master.scheduler.trigger" level="TRACE" />-->
+<!--    <logger name="com.nimbus.datafusion.master.storage.flow" level="TRACE" />-->
+<!--    <logger name="com.nimbus.datafusion.master.storage.task" level="TRACE" />-->
+    
+    <root level="info">
+        <appender-ref ref="console"/>
+    </root>
+    
+    <!--系统操作日志-->
+    <root level="info">
+        <appender-ref ref="sift_info"/>
+        <!-- <appender-ref ref="sift_error"/> -->
+        <!--<appender-ref ref="file_log"/>-->
+    </root>
+    
+</configuration>

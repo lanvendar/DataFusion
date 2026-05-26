@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.asset.dao.AssetLineageNodeMapper">
+
+    <!--<resultMap id="parentSubNodeVoMap" type="com.datafusion.manager.asset.dto.ParentSubNodeVo">
+        &lt;!&ndash; 注意：如果 nodeName 是当前层级的唯一标识，使用 id &ndash;&gt;
+        <id column="nodeName" property="nodeName" javaType="java.lang.String"/>
+        <result column="nodeUrn" property="nodeUrn"/>
+
+        &lt;!&ndash; 递归映射子节点 &ndash;&gt;
+        &lt;!&ndash; 这里的 subNodes 对应 ParentSubNodeVo 类中的 List<ParentSubNodeVo> subNodes 属性 &ndash;&gt;
+        &lt;!&ndash; 注意：此处的 collection 应该映射到 ParentSubNodeVo 的 subNodes 属性 &ndash;&gt;
+        &lt;!&ndash; 并且需要一个新的 distinct 的 ID 来区分 subNodes &ndash;&gt;
+        <collection property="subNodes" ofType="com.datafusion.manager.asset.dto.ParentSubNodeVo">
+            &lt;!&ndash; 子节点的ID和属性，确保这些列在SQL中被查询出来，并且与上层节点的ID不冲突 &ndash;&gt;
+            <id column="subNodeName" property="nodeName"/> &lt;!&ndash; 使用 subNodeName 作为子节点的 nodeName &ndash;&gt;
+            <result column="subNodeUrn" property="nodeUrn"/> &lt;!&ndash; 使用 subNodeUrn 作为子节点的 nodeUrn &ndash;&gt;
+            &lt;!&ndash; 如果subNodes还有更下一层，需要继续在这里嵌套 collection，并提供更深层级的 unique ID &ndash;&gt;
+        </collection>
+    </resultMap>-->
+
+
+    <!--<resultMap id="listNodeByClassifyMap" type="com.datafusion.manager.asset.dto.NodeClassifyVo">
+        &lt;!&ndash; NodeClassifyVo 的基本属性 &ndash;&gt;
+        &lt;!&ndash; type 和 parentNodeName 需要能唯一标识一个 NodeClassifyVo 实例 &ndash;&gt;
+        <id column="type" property="type"/> &lt;!&ndash; 假设 type 是最顶层的分组依据之一 &ndash;&gt;
+        <id column="parentNodeName" property="parentNodeName"/> &lt;!&ndash; 假设 type + parentNodeName 可以唯一标识一个分组 &ndash;&gt;
+
+        &lt;!&ndash; 映射 NodeClassifyVo 的 List<ParentSubNodeVo> nodes 属性 &ndash;&gt;
+        <collection property="nodes" ofType="com.datafusion.manager.asset.dto.ParentSubNodeVo">
+            &lt;!&ndash; 这里的 column="nodeName" 对应SQL中的 nodeName 别名 &ndash;&gt;
+            &lt;!&ndash; id 标签用于唯一标识 ParentSubNodeVo 对象，MyBatis会根据这个ID去重 &ndash;&gt;
+            <id column="nodeName" property="nodeName"/>
+            <result column="nodeUrn" property="nodeUrn"/>
+
+            &lt;!&ndash; 映射 ParentSubNodeVo 的 List<ParentSubNodeVo> subNodes 属性 &ndash;&gt;
+            &lt;!&ndash; 这里的 column="subNodeName" 对应SQL中的 subNodeName 别名 &ndash;&gt;
+            &lt;!&ndash; 同样需要一个 unique ID 来区分 subNodes &ndash;&gt;
+            <collection property="subNodes" ofType="com.datafusion.manager.asset.dto.ParentSubNodeVo">
+                <id column="subNodeName" property="nodeName"/> &lt;!&ndash; subNodeName 是子节点的 nodeName &ndash;&gt;
+                <result column="subNodeUrn" property="nodeUrn"/> &lt;!&ndash; subNodeUrn 是子节点的 nodeUrn &ndash;&gt;
+            </collection>
+        </collection>
+    </resultMap>
+
+    <select id="listNodeByClassify" resultMap="listNodeByClassifyMap">
+        select case
+        when node_type = 'DATABASE' then (string_to_array(node_urn, ':'))[1]
+        when node_type = 'SERVICE' then node_type
+        end as type,
+        case
+        when node_type = 'DATABASE' then (string_to_array(node_urn, ':'))[2]
+        when node_type = 'SERVICE' then (string_to_array(node_urn, ':'))[5]
+        end as parentNodeName,
+        case
+        when node_type = 'DATABASE' then (string_to_array(node_urn, ':'))[5]
+        when node_type = 'SERVICE' then (string_to_array(node_urn, ':'))[7]
+        end as nodeName,
+        node_name as subNodeName,
+        node_urn as subNodeUrn
+        from asset_lineage_node
+        <where>
+            <if test="req != null">
+                <if test="req.nodeType != null">
+                    node_type = #{req.nodeType}
+                </if>
+
+                <if test="req.nodeName != null">
+                    and node_name = #{req.nodeName}
+                </if>
+            </if>
+        </where>
+    </select>-->
+
+    <select id="pageTableColumnsCount" resultType="java.lang.Integer">
+        select count(0) from asset_lineage_node
+        where node_type = 'DATABASE'
+        and node_sub_type = 'TABLE'
+        and (string_to_array(node_urn, ':'))[2] = #{req.option.dataSourceName}
+        <if test="req.option.nodeName != null">
+            and nodeName like concat('%',#{req.option.nodeName},'%')
+        </if>
+    </select>
+
+    <resultMap id="pageTableColumnsListMap" type="com.datafusion.manager.asset.dto.TableColumnsNodeDto">
+        <id column="tableNodeUrn" property="tableNodeUrn"/>
+        <result column="tableNodeName" property="tableNodeName"/>
+        <collection property="columns" ofType="com.datafusion.manager.asset.dto.ColumnNodeDto">
+            <result column="columnNodeName" property="columnNodeName" />
+            <result column="columnNodeUrn" property="columnNodeUrn" />
+        </collection>
+    </resultMap>
+
+    <select id="pageTableColumnsList" resultMap="pageTableColumnsListMap">
+        select s.node_urn as tableNodeUrn, s.node_name as tableNodeName, n.node_name as columnNodeName, n.node_urn as columnNodeUrn
+        from datafusion.asset_lineage_node n
+        join
+        (select node_urn, node_name
+        from datafusion.asset_lineage_node
+        where node_type = 'DATABASE'
+        and node_sub_type = 'TABLE'
+        and (string_to_array(node_urn, ':'))[2] = #{req.option.dataSourceName}
+        <if test="req.option.nodeName != null">
+            and nodeName like concat('%',#{req.option.nodeName},'%')
+        </if>
+        limit #{req.size} offset #{req.offset}) s on n.node_urn like concat(s.node_urn, ':%')
+    </select>
+
+    <select id="selectByNodeUrn" resultType="com.datafusion.manager.asset.po.AssetLineageNodeEntity">
+        select id, node_urn, node_name, node_type, node_sub_type, node_prop, creator, updater, create_time, update_time
+        from asset_lineage_node
+        where node_urn = #{nodeUrn}
+    </select>
+
+    <select id="selectNodeResourceByNodeUrn" resultType="com.datafusion.manager.asset.dto.AssetLineageNodeResourceDto">
+        select
+            aln.node_urn,
+            aln.node_name,
+            aln.node_type,
+            aln.node_sub_type,
+            aln.node_prop,
+            alr.resource_name,
+            alr.resource_tag,
+            alr.resource_type
+        from
+            (
+                select
+                    *
+                from
+                    datafusion.asset_lineage_node
+                where
+                        node_urn = #{nodeUrn}) aln
+                join datafusion.asset_lineage_node_resource_relation alnrr on
+                aln.id = alnrr.node_id
+                join datafusion.asset_lineage_resource alr on
+                alnrr.resource_id = alr.id
+    </select>
+
+    <select id="selectByNodeUrns" resultType="com.datafusion.manager.asset.po.AssetLineageNodeEntity">
+        select id, node_urn, node_name, node_type, node_sub_type, node_prop, creator, updater, create_time, update_time
+        from asset_lineage_node
+        where node_urn in
+        <foreach collection="nodeUrns" item="nodeUrn" open="(" separator="," close=")">
+            #{nodeUrn}
+        </foreach>
+    </select>
+    <select id="getNodeUrn" resultType="java.lang.String">
+        select
+            node_urn
+        from
+            asset_lineage_node
+        where
+            node_urn like concat('%:',#{datasourceName},':%')
+          and node_urn like concat('%:',#{tableNameColumnName})
+    </select>
+
+    <delete id="deleteByIds" parameterType="java.util.UUID">
+        delete from asset_lineage_node where id in
+        <foreach item="id" collection="ids" separator="," close=")" open="(">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

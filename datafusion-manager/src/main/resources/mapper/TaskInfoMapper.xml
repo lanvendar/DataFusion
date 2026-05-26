@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.scheduler.dao.TaskInfoMapper">
+
+    <select id="getTaskInfo" resultType="com.datafusion.manager.scheduler.po.TaskInfoEntity">
+        select *
+        from scheduler_task_info
+        where id = #{taskId}
+    </select>
+
+    <select id="listByFlowId" resultType="com.datafusion.manager.scheduler.po.TaskInfoEntity">
+        select *
+        from scheduler_task_info
+        where flow_id = #{flowId}
+        order by create_time asc
+    </select>
+
+</mapper>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.asset.dao.MetricsSyncRecordMapper">
+
+    <update id="updateSyncStatus">
+        UPDATE metric_sync_record
+        SET sync_status = #{syncStatus},
+            sync_end_time = #{syncEndTime},
+            total_count = #{totalCount},
+            success_count = #{successCount},
+            fail_count = #{failCount},
+            fail_metric_ids = #{failMetricIds}
+        WHERE id = #{id}
+    </update>
+
+</mapper>

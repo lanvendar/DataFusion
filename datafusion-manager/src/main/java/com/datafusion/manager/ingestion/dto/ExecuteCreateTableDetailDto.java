@@ -25,7 +25,7 @@ public class ExecuteCreateTableDetailDto {
     /**
      * 建表语句.
      */
-    @Schema(name = "sql", description = "建表语句")
+    @Schema(name = "init_db", description = "建表语句")
     private String sql;
 
     /**

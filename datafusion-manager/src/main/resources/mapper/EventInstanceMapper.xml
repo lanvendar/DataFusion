@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.scheduler.dao.EventInstanceMapper">
+
+    <select id="loadByEventId" resultType="com.datafusion.manager.scheduler.po.EventInstanceEntity">
+        select *
+        from scheduler_event_instance
+        where event_id = #{eventId}::uuid
+          and event_type = #{type}
+          and effect_time &lt;= #{eventTime}
+          and effect_end_time >= #{eventTime}
+        order by effect_time desc
+    </select>
+
+    <select id="loadByEventKey" resultType="com.datafusion.manager.scheduler.po.EventInstanceEntity">
+        select *
+        from scheduler_event_instance
+        where event_id = #{eventId}::uuid
+        <if test="eventTime != null">
+            and effect_time = #{eventTime}
+        </if>
+        order by effect_time desc
+        limit 1
+    </select>
+
+</mapper>

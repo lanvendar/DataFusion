@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.scheduler.dao.FlowInfoMapper">
+
+    <select id="getFlowInfo" resultType="com.datafusion.manager.scheduler.po.FlowInfoEntity">
+        select *
+        from scheduler_flow_info
+        where id = #{flowId}
+    </select>
+
+    <select id="listAllEnabled" resultType="com.datafusion.manager.scheduler.po.FlowInfoEntity">
+        select *
+        from scheduler_flow_info
+        where enabled = true
+          and publish_state = true
+        order by create_time desc
+    </select>
+
+</mapper>

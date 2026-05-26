@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.asset2.dao.AssetResourceMapper">
+    <select id="countNodeByResouceId" resultType="int">
+        select count(0)
+        from asset_lineage_node_resource_relation nrr
+                 join asset_lineage_node n on nrr.node_id = n.id
+        where nrr.resource_id = #{resourceId}
+    </select>
+
+    <select id="nodeByResourceId" resultType="com.datafusion.manager.asset2.dto.AssetNodeDto">
+        select n.node_urn      as nodeUrn,
+               n.node_name     as nodeName,
+               n.node_type     as nodeType,
+               n.node_sub_type as nodeSubType,
+               n.creator       as creator,
+               n.updater       as updater,
+               n.create_time   as createTime,
+               n.update_time   as updateTime
+        from asset_lineage_node_resource_relation nrr
+                 join asset_lineage_node n on nrr.node_id = n.id
+        where nrr.resource_id = #{query.resourceId}
+        order by n.create_time desc
+            limit #{query.size}
+        offset #{query.offset}
+    </select>
+
+    <select id="countEdgesByResouceId" resultType="java.lang.Integer">
+        select count(0)
+        from asset_lineage_edge
+        where resource_id = #{resourceId}
+    </select>
+
+    <select id="edgesByResourceId" resultType="com.datafusion.manager.asset2.dto.AssetEdgeNodeDto">
+        SELECT e.source_urn          AS sourceUrn,
+               source_node.node_name AS sourceNodeName,
+               e.target_urn          AS targetUrn,
+               target_node.node_name AS targetNodeName
+        FROM asset_lineage_edge e
+                 LEFT JOIN
+             asset_lineage_node source_node ON e.source_urn = source_node.node_urn
+                 LEFT JOIN
+             asset_lineage_node target_node ON e.target_urn = target_node.node_urn
+        WHERE e.resource_id = #{query.resourceId}
+        order by e.create_time desc
+            limit #{query.size}
+        offset #{query.offset}
+    </select>
+
+    <select id="selectByThirdMetricId" resultType="com.datafusion.manager.asset2.po.AssetLineageResourceEntity">
+        SELECT id,
+               resource_name,
+               resource_type,
+               resource_tag,
+               status,
+               result,
+               resource_snapshot,
+               result_snapshot,
+               creator,
+               create_time,
+               updater,
+               update_time
+        FROM asset_lineage_resource
+        WHERE resource_snapshot ->>'thirdMetricId'::text = #{thirdMetricId}
+            LIMIT 1
+    </select>
+
+    <select id="selectImportCompletedApiResources" resultType="com.datafusion.manager.asset2.po.AssetLineageResourceEntity">
+        SELECT id, resource_name, resource_type, resource_tag, status, result, resource_snapshot, result_snapshot,
+        creator, create_time, updater, update_time
+        FROM asset_lineage_resource
+        WHERE resource_type = 'API'
+        AND status in (0, 4)
+        <if test="serviceEnName != null and serviceEnName != ''">
+            AND resource_snapshot->>'serviceEnName' = #{serviceEnName}
+        </if>
+        <if test="startDate != null and startDate != ''">
+            AND update_time &gt;= #{startDate}::timestamp
+        </if>
+        <if test="endDate != null and endDate != ''">
+            AND update_time &lt;= #{endDate}::timestamp
+        </if>
+        ORDER BY update_time DESC
+    </select>
+
+    <update id="batchUpdateStatus">
+        UPDATE asset_lineage_resource
+        SET status = #{status},
+        result = #{result},
+        update_time = NOW()
+        WHERE id IN
+        <foreach collection="resourceIds" item="resourceId" open="(" separator="," close=")">
+            #{resourceId}
+        </foreach>
+    </update>
+
+    <select id="selectByResourceNames" resultType="com.datafusion.manager.asset2.po.AssetLineageResourceEntity">
+        SELECT id, resource_name, resource_type, resource_tag, status, result, resource_snapshot, result_snapshot,
+        creator, create_time, updater, update_time
+        FROM asset_lineage_resource
+        WHERE resource_name IN
+        <foreach collection="resourceNames" item="resourceName" open="(" separator="," close=")">
+            #{resourceName}
+        </foreach>
+    </select>
+
+    <select id="selectByResourceName" resultType="com.datafusion.manager.asset2.po.AssetLineageResourceEntity">
+        SELECT id,
+               resource_name,
+               resource_type,
+               resource_tag,
+               status,
+               result,
+               resource_snapshot,
+               creator,
+               create_time,
+               updater,
+               update_time
+        FROM (
+                 SELECT *, lower(resource_snapshot ->>'sql') as sql
+                 FROM asset_lineage_resource alr
+                 WHERE resource_name like CONCAT(#{dagName}
+                     , ':%')
+                   and resource_name != #{resourceName}
+             ) t1
+        where sql like '%alter%'
+    </select>
+
+
+    <insert id="batchSave">
+        INSERT INTO asset_lineage_resource (
+        id, resource_name, resource_type, resource_tag, status, result, resource_snapshot, result_snapshot,
+        creator, create_time, updater, update_time
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.id}, #{item.resourceName}, #{item.resourceType}, #{item.resourceTag},
+            #{item.status}, #{item.result}, #{item.resourceSnapshot}, #{item.resultSnapshot},
+            #{item.creator}, #{item.createTime}, #{item.updater}, #{item.updateTime}
+            )
+        </foreach>
+    </insert>
+
+    <!-- 查询最近一天有weLocation的API资源 -->
+    <select id="selectApiResourcesWithWeLocation" resultType="com.datafusion.manager.asset2.po.AssetLineageResourceEntity">
+        SELECT id,
+               resource_name,
+               resource_type,
+               resource_tag,
+               status,
+               result,
+               resource_snapshot,
+               result_snapshot,
+               creator,
+               create_time,
+               updater,
+               update_time
+        FROM asset_lineage_resource
+        WHERE resource_type = 'API'
+          --AND status IN (3, 6)
+          AND (result_snapshot #>> '{callChain,weLocationList}' IS NOT NULL
+        AND result_snapshot #>> '{callChain,weLocationList}' != '[]'
+        AND result_snapshot #>> '{callChain,weLocationList}' != '')
+        --AND update_time &gt; now()::date - 1
+    </select>
+
+    <!-- 根据 serviceEnName 查询 API 资源 -->
+    <select id="selectApiResourcesByServiceEnName" resultType="com.datafusion.manager.asset2.po.AssetLineageResourceEntity">
+        SELECT id,
+               resource_name,
+               resource_type,
+               resource_tag,
+               status,
+               result,
+               resource_snapshot,
+               result_snapshot,
+               creator,
+               create_time,
+               updater,
+               update_time
+        FROM asset_lineage_resource
+        WHERE resource_type = 'API'
+          AND resource_snapshot ->>'serviceEnName' = #{serviceEnName}
+    </select>
+
+    <!-- 根据状态和类型查询资源 -->
+    <select id="selectResourcesByStatus" resultType="com.datafusion.manager.asset2.po.AssetLineageResourceEntity">
+        SELECT id, resource_name, resource_type, resource_tag, status, result, resource_snapshot, result_snapshot,
+        creator, create_time, updater, update_time
+        FROM asset_lineage_resource
+        WHERE status = #{status}
+        <if test="resourceType != null and resourceType != ''">
+            AND resource_type = #{resourceType}
+        </if>
+    </select>
+
+</mapper>

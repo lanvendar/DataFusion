@@ -493,7 +493,7 @@ public class EtlProcessServiceImpl implements EtlProcessService {
                                   String taskType, String sqlType, AssetLineageResourceEntity currentEntity) {
         String sql = currentSb.toString();
         if (StringUtils.isNotEmpty(sql) && StringUtils.isNotEmpty(sql.trim())) {
-            if ("sql".equals(taskType.toLowerCase()) && "1".equals(sqlType)) {
+            if ("init_db".equals(taskType.toLowerCase()) && "1".equals(sqlType)) {
                 applyDatasourceConfig(etlSnapshot, dataSourceType, maxcomputeSource, holoSource);
                 etlSnapshot.setSql(sql.trim());
                 currentEntity.setResourceSnapshot(new ObjectMapper().valueToTree(etlSnapshot));
@@ -510,7 +510,7 @@ public class EtlProcessServiceImpl implements EtlProcessService {
             return false;
         }
         // SQL任务且sql_type为1，或Shell任务
-        return ("sql".equals(taskType.toLowerCase()) && "1".equals(sqlType))
+        return ("init_db".equals(taskType.toLowerCase()) && "1".equals(sqlType))
                 || "shell".equals(taskType.toLowerCase());
     }
 

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.scheduler.dao.FlowInstanceMapper">
+
+    <select id="getInstanceById" resultType="com.datafusion.manager.scheduler.po.FlowInstanceEntity">
+        select *
+        from scheduler_flow_instance
+        where id = #{instanceId}
+    </select>
+
+    <select id="listAvailable" resultType="com.datafusion.manager.scheduler.po.FlowInstanceEntity">
+        select *
+        from scheduler_flow_instance
+        where flow_id = #{flowId}
+          and status not in ('RUN_SUCCESS', 'KILLED', 'ENFORCE_SUCCESS')
+        order by schedule_time desc
+    </select>
+
+    <select id="getLastInstance" resultType="com.datafusion.manager.scheduler.po.FlowInstanceEntity">
+        select *
+        from scheduler_flow_instance
+        where flow_id = #{flowId}
+        <if test="version != null">
+            and publish_version = #{version}
+        </if>
+        order by schedule_time desc
+        limit 1
+    </select>
+
+    <delete id="removeByInstanceId">
+        delete from scheduler_flow_instance
+        where id = #{instanceId}
+    </delete>
+
+</mapper>

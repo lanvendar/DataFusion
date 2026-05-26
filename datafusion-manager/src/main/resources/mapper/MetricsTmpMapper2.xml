@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.asset2.dao.MetricsTmpMapper">
+
+    <select id="selectMetricTmpList" resultType="com.datafusion.manager.asset2.po.MetricInfoEntity">
+        select
+        id as thirdMetricId,
+        metric_code,
+        metric_name,
+        dimension,
+        column_name,
+        api_url,
+        table_name,
+        physical_level,
+        timeliness,
+        tag_info_id,
+        'dw' as type
+        from asset_lineage_metrics_tmp
+        where 1=1
+        <if test="afterDate != null">
+            and update_time &gt; #{afterDate}
+        </if>
+        <if test="metricCode != null and metricCode != ''">
+            and metric_code = #{metricCode}
+        </if>
+        <if test="thirdMetricIds != null and thirdMetricIds.size() > 0">
+            and dt.id in
+            <foreach collection="thirdMetricIds" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+        </if>
+        order by update_time desc
+    </select>
+
+    <update id="truncateMetricTmpTable">
+        TRUNCATE TABLE asset_lineage_metrics_tmp
+    </update>
+
+    <insert id="insertMetricTmpFromOriginal">
+        INSERT INTO asset_lineage_metrics_tmp (id,
+                                               metric_code,
+                                               metric_name,
+                                               dimension,
+                                               column_name,
+                                               api_url,
+                                               table_name,
+                                               creator,
+                                               create_time,
+                                               updater,
+                                               update_time,
+                                               physical_level,
+                                               timeliness,
+                                               tag_info_id)
+        SELECT dt.id,
+               dt.warehouse_code AS metric_code,
+               ti.tag_name       AS metric_name,
+               dt.time_dimension AS dimension,
+               dt.warehouse_code AS column_name,
+               dt.api_url,
+               dt.tag_table      AS table_name,
+               'SYSTEM'          AS creator,
+               dt.create_time,
+               'SYSTEM'          AS updater,
+               dt.update_time,
+               ti.physical_level,
+               ti.timeliness,
+               dt.tag_info_id
+        FROM biz_data.dw_tag_info dt
+                 JOIN biz_data.tag_info ti
+                      ON dt.tag_info_id = ti.id AND ti.deleted = false
+        WHERE dt.api_url IS NOT NULL
+          AND dt.tag_table IS NOT NULL
+    </insert>
+
+</mapper>

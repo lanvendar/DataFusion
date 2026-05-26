@@ -52,7 +52,7 @@ public class EtlResourceReq {
     /**
      * etl sql脚本.
      */
-    @Schema(name = "sql", description = "etl脚本")
+    @Schema(name = "init_db", description = "etl脚本")
     @NotNull(message = "sql不能为空")
     private EtlSnapshot sql;
 
