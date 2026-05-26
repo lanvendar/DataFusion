@@ -1,5 +1,99 @@
+server:
+  port: 8080
+
 spring:
   application:
     name: datafusion-manager
+  profiles:
+    active: local
   main:
     allow-circular-references: true
+  cloud:
+    nacos:
+      config:
+        enabled: false
+        import-check:
+          enabled: false
+      discovery:
+        enabled: false
+  datasource:
+    url: jdbc:postgresql://172.26.185.208:5432/postgres
+    jdbc-url: jdbc:postgresql://172.26.185.208:5432/postgres
+    driver-class-name: org.postgresql.Driver
+    driverClassName: org.postgresql.Driver
+    username: postgres
+    password: mBLv0oY7MYu9138mfvopumqYctZWxkO0a3RRSE9lmBxoYOJzclYhPihZfxrmeP0x
+    hikari:
+      pool-name: datafusion-manager-local
+      minimum-idle: 1
+      maximum-pool-size: 5
+      connection-timeout: 30000
+      validation-timeout: 5000
+  redis:
+    host: 172.26.185.208
+    port: 6379
+    password: NIWe08wtVHN1YpCfuPER7IFd3FeVbtcR
+    timeout: 3000
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-handlers-package: com.datafusion.common.web.typehandler
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+datafusion:
+  datasource:
+    data-source-infos:
+      - id: 00000000-0000-0000-0000-000000000001
+        database-type: postgres
+        host: 172.26.185.208
+        port: 5432
+        schema-name: public
+        database-name: postgres
+        database-encode: UTF-8
+        jdbc-url: jdbc:postgresql://172.26.185.208:5432/postgres
+        driver-class: org.postgresql.Driver
+        username: postgres
+        password: mBLv0oY7MYu9138mfvopumqYctZWxkO0a3RRSE9lmBxoYOJzclYhPihZfxrmeP0x
+  resource:
+    sync:
+      organization: local
+      business-domain: local
+      env: local
+      service-type: spring
+      service-en-name: datafusion-manager
+      service-en-name-u-n: datafusion-manager
+      request-type: POST
+      database-type: postgres
+      datasource-name: local-postgres
+      database-name: postgres
+      schema-name: public
+
+oss:
+  enabled: false
+
+skywalking:
+  graphql:
+    url: http://127.0.0.1:12800/graphql
+
+git:
+  url: ""
+  branch: main
+  username: ""
+  password: ""
+
+etl:
+  hologres:
+    datasourceId: 00000000-0000-0000-0000-000000000001
+  maxcompute:
+    datasourceId: 00000000-0000-0000-0000-000000000001
+  path:
+    requiredRepoPath: ""
+    allowed-paths: ""
+  localRepoBaseDir:
+    linux: /tmp/datafusion/etl
+    win: D:/tmp/datafusion/etl
+  localGitRepoBaseDir:
+    linux: /tmp/datafusion/git
+    win: D:/tmp/datafusion/git
