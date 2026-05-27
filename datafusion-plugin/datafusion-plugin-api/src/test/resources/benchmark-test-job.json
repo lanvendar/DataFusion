@@ -1,0 +1,195 @@
+{
+  "job": {
+    "id": "benchmark_price_test",
+    "name": "基准价API抽数测试",
+    "version": "1.0.0"
+  },
+  "trigger": {
+    "mode": "ONCE"
+  },
+  "runtime": {
+    "loopCount": 1,
+    "loopIntervalMs": 0,
+    "timeout": {
+      "connectMs": 10000,
+      "readMs": 30000,
+      "writeMs": 30000
+    },
+    "retry": {
+      "maxAttempts": 1,
+      "intervalMs": 1000,
+      "backoffMultiplier": 2.0,
+      "retryOnStatus": [429, 500, 502, 503, 504]
+    },
+    "failurePolicy": {
+      "onHttpError": "FAIL",
+      "onEmptyData": "SUCCESS",
+      "onParseError": "FAIL"
+    }
+  },
+  "redis": {
+    "enabled": false,
+    "host": "localhost",
+    "port": 6379,
+    "database": 0,
+    "keyPrefix": "datafusion:plugin:api",
+    "ttlSeconds": 3600
+  },
+  "vars": {
+    "bizDate": "${date:yyyy-MM-dd}"
+  },
+  "steps": [
+    {
+      "id": "getBenchmark",
+      "type": "HTTP",
+      "enabled": true,
+      "request": {
+        "method": "GET",
+        "url": "http://172.30.19.4:9232/api/product/getBenchmark",
+        "headers": {
+          "Accept": "application/json"
+        },
+        "queryParams": {},
+        "bodyType": "NONE"
+      },
+      "pagination": {
+        "type": "NONE"
+      },
+      "response": {
+        "contentType": "JSON",
+        "successStatus": [200],
+        "successExpression": "Success == `true`",
+        "messageExpression": "Message",
+        "recordMode": "ARRAY",
+        "fields": [
+          {
+            "name": "today",
+            "type": "STRING",
+            "expression": "Data[].Today",
+            "isKey": true,
+            "nullable": false
+          },
+          {
+            "name": "product_name",
+            "type": "STRING",
+            "expression": "Data[].Productname",
+            "nullable": true
+          },
+          {
+            "name": "product_type_id_name",
+            "type": "STRING",
+            "expression": "Data[].ProducttypeIdName",
+            "nullable": true
+          },
+          {
+            "name": "product_chn_name",
+            "type": "STRING",
+            "expression": "Data[].Productchnname",
+            "nullable": true
+          },
+          {
+            "name": "specification",
+            "type": "STRING",
+            "expression": "Data[].Specification",
+            "nullable": true
+          },
+          {
+            "name": "product_id_name",
+            "type": "STRING",
+            "expression": "Data[].ProductIdname",
+            "nullable": true
+          },
+          {
+            "name": "product_detail_id_name",
+            "type": "STRING",
+            "expression": "Data[].ProductdetailIdname",
+            "nullable": true
+          },
+          {
+            "name": "product_class",
+            "type": "STRING",
+            "expression": "Data[].Productclass",
+            "nullable": true
+          },
+          {
+            "name": "price",
+            "type": "DOUBLE",
+            "expression": "Data[].Price",
+            "nullable": true
+          },
+          {
+            "name": "range_value",
+            "type": "DOUBLE",
+            "expression": "Data[].Range",
+            "nullable": true
+          }
+        ]
+      },
+      "cache": {
+        "enabled": false
+      }
+    }
+  ],
+  "sink": {
+    "type": "NOOP",
+    "mode": "APPEND",
+    "table": {
+      "name": "benchmark_price_test"
+    },
+    "schema": [
+      {
+        "name": "today",
+        "type": "VARCHAR",
+        "nullable": false
+      },
+      {
+        "name": "product_name",
+        "type": "VARCHAR",
+        "nullable": true
+      },
+      {
+        "name": "product_type_id_name",
+        "type": "VARCHAR",
+        "nullable": true
+      },
+      {
+        "name": "product_chn_name",
+        "type": "VARCHAR",
+        "nullable": true
+      },
+      {
+        "name": "specification",
+        "type": "VARCHAR",
+        "nullable": true
+      },
+      {
+        "name": "product_id_name",
+        "type": "VARCHAR",
+        "nullable": true
+      },
+      {
+        "name": "product_detail_id_name",
+        "type": "VARCHAR",
+        "nullable": true
+      },
+      {
+        "name": "product_class",
+        "type": "VARCHAR",
+        "nullable": true
+      },
+      {
+        "name": "price",
+        "type": "DOUBLE",
+        "nullable": true
+      },
+      {
+        "name": "range_value",
+        "type": "DOUBLE",
+        "nullable": true
+      }
+    ],
+    "write": {
+      "batchSize": 1000
+    }
+  }
+}

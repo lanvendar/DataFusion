@@ -1,0 +1,233 @@
+{
+  "job": {
+    "id": "benchmark_price_sync",
+    "name": "基准价API抽数任务",
+    "description": "从基准价接口抽取产品基准价格数据并写入StarRocks",
+    "version": "1.0.0"
+  },
+  "trigger": {
+    "mode": "CRON",
+    "cron": "0 */10 * * * ?",
+    "timezone": "Asia/Shanghai"
+  },
+  "runtime": {
+    "loopCount": 1,
+    "loopIntervalMs": 0,
+    "timeout": {
+      "connectMs": 5000,
+      "readMs": 30000,
+      "writeMs": 30000
+    },
+    "retry": {
+      "maxAttempts": 3,
+      "intervalMs": 1000,
+      "backoffMultiplier": 2.0,
+      "retryOnStatus": [429, 500, 502, 503, 504]
+    },
+    "failurePolicy": {
+      "onHttpError": "FAIL",
+      "onEmptyData": "SUCCESS",
+      "onParseError": "FAIL"
+    }
+  },
+  "redis": {
+    "enabled": false,
+    "host": "localhost",
+    "port": 6379,
+    "database": 0,
+    "passwordRef": "REDIS_PASSWORD",
+    "keyPrefix": "datafusion:plugin:api",
+    "ttlSeconds": 3600
+  },
+  "vars": {
+    "bizDate": "${date:yyyy-MM-dd}"
+  },
+  "steps": [
+    {
+      "id": "getBenchmark",
+      "type": "HTTP",
+      "enabled": true,
+      "request": {
+        "method": "GET",
+        "url": "http://172.30.19.4:9232/api/product/getBenchmark",
+        "headers": {
+          "Accept": "application/json"
+        },
+        "queryParams": {},
+        "bodyType": "NONE"
+      },
+      "pagination": {
+        "type": "NONE"
+      },
+      "response": {
+        "contentType": "JSON",
+        "successStatus": [200],
+        "successExpression": "Success == `true`",
+        "messageExpression": "Message",
+        "recordMode": "ARRAY",
+        "fields": [
+          {
+            "name": "today",
+            "type": "STRING",
+            "expression": "Data[].Today",
+            "isKey": true,
+            "nullable": false
+          },
+          {
+            "name": "product_name",
+            "type": "STRING",
+            "expression": "Data[].Productname",
+            "nullable": true
+          },
+          {
+            "name": "product_type_id_name",
+            "type": "STRING",
+            "expression": "Data[].ProducttypeIdName",
+            "nullable": true
+          },
+          {
+            "name": "product_chn_name",
+            "type": "STRING",
+            "expression": "Data[].Productchnname",
+            "nullable": true
+          },
+          {
+            "name": "specification",
+            "type": "STRING",
+            "expression": "Data[].Specification",
+            "nullable": true
+          },
+          {
+            "name": "product_id_name",
+            "type": "STRING",
+            "expression": "Data[].ProductIdname",
+            "nullable": true
+          },
+          {
+            "name": "product_detail_id_name",
+            "type": "STRING",
+            "expression": "Data[].ProductdetailIdname",
+            "nullable": true
+          },
+          {
+            "name": "product_class",
+            "type": "STRING",
+            "expression": "Data[].Productclass",
+            "nullable": true
+          },
+          {
+            "name": "price",
+            "type": "DOUBLE",
+            "expression": "Data[].Price",
+            "nullable": true
+          },
+          {
+            "name": "range_value",
+            "type": "DOUBLE",
+            "expression": "Data[].Range",
+            "nullable": true
+          }
+        ]
+      },
+      "cache": {
+        "enabled": false
+      }
+    }
+  ],
+  "sink": {
+    "type": "STARROCKS",
+    "mode": "APPEND",
+    "connection": {
+      "jdbcUrl": "jdbc:mysql://starrocks-fe:9030/dwd",
+      "loadUrl": "http://starrocks-fe:8030",
+      "username": "root",
+      "passwordRef": "STARROCKS_PASSWORD",
+      "database": "dwd"
+    },
+    "table": {
+      "name": "benchmark_price",
+      "createIfNotExists": true,
+      "primaryKeys": ["today"],
+      "partition": {
+        "enabled": true,
+        "field": "dt",
+        "type": "DAY"
+      }
+    },
+    "schema": [
+      {
+        "name": "today",
+        "type": "VARCHAR",
+        "length": 64,
+        "nullable": false,
+        "comment": "日期时间"
+      },
+      {
+        "name": "product_name",
+        "type": "VARCHAR",
+        "length": 128,
+        "nullable": true,
+        "comment": "产品名称"
+      },
+      {
+        "name": "product_type_id_name",
+        "type": "VARCHAR",
+        "length": 128,
+        "nullable": true,
+        "comment": "产品类型"
+      },
+      {
+        "name": "product_chn_name",
+        "type": "VARCHAR",
+        "length": 128,
+        "nullable": true,
+        "comment": "产品中文名"
+      },
+      {
+        "name": "specification",
+        "type": "VARCHAR",
+        "length": 255,
+        "nullable": true,
+        "comment": "规格"
+      },
+      {
+        "name": "product_id_name",
+        "type": "VARCHAR",
+        "length": 64,
+        "nullable": true,
+        "comment": "产品编号"
+      },
+      {
+        "name": "product_detail_id_name",
+        "type": "VARCHAR",
+        "length": 64,
+        "nullable": true,
+        "comment": "产品明细编号"
+      },
+      {
+        "name": "product_class",
+        "type": "VARCHAR",
+        "length": 32,
+        "nullable": true,
+        "comment": "等级"
+      },
+      {
+        "name": "price",
+        "type": "DOUBLE",
+        "nullable": true,
+        "comment": "基准价"
+      },
+      {
+        "name": "range_value",
+        "type": "DOUBLE",
+        "nullable": true,
+        "comment": "涨跌幅"
+      }
+    ],
+    "write": {
+      "format": "JSON",
+      "batchSize": 1000,
+      "flushIntervalMs": 5000
+    }
+  }
+}
