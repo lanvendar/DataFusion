@@ -6,6 +6,9 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -13,22 +16,25 @@ import java.util.Map;
 
 @Slf4j
 public class JFinalSqlBuilderTest {
+    private static final String SQL_LOAD_PATH = resolveTestResourcePath("sqlLoadPath");
+    private static final String TEST_SQL_JAR = Path.of(SQL_LOAD_PATH, "test-sql.jar").toString();
+
     @Test
     public void initPathTest() {
         //--------
         JFinalSqlBuilder test = JFinalSqlBuilder.create().build();
         test.getSqlTemplateFactory();
-        // 发现sql模板文件:[D:\IdeaProjects\datafusion\datafusion-common\target\test-classes\sql\example.sql]
-        // 发现sql模板文件:[D:\IdeaProjects\datafusion\datafusion-common\target\test-classes\sql\subPath\test1.sql]
+        // 发现sql模板文件:[target/test-classes/sql/example.sql]
+        // 发现sql模板文件:[target/test-classes/sql/subPath/test1.sql]
         // 初始化完成,sql模板总数: 12
         //--------
         JFinalSqlBuilder test1 = JFinalSqlBuilder.create()
-                .dirPath("D:\\IdeaProjects\\datafusion\\datafusion-common\\src\\test\\resources\\sqlLoadPath")
-                .jarPath("D:\\IdeaProjects\\datafusion\\datafusion-common\\src\\test\\resources\\sqlLoadPath\\test-sql.jar")
+                .dirPath(SQL_LOAD_PATH)
+                .jarPath(TEST_SQL_JAR)
                 .build();
         test1.getSqlTemplateFactory();
-        // 发现sql模板文件:[jar:file:/D:/IdeaProjects/datafusion/datafusion-common/src/test/resources/sqlLoadPath/test-sql.jar!/sql/test1.sql]
-        // 发现sql模板文件:[D:\IdeaProjects\datafusion\datafusion-common\src\test\resources\sqlLoadPath\test3.sql]
+        // 发现sql模板文件:[jar:file:/.../sqlLoadPath/test-sql.jar!/sql/test1.sql]
+        // 发现sql模板文件:[.../sqlLoadPath/test3.sql]
         // 初始化完成,sql模板总数: 14
     }
     
@@ -205,5 +211,17 @@ public class JFinalSqlBuilderTest {
         private List<String> columnTypeList;
         
         private List<String> partitionKeyList;
+    }
+
+    private static String resolveTestResourcePath(String resourcePath) {
+        URL resource = JFinalSqlBuilderTest.class.getClassLoader().getResource(resourcePath);
+        if (resource == null) {
+            throw new IllegalStateException("Test resource not found: " + resourcePath);
+        }
+        try {
+            return Path.of(resource.toURI()).toString();
+        } catch (URISyntaxException e) {
+            throw new IllegalStateException("Invalid test resource path: " + resourcePath, e);
+        }
     }
 }

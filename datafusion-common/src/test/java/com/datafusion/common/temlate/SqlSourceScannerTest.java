@@ -5,6 +5,9 @@ import com.datafusion.common.template.SqlSourceScanner;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Path;
 import java.util.Set;
 
 /**
@@ -15,6 +18,9 @@ import java.util.Set;
  */
 @Slf4j
 public class SqlSourceScannerTest {
+    private static final String SQL_LOAD_PATH = resolveTestResourcePath("sqlLoadPath");
+    private static final String TEST_SQL_JAR = Path.of(SQL_LOAD_PATH, "test-sql.jar").toString();
+
     @Test
     public void testFindSqlSourceInClassPath() {
         SqlSourceScanner.Scanner scanner = SqlSourceScanner.scan()//
@@ -27,7 +33,7 @@ public class SqlSourceScannerTest {
     public void testFindSqlSourceInDirectory() {
         SqlSourceScanner.Scanner scanner = SqlSourceScanner.scan()//
                 .fromClasspath("sql")//
-                .fromDirectory("D:\\IdeaProjects\\datafusion\\datafusion-common\\src\\test\\resources\\sqlLoadPath")
+                .fromDirectory(SQL_LOAD_PATH)
                 .withSuffix(".sql");
         Set<SqlSource> sqlSources = scanner.execute();
         log.info("sqlSources: {}", sqlSources);
@@ -35,8 +41,20 @@ public class SqlSourceScannerTest {
     @Test
     public void testFindSqlSourceInJar() {
         SqlSourceScanner.Scanner scanner = SqlSourceScanner.scan()//
-                .fromJar("D:\\IdeaProjects\\datafusion\\datafusion-common\\src\\test\\resources\\sqlLoadPath\\test-sql.jar","sql")//
+                .fromJar(TEST_SQL_JAR, "sql")//
                 .withSuffix(".sql"); Set<SqlSource> sqlSources = scanner.execute();
         log.info("sqlSources: {}", sqlSources);
+    }
+
+    private static String resolveTestResourcePath(String resourcePath) {
+        URL resource = SqlSourceScannerTest.class.getClassLoader().getResource(resourcePath);
+        if (resource == null) {
+            throw new IllegalStateException("Test resource not found: " + resourcePath);
+        }
+        try {
+            return Path.of(resource.toURI()).toString();
+        } catch (URISyntaxException e) {
+            throw new IllegalStateException("Invalid test resource path: " + resourcePath, e);
+        }
     }
 }

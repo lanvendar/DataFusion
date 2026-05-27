@@ -14,8 +14,10 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -26,6 +28,8 @@ import java.util.Map;
  */
 @Slf4j
 public class DynamicJarLoaderTest {
+    private static final String TEST_SQL_JAR = resolveTestResourcePath("sqlLoadPath/test-sql.jar");
+
     @Test
     public void testLoadFromJarInTestClasses() throws Exception {
         // 1. 创建并设置我们自定义的 SourceFactory
@@ -44,9 +48,7 @@ public class DynamicJarLoaderTest {
         
         engine.addDirective("ps", PlaceHolderDirective.class, true);
         // 2. 定义指向你的目标 JAR 文件和内部模板的特殊路径
-        // !!! 请将这里的路径替换为你自己的真实路径 !!!
-        //String jarFilePath = "target/test-classes/datafusion-common-1.0.0.jar";
-        String jarFilePath = "D:/IdeaProjects/datafusion/datafusion-common/src/test/resources/sqlLoadPath/test-sql.jar";
+        String jarFilePath = TEST_SQL_JAR;
         String entryPath = "sql/test1.sql"; // 开头的'/'是可选的，我们的工厂会处理
         JarFileSource customSource = new JarFileSource(jarFilePath, entryPath);
         
@@ -54,7 +56,7 @@ public class DynamicJarLoaderTest {
         Template template = engine.getTemplate(customSource);
         Map<String, SqlTemplate> sqlTemplateMap = new HashMap<>(512, 0.5F);
         // 4. 渲染模板
-        // 假设 test1111.sql 的内容是: select * from user where name = #para(name)
+        // 假设 test1.sql 的内容是: select * from user where name = #para(name)
         Map<Object, Object> data = new HashMap<>();
         
         data.put(SqlDirective.SQL_TEMPLATE_MAP_KEY, sqlTemplateMap);
@@ -67,8 +69,8 @@ public class DynamicJarLoaderTest {
     @Test
     public void jarPathTest(){
         // 1. 定义你的 JAR 包的路径
-        // 这个路径是相对于项目根目录的，或者你也可以用绝对路径
-        String jarRelativePath = "D:/IdeaProjects/datafusion/datafusion-common/target/test-classes/datafusion-common-1.0.0.jar";
+        // 这个路径来自 test classpath，不依赖本地工作目录
+        String jarRelativePath = TEST_SQL_JAR;
         File jarFile = new File(jarRelativePath);
         
         // 2. 检查 JAR 文件是否存在
@@ -80,7 +82,7 @@ public class DynamicJarLoaderTest {
         System.out.println("准备从 JAR 文件加载资源: " + jarFile.getAbsolutePath());
         
         // 3. 定义要从 JAR 包内部加载的资源路径
-        String resourceInsideJar = "sql/test1111.sql";
+        String resourceInsideJar = "sql/test1.sql";
         
         // 4. 【核心步骤】创建 URLClassLoader 并加载资源
         URL resourceUrl = null;
@@ -109,9 +111,21 @@ public class DynamicJarLoaderTest {
         if (resourceUrl != null) {
             System.out.println("\n成功！找到了资源！");
             System.out.println("资源的 URL 是: " + resourceUrl);
-            // 输出会是: jar:file:/.../target/test-classes/lib/datafusion-common-1.0.0.jar!/sql/test1111.sql
+            // 输出会是: jar:file:/.../test-sql.jar!/sql/test1.sql
         } else {
             System.out.println("\n失败！在指定的 JAR 包中未找到资源: " + resourceInsideJar);
+        }
+    }
+
+    private static String resolveTestResourcePath(String resourcePath) {
+        URL resource = DynamicJarLoaderTest.class.getClassLoader().getResource(resourcePath);
+        if (resource == null) {
+            throw new IllegalStateException("Test resource not found: " + resourcePath);
+        }
+        try {
+            return Path.of(resource.toURI()).toString();
+        } catch (URISyntaxException e) {
+            throw new IllegalStateException("Invalid test resource path: " + resourcePath, e);
         }
     }
 }
