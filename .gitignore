@@ -1,6 +1,10 @@
 # Logs
 *.log
 *.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # OS generated files
 .DS_Store
@@ -10,6 +14,21 @@ Thumbs.db
 target/
 build/
 out/
+dist/
+
+# Frontend dependencies and caches
+node_modules/
+.vite/
+.cache/
+.turbo/
+coverage/
+.eslintcache
+*.tsbuildinfo
+
+# Local environment files
+.env
+.env.*
+!.env.example
 
 # IntelliJ IDEA
 .idea/

@@ -13,11 +13,10 @@
     <build>
         <plugins>
             <!-- 前端 Maven 插件：自动构建 React -->
-            <!--<plugin>
+            <plugin>
                 <groupId>com.github.eirslett</groupId>
                 <artifactId>frontend-maven-plugin</artifactId>
                 <executions>
-                    &lt;!&ndash; 安装 Node &ndash;&gt;
                     <execution>
                         <id>install node and npm</id>
                         <goals>
@@ -29,7 +28,6 @@
                         </configuration>
                     </execution>
 
-                    &lt;!&ndash; npm install &ndash;&gt;
                     <execution>
                         <id>npm install</id>
                         <goals>
@@ -40,7 +38,6 @@
                         </configuration>
                     </execution>
 
-                    &lt;!&ndash; npm run build &ndash;&gt;
                     <execution>
                         <id>npm build</id>
                         <goals>
@@ -51,7 +48,7 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>-->
+            </plugin>
         </plugins>
     </build>
 </project>
