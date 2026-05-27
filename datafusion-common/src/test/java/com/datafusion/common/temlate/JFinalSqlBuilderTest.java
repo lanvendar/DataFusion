@@ -97,9 +97,11 @@ public class JFinalSqlBuilderTest {
         datas.add(map1);
         datas.add(map2);
         HashMap<String, Object> rowMap = new HashMap<>();
-        rowMap.put("data", datas);
+        rowMap.put(JFinalSqlBuilder.SYMBOL_INSERT_ROWS, datas);
         final JFinalSqlBuilder test = JFinalSqlBuilder.create().build();
-        SqlParamRender symbolSql = test.renderSql("postgres.batchInsert", map);
+        Map<String, Object> singleRowMap = new HashMap<>();
+        singleRowMap.put(JFinalSqlBuilder.SYMBOL_INSERT_ROWS, List.of(map));
+        SqlParamRender symbolSql = test.renderSql("postgres.batchInsert", singleRowMap);
         log.info("符号sql:" + symbolSql.getSql());
         log.info("符号sql参数单条:" + symbolSql.getParamsForSingle());
         log.info("符号sql参数多条:" + symbolSql.getExecutionType());

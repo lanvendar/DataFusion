@@ -98,7 +98,7 @@ INSERT INTO student (s_id,s_name,s_birth,s_sex,s_create,s_update) VALUES (#(row.
 #end
 #end
 
-#sql(id = "batchCreateHiveTable",command = "creator",execution = "statement",render = "normal")
+#sql(id = "batchCreateHiveTable",command = "create",execution = "statement",render = "normal")
 #for(param : params)
 CREATE TABLE #(param.tableName) (
     #for(columnType : param.columnTypeList)
