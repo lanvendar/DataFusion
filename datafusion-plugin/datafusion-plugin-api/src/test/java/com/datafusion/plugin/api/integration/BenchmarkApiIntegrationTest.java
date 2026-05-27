@@ -179,8 +179,8 @@ public class BenchmarkApiIntegrationTest {
     private boolean isApiReachable() {
         try {
             HttpURLConnection conn = (HttpURLConnection) URI.create(BENCHMARK_API_URL).toURL().openConnection();
-            conn.setConnectTimeout(3000);
-            conn.setReadTimeout(5000);
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(15000);
             conn.setRequestMethod("GET");
             int code = conn.getResponseCode();
             conn.disconnect();
