@@ -2,8 +2,10 @@ package com.datafusion.plugin.api.core;
 
 import com.datafusion.plugin.api.config.ApiExtractJobConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.FieldConfig;
+import com.datafusion.plugin.api.config.ApiExtractJobConfig.PaginationConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.SchemaFieldConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.StepConfig;
+import com.datafusion.plugin.api.sink.SinkMode;
 import com.datafusion.plugin.api.util.TextUtils;
 
 import java.util.HashMap;
@@ -41,6 +43,8 @@ public class ConfigValidator {
         if (config.steps == null || config.steps.isEmpty()) {
             throw new ApiExtractException("steps is required");
         }
+        validateTrigger(config);
+        validateRuntime(config);
         validateSteps(config.steps);
         validateCache(config);
         validateSink(config);
@@ -66,6 +70,8 @@ public class ConfigValidator {
             if (step.request == null || TextUtils.isBlank(step.request.method) || TextUtils.isBlank(step.request.url)) {
                 throw new ApiExtractException("request.method and request.url are required for step: " + step.id);
             }
+            validateRequest(step);
+            validatePagination(step);
             validateResponse(step);
         }
         validateSingleChainDag(steps, ids);
@@ -140,6 +146,82 @@ public class ConfigValidator {
         }
     }
 
+    private void validateTrigger(ApiExtractJobConfig config) {
+        TriggerMode mode = TriggerMode.parse(config.trigger == null ? "ONCE" : config.trigger.mode);
+        if (mode == TriggerMode.CRON) {
+            if (config.trigger == null || TextUtils.isBlank(config.trigger.cron)) {
+                throw new ApiExtractException("trigger.cron is required when trigger.mode=CRON");
+            }
+            if (TextUtils.isBlank(config.trigger.timezone)) {
+                throw new ApiExtractException("trigger.timezone is required when trigger.mode=CRON");
+            }
+            try {
+                java.time.ZoneId.of(config.trigger.timezone);
+            } catch (Exception e) {
+                throw new ApiExtractException("Invalid trigger.timezone: " + config.trigger.timezone, e);
+            }
+        }
+    }
+
+    private void validateRuntime(ApiExtractJobConfig config) {
+        if (config.runtime == null) {
+            return;
+        }
+        if (config.runtime.loopCount < 1) {
+            throw new ApiExtractException("runtime.loopCount must be greater than 0");
+        }
+        if (config.runtime.loopIntervalMs < 0) {
+            throw new ApiExtractException("runtime.loopIntervalMs must be greater than or equal to 0");
+        }
+        if (config.runtime.timeout != null
+                && (config.runtime.timeout.connectMs <= 0 || config.runtime.timeout.readMs <= 0 || config.runtime.timeout.writeMs <= 0)) {
+            throw new ApiExtractException("runtime.timeout values must be greater than 0");
+        }
+        if (config.runtime.retry != null
+                && (config.runtime.retry.maxAttempts < 1 || config.runtime.retry.intervalMs < 0
+                || config.runtime.retry.backoffMultiplier < 1.0)) {
+            throw new ApiExtractException("runtime.retry values are invalid");
+        }
+    }
+
+    private void validateRequest(StepConfig step) {
+        String method = TextUtils.upper(step.request.method, null);
+        if (!Set.of("GET", "POST", "PUT", "DELETE").contains(method)) {
+            throw new ApiExtractException("Unsupported request.method for step: " + step.id);
+        }
+        String bodyType = TextUtils.upper(step.request.bodyType, "NONE");
+        if (!Set.of("NONE", "JSON", "FORM", "RAW").contains(bodyType)) {
+            throw new ApiExtractException("Unsupported request.bodyType for step: " + step.id);
+        }
+    }
+
+    private void validatePagination(StepConfig step) {
+        PaginationConfig pagination = step.pagination == null ? new PaginationConfig() : step.pagination;
+        String type = TextUtils.upper(pagination.type, "NONE");
+        if ("NONE".equals(type)) {
+            return;
+        }
+        if ("PAGE".equals(type)) {
+            if (TextUtils.isBlank(pagination.pageParam) || TextUtils.isBlank(pagination.pageSizeParam)) {
+                throw new ApiExtractException("PAGE pagination requires pageParam and pageSizeParam for step: " + step.id);
+            }
+            if (pagination.startPage < 1 || pagination.pageSize <= 0 || pagination.maxPages <= 0) {
+                throw new ApiExtractException("PAGE pagination values are invalid for step: " + step.id);
+            }
+            return;
+        }
+        if ("OFFSET".equals(type)) {
+            if (TextUtils.isBlank(pagination.offsetParam) || TextUtils.isBlank(pagination.limitParam)) {
+                throw new ApiExtractException("OFFSET pagination requires offsetParam and limitParam for step: " + step.id);
+            }
+            if (pagination.startOffset < 0 || pagination.limit <= 0 || pagination.maxRequests <= 0) {
+                throw new ApiExtractException("OFFSET pagination values are invalid for step: " + step.id);
+            }
+            return;
+        }
+        throw new ApiExtractException("Unsupported pagination.type for step: " + step.id);
+    }
+
     /**
      * 校验落表配置,包括类型、Schema 和主键.
      *
@@ -148,6 +230,14 @@ public class ConfigValidator {
     private void validateSink(ApiExtractJobConfig config) {
         if (config.sink == null || TextUtils.isBlank(config.sink.type)) {
             throw new ApiExtractException("sink.type is required");
+        }
+        String sinkType = TextUtils.upper(config.sink.type, null);
+        if (!Set.of("STARROCKS", "PAIMON", "NOOP").contains(sinkType)) {
+            throw new ApiExtractException("Unsupported sink.type: " + config.sink.type);
+        }
+        SinkMode sinkMode = SinkMode.parse(config.sink.mode);
+        if (!"NOOP".equals(sinkType) && (config.sink.table == null || TextUtils.isBlank(config.sink.table.name))) {
+            throw new ApiExtractException("sink.table.name is required");
         }
         Set<String> schemaNames = new HashSet<>();
         for (SchemaFieldConfig field : config.sink.schema) {
@@ -158,10 +248,22 @@ public class ConfigValidator {
                 throw new ApiExtractException("Duplicate sink schema field: " + field.name);
             }
         }
-        if ("UPSERT".equals(TextUtils.upper(config.sink.mode, "APPEND"))
-                && "STARROCKS".equals(TextUtils.upper(config.sink.type, null))
-                && (config.sink.table == null || config.sink.table.primaryKeys == null || config.sink.table.primaryKeys.isEmpty())) {
-            throw new ApiExtractException("StarRocks UPSERT requires sink.table.primaryKeys");
+        validateSinkSchemaCoverage(config, schemaNames);
+        if (sinkMode == SinkMode.UPSERT && !"NOOP".equals(sinkType)
+                && (config.sink.table.primaryKeys == null || config.sink.table.primaryKeys.isEmpty())) {
+            throw new ApiExtractException(sinkType + " UPSERT requires sink.table.primaryKeys");
+        }
+        if (sinkMode == SinkMode.OVERWRITE_PARTITION && "STARROCKS".equals(sinkType)
+                && (config.sink.table.partition == null || !config.sink.table.partition.enabled
+                || TextUtils.isBlank(config.sink.table.partition.field))) {
+            throw new ApiExtractException("StarRocks OVERWRITE_PARTITION requires sink.table.partition.field");
+        }
+        if (sinkMode == SinkMode.OVERWRITE_PARTITION && "PAIMON".equals(sinkType)
+                && (config.sink.table.partitionKeys == null || config.sink.table.partitionKeys.isEmpty())) {
+            throw new ApiExtractException("Paimon OVERWRITE_PARTITION requires sink.table.partitionKeys");
+        }
+        if (config.sink.write != null && config.sink.write.batchSize <= 0) {
+            throw new ApiExtractException("sink.write.batchSize must be greater than 0");
         }
     }
 
@@ -174,6 +276,39 @@ public class ConfigValidator {
         boolean hasStepCache = config.steps.stream().anyMatch(step -> step.cache != null && step.cache.enabled);
         if (hasStepCache && (config.redis == null || !config.redis.enabled)) {
             throw new ApiExtractException("redis.enabled must be true when any step.cache is enabled");
+        }
+        if (config.redis != null && config.redis.enabled) {
+            if (TextUtils.isBlank(config.redis.host) || config.redis.port <= 0 || config.redis.database < 0) {
+                throw new ApiExtractException("redis connection config is invalid");
+            }
+        }
+        for (StepConfig step : config.steps) {
+            if (step.cache == null || !step.cache.enabled) {
+                continue;
+            }
+            if (TextUtils.isBlank(step.cache.key)) {
+                throw new ApiExtractException("step.cache.key is required for step: " + step.id);
+            }
+            String mode = TextUtils.upper(step.cache.mode, "UPSERT");
+            if (!Set.of("PUT", "UPSERT", "APPEND_LIST", "HASH").contains(mode)) {
+                throw new ApiExtractException("Unsupported step.cache.mode for step: " + step.id);
+            }
+        }
+    }
+
+    private void validateSinkSchemaCoverage(ApiExtractJobConfig config, Set<String> schemaNames) {
+        if ("NOOP".equals(TextUtils.upper(config.sink.type, null))) {
+            return;
+        }
+        for (StepConfig step : config.steps) {
+            if (step.response == null || step.response.fields == null) {
+                continue;
+            }
+            for (FieldConfig field : step.response.fields) {
+                if (!schemaNames.contains(field.name)) {
+                    throw new ApiExtractException("sink.schema lacks response field: " + field.name);
+                }
+            }
         }
     }
 }

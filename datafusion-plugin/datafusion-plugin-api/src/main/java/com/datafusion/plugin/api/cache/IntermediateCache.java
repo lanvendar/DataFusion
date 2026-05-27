@@ -23,6 +23,53 @@ public interface IntermediateCache extends AutoCloseable {
     void put(String key, Object value, long ttlSeconds);
 
     /**
+     * 按缓存模式写入值.
+     *
+     * @param key 缓存键
+     * @param value 缓存值
+     * @param ttlSeconds 过期时间(秒),0 或负数表示永不过期
+     * @param mode 写入模式(PUT/UPSERT/APPEND_LIST/HASH)
+     */
+    default void put(String key, Object value, long ttlSeconds, String mode) {
+        String normalized = mode == null ? "UPSERT" : mode.trim().toUpperCase();
+        if ("PUT".equals(normalized) || "UPSERT".equals(normalized)) {
+            put(key, value, ttlSeconds);
+            return;
+        }
+        if ("APPEND_LIST".equals(normalized)) {
+            appendList(key, value, ttlSeconds);
+            return;
+        }
+        if ("HASH".equals(normalized)) {
+            putHash(key, value, ttlSeconds);
+            return;
+        }
+        throw new IllegalArgumentException("Unsupported cache mode: " + mode);
+    }
+
+    /**
+     * 向列表缓存追加值.
+     *
+     * @param key 缓存键
+     * @param value 缓存值
+     * @param ttlSeconds 过期时间(秒)
+     */
+    default void appendList(String key, Object value, long ttlSeconds) {
+        throw new UnsupportedOperationException("APPEND_LIST cache mode is not supported");
+    }
+
+    /**
+     * 写入 hash 缓存.
+     *
+     * @param key 缓存键
+     * @param value 缓存值,Map 会按字段写入,其它值写入 value 字段
+     * @param ttlSeconds 过期时间(秒)
+     */
+    default void putHash(String key, Object value, long ttlSeconds) {
+        throw new UnsupportedOperationException("HASH cache mode is not supported");
+    }
+
+    /**
      * 从缓存中获取值.
      *
      * @param key 缓存键

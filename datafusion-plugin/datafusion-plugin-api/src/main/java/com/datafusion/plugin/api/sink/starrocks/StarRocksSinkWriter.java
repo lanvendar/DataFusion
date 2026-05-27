@@ -4,6 +4,7 @@ import com.datafusion.plugin.api.config.ApiExtractJobConfig.SchemaFieldConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.SinkConfig;
 import com.datafusion.plugin.api.core.ApiExtractException;
 import com.datafusion.plugin.api.core.Record;
+import com.datafusion.plugin.api.sink.SinkMode;
 import com.datafusion.plugin.api.sink.SinkWriter;
 import com.datafusion.plugin.api.util.JsonUtils;
 import com.datafusion.plugin.api.util.TextUtils;
@@ -64,6 +65,7 @@ public class StarRocksSinkWriter implements SinkWriter {
     @Override
     public void open(SinkConfig sink) {
         this.sink = sink;
+        validateMode();
         try {
             connection = DriverManager.getConnection(required("jdbcUrl"), required("username"), password());
             ensureTable();
@@ -82,8 +84,11 @@ public class StarRocksSinkWriter implements SinkWriter {
         if (records == null || records.isEmpty()) {
             return;
         }
+        if (SinkMode.parse(sink.mode) == SinkMode.OVERWRITE_PARTITION) {
+            deletePartitions(records);
+        }
         String payload = toJsonLines(records);
-        HttpRequest request = HttpRequest.newBuilder()
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(loadUrl()))
                 .timeout(Duration.ofMillis(Math.max(1000, sink.write.flushIntervalMs)))
                 .header("Authorization", basicAuth())
@@ -91,8 +96,9 @@ public class StarRocksSinkWriter implements SinkWriter {
                 .header("format", "json")
                 .header("strip_outer_array", "false")
                 .header("read_json_by_line", "true")
-                .PUT(HttpRequest.BodyPublishers.ofString(payload))
-                .build();
+                .PUT(HttpRequest.BodyPublishers.ofString(payload));
+        applyModeHeaders(builder);
+        HttpRequest request = builder.build();
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300 || !response.body().contains("\"Status\":\"Success\"")) {
@@ -144,6 +150,54 @@ public class StarRocksSinkWriter implements SinkWriter {
             return;
         }
         validateSchema();
+    }
+
+    private void validateMode() {
+        SinkMode mode = SinkMode.parse(sink.mode);
+        if (mode == SinkMode.UPSERT && (sink.table == null || sink.table.primaryKeys == null || sink.table.primaryKeys.isEmpty())) {
+            throw new ApiExtractException("StarRocks UPSERT requires sink.table.primaryKeys");
+        }
+        if (mode == SinkMode.OVERWRITE_PARTITION && (sink.table == null
+                || sink.table.partition == null
+                || !sink.table.partition.enabled
+                || TextUtils.isBlank(sink.table.partition.field))) {
+            throw new ApiExtractException("StarRocks OVERWRITE_PARTITION requires sink.table.partition.field");
+        }
+    }
+
+    private void applyModeHeaders(HttpRequest.Builder builder) {
+        SinkMode mode = SinkMode.parse(sink.mode);
+        if (mode == SinkMode.UPSERT) {
+            builder.header("partial_update", "true");
+        }
+    }
+
+    private void deletePartitions(List<Record> records) {
+        String partitionField = sink.table.partition.field;
+        List<Object> partitions = records.stream()
+                .map(record -> record.get(partitionField))
+                .filter(value -> value != null && !TextUtils.isBlank(String.valueOf(value)))
+                .distinct()
+                .toList();
+        if (partitions.isEmpty()) {
+            throw new ApiExtractException("StarRocks OVERWRITE_PARTITION requires records with partition field: " + partitionField);
+        }
+        StringJoiner values = new StringJoiner(", ");
+        partitions.forEach(value -> values.add(sqlLiteral(value)));
+        String sql = "DELETE FROM " + quote(database()) + "." + quote(sink.table.name)
+                + " WHERE " + quote(partitionField) + " IN (" + values + ")";
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new ApiExtractException("Failed to clear StarRocks partition before overwrite", e);
+        }
+    }
+
+    private String sqlLiteral(Object value) {
+        if (value instanceof Number || value instanceof Boolean) {
+            return String.valueOf(value);
+        }
+        return "'" + String.valueOf(value).replace("'", "''") + "'";
     }
 
     /**

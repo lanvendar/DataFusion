@@ -277,7 +277,7 @@ public class HttpStepExecutor {
         String prefix = context.getConfig().redis == null ? "" : context.getConfig().redis.keyPrefix + ":";
         String key = prefix + templateResolver.resolve(cacheConfig.key, context);
         long ttl = cacheConfig.ttlSeconds > 0 ? cacheConfig.ttlSeconds : context.getConfig().redis.ttlSeconds;
-        cache.put(key, value, ttl);
+        cache.put(key, value, ttl, cacheConfig.mode);
     }
 
     private void writeStepOutput(ApiExtractContext context, StepConfig step, Object json) {

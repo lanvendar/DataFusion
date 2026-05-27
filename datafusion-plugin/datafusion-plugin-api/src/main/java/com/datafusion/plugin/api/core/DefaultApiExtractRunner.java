@@ -1,6 +1,5 @@
 package com.datafusion.plugin.api.core;
 
-import com.datafusion.common.cron.CronUtil;
 import com.datafusion.plugin.api.cache.InMemoryIntermediateCache;
 import com.datafusion.plugin.api.cache.IntermediateCache;
 import com.datafusion.plugin.api.cache.RedisIntermediateCache;
@@ -16,7 +15,6 @@ import com.datafusion.plugin.api.template.TemplateResolver;
 import com.datafusion.plugin.api.util.TextUtils;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -48,11 +46,16 @@ public class DefaultApiExtractRunner implements ApiExtractRunner {
      */
     private final SinkWriterFactory sinkWriterFactory = new SinkWriterFactory();
 
+    /**
+     * 本地 cron 调度器.
+     */
+    private final CronScheduler cronScheduler = new CronScheduler();
+
     @Override
     public ApiExtractResult run(ApiExtractJobConfig config) {
         validator.validate(config);
-        String mode = config.trigger == null ? "ONCE" : TextUtils.upper(config.trigger.mode, "ONCE");
-        if ("CRON".equals(mode)) {
+        TriggerMode mode = TriggerMode.parse(config.trigger == null ? "ONCE" : config.trigger.mode);
+        if (mode == TriggerMode.CRON) {
             return runCron(config);
         }
         return runOnce(config);
@@ -62,10 +65,7 @@ public class DefaultApiExtractRunner implements ApiExtractRunner {
         if (config.trigger == null || TextUtils.isBlank(config.trigger.cron)) {
             throw new ApiExtractException("trigger.cron is required when trigger.mode=CRON");
         }
-        Date next = CronUtil.next(config.trigger.cron, new Date());
-        long waitMs = Math.max(0, next.getTime() - System.currentTimeMillis());
-        sleep(waitMs);
-        return runOnce(config);
+        return cronScheduler.run(config.trigger.cron, config.trigger.timezone, () -> runOnce(config));
     }
 
     private ApiExtractResult runOnce(ApiExtractJobConfig config) {

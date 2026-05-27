@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * HTTP step executor unit tests.
@@ -94,6 +95,106 @@ public class HttpStepExecutorTest {
         Assertions.assertEquals(50.0, ((Number) sinkWriter.records.get(1).get("range_value")).doubleValue());
     }
 
+    @Test
+    public void executeShouldApplyPagePaginationAndStopOnShortPage() {
+        ApiExtractJobConfig config = benchmarkConfig();
+        StepConfig step = config.steps.get(0);
+        step.pagination.type = "PAGE";
+        step.pagination.pageParam = "page";
+        step.pagination.pageSizeParam = "pageSize";
+        step.pagination.startPage = 1;
+        step.pagination.pageSize = 2;
+        step.pagination.maxPages = 5;
+        CapturingHttpClient httpClient = new CapturingHttpClient(BENCHMARK_RESPONSE, shortPageResponse());
+        CapturingSinkWriter sinkWriter = new CapturingSinkWriter();
+        InMemoryIntermediateCache cache = new InMemoryIntermediateCache();
+        JmesPathEvaluator evaluator = new JmesPathEvaluator();
+        TemplateResolver templateResolver = new TemplateResolver(cache);
+        HttpStepExecutor executor = new HttpStepExecutor(httpClient, evaluator, templateResolver,
+                new RecordMapper(evaluator, templateResolver), cache);
+
+        long records = executor.execute(new ApiExtractContext(config, "page-test-run"), step, sinkWriter);
+
+        Assertions.assertEquals(3, records);
+        Assertions.assertEquals(2, httpClient.requests.size());
+        Assertions.assertTrue(httpClient.requests.get(0).url.contains("page=1"));
+        Assertions.assertTrue(httpClient.requests.get(0).url.contains("pageSize=2"));
+        Assertions.assertTrue(httpClient.requests.get(1).url.contains("page=2"));
+    }
+
+    @Test
+    public void executeShouldApplyOffsetPaginationAndStopOnEmptyPage() {
+        ApiExtractJobConfig config = benchmarkConfig();
+        StepConfig step = config.steps.get(0);
+        step.pagination.type = "OFFSET";
+        step.pagination.offsetParam = "offset";
+        step.pagination.limitParam = "limit";
+        step.pagination.startOffset = 0;
+        step.pagination.limit = 2;
+        step.pagination.maxRequests = 5;
+        CapturingHttpClient httpClient = new CapturingHttpClient(BENCHMARK_RESPONSE, emptyPageResponse());
+        CapturingSinkWriter sinkWriter = new CapturingSinkWriter();
+        InMemoryIntermediateCache cache = new InMemoryIntermediateCache();
+        JmesPathEvaluator evaluator = new JmesPathEvaluator();
+        TemplateResolver templateResolver = new TemplateResolver(cache);
+        HttpStepExecutor executor = new HttpStepExecutor(httpClient, evaluator, templateResolver,
+                new RecordMapper(evaluator, templateResolver), cache);
+
+        long records = executor.execute(new ApiExtractContext(config, "offset-test-run"), step, sinkWriter);
+
+        Assertions.assertEquals(2, records);
+        Assertions.assertEquals(2, httpClient.requests.size());
+        Assertions.assertTrue(httpClient.requests.get(0).url.contains("offset=0"));
+        Assertions.assertTrue(httpClient.requests.get(1).url.contains("offset=2"));
+    }
+
+    @Test
+    public void executeShouldRetryRetryableStatus() {
+        ApiExtractJobConfig config = benchmarkConfig();
+        config.runtime.retry.maxAttempts = 2;
+        config.runtime.retry.intervalMs = 0;
+        StepConfig step = config.steps.get(0);
+        CapturingHttpClient httpClient = new CapturingHttpClient(
+                new HttpResponseData(500, "{\"Success\":false}", Collections.emptyMap()),
+                new HttpResponseData(200, BENCHMARK_RESPONSE, Collections.emptyMap()));
+        CapturingSinkWriter sinkWriter = new CapturingSinkWriter();
+        InMemoryIntermediateCache cache = new InMemoryIntermediateCache();
+        JmesPathEvaluator evaluator = new JmesPathEvaluator();
+        TemplateResolver templateResolver = new TemplateResolver(cache);
+        HttpStepExecutor executor = new HttpStepExecutor(httpClient, evaluator, templateResolver,
+                new RecordMapper(evaluator, templateResolver), cache);
+
+        long records = executor.execute(new ApiExtractContext(config, "retry-test-run"), step, sinkWriter);
+
+        Assertions.assertEquals(2, records);
+        Assertions.assertEquals(2, httpClient.requests.size());
+    }
+
+    @Test
+    public void executeShouldWriteCacheWithConfiguredMode() {
+        ApiExtractJobConfig config = benchmarkConfig();
+        config.redis.enabled = true;
+        config.redis.keyPrefix = "prefix";
+        StepConfig step = config.steps.get(0);
+        step.cache.enabled = true;
+        step.cache.key = "bench:${job.id}";
+        step.cache.mode = "HASH";
+        step.cache.valueExpression = "Data[0]";
+        CapturingHttpClient httpClient = new CapturingHttpClient(BENCHMARK_RESPONSE);
+        CapturingSinkWriter sinkWriter = new CapturingSinkWriter();
+        InMemoryIntermediateCache cache = new InMemoryIntermediateCache();
+        JmesPathEvaluator evaluator = new JmesPathEvaluator();
+        TemplateResolver templateResolver = new TemplateResolver(cache);
+        HttpStepExecutor executor = new HttpStepExecutor(httpClient, evaluator, templateResolver,
+                new RecordMapper(evaluator, templateResolver), cache);
+
+        executor.execute(new ApiExtractContext(config, "cache-test-run"), step, sinkWriter);
+
+        Object value = cache.get("prefix:bench:benchmark-price-api");
+        Assertions.assertInstanceOf(Map.class, value);
+        Assertions.assertEquals("B000", ((Map<?, ?>) value).get("ProductdetailIdname"));
+    }
+
     private ApiExtractJobConfig benchmarkConfig() {
         ApiExtractJobConfig config = new ApiExtractJobConfig();
         config.job.id = "benchmark-price-api";
@@ -127,6 +228,39 @@ public class HttpStepExecutorTest {
         return response;
     }
 
+    private String shortPageResponse() {
+        return """
+                {
+                    "Success": true,
+                    "Message": "基准价获取成功",
+                    "Data": [
+                        {
+                            "Today": "05/21/2026 13:30:07",
+                            "Productname": "DTY",
+                            "ProducttypeIdName": "PET(半消光)",
+                            "Productchnname": "空",
+                            "Specification": "174dtex288-ED20L",
+                            "ProductIdname": "1108",
+                            "ProductdetailIdname": "LAST",
+                            "Productclass": "A",
+                            "Price": 8000.0000,
+                            "Range": 10.0000
+                        }
+                    ]
+                }
+                """;
+    }
+
+    private String emptyPageResponse() {
+        return """
+                {
+                    "Success": true,
+                    "Message": "基准价获取成功",
+                    "Data": []
+                }
+                """;
+    }
+
     private FieldConfig field(String name, String expression, boolean key) {
         FieldConfig field = new FieldConfig();
         field.name = name;
@@ -142,19 +276,39 @@ public class HttpStepExecutorTest {
          * Mock response body.
          */
         private final String responseBody;
+        private final List<HttpResponseData> responses;
 
         /**
          * Captured HTTP request.
          */
         private HttpRequestData request;
 
+        private final List<HttpRequestData> requests = new ArrayList<>();
+
         CapturingHttpClient(String responseBody) {
             this.responseBody = responseBody;
+            this.responses = new ArrayList<>();
+        }
+
+        CapturingHttpClient(String firstResponseBody, String secondResponseBody) {
+            this.responseBody = null;
+            this.responses = new ArrayList<>(List.of(
+                    new HttpResponseData(200, firstResponseBody, Collections.emptyMap()),
+                    new HttpResponseData(200, secondResponseBody, Collections.emptyMap())));
+        }
+
+        CapturingHttpClient(HttpResponseData firstResponse, HttpResponseData secondResponse) {
+            this.responseBody = null;
+            this.responses = new ArrayList<>(List.of(firstResponse, secondResponse));
         }
 
         @Override
         public HttpResponseData execute(HttpRequestData request) throws IOException, InterruptedException {
             this.request = request;
+            this.requests.add(request);
+            if (!responses.isEmpty()) {
+                return responses.remove(0);
+            }
             return new HttpResponseData(200, responseBody, Collections.emptyMap());
         }
     }

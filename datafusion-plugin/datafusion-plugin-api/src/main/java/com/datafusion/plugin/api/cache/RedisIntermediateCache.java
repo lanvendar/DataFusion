@@ -10,6 +10,7 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 public class RedisIntermediateCache implements IntermediateCache {
     /** Redis 配置信息. */
@@ -35,6 +36,39 @@ public class RedisIntermediateCache implements IntermediateCache {
     }
 
     @Override
+    public void put(String key, Object value, long ttlSeconds, String mode) {
+        String normalized = TextUtils.upper(mode, "UPSERT");
+        if ("PUT".equals(normalized)) {
+            Object stored = ttlSeconds > 0
+                    ? command("SET", key, JsonUtils.write(value), "NX", "EX", String.valueOf(ttlSeconds))
+                    : command("SET", key, JsonUtils.write(value), "NX");
+            if (stored == null) {
+                return;
+            }
+            return;
+        }
+        IntermediateCache.super.put(key, value, ttlSeconds, normalized);
+    }
+
+    @Override
+    public void appendList(String key, Object value, long ttlSeconds) {
+        command("RPUSH", key, JsonUtils.write(value));
+        expire(key, ttlSeconds);
+    }
+
+    @Override
+    public void putHash(String key, Object value, long ttlSeconds) {
+        if (value instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                command("HSET", key, String.valueOf(entry.getKey()), JsonUtils.write(entry.getValue()));
+            }
+        } else {
+            command("HSET", key, "value", JsonUtils.write(value));
+        }
+        expire(key, ttlSeconds);
+    }
+
+    @Override
     public Object get(String key) {
         Object value = command("GET", key);
         if (value == null) {
@@ -45,6 +79,12 @@ public class RedisIntermediateCache implements IntermediateCache {
             return JsonUtils.MAPPER.readValue(text, Object.class);
         } catch (Exception ignored) {
             return text;
+        }
+    }
+
+    private void expire(String key, long ttlSeconds) {
+        if (ttlSeconds > 0) {
+            command("EXPIRE", key, String.valueOf(ttlSeconds));
         }
     }
 

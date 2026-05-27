@@ -4,6 +4,7 @@ import com.datafusion.plugin.api.config.ApiExtractJobConfig.SchemaFieldConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.SinkConfig;
 import com.datafusion.plugin.api.core.ApiExtractException;
 import com.datafusion.plugin.api.core.Record;
+import com.datafusion.plugin.api.sink.SinkMode;
 import com.datafusion.plugin.api.sink.SinkWriter;
 import com.datafusion.plugin.api.util.TextUtils;
 import org.apache.paimon.catalog.Catalog;
@@ -84,6 +85,7 @@ public class PaimonSinkWriter implements SinkWriter {
     @Override
     public void open(SinkConfig sink) {
         this.sink = sink;
+        validateMode();
         try {
             catalog = CatalogFactory.createCatalog(CatalogContext.create(options()));
             String database = requiredConnection("database");
@@ -106,7 +108,8 @@ public class PaimonSinkWriter implements SinkWriter {
         if (records == null || records.isEmpty()) {
             return;
         }
-        try (BatchTableWrite write = table.newBatchWriteBuilder().newWrite(); BatchTableCommit commit = table.newBatchWriteBuilder().newCommit()) {
+        org.apache.paimon.table.sink.BatchWriteBuilder builder = batchWriteBuilder(records);
+        try (BatchTableWrite write = builder.newWrite(); BatchTableCommit commit = builder.newCommit()) {
             for (Record record : records) {
                 write.write(toRow(record));
             }
@@ -173,6 +176,46 @@ public class PaimonSinkWriter implements SinkWriter {
             catalog.createTable(identifier, schema(), true);
             return catalog.getTable(identifier);
         }
+    }
+
+    private void validateMode() {
+        SinkMode mode = SinkMode.parse(sink.mode);
+        if (mode == SinkMode.UPSERT && (sink.table == null || sink.table.primaryKeys == null || sink.table.primaryKeys.isEmpty())) {
+            throw new ApiExtractException("Paimon UPSERT requires sink.table.primaryKeys");
+        }
+        if (mode == SinkMode.OVERWRITE_PARTITION && (sink.table == null
+                || sink.table.partitionKeys == null
+                || sink.table.partitionKeys.isEmpty())) {
+            throw new ApiExtractException("Paimon OVERWRITE_PARTITION requires sink.table.partitionKeys");
+        }
+    }
+
+    private org.apache.paimon.table.sink.BatchWriteBuilder batchWriteBuilder(List<Record> records) {
+        org.apache.paimon.table.sink.BatchWriteBuilder builder = table.newBatchWriteBuilder();
+        if (SinkMode.parse(sink.mode) != SinkMode.OVERWRITE_PARTITION) {
+            return builder;
+        }
+        return builder.withOverwrite(overwritePartition(records));
+    }
+
+    private Map<String, String> overwritePartition(List<Record> records) {
+        Map<String, String> partition = new LinkedHashMap<>();
+        for (String key : sink.table.partitionKeys) {
+            Object value = null;
+            for (Record record : records) {
+                Object current = record.get(key);
+                if (current == null) {
+                    throw new ApiExtractException("Paimon OVERWRITE_PARTITION record lacks partition field: " + key);
+                }
+                if (value == null) {
+                    value = current;
+                } else if (!Objects.equals(String.valueOf(value), String.valueOf(current))) {
+                    throw new ApiExtractException("Paimon OVERWRITE_PARTITION supports one partition per batch: " + key);
+                }
+            }
+            partition.put(key, String.valueOf(value));
+        }
+        return partition;
     }
 
     /**
