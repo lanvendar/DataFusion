@@ -2,9 +2,12 @@ package com.datafusion.plugin.api.core;
 
 import com.datafusion.plugin.api.config.ApiExtractJobConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.FieldConfig;
+import com.datafusion.plugin.api.config.ApiExtractJobConfig.HttpConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.PaginationConfig;
+import com.datafusion.plugin.api.config.ApiExtractJobConfig.RedisCacheConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.SchemaFieldConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.StepConfig;
+import com.datafusion.plugin.api.config.ApiExtractJobConfig.ValueExpressionConfig;
 import com.datafusion.plugin.api.sink.SinkMode;
 import com.datafusion.plugin.api.util.TextUtils;
 
@@ -45,6 +48,7 @@ public class ConfigValidator {
         }
         validateTrigger(config);
         validateRuntime(config);
+        validateHttpConfig(config.httpConfig, "httpConfig");
         validateSteps(config.steps);
         validateCache(config);
         validateSink(config);
@@ -71,6 +75,7 @@ public class ConfigValidator {
                 throw new ApiExtractException("request.method and request.url are required for step: " + step.id);
             }
             validateRequest(step);
+            validateHttpConfig(step.httpConfig, "steps." + step.id + ".httpConfig");
             validatePagination(step);
             validateResponse(step);
         }
@@ -173,14 +178,18 @@ public class ConfigValidator {
         if (config.runtime.loopIntervalMs < 0) {
             throw new ApiExtractException("runtime.loopIntervalMs must be greater than or equal to 0");
         }
-        if (config.runtime.timeout != null
-                && (config.runtime.timeout.connectMs <= 0 || config.runtime.timeout.readMs <= 0 || config.runtime.timeout.writeMs <= 0)) {
-            throw new ApiExtractException("runtime.timeout values must be greater than 0");
+    }
+
+    private void validateHttpConfig(HttpConfig config, String path) {
+        if (config == null) {
+            return;
         }
-        if (config.runtime.retry != null
-                && (config.runtime.retry.maxAttempts < 1 || config.runtime.retry.intervalMs < 0
-                || config.runtime.retry.backoffMultiplier < 1.0)) {
-            throw new ApiExtractException("runtime.retry values are invalid");
+        if (config.connectMs <= 0 || config.readMs <= 0 || config.writeMs <= 0
+                || config.probeConnectMs <= 0 || config.probeReadMs <= 0) {
+            throw new ApiExtractException(path + " timeout values must be greater than 0");
+        }
+        if (config.maxAttempts < 1 || config.retryIntervalMs < 0 || config.backoffMultiplier < 1.0) {
+            throw new ApiExtractException(path + " retry values are invalid");
         }
     }
 
@@ -235,7 +244,8 @@ public class ConfigValidator {
         if (!Set.of("STARROCKS", "PAIMON", "NOOP").contains(sinkType)) {
             throw new ApiExtractException("Unsupported sink.type: " + config.sink.type);
         }
-        SinkMode sinkMode = SinkMode.parse(config.sink.mode);
+        validateConnectType(config.sink.type, config.sink.connectType);
+        validateSinkOptions(config.sink);
         if (!"NOOP".equals(sinkType) && (config.sink.table == null || TextUtils.isBlank(config.sink.table.name))) {
             throw new ApiExtractException("sink.table.name is required");
         }
@@ -249,6 +259,7 @@ public class ConfigValidator {
             }
         }
         validateSinkSchemaCoverage(config, schemaNames);
+        SinkMode sinkMode = SinkMode.parse(config.sink.loadMode);
         if (sinkMode == SinkMode.UPSERT && !"NOOP".equals(sinkType)
                 && (config.sink.table.primaryKeys == null || config.sink.table.primaryKeys.isEmpty())) {
             throw new ApiExtractException(sinkType + " UPSERT requires sink.table.primaryKeys");
@@ -273,26 +284,93 @@ public class ConfigValidator {
      * @param config 任务配置
      */
     private void validateCache(ApiExtractJobConfig config) {
-        boolean hasStepCache = config.steps.stream().anyMatch(step -> step.cache != null && step.cache.enabled);
+        boolean hasStepCache = config.steps.stream().anyMatch(this::hasEnabledCache);
         if (hasStepCache && (config.redis == null || !config.redis.enabled)) {
-            throw new ApiExtractException("redis.enabled must be true when any step.cache is enabled");
+            throw new ApiExtractException("redis.enabled must be true when any steps[].redisCache is enabled");
         }
         if (config.redis != null && config.redis.enabled) {
-            if (TextUtils.isBlank(config.redis.host) || config.redis.port <= 0 || config.redis.database < 0) {
+            if (!"REDIS".equals(TextUtils.upper(config.redis.connectType, "REDIS"))
+                    || TextUtils.isBlank(config.redis.optionString("host", null))
+                    || config.redis.optionInt("port", 0) <= 0
+                    || config.redis.optionInt("database", -1) < 0) {
                 throw new ApiExtractException("redis connection config is invalid");
+            }
+            if (!Set.of("PUT", "UPSERT", "APPEND_LIST", "HASH")
+                    .contains(TextUtils.upper(config.redis.loadMode, "UPSERT"))) {
+                throw new ApiExtractException("Unsupported redis.loadMode: " + config.redis.loadMode);
             }
         }
         for (StepConfig step : config.steps) {
-            if (step.cache == null || !step.cache.enabled) {
-                continue;
+            validateStepCache(step);
+        }
+    }
+
+    private boolean hasEnabledCache(StepConfig step) {
+        return step.redisCache != null && step.redisCache.enabled;
+    }
+
+    private void validateStepCache(StepConfig step) {
+        RedisCacheConfig cache = step.redisCache;
+        if (cache == null || !cache.enabled) {
+            return;
+        }
+        if (TextUtils.isBlank(cache.key)) {
+            throw new ApiExtractException("steps[].redisCache.key is required for step: " + step.id);
+        }
+        String mode = TextUtils.upper(cache.loadMode, "UPSERT");
+        if (!Set.of("PUT", "UPSERT", "APPEND_LIST", "HASH").contains(mode)) {
+            throw new ApiExtractException("Unsupported steps[].redisCache.loadMode for step: " + step.id);
+        }
+        if (cache.valueExpressions == null || cache.valueExpressions.isEmpty()) {
+            throw new ApiExtractException("steps[].redisCache.valueExpressions is required for step: " + step.id);
+        }
+        for (ValueExpressionConfig expression : cache.valueExpressions) {
+            if (TextUtils.isBlank(expression.name) || TextUtils.isBlank(expression.expression)) {
+                throw new ApiExtractException("steps[].redisCache.valueExpressions name and expression are required for step: " + step.id);
             }
-            if (TextUtils.isBlank(step.cache.key)) {
-                throw new ApiExtractException("step.cache.key is required for step: " + step.id);
+        }
+    }
+
+    private void validateConnectType(String sinkType, String connectType) {
+        String type = TextUtils.upper(sinkType, null);
+        String connection = TextUtils.upper(connectType, null);
+        if ("STARROCKS".equals(type) && !Set.of("JDBC", "LOAD_STREAM").contains(connection)) {
+            throw new ApiExtractException("StarRocks connectType must be JDBC or LOAD_STREAM");
+        }
+        if ("PAIMON".equals(type) && !TextUtils.isBlank(connectType) && !"S3".equals(connection)) {
+            throw new ApiExtractException("Paimon connectType must be S3");
+        }
+        if ("NOOP".equals(type) && !TextUtils.isBlank(connectType) && !"NOOP".equals(connection)) {
+            throw new ApiExtractException("NOOP connectType must be NOOP");
+        }
+    }
+
+    private void validateSinkOptions(ApiExtractJobConfig.SinkConfig sink) {
+        String type = TextUtils.upper(sink.type, null);
+        String connectType = TextUtils.upper(sink.connectType, null);
+        if ("STARROCKS".equals(type) && "JDBC".equals(connectType)) {
+            requireOption(sink, "jdbcUrl");
+            requireOption(sink, "username");
+            requireOption(sink, "database");
+        }
+        if ("STARROCKS".equals(type) && "LOAD_STREAM".equals(connectType)) {
+            requireOption(sink, "loadUrl");
+            requireOption(sink, "username");
+            requireOption(sink, "database");
+            if (SinkMode.parse(sink.loadMode) == SinkMode.OVERWRITE_PARTITION) {
+                requireOption(sink, "jdbcUrl");
             }
-            String mode = TextUtils.upper(step.cache.mode, "UPSERT");
-            if (!Set.of("PUT", "UPSERT", "APPEND_LIST", "HASH").contains(mode)) {
-                throw new ApiExtractException("Unsupported step.cache.mode for step: " + step.id);
-            }
+        }
+        if ("PAIMON".equals(type)) {
+            requireOption(sink, "warehouse");
+            requireOption(sink, "database");
+            requireOption(sink, "endpoint");
+        }
+    }
+
+    private void requireOption(ApiExtractJobConfig.SinkConfig sink, String key) {
+        if (TextUtils.isBlank(sink.optionString(key, null))) {
+            throw new ApiExtractException("sink.options." + key + " is required for " + sink.type);
         }
     }
 

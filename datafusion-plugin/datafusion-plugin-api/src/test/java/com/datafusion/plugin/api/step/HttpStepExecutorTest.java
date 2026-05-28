@@ -5,6 +5,7 @@ import com.datafusion.plugin.api.config.ApiExtractJobConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.FieldConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.ResponseConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.StepConfig;
+import com.datafusion.plugin.api.config.ApiExtractJobConfig.ValueExpressionConfig;
 import com.datafusion.plugin.api.core.ApiExtractContext;
 import com.datafusion.plugin.api.core.Record;
 import com.datafusion.plugin.api.expression.JmesPathEvaluator;
@@ -151,8 +152,8 @@ public class HttpStepExecutorTest {
     @Test
     public void executeShouldRetryRetryableStatus() {
         ApiExtractJobConfig config = benchmarkConfig();
-        config.runtime.retry.maxAttempts = 2;
-        config.runtime.retry.intervalMs = 0;
+        config.httpConfig.maxAttempts = 2;
+        config.httpConfig.retryIntervalMs = 0;
         StepConfig step = config.steps.get(0);
         CapturingHttpClient httpClient = new CapturingHttpClient(
                 new HttpResponseData(500, "{\"Success\":false}", Collections.emptyMap()),
@@ -174,12 +175,15 @@ public class HttpStepExecutorTest {
     public void executeShouldWriteCacheWithConfiguredMode() {
         ApiExtractJobConfig config = benchmarkConfig();
         config.redis.enabled = true;
-        config.redis.keyPrefix = "prefix";
+        config.redis.options.put("keyPrefix", "prefix");
         StepConfig step = config.steps.get(0);
-        step.cache.enabled = true;
-        step.cache.key = "bench:${job.id}";
-        step.cache.mode = "HASH";
-        step.cache.valueExpression = "Data[0]";
+        step.redisCache.enabled = true;
+        step.redisCache.key = "bench:${job.id}";
+        step.redisCache.loadMode = "HASH";
+        ValueExpressionConfig productDetail = new ValueExpressionConfig();
+        productDetail.name = "ProductdetailIdname";
+        productDetail.expression = "Data[0].ProductdetailIdname";
+        step.redisCache.valueExpressions.add(productDetail);
         CapturingHttpClient httpClient = new CapturingHttpClient(BENCHMARK_RESPONSE);
         CapturingSinkWriter sinkWriter = new CapturingSinkWriter();
         InMemoryIntermediateCache cache = new InMemoryIntermediateCache();

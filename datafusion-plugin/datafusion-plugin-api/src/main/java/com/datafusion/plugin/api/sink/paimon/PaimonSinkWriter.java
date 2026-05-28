@@ -149,11 +149,12 @@ public class PaimonSinkWriter implements SinkWriter {
     private Options options() {
         Map<String, String> options = new LinkedHashMap<>();
         options.put("warehouse", requiredConnection("warehouse"));
-        options.put("type", stringValue(sink.connection.getOrDefault("catalogType", "filesystem")));
-        Object configuredOptions = sink.connection.get("options");
-        if (configuredOptions instanceof Map<?, ?> map) {
-            map.forEach((key, value) -> options.put(String.valueOf(key), stringValue(value)));
-        }
+        options.put("type", sink.optionString("catalogType", "filesystem"));
+        sink.options.forEach((key, value) -> {
+            if (value != null) {
+                options.put(key, stringValue(value));
+            }
+        });
         return Options.fromMap(options);
     }
 
@@ -179,7 +180,7 @@ public class PaimonSinkWriter implements SinkWriter {
     }
 
     private void validateMode() {
-        SinkMode mode = SinkMode.parse(sink.mode);
+        SinkMode mode = SinkMode.parse(sink.loadMode);
         if (mode == SinkMode.UPSERT && (sink.table == null || sink.table.primaryKeys == null || sink.table.primaryKeys.isEmpty())) {
             throw new ApiExtractException("Paimon UPSERT requires sink.table.primaryKeys");
         }
@@ -192,7 +193,7 @@ public class PaimonSinkWriter implements SinkWriter {
 
     private org.apache.paimon.table.sink.BatchWriteBuilder batchWriteBuilder(List<Record> records) {
         org.apache.paimon.table.sink.BatchWriteBuilder builder = table.newBatchWriteBuilder();
-        if (SinkMode.parse(sink.mode) != SinkMode.OVERWRITE_PARTITION) {
+        if (SinkMode.parse(sink.loadMode) != SinkMode.OVERWRITE_PARTITION) {
             return builder;
         }
         return builder.withOverwrite(overwritePartition(records));
@@ -374,9 +375,9 @@ public class PaimonSinkWriter implements SinkWriter {
      * @return 配置值
      */
     private String requiredConnection(String key) {
-        String value = stringValue(sink.connection.get(key));
+        String value = sink.optionString(key, null);
         if (TextUtils.isBlank(value)) {
-            throw new ApiExtractException("Paimon connection." + key + " is required");
+            throw new ApiExtractException("Paimon sink.options." + key + " is required");
         }
         return value;
     }

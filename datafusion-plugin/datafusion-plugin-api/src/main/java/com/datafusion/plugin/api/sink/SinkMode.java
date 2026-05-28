@@ -30,7 +30,7 @@ public enum SinkMode {
         try {
             return SinkMode.valueOf(normalized);
         } catch (IllegalArgumentException e) {
-            throw new ApiExtractException("Unsupported sink.mode: " + value);
+            throw new ApiExtractException("Unsupported sink.loadMode: " + value);
         }
     }
 }

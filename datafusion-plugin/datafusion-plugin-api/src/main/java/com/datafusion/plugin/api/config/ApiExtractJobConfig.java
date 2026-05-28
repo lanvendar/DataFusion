@@ -32,6 +32,11 @@ public class ApiExtractJobConfig {
      * 运行时控制参数.
      */
     public RuntimeConfig runtime = new RuntimeConfig();
+
+    /**
+     * 全局 HTTP 配置.
+     */
+    public HttpConfig httpConfig = new HttpConfig();
     
     /**
      * Redis 缓存配置.
@@ -39,10 +44,10 @@ public class ApiExtractJobConfig {
     public RedisConfig redis = new RedisConfig();
     
     /**
-     * 运行时变量映射.
+     * 输入变量映射.
      */
-    public Map<String, Object> vars = new LinkedHashMap<>();
-    
+    public Map<String, Object> inputVars = new LinkedHashMap<>();
+
     /**
      * 步骤列表.
      */
@@ -115,26 +120,12 @@ public class ApiExtractJobConfig {
          */
         public long loopIntervalMs = 0;
         
-        /**
-         * 超时配置.
-         */
-        public TimeoutConfig timeout = new TimeoutConfig();
-        
-        /**
-         * 重试配置.
-         */
-        public RetryConfig retry = new RetryConfig();
-        
-        /**
-         * 失败策略配置.
-         */
-        public FailurePolicyConfig failurePolicy = new FailurePolicyConfig();
     }
 
     /**
-     * 超时配置.
+     * HTTP 配置.
      */
-    public static class TimeoutConfig {
+    public static class HttpConfig {
         
         /**
          * 连接超时(毫秒).
@@ -150,22 +141,26 @@ public class ApiExtractJobConfig {
          * 写入超时(毫秒).
          */
         public int writeMs = 30000;
-    }
 
-    /**
-     * 重试配置.
-     */
-    public static class RetryConfig {
+        /**
+         * 探测连接超时(毫秒).
+         */
+        public int probeConnectMs = 5000;
+
+        /**
+         * 探测读取超时(毫秒).
+         */
+        public int probeReadMs = 15000;
         
         /**
-         * 最大重试次数.
+         * 最大请求次数.
          */
         public int maxAttempts = 3;
         
         /**
          * 重试间隔(毫秒).
          */
-        public long intervalMs = 1000;
+        public long retryIntervalMs = 1000;
         
         /**
          * 退避倍数.
@@ -176,13 +171,7 @@ public class ApiExtractJobConfig {
          * 需要重试的 HTTP 状态码列表.
          */
         public List<Integer> retryOnStatus = new ArrayList<>(List.of(429, 500, 502, 503, 504));
-    }
 
-    /**
-     * 失败策略配置.
-     */
-    public static class FailurePolicyConfig {
-        
         /**
          * HTTP 错误处理策略.
          */
@@ -210,39 +199,61 @@ public class ApiExtractJobConfig {
         public boolean enabled;
         
         /**
-         * Redis 主机地址.
+         * Redis 写入模式.
          */
-        public String host = "localhost";
+        public String loadMode = "UPSERT";
         
         /**
-         * Redis 端口.
+         * 连接类型.
          */
-        public int port = 6379;
+        public String connectType = "REDIS";
         
         /**
-         * Redis 数据库索引.
+         * Redis 连接参数.
          */
-        public int database = 0;
-        
+        public Map<String, Object> options = new LinkedHashMap<>();
+
         /**
-         * Redis 密码.
+         * 获取字符串类型的 Redis options 配置值.
+         *
+         * @param key 配置键
+         * @param defaultValue 默认值
+         * @return 配置值
          */
-        public String password;
-        
+        public String optionString(String key, String defaultValue) {
+            Object value = options == null ? null : options.get(key);
+            return value == null ? defaultValue : String.valueOf(value);
+        }
+
         /**
-         * 密码环境变量引用.
+         * 获取整数类型的 Redis options 配置值.
+         *
+         * @param key 配置键
+         * @param defaultValue 默认值
+         * @return 配置值
          */
-        public String passwordRef;
-        
+        public int optionInt(String key, int defaultValue) {
+            Object value = options == null ? null : options.get(key);
+            if (value instanceof Number number) {
+                return number.intValue();
+            }
+            return value == null ? defaultValue : Integer.parseInt(String.valueOf(value));
+        }
+
         /**
-         * Key 前缀.
+         * 获取长整数类型的 Redis options 配置值.
+         *
+         * @param key 配置键
+         * @param defaultValue 默认值
+         * @return 配置值
          */
-        public String keyPrefix = "datafusion:plugin:api";
-        
-        /**
-         * 默认 TTL(秒).
-         */
-        public long ttlSeconds = 3600;
+        public long optionLong(String key, long defaultValue) {
+            Object value = options == null ? null : options.get(key);
+            if (value instanceof Number number) {
+                return number.longValue();
+            }
+            return value == null ? defaultValue : Long.parseLong(String.valueOf(value));
+        }
     }
 
     /**
@@ -271,6 +282,11 @@ public class ApiExtractJobConfig {
         public boolean enabled = true;
         
         /**
+         * Step 级 HTTP 配置.
+         */
+        public HttpConfig httpConfig;
+
+        /**
          * HTTP 请求配置.
          */
         public RequestConfig request = new RequestConfig();
@@ -286,14 +302,15 @@ public class ApiExtractJobConfig {
         public ResponseConfig response = new ResponseConfig();
         
         /**
-         * 缓存配置.
+         * Redis 缓存配置.
          */
-        public CacheConfig cache = new CacheConfig();
+        public RedisCacheConfig redisCache = new RedisCacheConfig();
         
         /**
          * 步骤输出映射.
          */
-        public Map<String, String> output = new LinkedHashMap<>();
+        public Map<String, String> outputVars = new LinkedHashMap<>();
+
     }
 
     /**
@@ -336,20 +353,6 @@ public class ApiExtractJobConfig {
          */
         public String rawBody;
         
-        /**
-         * 超时配置(覆盖全局配置).
-         */
-        public TimeoutConfig timeout;
-        
-        /**
-         * 重试配置(覆盖全局配置).
-         */
-        public RetryConfig retry;
-        
-        /**
-         * 失败策略(覆盖全局配置).
-         */
-        public FailurePolicyConfig failurePolicy;
     }
 
     /**
@@ -496,34 +499,49 @@ public class ApiExtractJobConfig {
     }
 
     /**
-     * 缓存配置.
+     * Redis 缓存配置.
      */
-    public static class CacheConfig {
-        
+    public static class RedisCacheConfig {
+
         /**
          * 是否启用缓存.
          */
         public boolean enabled;
-        
+
         /**
          * 缓存 Key 模板.
          */
         public String key;
-        
+
         /**
          * 缓存 TTL(秒).
          */
         public long ttlSeconds;
-        
+
         /**
-         * 缓存模式(PUT/UPSERT/APPEND_LIST/HASH).
+         * 缓存写入模式.
          */
-        public String mode = "UPSERT";
-        
+        public String loadMode;
+
         /**
-         * 缓存值表达式(JMESPath).
+         * 缓存值表达式.
          */
-        public String valueExpression;
+        public List<ValueExpressionConfig> valueExpressions = new ArrayList<>();
+    }
+
+    /**
+     * 值表达式配置.
+     */
+    public static class ValueExpressionConfig {
+        /**
+         * 输出字段名.
+         */
+        public String name;
+
+        /**
+         * JMESPath 表达式.
+         */
+        public String expression;
     }
 
     /**
@@ -539,12 +557,44 @@ public class ApiExtractJobConfig {
         /**
          * 写入模式(APPEND/UPSERT/OVERWRITE_PARTITION).
          */
-        public String mode = "APPEND";
-        
+        public String loadMode = "APPEND";
+
         /**
-         * 连接配置.
+         * 连接类型.
          */
-        public Map<String, Object> connection = new LinkedHashMap<>();
+        public String connectType;
+
+        /**
+         * 连接参数.
+         */
+        public Map<String, Object> options = new LinkedHashMap<>();
+
+        /**
+         * 获取字符串类型的 sink options 配置值.
+         *
+         * @param key 配置键
+         * @param defaultValue 默认值
+         * @return 配置值
+         */
+        public String optionString(String key, String defaultValue) {
+            Object value = options == null ? null : options.get(key);
+            return value == null ? defaultValue : String.valueOf(value);
+        }
+
+        /**
+         * 获取整数类型的 sink options 配置值.
+         *
+         * @param key 配置键
+         * @param defaultValue 默认值
+         * @return 配置值
+         */
+        public int optionInt(String key, int defaultValue) {
+            Object value = options == null ? null : options.get(key);
+            if (value instanceof Number number) {
+                return number.intValue();
+            }
+            return value == null ? defaultValue : Integer.parseInt(String.valueOf(value));
+        }
         
         /**
          * 表配置.
@@ -674,5 +724,25 @@ public class ApiExtractJobConfig {
          * Paimon Commit 用户标识.
          */
         public String commitUser = "datafusion-api-plugin";
+
+        /**
+         * 写入 Headers.
+         */
+        public Map<String, Object> headers = new LinkedHashMap<>();
+
+        /**
+         * Stream Load label 前缀.
+         */
+        public String labelPrefix = "datafusion_api";
+
+        /**
+         * StarRocks 部分更新.
+         */
+        public boolean partialUpdate;
+
+        /**
+         * 覆盖分区配置.
+         */
+        public Map<String, Object> overwritePartition = new LinkedHashMap<>();
     }
 }

@@ -1,15 +1,13 @@
 package com.datafusion.plugin.api.step;
 
 import com.datafusion.plugin.api.cache.IntermediateCache;
-import com.datafusion.plugin.api.config.ApiExtractJobConfig;
-import com.datafusion.plugin.api.config.ApiExtractJobConfig.CacheConfig;
-import com.datafusion.plugin.api.config.ApiExtractJobConfig.FailurePolicyConfig;
+import com.datafusion.plugin.api.config.ApiExtractJobConfig.HttpConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.PaginationConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.RequestConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.ResponseConfig;
-import com.datafusion.plugin.api.config.ApiExtractJobConfig.RetryConfig;
+import com.datafusion.plugin.api.config.ApiExtractJobConfig.RedisCacheConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.StepConfig;
-import com.datafusion.plugin.api.config.ApiExtractJobConfig.TimeoutConfig;
+import com.datafusion.plugin.api.config.ApiExtractJobConfig.ValueExpressionConfig;
 import com.datafusion.plugin.api.core.ApiExtractContext;
 import com.datafusion.plugin.api.core.ApiExtractException;
 import com.datafusion.plugin.api.core.Record;
@@ -149,8 +147,8 @@ public class HttpStepExecutor {
         writeCache(context, step, json);
         writeStepOutput(context, step, json);
         List<Record> records = recordMapper.map(step.response, json, context);
-        FailurePolicyConfig failurePolicy = failurePolicy(context, step.request);
-        if (records.isEmpty() && "FAIL".equals(TextUtils.upper(failurePolicy.onEmptyData, "SUCCESS"))) {
+        HttpConfig httpConfig = httpConfig(context, step);
+        if (records.isEmpty() && "FAIL".equals(TextUtils.upper(httpConfig.onEmptyData, "SUCCESS"))) {
             throw new ApiExtractException("Step returned empty data: " + step.id);
         }
         writeBatch(context, records, sinkWriter);
@@ -170,14 +168,14 @@ public class HttpStepExecutor {
     }
 
     private HttpResponseData executeWithRetry(ApiExtractContext context, StepConfig step, Map<String, Object> pageParams) {
-        RetryConfig retry = retry(context, step.request);
-        int maxAttempts = Math.max(1, retry.maxAttempts);
-        long interval = Math.max(0, retry.intervalMs);
+        HttpConfig httpConfig = httpConfig(context, step);
+        int maxAttempts = Math.max(1, httpConfig.maxAttempts);
+        long interval = Math.max(0, httpConfig.retryIntervalMs);
         Exception lastException = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                HttpResponseData response = httpClient.execute(buildRequest(context, step.request, pageParams));
-                if (!retry.retryOnStatus.contains(response.getStatusCode()) || attempt == maxAttempts) {
+                HttpResponseData response = httpClient.execute(buildRequest(context, step, pageParams));
+                if (!httpConfig.retryOnStatus.contains(response.getStatusCode()) || attempt == maxAttempts) {
                     return response;
                 }
             } catch (IOException | InterruptedException e) {
@@ -190,12 +188,13 @@ public class HttpStepExecutor {
                 }
             }
             sleep(interval);
-            interval = (long) (interval * Math.max(1.0, retry.backoffMultiplier));
+            interval = (long) (interval * Math.max(1.0, httpConfig.backoffMultiplier));
         }
         throw new ApiExtractException("HTTP request failed after retry: " + step.id, lastException);
     }
 
-    private HttpRequestData buildRequest(ApiExtractContext context, RequestConfig request, Map<String, Object> pageParams) {
+    private HttpRequestData buildRequest(ApiExtractContext context, StepConfig step, Map<String, Object> pageParams) {
+        RequestConfig request = step.request;
         RequestConfig source = request == null ? new RequestConfig() : request;
         Map<String, Object> queryParams = new LinkedHashMap<>();
         if (source.queryParams != null) {
@@ -209,9 +208,9 @@ public class HttpStepExecutor {
             source.headers.forEach((key, value) -> target.headers.put(key, stringValue(templateResolver.resolveObject(value, context))));
         }
         target.body = body(source, context, target.headers);
-        TimeoutConfig timeout = timeout(context, source);
-        target.connectTimeoutMs = timeout.connectMs;
-        target.readTimeoutMs = timeout.readMs;
+        HttpConfig httpConfig = httpConfig(context, step);
+        target.connectTimeoutMs = httpConfig.connectMs;
+        target.readTimeoutMs = httpConfig.readMs;
         return target;
     }
 
@@ -240,14 +239,14 @@ public class HttpStepExecutor {
     private Object parseAndValidate(ApiExtractContext context, StepConfig step, HttpResponseData response) {
         ResponseConfig responseConfig = step.response == null ? new ResponseConfig() : step.response;
         if (!responseConfig.successStatus.contains(response.getStatusCode())) {
-            handleFailure(context, step.request, "HTTP status not successful: " + response.getStatusCode());
+            handleFailure(context, step, "HTTP status not successful: " + response.getStatusCode());
         }
         Object json;
         try {
             json = JsonUtils.MAPPER.readValue(response.getBody(), Object.class);
         } catch (Exception e) {
-            FailurePolicyConfig failurePolicy = failurePolicy(context, step.request);
-            if ("SUCCESS".equals(TextUtils.upper(failurePolicy.onParseError, "FAIL"))) {
+            HttpConfig httpConfig = httpConfig(context, step);
+            if ("SUCCESS".equals(TextUtils.upper(httpConfig.onParseError, "FAIL"))) {
                 return Map.of();
             }
             throw new ApiExtractException("Failed to parse JSON response for step: " + step.id, e);
@@ -255,62 +254,89 @@ public class HttpStepExecutor {
         if (!TextUtils.isBlank(responseConfig.successExpression) && !evaluator.isTruthy(json, responseConfig.successExpression)) {
             Object message = TextUtils.isBlank(responseConfig.messageExpression) ? null
                     : evaluator.search(json, responseConfig.messageExpression);
-            handleFailure(context, step.request, "Business success expression returned false: " + message);
+            handleFailure(context, step, "Business success expression returned false: " + message);
         }
         return json;
     }
 
-    private void handleFailure(ApiExtractContext context, RequestConfig request, String message) {
-        FailurePolicyConfig failurePolicy = failurePolicy(context, request);
-        if ("SUCCESS".equals(TextUtils.upper(failurePolicy.onHttpError, "FAIL"))) {
+    private void handleFailure(ApiExtractContext context, StepConfig step, String message) {
+        HttpConfig httpConfig = httpConfig(context, step);
+        if ("SUCCESS".equals(TextUtils.upper(httpConfig.onHttpError, "FAIL"))) {
             return;
         }
         throw new ApiExtractException(message);
     }
 
     private void writeCache(ApiExtractContext context, StepConfig step, Object json) {
-        CacheConfig cacheConfig = step.cache;
+        RedisCacheConfig cacheConfig = step.redisCache;
         if (cacheConfig == null || !cacheConfig.enabled) {
             return;
         }
-        Object value = TextUtils.isBlank(cacheConfig.valueExpression) ? json : evaluator.search(json, cacheConfig.valueExpression);
-        String prefix = context.getConfig().redis == null ? "" : context.getConfig().redis.keyPrefix + ":";
+        Map<String, Object> value = new LinkedHashMap<>();
+        for (ValueExpressionConfig expression : cacheConfig.valueExpressions) {
+            value.put(expression.name, evaluator.search(json, expression.expression));
+        }
+        String prefix = context.getConfig().redis == null ? "" : context.getConfig().redis.optionString("keyPrefix", "datafusion:plugin:api") + ":";
         String key = prefix + templateResolver.resolve(cacheConfig.key, context);
-        long ttl = cacheConfig.ttlSeconds > 0 ? cacheConfig.ttlSeconds : context.getConfig().redis.ttlSeconds;
-        cache.put(key, value, ttl, cacheConfig.mode);
+        long defaultTtl = context.getConfig().redis == null ? 3600 : context.getConfig().redis.optionLong("ttlSeconds", 3600);
+        long ttl = cacheConfig.ttlSeconds > 0 ? cacheConfig.ttlSeconds : defaultTtl;
+        String mode = TextUtils.upper(cacheConfig.loadMode, context.getConfig().redis == null ? "UPSERT" : context.getConfig().redis.loadMode);
+        cache.put(key, value, ttl, mode);
     }
 
     private void writeStepOutput(ApiExtractContext context, StepConfig step, Object json) {
-        if (step.output == null || step.output.isEmpty()) {
+        Map<String, String> outputVars = step.outputVars;
+        if (outputVars == null || outputVars.isEmpty()) {
             return;
         }
         Map<String, Object> output = new LinkedHashMap<>();
-        step.output.forEach((key, expression) -> output.put(key, evaluator.search(json, expression)));
+        outputVars.forEach((key, expression) -> output.put(key, evaluator.search(json, expression)));
         context.putStepOutput(step.id, output);
     }
 
-    private TimeoutConfig timeout(ApiExtractContext context, RequestConfig request) {
-        if (request != null && request.timeout != null) {
-            return request.timeout;
+    private HttpConfig httpConfig(ApiExtractContext context, StepConfig step) {
+        HttpConfig config = copyHttpConfig(context.getConfig().httpConfig);
+        if (step != null && step.httpConfig != null) {
+            mergeHttpConfig(config, step.httpConfig);
         }
-        ApiExtractJobConfig.RuntimeConfig runtime = context.getConfig().runtime;
-        return runtime == null || runtime.timeout == null ? new TimeoutConfig() : runtime.timeout;
+        return config;
     }
 
-    private RetryConfig retry(ApiExtractContext context, RequestConfig request) {
-        if (request != null && request.retry != null) {
-            return request.retry;
+    private HttpConfig copyHttpConfig(HttpConfig source) {
+        HttpConfig target = new HttpConfig();
+        if (source == null) {
+            return target;
         }
-        ApiExtractJobConfig.RuntimeConfig runtime = context.getConfig().runtime;
-        return runtime == null || runtime.retry == null ? new RetryConfig() : runtime.retry;
+        target.connectMs = source.connectMs;
+        target.readMs = source.readMs;
+        target.writeMs = source.writeMs;
+        target.probeConnectMs = source.probeConnectMs;
+        target.probeReadMs = source.probeReadMs;
+        target.maxAttempts = source.maxAttempts;
+        target.retryIntervalMs = source.retryIntervalMs;
+        target.backoffMultiplier = source.backoffMultiplier;
+        target.retryOnStatus = source.retryOnStatus == null ? target.retryOnStatus : source.retryOnStatus;
+        target.onHttpError = source.onHttpError;
+        target.onEmptyData = source.onEmptyData;
+        target.onParseError = source.onParseError;
+        return target;
     }
 
-    private FailurePolicyConfig failurePolicy(ApiExtractContext context, RequestConfig request) {
-        if (request != null && request.failurePolicy != null) {
-            return request.failurePolicy;
+    private void mergeHttpConfig(HttpConfig target, HttpConfig source) {
+        target.connectMs = source.connectMs;
+        target.readMs = source.readMs;
+        target.writeMs = source.writeMs;
+        target.probeConnectMs = source.probeConnectMs;
+        target.probeReadMs = source.probeReadMs;
+        target.maxAttempts = source.maxAttempts;
+        target.retryIntervalMs = source.retryIntervalMs;
+        target.backoffMultiplier = source.backoffMultiplier;
+        if (source.retryOnStatus != null) {
+            target.retryOnStatus = source.retryOnStatus;
         }
-        ApiExtractJobConfig.RuntimeConfig runtime = context.getConfig().runtime;
-        return runtime == null || runtime.failurePolicy == null ? new FailurePolicyConfig() : runtime.failurePolicy;
+        target.onHttpError = source.onHttpError;
+        target.onEmptyData = source.onEmptyData;
+        target.onParseError = source.onParseError;
     }
 
     private String appendQuery(String url, Map<String, Object> queryParams, ApiExtractContext context) {

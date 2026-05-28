@@ -19,6 +19,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.Base64;
@@ -67,8 +68,13 @@ public class StarRocksSinkWriter implements SinkWriter {
         this.sink = sink;
         validateMode();
         try {
-            connection = DriverManager.getConnection(required("jdbcUrl"), required("username"), password());
-            ensureTable();
+            if (requiresJdbc()) {
+                connection = DriverManager.getConnection(required("jdbcUrl"), required("username"), password());
+                ensureTable();
+            } else if (!TextUtils.isBlank(option("jdbcUrl"))) {
+                connection = DriverManager.getConnection(option("jdbcUrl"), required("username"), password());
+                ensureTable();
+            }
         } catch (SQLException e) {
             throw new ApiExtractException("Failed to open StarRocks sink", e);
         }
@@ -84,15 +90,19 @@ public class StarRocksSinkWriter implements SinkWriter {
         if (records == null || records.isEmpty()) {
             return;
         }
-        if (SinkMode.parse(sink.mode) == SinkMode.OVERWRITE_PARTITION) {
+        if (mode() == SinkMode.OVERWRITE_PARTITION) {
             deletePartitions(records);
+        }
+        if (connectType().equals("JDBC")) {
+            writeJdbc(records);
+            return;
         }
         String payload = toJsonLines(records);
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(loadUrl()))
                 .timeout(Duration.ofMillis(Math.max(1000, sink.write.flushIntervalMs)))
                 .header("Authorization", basicAuth())
-                .header("label", "datafusion_api_" + UUID.randomUUID().toString().replace("-", ""))
+                .header("label", label())
                 .header("format", "json")
                 .header("strip_outer_array", "false")
                 .header("read_json_by_line", "true")
@@ -153,11 +163,10 @@ public class StarRocksSinkWriter implements SinkWriter {
     }
 
     private void validateMode() {
-        SinkMode mode = SinkMode.parse(sink.mode);
-        if (mode == SinkMode.UPSERT && (sink.table == null || sink.table.primaryKeys == null || sink.table.primaryKeys.isEmpty())) {
+        if (mode() == SinkMode.UPSERT && (sink.table == null || sink.table.primaryKeys == null || sink.table.primaryKeys.isEmpty())) {
             throw new ApiExtractException("StarRocks UPSERT requires sink.table.primaryKeys");
         }
-        if (mode == SinkMode.OVERWRITE_PARTITION && (sink.table == null
+        if (mode() == SinkMode.OVERWRITE_PARTITION && (sink.table == null
                 || sink.table.partition == null
                 || !sink.table.partition.enabled
                 || TextUtils.isBlank(sink.table.partition.field))) {
@@ -166,13 +175,47 @@ public class StarRocksSinkWriter implements SinkWriter {
     }
 
     private void applyModeHeaders(HttpRequest.Builder builder) {
-        SinkMode mode = SinkMode.parse(sink.mode);
-        if (mode == SinkMode.UPSERT) {
-            builder.header("partial_update", "true");
+        if (mode() == SinkMode.UPSERT) {
+            builder.header("partial_update", String.valueOf(sink.write == null || sink.write.partialUpdate));
+        }
+        if (sink.write != null && sink.write.headers != null) {
+            sink.write.headers.forEach((key, value) -> builder.header(String.valueOf(key), stringValue(value)));
         }
     }
 
+    private void writeJdbc(List<Record> records) {
+        String sql = jdbcSql(records.get(0));
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            for (Record record : records) {
+                int index = 1;
+                for (SchemaFieldConfig field : sink.schema) {
+                    statement.setObject(index++, record.get(field.name));
+                }
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        } catch (SQLException e) {
+            throw new ApiExtractException("Failed to write StarRocks records by JDBC", e);
+        }
+    }
+
+    private String jdbcSql(Record sample) {
+        List<String> columns = sink.schema == null || sink.schema.isEmpty()
+                ? sample.keySet().stream().toList() : sink.schema.stream().map(field -> field.name).toList();
+        StringJoiner names = new StringJoiner(", ");
+        StringJoiner placeholders = new StringJoiner(", ");
+        columns.forEach(column -> {
+            names.add(quote(column));
+            placeholders.add("?");
+        });
+        return "INSERT INTO " + quote(database()) + "." + quote(sink.table.name)
+                + " (" + names + ") VALUES (" + placeholders + ")";
+    }
+
     private void deletePartitions(List<Record> records) {
+        if (connection == null) {
+            throw new ApiExtractException("StarRocks OVERWRITE_PARTITION requires sink.options.jdbcUrl");
+        }
         String partitionField = sink.table.partition.field;
         List<Object> partitions = records.stream()
                 .map(record -> record.get(partitionField))
@@ -354,7 +397,8 @@ public class StarRocksSinkWriter implements SinkWriter {
      * @return Stream Load URL
      */
     private String loadUrl() {
-        String loadUrl = required("loadUrl");
+        String endpoint = option("endpoint");
+        String loadUrl = TextUtils.isBlank(endpoint) ? required("loadUrl") : endpoint;
         if (loadUrl.endsWith("/")) {
             loadUrl = loadUrl.substring(0, loadUrl.length() - 1);
         }
@@ -377,7 +421,7 @@ public class StarRocksSinkWriter implements SinkWriter {
      * @return 数据库名
      */
     private String database() {
-        String database = stringValue(sink.connection.get("database"));
+        String database = option("database");
         if (!TextUtils.isBlank(database)) {
             return database;
         }
@@ -388,7 +432,7 @@ public class StarRocksSinkWriter implements SinkWriter {
             int query = tail.indexOf('?');
             return query >= 0 ? tail.substring(0, query) : tail;
         }
-        throw new ApiExtractException("StarRocks connection.database is required");
+        throw new ApiExtractException("StarRocks sink.options.database is required");
     }
 
     /**
@@ -397,11 +441,11 @@ public class StarRocksSinkWriter implements SinkWriter {
      * @return 密码
      */
     private String password() {
-        String password = stringValue(sink.connection.get("password"));
+        String password = option("password");
         if (!TextUtils.isBlank(password)) {
             return password;
         }
-        String passwordRef = stringValue(sink.connection.get("passwordRef"));
+        String passwordRef = option("passwordRef");
         return TextUtils.isBlank(passwordRef) ? "" : System.getenv(passwordRef);
     }
 
@@ -412,11 +456,35 @@ public class StarRocksSinkWriter implements SinkWriter {
      * @return 配置值
      */
     private String required(String key) {
-        String value = stringValue(sink.connection.get(key));
+        String value = option(key);
         if (TextUtils.isBlank(value)) {
-            throw new ApiExtractException("StarRocks connection." + key + " is required");
+            throw new ApiExtractException("StarRocks sink.options." + key + " is required");
         }
         return value;
+    }
+
+    private String option(String key) {
+        return sink.optionString(key, null);
+    }
+
+    private SinkMode mode() {
+        return SinkMode.parse(sink.loadMode);
+    }
+
+    private String connectType() {
+        return TextUtils.upper(sink.connectType, "LOAD_STREAM");
+    }
+
+    private boolean requiresJdbc() {
+        return "JDBC".equals(connectType()) || mode() == SinkMode.OVERWRITE_PARTITION;
+    }
+
+    private String label() {
+        String prefix = sink.write == null ? "datafusion_api" : sink.write.labelPrefix;
+        if (TextUtils.isBlank(prefix)) {
+            prefix = "datafusion_api";
+        }
+        return prefix + "_" + UUID.randomUUID().toString().replace("-", "");
     }
 
     /**

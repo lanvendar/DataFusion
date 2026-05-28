@@ -99,8 +99,8 @@ public class TemplateResolver {
         if ("run.id".equals(token)) {
             return context.getRunId();
         }
-        if (token.startsWith("vars.")) {
-            Object value = context.getVars().get(token.substring("vars.".length()));
+        if (token.startsWith("inputVars.")) {
+            Object value = context.getVars().get(token.substring("inputVars.".length()));
             if (value instanceof String text && text.contains("${")) {
                 return resolve(text, context);
             }
@@ -117,7 +117,7 @@ public class TemplateResolver {
 
     private Object lookupStepOutput(String token, ApiExtractContext context) {
         String prefix = "steps.";
-        String suffix = ".output.";
+        String suffix = ".outputVars.";
         int suffixIndex = token.indexOf(suffix);
         if (suffixIndex < 0) {
             return "";
@@ -136,7 +136,8 @@ public class TemplateResolver {
             return "";
         }
         String customKey = token.substring("redis.".length());
-        String prefix = context.getConfig().redis == null ? "" : context.getConfig().redis.keyPrefix + ":";
+        String prefix = context.getConfig().redis == null
+                ? "" : context.getConfig().redis.optionString("keyPrefix", "datafusion:plugin:api") + ":";
         Object value = cache.get(prefix + customKey);
         if (value instanceof Map || value instanceof Iterable) {
             return JsonUtils.write(value);

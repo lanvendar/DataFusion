@@ -236,7 +236,6 @@ public class RecordMapper {
         if (bracketIdx < 0) {
             return null;
         }
-        String arrayPath = expression.substring(0, bracketIdx + 2);
         String fieldPath = expression.substring(bracketIdx + 2);
         // 字段路径必须非空且不包含 [] (不支持嵌套投影)
         if (fieldPath.isEmpty() || fieldPath.contains("[]")) {
@@ -249,6 +248,7 @@ public class RecordMapper {
         if (fieldPath.isEmpty()) {
             return null;
         }
+        String arrayPath = expression.substring(0, bracketIdx + 2);
         return new String[]{arrayPath, fieldPath};
     }
 

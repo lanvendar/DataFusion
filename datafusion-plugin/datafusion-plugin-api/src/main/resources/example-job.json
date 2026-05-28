@@ -12,35 +12,20 @@
   },
   "runtime": {
     "loopCount": 1,
-    "loopIntervalMs": 0,
-    "timeout": {
-      "connectMs": 5000,
-      "readMs": 30000,
-      "writeMs": 30000
-    },
-    "retry": {
-      "maxAttempts": 3,
-      "intervalMs": 1000,
-      "backoffMultiplier": 2.0,
-      "retryOnStatus": [429, 500, 502, 503, 504]
-    },
-    "failurePolicy": {
-      "onHttpError": "FAIL",
-      "onEmptyData": "SUCCESS",
-      "onParseError": "FAIL"
-    }
+    "loopIntervalMs": 0
   },
   "redis": {
     "enabled": false,
-    "host": "localhost",
-    "port": 6379,
-    "database": 0,
-    "passwordRef": "REDIS_PASSWORD",
-    "keyPrefix": "datafusion:plugin:api",
-    "ttlSeconds": 3600
-  },
-  "vars": {
-    "bizDate": "${date:yyyy-MM-dd}"
+    "loadMode": "UPSERT",
+    "connectType": "REDIS",
+    "options": {
+      "host": "localhost",
+      "port": 6379,
+      "database": 0,
+      "keyPrefix": "datafusion:plugin:api",
+      "ttlSeconds": 3600,
+      "passwordRef": "REDIS_PASSWORD"
+    }
   },
   "steps": [
     {
@@ -61,7 +46,9 @@
       },
       "response": {
         "contentType": "JSON",
-        "successStatus": [200],
+        "successStatus": [
+          200
+        ],
         "successExpression": "Success == `true`",
         "messageExpression": "Message",
         "recordMode": "ARRAY",
@@ -129,25 +116,19 @@
           }
         ]
       },
-      "cache": {
+      "redisCache": {
         "enabled": false
       }
     }
   ],
   "sink": {
     "type": "STARROCKS",
-    "mode": "APPEND",
-    "connection": {
-      "jdbcUrl": "jdbc:mysql://starrocks-fe:9030/dwd",
-      "loadUrl": "http://starrocks-fe:8030",
-      "username": "root",
-      "passwordRef": "STARROCKS_PASSWORD",
-      "database": "dwd"
-    },
     "table": {
       "name": "benchmark_price",
       "createIfNotExists": true,
-      "primaryKeys": ["today"],
+      "primaryKeys": [
+        "today"
+      ],
       "partition": {
         "enabled": true,
         "field": "dt",
@@ -228,6 +209,37 @@
       "format": "JSON",
       "batchSize": 1000,
       "flushIntervalMs": 5000
+    },
+    "loadMode": "APPEND",
+    "connectType": "LOAD_STREAM",
+    "options": {
+      "loadUrl": "http://starrocks-fe:8030",
+      "username": "root",
+      "passwordRef": "STARROCKS_PASSWORD",
+      "database": "dwd"
     }
+  },
+  "httpConfig": {
+    "connectMs": 5000,
+    "readMs": 30000,
+    "writeMs": 30000,
+    "probeConnectMs": 5000,
+    "probeReadMs": 15000,
+    "maxAttempts": 3,
+    "retryIntervalMs": 1000,
+    "backoffMultiplier": 2,
+    "retryOnStatus": [
+      429,
+      500,
+      502,
+      503,
+      504
+    ],
+    "onHttpError": "FAIL",
+    "onEmptyData": "SUCCESS",
+    "onParseError": "FAIL"
+  },
+  "inputVars": {
+    "bizDate": "${date:yyyy-MM-dd}"
   }
 }

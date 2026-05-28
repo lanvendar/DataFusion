@@ -47,7 +47,9 @@ public class ApiExtractContext {
     public ApiExtractContext(ApiExtractJobConfig config, String runId) {
         this.config = config;
         this.runId = runId;
-        this.vars.putAll(config.vars);
+        if (config.inputVars != null) {
+            this.vars.putAll(config.inputVars);
+        }
     }
 
     /**

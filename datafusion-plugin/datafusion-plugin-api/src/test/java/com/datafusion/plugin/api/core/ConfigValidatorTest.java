@@ -2,8 +2,10 @@ package com.datafusion.plugin.api.core;
 
 import com.datafusion.plugin.api.config.ApiExtractJobConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.FieldConfig;
+import com.datafusion.plugin.api.config.ApiExtractJobConfig.RedisCacheConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.SchemaFieldConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.StepConfig;
+import com.datafusion.plugin.api.config.ApiExtractJobConfig.ValueExpressionConfig;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -37,13 +39,21 @@ public class ConfigValidatorTest {
     public void validateShouldRejectInvalidCacheMode() {
         ApiExtractJobConfig config = validConfig();
         config.redis.enabled = true;
-        config.steps.get(0).cache.enabled = true;
-        config.steps.get(0).cache.key = "user:${job.id}";
-        config.steps.get(0).cache.mode = "MERGE";
+        config.redis.options.put("host", "localhost");
+        config.redis.options.put("port", 6379);
+        config.redis.options.put("database", 0);
+        RedisCacheConfig redisCache = config.steps.get(0).redisCache;
+        redisCache.enabled = true;
+        redisCache.key = "user:${job.id}";
+        redisCache.loadMode = "MERGE";
+        ValueExpressionConfig valueExpression = new ValueExpressionConfig();
+        valueExpression.name = "id";
+        valueExpression.expression = "data.id";
+        redisCache.valueExpressions.add(valueExpression);
 
         ApiExtractException error = Assertions.assertThrows(ApiExtractException.class, () -> validator.validate(config));
 
-        Assertions.assertTrue(error.getMessage().contains("cache.mode"));
+        Assertions.assertTrue(error.getMessage().contains("redisCache.loadMode"));
     }
 
     @Test
@@ -61,7 +71,11 @@ public class ConfigValidatorTest {
     public void validateShouldRequireStarRocksUpsertPrimaryKeys() {
         ApiExtractJobConfig config = validConfig();
         config.sink.type = "STARROCKS";
-        config.sink.mode = "UPSERT";
+        config.sink.loadMode = "UPSERT";
+        config.sink.connectType = "LOAD_STREAM";
+        config.sink.options.put("loadUrl", "http://starrocks-fe:8030");
+        config.sink.options.put("username", "root");
+        config.sink.options.put("database", "dwd");
         config.sink.table.name = "api_user";
         config.sink.schema.add(schemaField("id"));
         config.sink.schema.add(schemaField("name"));
@@ -75,6 +89,11 @@ public class ConfigValidatorTest {
     public void validateShouldRequireSinkSchemaCoverage() {
         ApiExtractJobConfig config = validConfig();
         config.sink.type = "STARROCKS";
+        config.sink.loadMode = "APPEND";
+        config.sink.connectType = "LOAD_STREAM";
+        config.sink.options.put("loadUrl", "http://starrocks-fe:8030");
+        config.sink.options.put("username", "root");
+        config.sink.options.put("database", "dwd");
         config.sink.table.name = "api_user";
 
         ApiExtractException error = Assertions.assertThrows(ApiExtractException.class, () -> validator.validate(config));

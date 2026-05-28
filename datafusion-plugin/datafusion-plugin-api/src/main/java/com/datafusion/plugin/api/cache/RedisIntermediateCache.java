@@ -89,7 +89,7 @@ public class RedisIntermediateCache implements IntermediateCache {
     }
 
     private Object command(String... args) {
-        try (Socket socket = new Socket(config.host, config.port);
+        try (Socket socket = new Socket(config.optionString("host", "localhost"), config.optionInt("port", 6379));
                 BufferedOutputStream out = new BufferedOutputStream(socket.getOutputStream());
                 BufferedInputStream in = new BufferedInputStream(socket.getInputStream())) {
             setupConnection(out, in);
@@ -100,15 +100,17 @@ public class RedisIntermediateCache implements IntermediateCache {
     }
 
     private void setupConnection(BufferedOutputStream out, BufferedInputStream in) throws IOException {
-        String password = config.password;
-        if (TextUtils.isBlank(password) && !TextUtils.isBlank(config.passwordRef)) {
-            password = System.getenv(config.passwordRef);
+        String password = config.optionString("password", null);
+        String passwordRef = config.optionString("passwordRef", null);
+        if (TextUtils.isBlank(password) && !TextUtils.isBlank(passwordRef)) {
+            password = System.getenv(passwordRef);
         }
         if (!TextUtils.isBlank(password)) {
             send(out, in, "AUTH", password);
         }
-        if (config.database > 0) {
-            send(out, in, "SELECT", String.valueOf(config.database));
+        int database = config.optionInt("database", 0);
+        if (database > 0) {
+            send(out, in, "SELECT", String.valueOf(database));
         }
     }
 
