@@ -97,6 +97,24 @@ public class HttpStepExecutorTest {
     }
 
     @Test
+    public void executeShouldAllowMissingNullableField() throws Exception {
+        ApiExtractJobConfig config = benchmarkConfig();
+        CapturingHttpClient httpClient = new CapturingHttpClient(missingProductDetailResponse());
+        CapturingSinkWriter sinkWriter = new CapturingSinkWriter();
+        InMemoryIntermediateCache cache = new InMemoryIntermediateCache();
+        JmesPathEvaluator evaluator = new JmesPathEvaluator();
+        TemplateResolver templateResolver = new TemplateResolver(cache);
+        HttpStepExecutor executor = new HttpStepExecutor(httpClient, evaluator, templateResolver,
+                new RecordMapper(evaluator, templateResolver), cache);
+
+        long records = executor.execute(new ApiExtractContext(config, "missing-required-field-test-run"),
+                config.steps.get(0), sinkWriter);
+
+        Assertions.assertEquals(1, records);
+        Assertions.assertNull(sinkWriter.records.get(0).get("product_detail_id_name"));
+    }
+
+    @Test
     public void executeShouldApplyPagePaginationAndStopOnShortPage() {
         ApiExtractJobConfig config = benchmarkConfig();
         StepConfig step = config.steps.get(0);
@@ -219,16 +237,16 @@ public class HttpStepExecutorTest {
         response.successExpression = "Success";
         response.messageExpression = "Message";
         response.recordMode = "ARRAY";
-        response.fields.add(field("today", "Data[].Today", true));
-        response.fields.add(field("product_name", "Data[].Productname", false));
-        response.fields.add(field("product_type_id_name", "Data[].ProducttypeIdName", false));
-        response.fields.add(field("product_chn_name", "Data[].Productchnname", false));
-        response.fields.add(field("specification", "Data[].Specification", false));
-        response.fields.add(field("product_id_name", "Data[].ProductIdname", false));
-        response.fields.add(field("product_detail_id_name", "Data[].ProductdetailIdname", false));
-        response.fields.add(field("product_class", "Data[].Productclass", false));
-        response.fields.add(field("price", "Data[].Price", false));
-        response.fields.add(field("range_value", "Data[].Range", false));
+        response.fields.add(field("today", "Data[].Today"));
+        response.fields.add(field("product_name", "Data[].Productname"));
+        response.fields.add(field("product_type_id_name", "Data[].ProducttypeIdName"));
+        response.fields.add(field("product_chn_name", "Data[].Productchnname"));
+        response.fields.add(field("specification", "Data[].Specification"));
+        response.fields.add(field("product_id_name", "Data[].ProductIdname"));
+        response.fields.add(field("product_detail_id_name", "Data[].ProductdetailIdname"));
+        response.fields.add(field("product_class", "Data[].Productclass"));
+        response.fields.add(field("price", "Data[].Price"));
+        response.fields.add(field("range_value", "Data[].Range"));
         return response;
     }
 
@@ -255,6 +273,28 @@ public class HttpStepExecutorTest {
                 """;
     }
 
+    private String missingProductDetailResponse() {
+        return """
+                {
+                    "Success": true,
+                    "Message": "基准价获取成功",
+                    "Data": [
+                        {
+                            "Today": "05/21/2026 13:30:07",
+                            "Productname": "DTY",
+                            "ProducttypeIdName": "PET(半消光)",
+                            "Productchnname": "空",
+                            "Specification": "226dtex384-ED20L",
+                            "ProductIdname": "1110",
+                            "Productclass": "A",
+                            "Price": 7850.0000,
+                            "Range": 0.0000
+                        }
+                    ]
+                }
+                """;
+    }
+
     private String emptyPageResponse() {
         return """
                 {
@@ -265,12 +305,10 @@ public class HttpStepExecutorTest {
                 """;
     }
 
-    private FieldConfig field(String name, String expression, boolean key) {
+    private FieldConfig field(String name, String expression) {
         FieldConfig field = new FieldConfig();
         field.name = name;
         field.expression = expression;
-        field.isKey = key;
-        field.nullable = false;
         return field;
     }
 

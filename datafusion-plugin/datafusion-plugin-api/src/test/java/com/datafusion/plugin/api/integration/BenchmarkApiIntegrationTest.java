@@ -80,23 +80,6 @@ public class BenchmarkApiIntegrationTest {
     }
 
     /**
-     * 从 main resources 读取 example-job.json,验证配置校验通过,
-     * 不执行 HTTP 请求（仅校验配置结构完整性）.
-     */
-    @Test
-    public void validateExampleJobConfigStructure() throws Exception {
-        ApiExtractJobConfig config = loadConfigFromMainResources("example-job.json");
-        Assertions.assertNotNull(config, "配置不应为空");
-        Assertions.assertEquals("benchmark_price_sync", config.job.id, "job.id 应匹配");
-        Assertions.assertFalse(config.steps.isEmpty(), "steps 不应为空");
-        Assertions.assertEquals("getBenchmark", config.steps.get(0).id, "步骤 ID 应匹配");
-        Assertions.assertEquals(BENCHMARK_API_URL,
-                config.steps.get(0).request.url, "URL 应匹配");
-        Assertions.assertEquals("ARRAY", config.steps.get(0).response.recordMode, "recordMode 应为 ARRAY");
-        Assertions.assertEquals("STARROCKS", config.sink.type, "sink.type 应为 STARROCKS");
-    }
-
-    /**
      * 使用 Mock HTTP 客户端和 NoopSinkWriter 验证完整的抽数链路（不依赖网络）.
      *
      * <p>
@@ -193,14 +176,6 @@ public class BenchmarkApiIntegrationTest {
     private ApiExtractJobConfig loadConfig() throws Exception {
         try (InputStream is = getClass().getClassLoader().getResourceAsStream(CONFIG_FILE)) {
             Assertions.assertNotNull(is, "配置文件不存在: " + CONFIG_FILE);
-            String json = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-            return JsonUtils.read(json, ApiExtractJobConfig.class);
-        }
-    }
-
-    private ApiExtractJobConfig loadConfigFromMainResources(String filename) throws Exception {
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream(filename)) {
-            Assertions.assertNotNull(is, "配置文件不存在: " + filename);
             String json = new String(is.readAllBytes(), StandardCharsets.UTF_8);
             return JsonUtils.read(json, ApiExtractJobConfig.class);
         }

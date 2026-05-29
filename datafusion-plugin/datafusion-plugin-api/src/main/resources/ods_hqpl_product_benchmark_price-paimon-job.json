@@ -1,0 +1,237 @@
+{
+  "job": {
+    "id": "ods_hqpl_product_benchmark_price",
+    "name": "化纤产品基准价api接口同步paimon",
+    "description": "同步产品基准价接口到 Paimon ODS 表",
+    "version": "1.0.0"
+  },
+  "trigger": {
+    "mode": "ONCE",
+    "cron": "0 0 1 * * ?",
+    "timezone": "Asia/Shanghai"
+  },
+  "runtime": {
+    "loopCount": 1,
+    "loopIntervalMs": 0
+  },
+  "httpConfig": {
+    "connectMs": 10000,
+    "readMs": 30000,
+    "writeMs": 30000,
+    "probeConnectMs": 5000,
+    "probeReadMs": 15000,
+    "maxAttempts": 1,
+    "retryIntervalMs": 1000,
+    "backoffMultiplier": 2,
+    "retryOnStatus": [
+      429,
+      500,
+      502,
+      503,
+      504
+    ],
+    "onHttpError": "FAIL",
+    "onEmptyData": "SUCCESS",
+    "onParseError": "FAIL"
+  },
+  "redis": {
+    "enabled": false
+  },
+  "inputVars": {},
+  "steps": [
+    {
+      "id": "getBenchmark",
+      "type": "HTTP",
+      "enabled": true,
+      "request": {
+        "method": "GET",
+        "url": "http://172.30.19.4:9232/api/product/getBenchmark",
+        "headers": {
+          "Accept": "application/json"
+        },
+        "queryParams": {},
+        "bodyType": "NONE"
+      },
+      "pagination": {
+        "type": "NONE"
+      },
+      "response": {
+        "contentType": "JSON",
+        "successStatus": [
+          200
+        ],
+        "successExpression": "Success == `true`",
+        "messageExpression": "Message",
+        "recordMode": "ARRAY",
+        "fields": [
+          {
+            "name": "today",
+            "expression": "Data[].Today"
+          },
+          {
+            "name": "product_name",
+            "expression": "Data[].Productname"
+          },
+          {
+            "name": "product_type_id_name",
+            "expression": "Data[].ProducttypeIdName"
+          },
+          {
+            "name": "product_chn_name",
+            "expression": "Data[].Productchnname"
+          },
+          {
+            "name": "specification",
+            "expression": "Data[].Specification"
+          },
+          {
+            "name": "product_id_name",
+            "expression": "Data[].ProductIdname"
+          },
+          {
+            "name": "product_detail_id_name",
+            "expression": "Data[].ProductdetailIdname"
+          },
+          {
+            "name": "product_class",
+            "expression": "Data[].Productclass"
+          },
+          {
+            "name": "price",
+            "expression": "Data[].Price"
+          },
+          {
+            "name": "range_value",
+            "expression": "Data[].Range"
+          },
+          {
+            "name": "day_pt",
+            "expression": "Data[].Today"
+          }
+        ]
+      },
+      "redisCache": {
+        "enabled": false
+      },
+      "outputVars": {}
+    }
+  ],
+  "sink": {
+    "type": "PAIMON",
+    "loadMode": "UPSERT",
+    "connectType": "S3",
+    "options": {
+      "warehouse": "s3://data-lake-warehouse/paimon",
+      "metastore": "filesystem",
+      "catalogType": "filesystem",
+      "database": "dw_dev",
+      "endpoint": "http://sz-s3.indusmind.me",
+      "s3.endpoint": "http://sz-s3.indusmind.me",
+      "s3.access-key": "DNFY3F8DZ102RKOAXIMJ",
+      "s3.secret-key": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+      "s3.path.style.access": "true",
+      "s3.ssl.enabled": "false",
+      "fs.s3a.fast.upload.buffer": "array",
+      "bucket": "2",
+      "write-buffer-size": "128mb"
+    },
+    "table": {
+      "name": "ods_hqpl_product_benchmark_price",
+      "comment": "化纤产品基准价表",
+      "createIfNotExists": true,
+      "primaryKeys": [
+        "product_id_name",
+        "product_detail_id_name",
+        "product_class"
+      ],
+      "partitionKeys": [
+        "day_pt"
+      ]
+    },
+    "columns": [
+      {
+        "name": "today",
+        "type": "VARCHAR",
+        "length": 32,
+        "nullable": false,
+        "comment": "当天日期"
+      },
+      {
+        "name": "product_name",
+        "type": "VARCHAR",
+        "length": 64,
+        "nullable": true,
+        "comment": "物品名称"
+      },
+      {
+        "name": "product_type_id_name",
+        "type": "VARCHAR",
+        "length": 128,
+        "nullable": true,
+        "comment": "产品分类"
+      },
+      {
+        "name": "product_chn_name",
+        "type": "VARCHAR",
+        "length": 128,
+        "nullable": true,
+        "comment": "商品名称"
+      },
+      {
+        "name": "specification",
+        "type": "VARCHAR",
+        "length": 128,
+        "nullable": true,
+        "comment": "规格"
+      },
+      {
+        "name": "product_id_name",
+        "type": "VARCHAR",
+        "length": 64,
+        "nullable": false,
+        "comment": "主批号"
+      },
+      {
+        "name": "product_detail_id_name",
+        "type": "VARCHAR",
+        "length": 64,
+        "nullable": false,
+        "defaultValue": "UNKNOWN",
+        "comment": "区分号"
+      },
+      {
+        "name": "product_class",
+        "type": "VARCHAR",
+        "length": 32,
+        "nullable": false,
+        "comment": "等级"
+      },
+      {
+        "name": "price",
+        "type": "DECIMAL",
+        "precision": 18,
+        "scale": 4,
+        "nullable": true,
+        "comment": "标牌价格"
+      },
+      {
+        "name": "range_value",
+        "type": "DECIMAL",
+        "precision": 18,
+        "scale": 4,
+        "nullable": true,
+        "comment": "幅度"
+      },
+      {
+        "name": "day_pt",
+        "type": "DATE",
+        "nullable": false,
+        "comment": "分区日期",
+        "format": "MM/dd/yyyy HH:mm:ss->yyyy-MM-dd"
+      }
+    ],
+    "write": {
+      "batchSize": 1000
+    }
+  }
+}

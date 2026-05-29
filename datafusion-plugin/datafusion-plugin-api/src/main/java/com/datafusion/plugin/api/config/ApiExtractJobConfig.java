@@ -468,11 +468,6 @@ public class ApiExtractJobConfig {
         public String name;
         
         /**
-         * 字段类型(STRING/INT/BIGINT/DOUBLE/BOOLEAN/DATE/DATETIME/JSON).
-         */
-        public String type = "STRING";
-        
-        /**
          * JMESPath 表达式.
          */
         public String expression;
@@ -481,21 +476,6 @@ public class ApiExtractJobConfig {
          * 固定值.
          */
         public Object value;
-        
-        /**
-         * 是否为关键字段(ARRAY 模式下决定记录数).
-         */
-        public boolean isKey;
-        
-        /**
-         * 是否允许为空.
-         */
-        public boolean nullable = true;
-        
-        /**
-         * 日期格式.
-         */
-        public String format;
     }
 
     /**
@@ -602,9 +582,9 @@ public class ApiExtractJobConfig {
         public TableConfig table = new TableConfig();
         
         /**
-         * Schema 字段列表.
+         * 目标表字段列表.
          */
-        public List<SchemaFieldConfig> schema = new ArrayList<>();
+        public List<ColumnConfig> columns = new ArrayList<>();
         
         /**
          * 写入配置.
@@ -621,6 +601,11 @@ public class ApiExtractJobConfig {
          * 表名.
          */
         public String name;
+
+        /**
+         * 表注释.
+         */
+        public String comment;
         
         /**
          * 不存在时自动创建.
@@ -665,9 +650,9 @@ public class ApiExtractJobConfig {
     }
 
     /**
-     * Schema 字段配置.
+     * 目标表字段配置.
      */
-    public static class SchemaFieldConfig {
+    public static class ColumnConfig {
         
         /**
          * 字段名.
@@ -683,6 +668,21 @@ public class ApiExtractJobConfig {
          * 字段长度(VARCHAR).
          */
         public Integer length;
+
+        /**
+         * 数值精度(DECIMAL).
+         */
+        public Integer precision;
+
+        /**
+         * 数值小数位(DECIMAL).
+         */
+        public Integer scale;
+
+        /**
+         * 日期/时间格式转换.
+         */
+        public String format;
         
         /**
          * 是否允许为空.
@@ -719,11 +719,6 @@ public class ApiExtractJobConfig {
          * 刷新间隔(毫秒).
          */
         public long flushIntervalMs = 5000;
-        
-        /**
-         * Paimon Commit 用户标识.
-         */
-        public String commitUser = "datafusion-api-plugin";
 
         /**
          * 写入 Headers.

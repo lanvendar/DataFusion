@@ -13,6 +13,8 @@ import com.datafusion.plugin.api.sink.SinkWriterFactory;
 import com.datafusion.plugin.api.step.HttpStepExecutor;
 import com.datafusion.plugin.api.template.TemplateResolver;
 import com.datafusion.plugin.api.util.TextUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +27,11 @@ import java.util.UUID;
  * @version 1.0.0
  */
 public class DefaultApiExtractRunner implements ApiExtractRunner {
+
+    /**
+     * 日志对象.
+     */
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultApiExtractRunner.class);
 
     /**
      * 配置校验器.
@@ -55,6 +62,7 @@ public class DefaultApiExtractRunner implements ApiExtractRunner {
     public ApiExtractResult run(ApiExtractJobConfig config) {
         validator.validate(config);
         TriggerMode mode = TriggerMode.parse(config.trigger == null ? "ONCE" : config.trigger.mode);
+        LOGGER.info("API 抽取任务校验通过, jobId={}, triggerMode={}", config.job.id, mode);
         if (mode == TriggerMode.CRON) {
             return runCron(config);
         }
@@ -65,6 +73,8 @@ public class DefaultApiExtractRunner implements ApiExtractRunner {
         if (config.trigger == null || TextUtils.isBlank(config.trigger.cron)) {
             throw new ApiExtractException("trigger.cron is required when trigger.mode=CRON");
         }
+        LOGGER.info("API 抽取任务进入 CRON 调度, jobId={}, cron={}, timezone={}",
+                config.job.id, config.trigger.cron, config.trigger.timezone);
         return cronScheduler.run(config.trigger.cron, config.trigger.timezone, () -> runOnce(config));
     }
 
@@ -73,6 +83,7 @@ public class DefaultApiExtractRunner implements ApiExtractRunner {
         String runId = UUID.randomUUID().toString();
         List<StepResult> stepResults = new ArrayList<>();
         long records = 0;
+        LOGGER.info("API 抽取任务开始执行, jobId={}, runId={}", config.job.id, runId);
         try (IntermediateCache cache = createCache(config);
                 SinkWriter sinkWriter = sinkWriterFactory.create(config.sink)) {
             sinkWriter.open(config.sink);
@@ -85,7 +96,11 @@ public class DefaultApiExtractRunner implements ApiExtractRunner {
                 List<StepConfig> steps = stepPlanner.plan(config.steps);
                 for (StepConfig step : steps) {
                     long stepStart = System.currentTimeMillis();
+                    LOGGER.info("API 抽取 Step 开始, jobId={}, runId={}, stepId={}, stepType={}",
+                            config.job.id, runId, step.id, step.type);
                     long stepRecords = executor.execute(context, step, sinkWriter);
+                    LOGGER.info("API 抽取 Step 完成, jobId={}, runId={}, stepId={}, records={}, elapsedMs={}",
+                            config.job.id, runId, step.id, stepRecords, System.currentTimeMillis() - stepStart);
                     stepResults.add(new StepResult(step.id, true, stepRecords, System.currentTimeMillis() - stepStart, null));
                     records += stepRecords;
                 }
@@ -94,8 +109,12 @@ public class DefaultApiExtractRunner implements ApiExtractRunner {
                 }
             }
             sinkWriter.flush();
+            LOGGER.info("API 抽取任务执行成功, jobId={}, runId={}, records={}, elapsedMs={}",
+                    config.job.id, runId, records, System.currentTimeMillis() - start);
             return ApiExtractResult.success(config.job.id, runId, records, System.currentTimeMillis() - start, stepResults);
         } catch (Exception e) {
+            LOGGER.error("API 抽取任务执行失败, jobId={}, runId={}, records={}, elapsedMs={}",
+                    config.job.id, runId, records, System.currentTimeMillis() - start, e);
             return ApiExtractResult.failure(config.job.id, runId, records, System.currentTimeMillis() - start,
                     e.getMessage(), stepResults);
         }

@@ -1,10 +1,11 @@
 package com.datafusion.plugin.api.sink.paimon;
 
-import com.datafusion.plugin.api.config.ApiExtractJobConfig.SchemaFieldConfig;
+import com.datafusion.plugin.api.config.ApiExtractJobConfig.ColumnConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.SinkConfig;
 import com.datafusion.plugin.api.core.ApiExtractException;
 import com.datafusion.plugin.api.core.Record;
 import com.datafusion.plugin.api.sink.SinkMode;
+import com.datafusion.plugin.api.sink.SinkRecordNormalizer;
 import com.datafusion.plugin.api.sink.SinkWriter;
 import com.datafusion.plugin.api.util.TextUtils;
 import org.apache.paimon.catalog.Catalog;
@@ -14,6 +15,7 @@ import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.data.BinaryString;
 import org.apache.paimon.data.Decimal;
 import org.apache.paimon.data.GenericRow;
+import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.data.Timestamp;
 import org.apache.paimon.options.Options;
 import org.apache.paimon.schema.Schema;
@@ -26,6 +28,8 @@ import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypes;
 import org.apache.paimon.types.DecimalType;
 import org.apache.paimon.types.RowType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -51,6 +55,11 @@ import java.util.stream.Collectors;
  * @since 1.0.0
  */
 public class PaimonSinkWriter implements SinkWriter {
+
+    /**
+     * 日志对象.
+     */
+    private static final Logger LOGGER = LoggerFactory.getLogger(PaimonSinkWriter.class);
     
     /**
      * 落表配置.
@@ -87,14 +96,17 @@ public class PaimonSinkWriter implements SinkWriter {
         this.sink = sink;
         validateMode();
         try {
+            LOGGER.info("Paimon sink 开始打开, database={}, table={}, loadMode={}, connectType={}",
+                    sink.optionString("database", null), requiredTableName(), sink.loadMode, sink.connectType);
             catalog = CatalogFactory.createCatalog(CatalogContext.create(options()));
             String database = requiredConnection("database");
             catalog.createDatabase(database, true);
             identifier = Identifier.create(database, requiredTableName());
             table = getOrCreateTable(identifier);
             rowType = table.rowType();
+            LOGGER.info("Paimon sink 打开完成, identifier={}, fields={}", identifier, rowType.getFieldCount());
         } catch (Exception e) {
-            throw new ApiExtractException("Failed to open Paimon sink", e);
+            throw new ApiExtractException("Failed to open Paimon sink: " + rootMessage(e), e);
         }
     }
 
@@ -108,13 +120,18 @@ public class PaimonSinkWriter implements SinkWriter {
         if (records == null || records.isEmpty()) {
             return;
         }
-        org.apache.paimon.table.sink.BatchWriteBuilder builder = batchWriteBuilder(records);
+        List<Record> normalizedRecords = SinkRecordNormalizer.normalize(records, sink, "Paimon");
+        org.apache.paimon.table.sink.BatchWriteBuilder builder = batchWriteBuilder(normalizedRecords);
+        long start = System.currentTimeMillis();
+        LOGGER.info("Paimon 写入开始, identifier={}, records={}", identifier, records.size());
         try (BatchTableWrite write = builder.newWrite(); BatchTableCommit commit = builder.newCommit()) {
-            for (Record record : records) {
-                write.write(toRow(record));
+            for (Record record : normalizedRecords) {
+                writeRecord(write, toRow(record));
             }
             List<CommitMessage> messages = write.prepareCommit();
             commit.commit(messages);
+            LOGGER.info("Paimon 写入完成, identifier={}, records={}, commitMessages={}, elapsedMs={}",
+                    identifier, records.size(), messages.size(), System.currentTimeMillis() - start);
         } catch (Exception e) {
             throw new ApiExtractException("Failed to write Paimon records", e);
         }
@@ -226,8 +243,11 @@ public class PaimonSinkWriter implements SinkWriter {
      */
     private Schema schema() {
         Schema.Builder builder = Schema.newBuilder();
-        for (SchemaFieldConfig field : sink.schema) {
+        for (ColumnConfig field : sink.columns) {
             builder.column(field.name, paimonType(field), field.comment);
+        }
+        if (!TextUtils.isBlank(sink.table.comment)) {
+            builder.comment(sink.table.comment);
         }
         if (sink.table.partitionKeys != null && !sink.table.partitionKeys.isEmpty()) {
             builder.partitionKeys(sink.table.partitionKeys);
@@ -235,18 +255,40 @@ public class PaimonSinkWriter implements SinkWriter {
         if (sink.table.primaryKeys != null && !sink.table.primaryKeys.isEmpty()) {
             builder.primaryKey(sink.table.primaryKeys);
         }
+        builder.options(tableOptions());
         return builder.build();
     }
 
+    private Map<String, String> tableOptions() {
+        Map<String, String> options = new LinkedHashMap<>();
+        sink.options.forEach((key, value) -> {
+            if (value != null && !isConnectionOption(key)) {
+                options.put(key, stringValue(value));
+            }
+        });
+        return options;
+    }
+
+    private boolean isConnectionOption(String key) {
+        String normalized = key.toLowerCase(Locale.ROOT);
+        return "warehouse".equals(normalized)
+                || "metastore".equals(normalized)
+                || "catalogtype".equals(normalized)
+                || "database".equals(normalized)
+                || "endpoint".equals(normalized)
+                || normalized.startsWith("s3.")
+                || normalized.startsWith("fs.s3a.");
+    }
+
     /**
-     * 校验表 Schema 与配置的兼容性.
+     * 校验表字段与配置的兼容性.
      *
      * @param existing 已存在的表
      */
     private void validateSchema(Table existing) {
         Map<String, DataField> fields = existing.rowType().getFields().stream()
                 .collect(Collectors.toMap(field -> field.name().toLowerCase(Locale.ROOT), field -> field));
-        for (SchemaFieldConfig configured : sink.schema) {
+        for (ColumnConfig configured : sink.columns) {
             DataField actual = fields.get(configured.name.toLowerCase(Locale.ROOT));
             if (actual == null) {
                 throw new ApiExtractException("Paimon table lacks configured field: " + configured.name);
@@ -263,6 +305,20 @@ public class PaimonSinkWriter implements SinkWriter {
         if (!Objects.equals(existing.partitionKeys(), safeList(sink.table.partitionKeys))) {
             throw new ApiExtractException("Paimon partition keys mismatch");
         }
+        validateTableOptions(existing);
+    }
+
+    private void validateTableOptions(Table existing) {
+        Map<String, String> expected = tableOptions();
+        Map<String, String> actual = existing.options();
+        for (Map.Entry<String, String> entry : expected.entrySet()) {
+            String key = entry.getKey();
+            String actualValue = actual.get(key);
+            if (!Objects.equals(entry.getValue(), actualValue)) {
+                throw new ApiExtractException("Paimon table option mismatch: " + key
+                        + ", expected=" + entry.getValue() + ", actual=" + actualValue);
+            }
+        }
     }
 
     /**
@@ -278,6 +334,18 @@ public class PaimonSinkWriter implements SinkWriter {
             row.setField(i, convertValue(record.get(field.name()), field.type()));
         }
         return row;
+    }
+
+    private void writeRecord(BatchTableWrite write, InternalRow row) throws Exception {
+        if (isDynamicBucketTable()) {
+            write.write(row, 0);
+            return;
+        }
+        write.write(row);
+    }
+
+    private boolean isDynamicBucketTable() {
+        return "-1".equals(table.options().getOrDefault("bucket", "-1"));
     }
 
     /**
@@ -343,7 +411,7 @@ public class PaimonSinkWriter implements SinkWriter {
      * @param field 字段配置
      * @return Paimon 数据类型
      */
-    private DataType paimonType(SchemaFieldConfig field) {
+    private DataType paimonType(ColumnConfig field) {
         String type = TextUtils.upper(field.type, "STRING");
         DataType dataType;
         if ("STRING".equals(type) || "VARCHAR".equals(type) || "JSON".equals(type)) {
@@ -356,6 +424,9 @@ public class PaimonSinkWriter implements SinkWriter {
             dataType = DataTypes.DOUBLE();
         } else if ("FLOAT".equals(type)) {
             dataType = DataTypes.FLOAT();
+        } else if ("DECIMAL".equals(type)) {
+            dataType = DataTypes.DECIMAL(field.precision == null ? 18 : field.precision,
+                    field.scale == null ? 4 : field.scale);
         } else if ("BOOLEAN".equals(type)) {
             dataType = DataTypes.BOOLEAN();
         } else if ("DATE".equals(type)) {
@@ -392,6 +463,20 @@ public class PaimonSinkWriter implements SinkWriter {
             throw new ApiExtractException("sink.table.name is required for Paimon");
         }
         return sink.table.name;
+    }
+
+    /**
+     * 获取异常根因消息.
+     *
+     * @param throwable 异常
+     * @return 根因消息
+     */
+    private String rootMessage(Throwable throwable) {
+        Throwable root = throwable;
+        while (root.getCause() != null) {
+            root = root.getCause();
+        }
+        return root.getMessage() == null ? root.getClass().getName() : root.getMessage();
     }
 
     /**

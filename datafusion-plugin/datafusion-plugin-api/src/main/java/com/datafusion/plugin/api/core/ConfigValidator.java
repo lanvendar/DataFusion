@@ -5,7 +5,7 @@ import com.datafusion.plugin.api.config.ApiExtractJobConfig.FieldConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.HttpConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.PaginationConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.RedisCacheConfig;
-import com.datafusion.plugin.api.config.ApiExtractJobConfig.SchemaFieldConfig;
+import com.datafusion.plugin.api.config.ApiExtractJobConfig.ColumnConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.StepConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.ValueExpressionConfig;
 import com.datafusion.plugin.api.sink.SinkMode;
@@ -134,7 +134,6 @@ public class ConfigValidator {
         if (!"OBJECT".equals(recordMode) && !"ARRAY".equals(recordMode)) {
             throw new ApiExtractException("response.recordMode must be OBJECT or ARRAY for step: " + step.id);
         }
-        int keyCount = 0;
         for (FieldConfig field : step.response.fields) {
             if (TextUtils.isBlank(field.name)) {
                 throw new ApiExtractException("response.fields.name is required for step: " + step.id);
@@ -142,13 +141,26 @@ public class ConfigValidator {
             if (field.value == null && TextUtils.isBlank(field.expression)) {
                 throw new ApiExtractException("field expression or value is required: " + step.id + "." + field.name);
             }
-            if (field.isKey) {
-                keyCount++;
-            }
         }
-        if ("ARRAY".equals(recordMode) && keyCount != 1) {
-            throw new ApiExtractException("ARRAY recordMode requires exactly one isKey field for step: " + step.id);
+        if ("ARRAY".equals(recordMode) && step.response.fields.stream()
+                .noneMatch(field -> isArrayProjection(field.expression))) {
+            throw new ApiExtractException("ARRAY recordMode requires field expression with [] for step: " + step.id);
         }
+    }
+
+    private boolean isArrayProjection(String expression) {
+        if (TextUtils.isBlank(expression)) {
+            return false;
+        }
+        int bracketIdx = expression.indexOf("[]");
+        if (bracketIdx < 0) {
+            return false;
+        }
+        String fieldPath = expression.substring(bracketIdx + 2);
+        if (fieldPath.startsWith(".")) {
+            fieldPath = fieldPath.substring(1);
+        }
+        return !TextUtils.isBlank(fieldPath) && !fieldPath.contains("[]");
     }
 
     private void validateTrigger(ApiExtractJobConfig config) {
@@ -232,7 +244,7 @@ public class ConfigValidator {
     }
 
     /**
-     * 校验落表配置,包括类型、Schema 和主键.
+     * 校验落表配置,包括类型、字段和主键.
      *
      * @param config 任务配置
      */
@@ -249,16 +261,16 @@ public class ConfigValidator {
         if (!"NOOP".equals(sinkType) && (config.sink.table == null || TextUtils.isBlank(config.sink.table.name))) {
             throw new ApiExtractException("sink.table.name is required");
         }
-        Set<String> schemaNames = new HashSet<>();
-        for (SchemaFieldConfig field : config.sink.schema) {
+        Set<String> columnNames = new HashSet<>();
+        for (ColumnConfig field : config.sink.columns) {
             if (TextUtils.isBlank(field.name)) {
-                throw new ApiExtractException("sink.schema.name is required");
+                throw new ApiExtractException("sink.columns.name is required");
             }
-            if (!schemaNames.add(field.name)) {
-                throw new ApiExtractException("Duplicate sink schema field: " + field.name);
+            if (!columnNames.add(field.name)) {
+                throw new ApiExtractException("Duplicate sink column field: " + field.name);
             }
         }
-        validateSinkSchemaCoverage(config, schemaNames);
+        validateSinkColumnCoverage(config, columnNames);
         SinkMode sinkMode = SinkMode.parse(config.sink.loadMode);
         if (sinkMode == SinkMode.UPSERT && !"NOOP".equals(sinkType)
                 && (config.sink.table.primaryKeys == null || config.sink.table.primaryKeys.isEmpty())) {
@@ -374,7 +386,7 @@ public class ConfigValidator {
         }
     }
 
-    private void validateSinkSchemaCoverage(ApiExtractJobConfig config, Set<String> schemaNames) {
+    private void validateSinkColumnCoverage(ApiExtractJobConfig config, Set<String> columnNames) {
         if ("NOOP".equals(TextUtils.upper(config.sink.type, null))) {
             return;
         }
@@ -383,8 +395,8 @@ public class ConfigValidator {
                 continue;
             }
             for (FieldConfig field : step.response.fields) {
-                if (!schemaNames.contains(field.name)) {
-                    throw new ApiExtractException("sink.schema lacks response field: " + field.name);
+                if (!columnNames.contains(field.name)) {
+                    throw new ApiExtractException("sink.columns lacks response field: " + field.name);
                 }
             }
         }

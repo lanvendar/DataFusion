@@ -1,0 +1,289 @@
+{
+  "job": {
+    "id": "ods_hqpl_product_info",
+    "name": "化纤产品信息表api接口同步paimon",
+    "description": "[startTime]:产品更新时间，时间越早信息越全，初始化的时候跑一次,startTime=2018-10-01,可以手工,之后每天更新增量",
+    "version": "1.0.0"
+  },
+  "trigger": {
+    "mode": "ONCE",
+    "cron": "0 0 1 * * ?",
+    "timezone": "Asia/Shanghai"
+  },
+  "runtime": {
+    "loopCount": 1,
+    "loopIntervalMs": 0
+  },
+  "httpConfig": {
+    "connectMs": 10000,
+    "readMs": 30000,
+    "writeMs": 30000,
+    "probeConnectMs": 5000,
+    "probeReadMs": 15000,
+    "maxAttempts": 1,
+    "retryIntervalMs": 1000,
+    "backoffMultiplier": 2,
+    "retryOnStatus": [
+      429,
+      500,
+      502,
+      503,
+      504
+    ],
+    "onHttpError": "FAIL",
+    "onEmptyData": "SUCCESS",
+    "onParseError": "FAIL"
+  },
+  "redis": {
+    "enabled": false
+  },
+  "inputVars": {
+    "startTime": "2018-10-01"
+  },
+  "steps": [
+    {
+      "id": "getProductInfo",
+      "type": "HTTP",
+      "enabled": true,
+      "request": {
+        "method": "GET",
+        "url": "http://172.30.19.4:9232/api/product/getProductInfo",
+        "headers": {
+          "Accept": "application/json"
+        },
+        "queryParams": {
+          "startTime": "${inputVars.startTime}"
+        },
+        "bodyType": "NONE"
+      },
+      "pagination": {
+        "type": "NONE"
+      },
+      "response": {
+        "contentType": "JSON",
+        "successStatus": [
+          200
+        ],
+        "successExpression": "Success == `true`",
+        "messageExpression": "Message",
+        "recordMode": "ARRAY",
+        "fields": [
+          {
+            "name": "name",
+            "expression": "Data[].Name"
+          },
+          {
+            "name": "product_name_name",
+            "expression": "Data[].ProductnameName"
+          },
+          {
+            "name": "factory_id_name",
+            "expression": "Data[].FactoryIdName"
+          },
+          {
+            "name": "product_type_id_name",
+            "expression": "Data[].ProducttypeIdName"
+          },
+          {
+            "name": "product_type_eng_name",
+            "expression": "Data[].ProducttypeEngname"
+          },
+          {
+            "name": "cpdl",
+            "expression": "Data[].Cpdl"
+          },
+          {
+            "name": "product_number",
+            "expression": "Data[].ProductNumber"
+          },
+          {
+            "name": "bonded_area",
+            "expression": "Data[].Bondedarea"
+          },
+          {
+            "name": "dtex",
+            "expression": "Data[].Dtex"
+          },
+          {
+            "name": "factory_code",
+            "expression": "Data[].Factorycode"
+          },
+          {
+            "name": "fnum",
+            "expression": "Data[].Fnum"
+          },
+          {
+            "name": "linear_density",
+            "expression": "Data[].Lineardensity"
+          },
+          {
+            "name": "product_cn_name",
+            "expression": "Data[].Productcnname"
+          },
+          {
+            "name": "product_eng_name",
+            "expression": "Data[].Productengname"
+          },
+          {
+            "name": "specification",
+            "expression": "Data[].Specification"
+          },
+          {
+            "name": "update_time",
+            "value": "${inputVars.startTime}"
+          }
+        ]
+      },
+      "redisCache": {
+        "enabled": false
+      },
+      "outputVars": {}
+    }
+  ],
+  "sink": {
+    "type": "PAIMON",
+    "loadMode": "UPSERT",
+    "connectType": "S3",
+    "options": {
+      "warehouse": "s3://data-lake-warehouse/paimon",
+      "metastore": "filesystem",
+      "catalogType": "filesystem",
+      "database": "dw_dev",
+      "endpoint": "http://sz-s3.indusmind.me",
+      "s3.endpoint": "http://sz-s3.indusmind.me",
+      "s3.access-key": "DNFY3F8DZ102RKOAXIMJ",
+      "s3.secret-key": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+      "s3.path.style.access": "true",
+      "s3.ssl.enabled": "false",
+      "fs.s3a.fast.upload.buffer": "array",
+      "bucket": "2",
+      "write-buffer-size": "128mb"
+    },
+    "table": {
+      "name": "ods_hqpl_product_info",
+      "comment": "化纤产品信息表",
+      "createIfNotExists": true,
+      "primaryKeys": [
+        "name"
+      ]
+    },
+    "columns": [
+      {
+        "name": "name",
+        "type": "VARCHAR",
+        "length": 64,
+        "nullable": false,
+        "defaultValue": "UNKNOWN",
+        "comment": "产品主批号"
+      },
+      {
+        "name": "product_name_name",
+        "type": "VARCHAR",
+        "length": 64,
+        "nullable": true,
+        "comment": "物品名"
+      },
+      {
+        "name": "factory_id_name",
+        "type": "VARCHAR",
+        "length": 128,
+        "nullable": true,
+        "comment": "工厂"
+      },
+      {
+        "name": "product_type_id_name",
+        "type": "VARCHAR",
+        "length": 128,
+        "nullable": true,
+        "comment": "产品类别中文"
+      },
+      {
+        "name": "product_type_eng_name",
+        "type": "VARCHAR",
+        "length": 64,
+        "nullable": true,
+        "comment": "产品类别英文"
+      },
+      {
+        "name": "cpdl",
+        "type": "VARCHAR",
+        "length": 64,
+        "nullable": true,
+        "comment": "大类"
+      },
+      {
+        "name": "product_number",
+        "type": "VARCHAR",
+        "length": 64,
+        "nullable": true,
+        "comment": "物料号"
+      },
+      {
+        "name": "bonded_area",
+        "type": "VARCHAR",
+        "length": 64,
+        "nullable": true,
+        "comment": "保税区分"
+      },
+      {
+        "name": "dtex",
+        "type": "VARCHAR",
+        "length": 64,
+        "nullable": true,
+        "comment": "系列"
+      },
+      {
+        "name": "factory_code",
+        "type": "VARCHAR",
+        "length": 32,
+        "nullable": true,
+        "comment": "工厂编码"
+      },
+      {
+        "name": "fnum",
+        "type": "VARCHAR",
+        "length": 32,
+        "nullable": true,
+        "comment": "F数"
+      },
+      {
+        "name": "linear_density",
+        "type": "VARCHAR",
+        "length": 32,
+        "nullable": true,
+        "comment": "线密度"
+      },
+      {
+        "name": "product_cn_name",
+        "type": "VARCHAR",
+        "length": 128,
+        "nullable": true,
+        "comment": "商品名中"
+      },
+      {
+        "name": "product_eng_name",
+        "type": "VARCHAR",
+        "length": 128,
+        "nullable": true,
+        "comment": "商品名英"
+      },
+      {
+        "name": "specification",
+        "type": "VARCHAR",
+        "length": 128,
+        "nullable": true,
+        "comment": "规格"
+      },
+      {
+        "name": "update_time",
+        "type": "DATE",
+        "nullable": false,
+        "comment": "产品更新时间"
+      }
+    ],
+    "write": {
+      "batchSize": 1000,
+      "commitUser": "datafusion-api-plugin"
+    }
+  }
+}

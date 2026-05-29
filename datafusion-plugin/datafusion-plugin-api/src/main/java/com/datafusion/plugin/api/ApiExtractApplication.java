@@ -5,10 +5,11 @@ import com.datafusion.plugin.api.core.ApiExtractResult;
 import com.datafusion.plugin.api.core.ApiExtractRunner;
 import com.datafusion.plugin.api.core.DefaultApiExtractRunner;
 import com.datafusion.plugin.api.util.JsonUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.logging.Logger;
 
 /**
  * API 抽取插件命令行入口.
@@ -22,7 +23,7 @@ public class ApiExtractApplication {
     /**
      * 日志对象.
      */
-    private static final Logger LOGGER = Logger.getLogger(ApiExtractApplication.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(ApiExtractApplication.class);
     
     /**
      * 启动 API 抽取任务.
@@ -31,11 +32,17 @@ public class ApiExtractApplication {
      * @throws Exception 启动失败时抛出
      */
     public static void main(String[] args) throws Exception {
+        LOGGER.info("API 抽取任务启动, args={}", maskArgs(args));
         String configJson = readConfig(args);
         ApiExtractJobConfig config = JsonUtils.read(configJson, ApiExtractJobConfig.class);
+        LOGGER.info("API 抽取配置加载完成, jobId={}, triggerMode={}, sinkType={}, table={}",
+                config.job == null ? null : config.job.id,
+                config.trigger == null ? null : config.trigger.mode,
+                config.sink == null ? null : config.sink.type,
+                config.sink == null || config.sink.table == null ? null : config.sink.table.name);
         ApiExtractRunner runner = new DefaultApiExtractRunner();
         ApiExtractResult result = runner.run(config);
-        LOGGER.info(JsonUtils.write(result));
+        LOGGER.info("API 抽取任务返回, result={}", JsonUtils.write(result));
         if (!result.isSuccess()) {
             System.exit(1);
         }
@@ -61,5 +68,18 @@ public class ApiExtractApplication {
             }
         }
         throw new IllegalArgumentException("Missing --config <path> or --config-json <json>");
+    }
+
+    private static String maskArgs(String[] args) {
+        if (args == null || args.length == 0) {
+            return "[]";
+        }
+        String[] masked = args.clone();
+        for (int i = 0; i < masked.length; i++) {
+            if ("--config-json".equals(masked[i]) && i + 1 < masked.length) {
+                masked[i + 1] = "<json>";
+            }
+        }
+        return java.util.Arrays.toString(masked);
     }
 }

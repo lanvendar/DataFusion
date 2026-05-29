@@ -3,7 +3,7 @@ package com.datafusion.plugin.api.core;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.FieldConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.RedisCacheConfig;
-import com.datafusion.plugin.api.config.ApiExtractJobConfig.SchemaFieldConfig;
+import com.datafusion.plugin.api.config.ApiExtractJobConfig.ColumnConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.StepConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.ValueExpressionConfig;
 import org.junit.jupiter.api.Assertions;
@@ -77,8 +77,8 @@ public class ConfigValidatorTest {
         config.sink.options.put("username", "root");
         config.sink.options.put("database", "dwd");
         config.sink.table.name = "api_user";
-        config.sink.schema.add(schemaField("id"));
-        config.sink.schema.add(schemaField("name"));
+        config.sink.columns.add(column("id"));
+        config.sink.columns.add(column("name"));
 
         ApiExtractException error = Assertions.assertThrows(ApiExtractException.class, () -> validator.validate(config));
 
@@ -86,7 +86,7 @@ public class ConfigValidatorTest {
     }
 
     @Test
-    public void validateShouldRequireSinkSchemaCoverage() {
+    public void validateShouldRequireSinkColumnCoverage() {
         ApiExtractJobConfig config = validConfig();
         config.sink.type = "STARROCKS";
         config.sink.loadMode = "APPEND";
@@ -98,7 +98,7 @@ public class ConfigValidatorTest {
 
         ApiExtractException error = Assertions.assertThrows(ApiExtractException.class, () -> validator.validate(config));
 
-        Assertions.assertTrue(error.getMessage().contains("sink.schema lacks response field"));
+        Assertions.assertTrue(error.getMessage().contains("sink.columns lacks response field"));
     }
 
     private ApiExtractJobConfig validConfig() {
@@ -116,21 +116,20 @@ public class ConfigValidatorTest {
         step.request.method = "GET";
         step.request.url = "http://example.test/users";
         step.response.recordMode = "ARRAY";
-        step.response.fields.add(field("id", true));
-        step.response.fields.add(field("name", false));
+        step.response.fields.add(field("id"));
+        step.response.fields.add(field("name"));
         return step;
     }
 
-    private FieldConfig field(String name, boolean key) {
+    private FieldConfig field(String name) {
         FieldConfig field = new FieldConfig();
         field.name = name;
         field.expression = "data[]." + name;
-        field.isKey = key;
         return field;
     }
 
-    private SchemaFieldConfig schemaField(String name) {
-        SchemaFieldConfig field = new SchemaFieldConfig();
+    private ColumnConfig column(String name) {
+        ColumnConfig field = new ColumnConfig();
         field.name = name;
         field.type = "STRING";
         return field;

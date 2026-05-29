@@ -1,10 +1,11 @@
 package com.datafusion.plugin.api.sink.starrocks;
 
-import com.datafusion.plugin.api.config.ApiExtractJobConfig.SchemaFieldConfig;
+import com.datafusion.plugin.api.config.ApiExtractJobConfig.ColumnConfig;
 import com.datafusion.plugin.api.config.ApiExtractJobConfig.SinkConfig;
 import com.datafusion.plugin.api.core.ApiExtractException;
 import com.datafusion.plugin.api.core.Record;
 import com.datafusion.plugin.api.sink.SinkMode;
+import com.datafusion.plugin.api.sink.SinkRecordNormalizer;
 import com.datafusion.plugin.api.sink.SinkWriter;
 import com.datafusion.plugin.api.util.JsonUtils;
 import com.datafusion.plugin.api.util.TextUtils;
@@ -90,14 +91,15 @@ public class StarRocksSinkWriter implements SinkWriter {
         if (records == null || records.isEmpty()) {
             return;
         }
+        List<Record> normalizedRecords = SinkRecordNormalizer.normalize(records, sink, "StarRocks");
         if (mode() == SinkMode.OVERWRITE_PARTITION) {
-            deletePartitions(records);
+            deletePartitions(normalizedRecords);
         }
         if (connectType().equals("JDBC")) {
-            writeJdbc(records);
+            writeJdbc(normalizedRecords);
             return;
         }
-        String payload = toJsonLines(records);
+        String payload = toJsonLines(normalizedRecords);
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(loadUrl()))
                 .timeout(Duration.ofMillis(Math.max(1000, sink.write.flushIntervalMs)))
@@ -188,7 +190,7 @@ public class StarRocksSinkWriter implements SinkWriter {
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             for (Record record : records) {
                 int index = 1;
-                for (SchemaFieldConfig field : sink.schema) {
+                for (ColumnConfig field : sink.columns) {
                     statement.setObject(index++, record.get(field.name));
                 }
                 statement.addBatch();
@@ -200,8 +202,8 @@ public class StarRocksSinkWriter implements SinkWriter {
     }
 
     private String jdbcSql(Record sample) {
-        List<String> columns = sink.schema == null || sink.schema.isEmpty()
-                ? sample.keySet().stream().toList() : sink.schema.stream().map(field -> field.name).toList();
+        List<String> columns = sink.columns == null || sink.columns.isEmpty()
+                ? sample.keySet().stream().toList() : sink.columns.stream().map(field -> field.name).toList();
         StringJoiner names = new StringJoiner(", ");
         StringJoiner placeholders = new StringJoiner(", ");
         columns.forEach(column -> {
@@ -257,7 +259,7 @@ public class StarRocksSinkWriter implements SinkWriter {
     }
 
     /**
-     * 校验表 Schema 与配置的兼容性.
+     * 校验表字段与配置的兼容性.
      *
      * @throws SQLException SQL 异常
      */
@@ -270,7 +272,7 @@ public class StarRocksSinkWriter implements SinkWriter {
                         resultSet.getString("TYPE_NAME").toUpperCase(Locale.ROOT));
             }
         }
-        for (SchemaFieldConfig field : sink.schema) {
+        for (ColumnConfig field : sink.columns) {
             String actualType = existing.get(field.name.toLowerCase(Locale.ROOT));
             if (actualType == null) {
                 throw new ApiExtractException("StarRocks table lacks configured field: " + field.name);
@@ -289,20 +291,23 @@ public class StarRocksSinkWriter implements SinkWriter {
      * @throws SQLException SQL 异常
      */
     private void createTable() throws SQLException {
-        if (sink.schema == null || sink.schema.isEmpty()) {
-            throw new ApiExtractException("sink.schema is required to create StarRocks table");
+        if (sink.columns == null || sink.columns.isEmpty()) {
+            throw new ApiExtractException("sink.columns is required to create StarRocks table");
         }
         StringBuilder sql = new StringBuilder("CREATE TABLE IF NOT EXISTS ")
                 .append(quote(database())).append(".").append(quote(sink.table.name)).append(" (");
         StringJoiner columns = new StringJoiner(", ");
-        for (SchemaFieldConfig field : sink.schema) {
+        for (ColumnConfig field : sink.columns) {
             columns.add(columnDefinition(field));
         }
         sql.append(columns).append(") ");
         if (sink.table.primaryKeys != null && !sink.table.primaryKeys.isEmpty()) {
             sql.append("PRIMARY KEY(").append(String.join(", ", sink.table.primaryKeys)).append(") ");
         } else {
-            sql.append("DUPLICATE KEY(").append(sink.schema.get(0).name).append(") ");
+            sql.append("DUPLICATE KEY(").append(sink.columns.get(0).name).append(") ");
+        }
+        if (!TextUtils.isBlank(sink.table.comment)) {
+            sql.append("COMMENT '").append(sink.table.comment.replace("'", "''")).append("' ");
         }
         sql.append("DISTRIBUTED BY HASH(").append(distributionKey()).append(") BUCKETS 10 ")
                 .append("PROPERTIES (\"replication_num\" = \"1\")");
@@ -317,7 +322,7 @@ public class StarRocksSinkWriter implements SinkWriter {
      * @param field 字段配置
      * @return 列定义 SQL 片段
      */
-    private String columnDefinition(SchemaFieldConfig field) {
+    private String columnDefinition(ColumnConfig field) {
         StringBuilder sql = new StringBuilder(quote(field.name)).append(" ").append(starRocksType(field));
         if (!field.nullable) {
             sql.append(" NOT NULL");
@@ -334,7 +339,7 @@ public class StarRocksSinkWriter implements SinkWriter {
      * @param field 字段配置
      * @return StarRocks 类型字符串
      */
-    private String starRocksType(SchemaFieldConfig field) {
+    private String starRocksType(ColumnConfig field) {
         String type = TextUtils.upper(field.type, "VARCHAR");
         if ("VARCHAR".equals(type) && field.length != null) {
             return "VARCHAR(" + field.length + ")";
@@ -374,7 +379,7 @@ public class StarRocksSinkWriter implements SinkWriter {
         if (sink.table.primaryKeys != null && !sink.table.primaryKeys.isEmpty()) {
             return sink.table.primaryKeys.get(0);
         }
-        return sink.schema.get(0).name;
+        return sink.columns.get(0).name;
     }
 
     /**
