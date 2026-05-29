@@ -19,7 +19,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
-import org.apache.logging.log4j.util.Strings;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -594,7 +593,7 @@ public class SkywalkingTraceProcessingService {
         Optional<TagDto> tagDto = spanDto.getTags().stream()
                 .filter(tag -> "http.headers".equalsIgnoreCase(tag.getKey()))
                 .findFirst();
-        String location = Strings.EMPTY;
+        String location = "";
 
         if (tagDto.isPresent()) {
             String headersValue = tagDto.get().getValue();
