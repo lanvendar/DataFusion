@@ -101,7 +101,7 @@ V1.0 只做轻量任务执行，不做完整工作流编排、不保证 exactly-
     "connectType": "LOAD_STREAM",
     "options": {},
     "table": {},
-    "schema": [],
+    "columns": [],
     "write": {}
   }
 }
@@ -175,16 +175,11 @@ V1.0 只做轻量任务执行，不做完整工作流编排、不保证 exactly-
     "fields": [
       {
         "name": "today",
-        "type": "STRING",
-        "expression": "Data[].Today",
-        "isKey": true,
-        "nullable": false
+        "expression": "Data[].Today"
       },
       {
         "name": "price",
-        "type": "DOUBLE",
-        "expression": "Data[].Price",
-        "nullable": true
+        "expression": "Data[].Price"
       }
     ]
   },
@@ -216,10 +211,13 @@ V1.0 只做轻量任务执行，不做完整工作流编排、不保证 exactly-
 | `response` | 响应解析配置。 | 必须 | 无 |
 | `response.recordMode` | `OBJECT` 或 `ARRAY`。 | 必须 | 无 |
 | `response.fields` | JMESPath 字段映射。 | 必须 | `[]` |
+| `response.fields[].name` | 输出字段名，必须与目标 `sink.columns[].name` 一致。 | 必须 | 无 |
+| `response.fields[].expression` | JMESPath 表达式。与 `value` 二选一。 | 条件必须 | 无 |
+| `response.fields[].value` | 固定值或模板值。与 `expression` 二选一。 | 条件必须 | 无 |
 | `redisCache` | step 级 Redis 写入配置，位置固定为 `steps[].redisCache`。 | 可选 | `{"enabled":false}` |
 | `outputVars` | 从当前响应中提取变量，供下游引用。 | 可选 | `{}` |
 
-`ARRAY` 模式要求有且只有一个字段配置 `isKey=true`，该字段表达式返回数组并决定记录条数。其它数组字段长度必须一致，标量字段广播到每条记录。
+`ARRAY` 模式会从第一个包含 `[]` 的字段表达式推断数组路径，例如 `Data[].id` 推断为 `Data[]`。step 只负责 JMESPath 取值、固定值和字段命名；字段类型、日期格式、非空、默认值、主键等落表约束放在 `sink.columns` 和 `sink.table` 中。
 
 变量引用：
 
@@ -307,7 +305,7 @@ step redisCache：
   "connectType": "LOAD_STREAM",
   "options": {},
   "table": {},
-  "schema": [],
+  "columns": [],
   "write": {}
 }
 ```
@@ -321,8 +319,14 @@ step redisCache：
 | `connectType` | `JDBC`、`LOAD_STREAM`、`S3`、`NOOP`。StarRocks 必须显式选择 `JDBC` 或 `LOAD_STREAM`；Paimon 固定 `S3`；NOOP 固定 `NOOP`。 | 必须 | 无 |
 | `options` | 由 `type + connectType` 决定的连接参数，保持扁平 KV。固定字段由本文定义，其余官方原生参数可动态透传。 | 必须 | `{}` |
 | `table` | 表名、主键、分区、是否自动建表。 | 必须 | 无 |
-| `schema` | 字段定义。 | 必须 | `[]` |
+| `columns` | 目标表字段定义。 | 必须 | `[]` |
+| `columns[].name` | 目标字段名，必须覆盖所有 `response.fields[].name`。 | 必须 | 无 |
+| `columns[].type` | 目标字段类型。 | 必须 | `STRING` |
+| `columns[].format` | 写入前日期/时间格式转换，支持 `sourcePattern->targetPattern`。 | 可选 | 无 |
+| `columns[].defaultValue` | 写入前字段为空时使用的默认值，适合主键字段或允许为空但希望落默认值的字段。 | 可选 | 无 |
 | `write` | 批大小、写入格式、覆盖分区等写入行为。 | 可选 | `{}` |
+
+非 `NOOP` sink 会校验字段覆盖关系：每个 `response.fields[].name` 都必须存在于 `sink.columns[].name`，否则配置校验失败并报 `sink.columns lacks response field: <name>`。`sink.columns` 可以包含额外字段，额外字段通常需要 `defaultValue` 或允许为空。
 
 ### 7.1 StarRocks JDBC
 
@@ -431,7 +435,6 @@ Paimon V1.0 只定义 S3/Ceph 写入参数，不再嵌套 `options.s3` 或 `opti
     "sslEnabled": false
   },
   "write": {
-    "commitUser": "datafusion-api-plugin",
     "batchSize": 1000,
     "overwritePartition": {
       "enabled": false,
@@ -459,7 +462,6 @@ Paimon V1.0 只定义 S3/Ceph 写入参数，不再嵌套 `options.s3` 或 `opti
 | `options.secretKeyRef` | SecretKey 环境变量名，推荐。 | 可选 | 无 |
 | `options.pathStyleAccess` | 是否启用 path-style access。 | 可选 | `true` |
 | `options.sslEnabled` | 是否启用 SSL。 | 可选 | `false` |
-| `write.commitUser` | Paimon commit user。 | 可选 | `datafusion-api-plugin` |
 | `write.batchSize` | 每批写入记录数。 | 可选 | `1000` |
 | `write.overwritePartition` | 覆盖分区配置。 | 可选 | `{"enabled":false}` |
 
@@ -530,34 +532,23 @@ Paimon V1.0 只定义 S3/Ceph 写入参数，不再嵌套 `options.s3` 或 `opti
         "fields": [
           {
             "name": "today",
-            "type": "STRING",
-            "expression": "Data[].Today",
-            "isKey": true,
-            "nullable": false
+            "expression": "Data[].Today"
           },
           {
             "name": "product_detail_id_name",
-            "type": "STRING",
-            "expression": "Data[].ProductdetailIdname",
-            "nullable": true
+            "expression": "Data[].ProductdetailIdname"
           },
           {
             "name": "price",
-            "type": "DOUBLE",
-            "expression": "Data[].Price",
-            "nullable": true
+            "expression": "Data[].Price"
           },
           {
             "name": "range_value",
-            "type": "DOUBLE",
-            "expression": "Data[].Range",
-            "nullable": true
+            "expression": "Data[].Range"
           },
           {
             "name": "dt",
-            "type": "DATE",
-            "value": "${inputVars.bizDate}",
-            "nullable": false
+            "value": "${inputVars.bizDate}"
           }
         ]
       },
@@ -572,31 +563,28 @@ Paimon V1.0 只定义 S3/Ceph 写入参数，不再嵌套 `options.s3` 或 `opti
     "table": {
       "name": "benchmark_price_minimal"
     },
-    "schema": [
+    "columns": [
       {
         "name": "today",
-        "type": "VARCHAR",
-        "nullable": false
+        "type": "VARCHAR"
       },
       {
         "name": "product_detail_id_name",
         "type": "VARCHAR",
-        "nullable": true
+        "nullable": true,
+        "defaultValue": "UNKNOWN"
       },
       {
         "name": "price",
-        "type": "DOUBLE",
-        "nullable": true
+        "type": "DOUBLE"
       },
       {
         "name": "range_value",
-        "type": "DOUBLE",
-        "nullable": true
+        "type": "DOUBLE"
       },
       {
         "name": "dt",
-        "type": "DATE",
-        "nullable": false
+        "type": "DATE"
       }
     ],
     "write": {
@@ -738,29 +726,19 @@ Paimon V1.0 只定义 S3/Ceph 写入参数，不再嵌套 `options.s3` 或 `opti
         "fields": [
           {
             "name": "id",
-            "type": "STRING",
-            "expression": "data.list[].id",
-            "isKey": true,
-            "nullable": false
+            "expression": "data.list[].id"
           },
           {
             "name": "name",
-            "type": "STRING",
-            "expression": "data.list[].name",
-            "nullable": true
+            "expression": "data.list[].name"
           },
           {
             "name": "updated_time",
-            "type": "DATETIME",
-            "expression": "data.list[].updatedTime",
-            "format": "yyyy-MM-dd HH:mm:ss",
-            "nullable": true
+            "expression": "data.list[].updatedTime"
           },
           {
             "name": "dt",
-            "type": "DATE",
-            "value": "${inputVars.bizDate}",
-            "nullable": false
+            "value": "${inputVars.bizDate}"
           }
         ]
       }
@@ -790,28 +768,25 @@ Paimon V1.0 只定义 S3/Ceph 写入参数，不再嵌套 `options.s3` 或 `opti
         "type": "DAY"
       }
     },
-    "schema": [
+    "columns": [
       {
         "name": "id",
         "type": "VARCHAR",
-        "length": 64,
-        "nullable": false
+        "length": 64
       },
       {
         "name": "name",
         "type": "VARCHAR",
-        "length": 255,
-        "nullable": true
+        "length": 255
       },
       {
         "name": "updated_time",
         "type": "DATETIME",
-        "nullable": true
+        "format": "yyyy-MM-dd HH:mm:ss"
       },
       {
         "name": "dt",
-        "type": "DATE",
-        "nullable": false
+        "type": "DATE"
       }
     ],
     "write": {
@@ -858,30 +833,25 @@ Paimon sink 替换示例：
     "primaryKeys": ["id"],
     "partitionKeys": ["dt"]
   },
-  "schema": [
+  "columns": [
     {
       "name": "id",
-      "type": "STRING",
-      "nullable": false
+      "type": "STRING"
     },
     {
       "name": "name",
-      "type": "STRING",
-      "nullable": true
+      "type": "STRING"
     },
     {
       "name": "updated_time",
-      "type": "TIMESTAMP",
-      "nullable": true
+      "type": "TIMESTAMP"
     },
     {
       "name": "dt",
-      "type": "STRING",
-      "nullable": false
+      "type": "STRING"
     }
   ],
   "write": {
-    "commitUser": "datafusion-api-plugin",
     "batchSize": 1000,
     "overwritePartition": {
       "enabled": false,
@@ -910,7 +880,7 @@ Paimon sink 替换示例：
 - step id 必须唯一，`dependsOn` 不能循环。
 - HTTP step 必须配置 `request.method` 和 `request.url`。
 - `httpConfig` 必须是扁平 KV；step 级同名 key 覆盖全局 key。
-- `response.recordMode=ARRAY` 时，必须有且只有一个 `isKey=true` 字段。
+- `response.recordMode=ARRAY` 时，至少一个字段表达式必须包含 `[]`，用于推断数组路径。
 - 模板引用中的 `${inputVars.xxx}`、`${steps.stepId.outputVars.xxx}` 必须可解析。
 - `redis.enabled=true` 时，必须配置 `redis.connectType=REDIS`、`redis.options.host`、`redis.options.port`、`redis.options.database`。
 - Redis `loadMode` 必须是 `PUT`、`UPSERT`、`APPEND_LIST`、`HASH`。
