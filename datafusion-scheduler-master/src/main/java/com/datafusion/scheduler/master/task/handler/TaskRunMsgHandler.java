@@ -9,7 +9,7 @@ import com.datafusion.scheduler.master.event.GlobalEventOperator;
 import com.datafusion.scheduler.master.event.enmus.EventTypeEnum;
 import com.datafusion.scheduler.master.event.model.GlobalEvent;
 import com.datafusion.scheduler.master.flow.FlowMsg;
-import com.datafusion.scheduler.master.task.TaskExecutor;
+import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.TaskMsg;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
 import com.datafusion.scheduler.master.task.storage.TaskStorage;
@@ -33,10 +33,10 @@ public class TaskRunMsgHandler extends AbstractTaskMsgHandler {
      *
      * @param taskStorage   任务存储
      * @param eventOperator 全局事件操作
-     * @param taskExecutor  任务执行器
+     * @param masterTaskOperator  任务执行器
      */
-    public TaskRunMsgHandler(TaskStorage taskStorage, GlobalEventOperator eventOperator, TaskExecutor taskExecutor) {
-        super(taskStorage, eventOperator, taskExecutor);
+    public TaskRunMsgHandler(TaskStorage taskStorage, GlobalEventOperator eventOperator, MasterTaskOperator masterTaskOperator) {
+        super(taskStorage, eventOperator, masterTaskOperator);
     }
 
     @Override
@@ -85,7 +85,7 @@ public class TaskRunMsgHandler extends AbstractTaskMsgHandler {
             //任务成功处理
             if (acceptState.getTaskState() == StatusEnum.RUN_SUCCESS) {
                 try {
-                    super.taskExecutor.finishTask(taskIns);
+                    super.masterTaskOperator.finishTask(taskIns);
                 } catch (Exception e) {
                     log.error("任务实例无法完成:taskInsId=[{}]", taskIns.getInstanceId());
                     //TODO finish接口失败怎么办？

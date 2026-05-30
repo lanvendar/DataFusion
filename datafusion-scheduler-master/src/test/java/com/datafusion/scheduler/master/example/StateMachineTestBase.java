@@ -51,7 +51,7 @@ abstract class StateMachineTestBase {
     protected TriggerStorageMem triggerStorage;
     protected FlowStorageMem flowStorage;
     protected TaskStorageMem taskStorage;
-    protected DummyTaskExecutor taskExecutor;
+    protected DummyMasterTaskOperator masterTaskOperator;
 
     protected Table<String, String, Object> flowInfoTable;
     protected Table<String, String, Object> taskInfoTable;
@@ -68,10 +68,10 @@ abstract class StateMachineTestBase {
         triggerStorage = new TriggerStorageMem();
         flowStorage = new FlowStorageMem(triggerStorage, flowInstanceTable, flowInfoTable);
         taskStorage = new TaskStorageMem(taskInstanceTable, taskInfoTable, taskLinkTable);
-        taskExecutor = new DummyTaskExecutor();
+        masterTaskOperator = new DummyMasterTaskOperator();
 
         MasterStorage masterStorage = new MasterStorage(triggerStorage, flowStorage, taskStorage, new EventStorageMem());
-        masterService = new MasterService(taskExecutor, masterStorage, new Options());
+        masterService = new MasterService(masterTaskOperator, masterStorage, new Options());
     }
 
     @AfterEach

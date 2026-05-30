@@ -6,7 +6,7 @@ import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.master.actor.ActorSysContext;
 import com.datafusion.scheduler.master.event.GlobalEventOperator;
 import com.datafusion.scheduler.master.flow.FlowMsg;
-import com.datafusion.scheduler.master.task.TaskExecutor;
+import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.TaskMsg;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
 import com.datafusion.scheduler.master.task.storage.TaskStorage;
@@ -30,10 +30,10 @@ public class TaskKillMsgHandler extends AbstractTaskMsgHandler {
      *
      * @param taskStorage   任务存储
      * @param eventOperator 全局事件操作
-     * @param taskExecutor  任务执行器
+     * @param masterTaskOperator  任务执行器
      */
-    public TaskKillMsgHandler(TaskStorage taskStorage, GlobalEventOperator eventOperator, TaskExecutor taskExecutor) {
-        super(taskStorage, eventOperator, taskExecutor);
+    public TaskKillMsgHandler(TaskStorage taskStorage, GlobalEventOperator eventOperator, MasterTaskOperator masterTaskOperator) {
+        super(taskStorage, eventOperator, masterTaskOperator);
     }
 
     @Override
@@ -82,7 +82,7 @@ public class TaskKillMsgHandler extends AbstractTaskMsgHandler {
         StatusEnum finalState;
         try {
             finalState = StatusEnum.KILLING;
-            super.getTaskExecutor().killTask(taskIns);
+            super.getMasterTaskOperator().killTask(taskIns);
         } catch (Exception e) {
             String taskInsId = taskIns.getTaskId();
             log.error("[{}] - 任务实例强杀失败.", taskInsId);

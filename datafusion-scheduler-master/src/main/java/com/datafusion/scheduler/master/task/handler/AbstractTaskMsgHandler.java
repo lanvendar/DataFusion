@@ -5,7 +5,7 @@ import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.master.actor.ActorSysContext;
 import com.datafusion.scheduler.master.event.GlobalEventOperator;
 import com.datafusion.scheduler.master.flow.FlowMsg;
-import com.datafusion.scheduler.master.task.TaskExecutor;
+import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.TaskMsg;
 import com.datafusion.scheduler.master.task.model.TaskInfo;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
@@ -39,7 +39,7 @@ public abstract class AbstractTaskMsgHandler implements TaskMsgHandler {
     /**
      * 任务执行器.
      */
-    protected final TaskExecutor taskExecutor;
+    protected final MasterTaskOperator masterTaskOperator;
 
     /**
      * 构造函数.
@@ -47,10 +47,10 @@ public abstract class AbstractTaskMsgHandler implements TaskMsgHandler {
      * @param taskStorage   任务存储
      * @param eventOperator 全局事件操作
      */
-    protected AbstractTaskMsgHandler(TaskStorage taskStorage, GlobalEventOperator eventOperator, TaskExecutor taskExecutor) {
+    protected AbstractTaskMsgHandler(TaskStorage taskStorage, GlobalEventOperator eventOperator, MasterTaskOperator masterTaskOperator) {
         this.taskStorage = taskStorage;
         this.eventOperator = eventOperator;
-        this.taskExecutor = taskExecutor;
+        this.masterTaskOperator = masterTaskOperator;
     }
 
     @Override

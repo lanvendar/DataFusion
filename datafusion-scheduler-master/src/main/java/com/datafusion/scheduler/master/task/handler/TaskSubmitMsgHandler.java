@@ -8,7 +8,7 @@ import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.master.actor.ActorSysContext;
 import com.datafusion.scheduler.master.event.GlobalEventOperator;
 import com.datafusion.scheduler.master.flow.FlowMsg;
-import com.datafusion.scheduler.master.task.TaskExecutor;
+import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.TaskMsg;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
 import com.datafusion.scheduler.master.task.storage.TaskStorage;
@@ -35,10 +35,10 @@ public class TaskSubmitMsgHandler extends AbstractTaskMsgHandler {
      *
      * @param taskStorage   任务存储
      * @param eventOperator 全局事件操作
-     * @param taskExecutor  任务执行器
+     * @param masterTaskOperator  任务执行器
      */
-    public TaskSubmitMsgHandler(TaskStorage taskStorage, GlobalEventOperator eventOperator, TaskExecutor taskExecutor) {
-        super(taskStorage, eventOperator, taskExecutor);
+    public TaskSubmitMsgHandler(TaskStorage taskStorage, GlobalEventOperator eventOperator, MasterTaskOperator masterTaskOperator) {
+        super(taskStorage, eventOperator, masterTaskOperator);
     }
 
     @Override
@@ -75,7 +75,7 @@ public class TaskSubmitMsgHandler extends AbstractTaskMsgHandler {
         super.notifyFlowActor(msgSubmitting, context);
 
         try {
-            TaskResult taskResult = super.taskExecutor.runTask(renderTaskParam(taskIns));
+            TaskResult taskResult = super.masterTaskOperator.runTask(renderTaskParam(taskIns));
             //处理 worker 端返回的同步和异步任务结果
             StatusEnum taskState = StatusEnum.SUBMIT_SUCCESS;
             if (null != taskResult) {

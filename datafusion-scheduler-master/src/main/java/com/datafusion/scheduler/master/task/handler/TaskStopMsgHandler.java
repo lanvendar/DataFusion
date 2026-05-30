@@ -6,7 +6,7 @@ import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.master.actor.ActorSysContext;
 import com.datafusion.scheduler.master.event.GlobalEventOperator;
 import com.datafusion.scheduler.master.flow.FlowMsg;
-import com.datafusion.scheduler.master.task.TaskExecutor;
+import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.TaskMsg;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
 import com.datafusion.scheduler.master.task.storage.TaskStorage;
@@ -29,10 +29,10 @@ public class TaskStopMsgHandler extends AbstractTaskMsgHandler {
      *
      * @param taskStorage   任务存储
      * @param eventOperator 全局事件操作
-     * @param taskExecutor  任务执行器
+     * @param masterTaskOperator  任务执行器
      */
-    public TaskStopMsgHandler(TaskStorage taskStorage, GlobalEventOperator eventOperator, TaskExecutor taskExecutor) {
-        super(taskStorage, eventOperator, taskExecutor);
+    public TaskStopMsgHandler(TaskStorage taskStorage, GlobalEventOperator eventOperator, MasterTaskOperator masterTaskOperator) {
+        super(taskStorage, eventOperator, masterTaskOperator);
     }
 
     @Override
@@ -108,7 +108,7 @@ public class TaskStopMsgHandler extends AbstractTaskMsgHandler {
                         .isManualAction(false)//
                         .build();
                 super.notifyFlowActor(flowMsg, context);
-                super.taskExecutor.stopTask(taskIns);
+                super.masterTaskOperator.stopTask(taskIns);
             } catch (Exception e) {
                 taskIns.setState(StatusEnum.STOP_FAILURE);
                 super.saveTaskInstance(taskIns);

@@ -6,13 +6,13 @@ import com.datafusion.scheduler.model.TaskResult;
 
 /**
  * 任务动作执行接口(master/manager端实现).
- * 对应 TaskExecutorHandler
+ * 对应 MasterTaskOperatorHandler
  *
  * @author lanvendar
  * @version 3.0.0, 2022/8/5
  * @since 2022/8/5
  */
-public interface TaskExecutor {
+public interface MasterTaskOperator {
 
     /**
      * 提交任务.

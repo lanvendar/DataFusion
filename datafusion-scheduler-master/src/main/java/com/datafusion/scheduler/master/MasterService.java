@@ -12,7 +12,7 @@ import com.datafusion.scheduler.master.flow.FlowAction;
 import com.datafusion.scheduler.master.flow.storage.CachedFlowStorage;
 import com.datafusion.scheduler.master.flow.storage.FlowStorageMem;
 import com.datafusion.scheduler.master.task.TaskAction;
-import com.datafusion.scheduler.master.task.TaskExecutor;
+import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.storage.CachedTaskStorage;
 import com.datafusion.scheduler.master.task.storage.TaskStorageMem;
 import com.datafusion.scheduler.master.trigger.SchedulerTrigger;
@@ -58,7 +58,7 @@ public class MasterService {
     /**
      * 任务执行器.
      */
-    private final TaskExecutor taskExecutor;
+    private final MasterTaskOperator masterTaskOperator;
 
     /**
      * 调度上下文.
@@ -84,16 +84,16 @@ public class MasterService {
     /**
      * 构造函数.
      *
-     * @param taskExecutor  任务执行器
+     * @param masterTaskOperator  任务执行器
      * @param masterStorage 调度上下文（null 时使用内存存储）
      * @param options       调度配置（null 时使用默认配置）
      */
-    public MasterService(TaskExecutor taskExecutor, MasterStorage masterStorage, Options options) {
+    public MasterService(MasterTaskOperator masterTaskOperator, MasterStorage masterStorage, Options options) {
         Options resolvedOptions = (options != null) ? options : new Options();
 
         // 按域初始化（顺序由依赖关系决定）
         this.masterStorage = initStorages(masterStorage, resolvedOptions);
-        this.taskExecutor = initWorker(taskExecutor);
+        this.masterTaskOperator = initWorker(masterTaskOperator);
         this.eventOperator = initEvent(resolvedOptions);
         // 基础设施
         ActorSystem actorSystem = initActorSystem(resolvedOptions);
@@ -109,11 +109,11 @@ public class MasterService {
     /**
      * 便捷构造函数（无外部存储）.
      *
-     * @param taskExecutor 任务执行器
+     * @param masterTaskOperator 任务执行器
      * @param options      调度配置
      */
-    public MasterService(TaskExecutor taskExecutor, Options options) {
-        this(taskExecutor, null, options);
+    public MasterService(MasterTaskOperator masterTaskOperator, Options options) {
+        this(masterTaskOperator, null, options);
     }
 
     // ========================= 域初始化方法 =========================
@@ -152,14 +152,14 @@ public class MasterService {
     }
 
     /**
-     * 初始化 Worker 组件：校验 taskExecutor.
+     * 初始化 Worker 组件：校验 masterTaskOperator.
      */
-    private TaskExecutor initWorker(TaskExecutor taskExecutor) {
-        if (taskExecutor == null) {
-            log.warn("未指定任务执行分发器,若是测试或者示例运行,请使用 DummyTaskExecutor .");
+    private MasterTaskOperator initWorker(MasterTaskOperator masterTaskOperator) {
+        if (masterTaskOperator == null) {
+            log.warn("未指定任务执行分发器,若是测试或者示例运行,请使用 DummyMasterTaskOperator .");
             throw new IllegalArgumentException("未指定任务执行分发器.");
         }
-        return taskExecutor;
+        return masterTaskOperator;
     }
 
     /**
@@ -180,7 +180,7 @@ public class MasterService {
      * 初始化任务子系统.
      */
     private TaskAction initTask(ActorSystem actorSystem) {
-        return new TaskAction(actorSystem, this.eventOperator, this.taskExecutor, this.masterStorage);
+        return new TaskAction(actorSystem, this.eventOperator, this.masterTaskOperator, this.masterStorage);
     }
 
     /**

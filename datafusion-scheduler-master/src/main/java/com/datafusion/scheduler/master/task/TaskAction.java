@@ -71,7 +71,7 @@ public class TaskAction implements TaskResultHandler {
     /**
      * 任务执行器.
      */
-    private final TaskExecutor taskExecutor;
+    private final MasterTaskOperator masterTaskOperator;
 
     /**
      * 创建任务消息处理器注册.
@@ -83,15 +83,15 @@ public class TaskAction implements TaskResultHandler {
      *
      * @param actorSystem   Actor 系统
      * @param eventOperator 全局事件操作类
-     * @param taskExecutor  任务执行器
+     * @param masterTaskOperator  任务执行器
      * @param masterStorage 综合存储
      *
      */
-    public TaskAction(ActorSystem actorSystem, GlobalEventOperator eventOperator, TaskExecutor taskExecutor,
+    public TaskAction(ActorSystem actorSystem, GlobalEventOperator eventOperator, MasterTaskOperator masterTaskOperator,
                       MasterStorage masterStorage) {
         this.actorSystem = actorSystem;
         this.eventOperator = eventOperator;
-        this.taskExecutor = taskExecutor;
+        this.masterTaskOperator = masterTaskOperator;
         this.masterStorage = masterStorage;
         this.msgHandlerRegister = initTaskMsgHandlerRegister();
     }
@@ -104,14 +104,14 @@ public class TaskAction implements TaskResultHandler {
     private TaskMsgHandlerRegister initTaskMsgHandlerRegister() {
         TaskStorage taskStorage = masterStorage.getTaskStorage();
         TaskMsgHandlerRegister register = new TaskMsgHandlerRegister();
-        register.registerHandler(new TaskInitMsgHandler(taskStorage, eventOperator, taskExecutor));
-        register.registerHandler(new TaskWaitMsgHandler(taskStorage, eventOperator, taskExecutor));
-        register.registerHandler(new TaskSubmitMsgHandler(taskStorage, eventOperator, taskExecutor));
-        register.registerHandler(new TaskRunMsgHandler(taskStorage, eventOperator, taskExecutor));
-        register.registerHandler(new TaskStopMsgHandler(taskStorage, eventOperator, taskExecutor));
-        register.registerHandler(new TaskRestartMsgHandler(taskStorage, eventOperator, taskExecutor));
-        register.registerHandler(new TaskKillMsgHandler(taskStorage, eventOperator, taskExecutor));
-        register.registerHandler(new TaskEnforceSuccessMsgHandler(taskStorage, eventOperator, taskExecutor));
+        register.registerHandler(new TaskInitMsgHandler(taskStorage, eventOperator, masterTaskOperator));
+        register.registerHandler(new TaskWaitMsgHandler(taskStorage, eventOperator, masterTaskOperator));
+        register.registerHandler(new TaskSubmitMsgHandler(taskStorage, eventOperator, masterTaskOperator));
+        register.registerHandler(new TaskRunMsgHandler(taskStorage, eventOperator, masterTaskOperator));
+        register.registerHandler(new TaskStopMsgHandler(taskStorage, eventOperator, masterTaskOperator));
+        register.registerHandler(new TaskRestartMsgHandler(taskStorage, eventOperator, masterTaskOperator));
+        register.registerHandler(new TaskKillMsgHandler(taskStorage, eventOperator, masterTaskOperator));
+        register.registerHandler(new TaskEnforceSuccessMsgHandler(taskStorage, eventOperator, masterTaskOperator));
         return register;
     }
 

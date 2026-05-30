@@ -2,20 +2,20 @@ package com.datafusion.scheduler.master.example;
 
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.exception.SchedulerException;
-import com.datafusion.scheduler.master.task.TaskExecutor;
+import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
 import com.datafusion.scheduler.model.TaskResult;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 模拟 TaskExecutor，同步立即返回.
+ * 模拟 MasterTaskOperator，同步立即返回.
  *
  * @author lanvendar
  * @version 1.0.0, 2026/3/10
  * @since 2026/3/10
  */
 @Slf4j
-public class DummyTaskExecutor implements TaskExecutor {
+public class DummyMasterTaskOperator implements MasterTaskOperator {
 
     @Override
     public TaskResult runTask(TaskInstance taskIns) throws SchedulerException {

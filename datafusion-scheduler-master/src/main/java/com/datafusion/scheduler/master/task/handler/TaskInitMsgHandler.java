@@ -4,7 +4,7 @@ import com.datafusion.scheduler.enums.ActionType;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.master.actor.ActorSysContext;
 import com.datafusion.scheduler.master.event.GlobalEventOperator;
-import com.datafusion.scheduler.master.task.TaskExecutor;
+import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.TaskMsg;
 import com.datafusion.scheduler.master.task.model.TaskInfo;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
@@ -35,10 +35,10 @@ public class TaskInitMsgHandler extends AbstractTaskMsgHandler {
      *
      * @param taskStorage   任务存储
      * @param eventOperator 全局事件操作
-     * @param taskExecutor  任务执行器
+     * @param masterTaskOperator  任务执行器
      */
-    public TaskInitMsgHandler(TaskStorage taskStorage, GlobalEventOperator eventOperator, TaskExecutor taskExecutor) {
-        super(taskStorage, eventOperator, taskExecutor);
+    public TaskInitMsgHandler(TaskStorage taskStorage, GlobalEventOperator eventOperator, MasterTaskOperator masterTaskOperator) {
+        super(taskStorage, eventOperator, masterTaskOperator);
     }
 
     @Override
