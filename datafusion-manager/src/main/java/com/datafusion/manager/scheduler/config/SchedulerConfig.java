@@ -54,12 +54,12 @@ public class SchedulerConfig {
      * initMethod=start 容器启动时自动开始调度.
      * destroyMethod=stop 容器关闭时优雅停止.
      *
-     * @param taskExecutor  任务执行器
+     * @param masterTaskOperator  任务执行器
      * @param masterStorage 综合存储
      * @return MasterService
      */
     /*@Bean(initMethod = "start", destroyMethod = "stop")
-    public MasterService masterService(TaskExecutor taskExecutor, MasterStorage masterStorage) {
-        return new MasterService(taskExecutor, masterStorage, new Options());
+    public MasterService masterService(MasterTaskOperator masterTaskOperator, MasterStorage masterStorage) {
+        return new MasterService(masterTaskOperator, masterStorage, new Options());
     }*/
 }
