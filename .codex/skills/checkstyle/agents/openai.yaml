@@ -1,0 +1,4 @@
+interface:
+  display_name: "Checkstyle"
+  short_description: "Fix and verify Java Checkstyle compliance"
+  default_prompt: "Check the modified Java files against the repository Checkstyle rules and fix violations without changing behavior."

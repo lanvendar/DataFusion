@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "SDD Spring Web"
+  short_description: "Data-structure-driven Spring Web workflow for DataFusion"
+  default_prompt: "Add a Spring Web feature in datafusion-manager. Start with data definition and design docs."
