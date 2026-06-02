@@ -25,6 +25,7 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useMemo, useState } from "react";
+import { PageHeader } from "@/components/page-header";
 import {
   request,
   type ApiPage,
@@ -73,6 +74,7 @@ export interface ResourceActionHelpers {
 export interface ResourcePageProps<T extends Record<string, unknown>> {
   title: string;
   description: string;
+  breadcrumb: string[];
   rowKey?: keyof T & string;
   entityName: string;
   endpoints: ResourceEndpoint;
@@ -116,6 +118,7 @@ function renderFieldValue<T extends Record<string, unknown>>(
 export default function ResourcePage<T extends Record<string, unknown>>({
   title,
   description,
+  breadcrumb,
   rowKey = "id" as keyof T & string,
   entityName,
   endpoints,
@@ -306,12 +309,12 @@ export default function ResourcePage<T extends Record<string, unknown>>({
 
   return (
     <Space direction="vertical" size={16} className="page-stack">
-      <div className="page-heading">
-        <div>
-          <Typography.Title level={2}>{title}</Typography.Title>
-          <Typography.Paragraph>{description}</Typography.Paragraph>
-        </div>
-        <Space wrap>
+      <PageHeader
+        breadcrumb={breadcrumb.map((label) => ({ label }))}
+        title={title}
+        description={description}
+        actions={
+          <Space wrap>
           <Input.Search
             allowClear
             enterButton={<SearchOutlined />}
@@ -331,8 +334,9 @@ export default function ResourcePage<T extends Record<string, unknown>>({
               新增{entityName}
             </Button>
           ) : null}
-        </Space>
-      </div>
+          </Space>
+        }
+      />
 
       <Card>
         <Table<T>

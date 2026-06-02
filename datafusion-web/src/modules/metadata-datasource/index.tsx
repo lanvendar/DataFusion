@@ -1,6 +1,7 @@
-import { App, Space, Typography } from "antd";
+import { App, Space } from "antd";
 import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { PageHeader } from "@/components/page-header";
 import { datasourceApi } from "./api";
 import { DatasourceForm, DatasourceListTable, TableRegister } from "./components";
 import { METADATA_DATASOURCE_QUERY_KEY } from "./constants";
@@ -76,14 +77,11 @@ export default function MetadataDatasourcePage() {
 
   return (
     <Space direction="vertical" size={16} className="page-stack">
-      <div className="page-heading">
-        <div>
-          <Typography.Title level={2}>数据源管理</Typography.Title>
-          <Typography.Paragraph>
-            集中管理数据源连接，支持新增、编辑、复制、刷新和表登记。
-          </Typography.Paragraph>
-        </div>
-      </div>
+      <PageHeader
+        breadcrumb={[{ label: "元数据管理" }, { label: "数据源管理" }]}
+        title="数据源管理"
+        description="集中管理数据源连接，支持新增、编辑、复制、刷新和表登记。"
+      />
 
       <DatasourceListTable
         loading={deleteMutation.isPending || refreshMutation.isPending}

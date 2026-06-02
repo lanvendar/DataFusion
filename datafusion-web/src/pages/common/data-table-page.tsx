@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { App, Button, Card, Input, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
+import { PageHeader } from "@/components/page-header";
 import {
   createDemoRows,
   type DemoRow,
@@ -14,6 +15,7 @@ interface DataTablePageProps {
   description: string;
   entityName: string;
   apiPath: string;
+  breadcrumb: string[];
 }
 
 const statusMap = {
@@ -27,6 +29,7 @@ export default function DataTablePage({
   description,
   entityName,
   apiPath,
+  breadcrumb,
 }: DataTablePageProps) {
   const { message } = App.useApp();
   const [keyword, setKeyword] = useState("");
@@ -103,12 +106,12 @@ export default function DataTablePage({
 
   return (
     <Space direction="vertical" size={16} className="page-stack">
-      <div className="page-heading">
-        <div>
-          <Typography.Title level={2}>{title}</Typography.Title>
-          <Typography.Paragraph>{description}</Typography.Paragraph>
-        </div>
-        <Space>
+      <PageHeader
+        breadcrumb={breadcrumb.map((label) => ({ label }))}
+        title={title}
+        description={description}
+        actions={
+          <Space>
           <Input
             allowClear
             prefix={<SearchOutlined />}
@@ -123,8 +126,9 @@ export default function DataTablePage({
           <Button type="primary" onClick={() => message.info(`新增${entityName}`)}>
             新增{entityName}
           </Button>
-        </Space>
-      </div>
+          </Space>
+        }
+      />
 
       <Card>
         <Table

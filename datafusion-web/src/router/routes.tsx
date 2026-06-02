@@ -25,11 +25,11 @@ import DataTablePage from "@/pages/common/data-table-page";
 import MetadataDatasourcePage from "@/modules/metadata-datasource";
 import MetadataTableStructurePage from "@/modules/metadata-table-structure";
 import MetadataTableSyncPage from "@/modules/metadata-table-sync";
-import SchedulerTriggerPage from "@/pages/scheduler-trigger";
-import SchedulerVariablePage from "@/pages/scheduler-variable";
+import SchedulerTriggerPage from "@/modules/scheduler-trigger";
+import SchedulerVariablePage from "@/modules/scheduler-variable";
 import SchedulerFlowPage from "@/pages/scheduler-flow";
 import SchedulerTaskPage from "@/pages/scheduler-task";
-import SchedulerEventPage from "@/pages/scheduler-event";
+import SchedulerEventPage from "@/modules/scheduler-event";
 import type { AppRouteGroup } from "@/types/navigation";
 
 export const routeGroups: AppRouteGroup[] = [
@@ -73,6 +73,7 @@ export const routeGroups: AppRouteGroup[] = [
             description="维护数仓指标定义、启用状态、负责人和业务归属。"
             entityName="指标"
             apiPath="/api/biz-data/dw_tag/manager/list"
+            breadcrumb={["指标中心", "数仓指标维护"]}
           />
         ),
       },
@@ -86,6 +87,7 @@ export const routeGroups: AppRouteGroup[] = [
             description="注册业务指标并维护开发信息、权限和生命周期状态。"
             entityName="指标"
             apiPath="/api/biz-data/tag/manager/list"
+            breadcrumb={["指标中心", "指标注册"]}
           />
         ),
       },
@@ -167,6 +169,7 @@ export const routeGroups: AppRouteGroup[] = [
             description="导入菜单、接口、ETL、表和指标资源，进入血缘图谱。"
             entityName="资源"
             apiPath="/api/asset/resource/pageResouces"
+            breadcrumb={["数据资产", "血缘资源导入"]}
           />
         ),
       },
@@ -224,6 +227,7 @@ export const routeGroups: AppRouteGroup[] = [
             description="创建离线/实时同步任务，维护源端、目标端和字段映射。"
             entityName="同步任务"
             apiPath="/api/ingestion/datasync-task/page"
+            breadcrumb={["数据开发", "数据集成"]}
           />
         ),
       },

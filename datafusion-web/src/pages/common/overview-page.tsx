@@ -4,6 +4,7 @@ import {
   ClockCircleOutlined,
   DeploymentUnitOutlined,
 } from "@ant-design/icons";
+import { PageHeader } from "@/components/page-header";
 
 interface OverviewPageProps {
   title: string;
@@ -17,22 +18,29 @@ const domainTags = {
   development: ["SQL 开发", "任务发布", "运行监控"],
 };
 
+const domainLabels = {
+  metrics: "指标中心",
+  asset: "数据资产",
+  development: "数据开发",
+};
+
 export default function OverviewPage({ title, description, domain }: OverviewPageProps) {
   return (
     <Space direction="vertical" size={16} className="page-stack">
-      <div className="page-heading">
-        <div>
-          <Typography.Title level={2}>{title}</Typography.Title>
-          <Typography.Paragraph>{description}</Typography.Paragraph>
-        </div>
-        <Space wrap>
+      <PageHeader
+        breadcrumb={[{ label: domainLabels[domain] }, { label: title }]}
+        title={title}
+        description={description}
+        actions={
+          <Space wrap>
           {domainTags[domain].map((tag) => (
             <Tag color="blue" key={tag}>
               {tag}
             </Tag>
           ))}
-        </Space>
-      </div>
+          </Space>
+        }
+      />
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={8}>

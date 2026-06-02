@@ -64,6 +64,7 @@ export default function SchedulerTaskPage() {
     <ResourcePage<TaskRow>
       title="任务管理"
       description="维护可被流程编排的任务定义、任务类型、执行组件和启用状态。"
+      breadcrumb={["调度中心", "任务管理"]}
       entityName="任务"
       endpoints={{
         list: "/api/scheduler/task/page",

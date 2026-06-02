@@ -120,6 +120,7 @@ export default function SchedulerFlowPage() {
       <ResourcePage<FlowRow>
         title="流程管理"
         description="维护调度流程定义、发布状态、调度状态，并使用 React Flow 进行 DAG 编排。"
+        breadcrumb={["调度中心", "流程管理"]}
         entityName="流程"
         endpoints={{
           list: "/api/scheduler/flow/page",

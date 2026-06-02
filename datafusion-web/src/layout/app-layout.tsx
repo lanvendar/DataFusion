@@ -23,10 +23,23 @@ const pathToOpenKey = new Map<string, string>(
   ),
 );
 
+const routeMenuKeys = routeGroups.flatMap((group) =>
+  group.children.map((route) => `/${route.path}`),
+);
+
+function getSelectedKey(pathname: string) {
+  if (pathname === "/") return "/home";
+  return (
+    routeMenuKeys
+      .filter((key) => pathname === key || pathname.startsWith(`${key}/`))
+      .sort((left, right) => right.length - left.length)[0] || pathname
+  );
+}
+
 export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const selectedKey = location.pathname === "/" ? "/home" : location.pathname;
+  const selectedKey = getSelectedKey(location.pathname);
   const openKey = pathToOpenKey.get(selectedKey);
 
   return (
