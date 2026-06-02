@@ -11,6 +11,7 @@ export interface ApiPage<T> {
 
 export interface ApiEnvelope<T> {
   code?: number | string;
+  description?: string;
   msg?: string;
   message?: string;
   errorMsg?: string;
@@ -44,6 +45,8 @@ export class HttpError extends Error {
   }
 }
 
+const successCodes = new Set<unknown>([0, "0", "00000", 200, "200"]);
+
 const http = axios.create({
   baseURL: "/",
   timeout: 60_000,
@@ -55,12 +58,12 @@ const http = axios.create({
 http.interceptors.response.use(
   (response) => {
     const body = response.data as ApiEnvelope<unknown>;
-    const hasBusinessCode =
-      body && typeof body === "object" && "code" in body && body.code !== 0 && body.code !== "0";
+    const hasBusinessError =
+      body && typeof body === "object" && "code" in body && !successCodes.has(body.code);
 
-    if (hasBusinessCode) {
+    if (hasBusinessError) {
       throw new HttpError(
-        body.errorMsg || body.message || body.msg || "请求处理失败",
+        body.errorMsg || body.message || body.msg || body.description || "请求处理失败",
         response.status,
       );
     }
@@ -72,6 +75,7 @@ http.interceptors.response.use(
       error.response?.data?.errorMsg ||
       error.response?.data?.message ||
       error.response?.data?.msg ||
+      error.response?.data?.description ||
       error.message ||
       "网络请求失败";
 

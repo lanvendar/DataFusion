@@ -4,7 +4,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { DatabaseOutlined, GithubOutlined } from "@ant-design/icons";
 import { routeGroups } from "@/router/routes";
 
-const { Header, Sider, Content } = Layout;
+const { Sider, Content } = Layout;
 
 const menuItems: MenuProps["items"] = routeGroups.map((group) => ({
   key: group.key,
@@ -36,10 +36,13 @@ export default function AppLayout() {
           <div className="brand-mark">
             <DatabaseOutlined />
           </div>
-          <div>
+          <div className="brand-copy">
             <Typography.Text className="brand-title">DataFusion</Typography.Text>
             <Typography.Text className="brand-subtitle">数据集成平台</Typography.Text>
           </div>
+          <a className="brand-link" href="https://github.com/" target="_blank" rel="noreferrer" aria-label="开源组件栈">
+            <GithubOutlined />
+          </a>
         </div>
         <Menu
           theme="dark"
@@ -51,18 +54,6 @@ export default function AppLayout() {
         />
       </Sider>
       <Layout>
-        <Header className="app-header">
-          <div>
-            <Typography.Text className="header-kicker">Open-source migration</Typography.Text>
-            <Typography.Title level={4} className="header-title">
-              DataFusion Web Console
-            </Typography.Title>
-          </div>
-          <a className="header-link" href="https://github.com/" target="_blank" rel="noreferrer">
-            <GithubOutlined />
-            开源组件栈
-          </a>
-        </Header>
         <Content className="app-content">
           <Outlet />
         </Content>

@@ -60,10 +60,10 @@ export default function SchedulerVariablePage() {
       description="维护调度流程可复用变量、变量类型和值类型。"
       entityName="变量"
       endpoints={{
-        list: "/api/datafusion-manager/api/scheduler/variable/page",
-        add: "/api/datafusion-manager/api/scheduler/variable/add",
-        update: "/api/datafusion-manager/api/scheduler/variable/update",
-        delete: "/api/datafusion-manager/api/scheduler/variable/{id}",
+        list: "/api/scheduler/variable/page",
+        add: "/api/scheduler/variable/add",
+        update: "/api/scheduler/variable/update",
+        delete: "/api/scheduler/variable/{id}",
       }}
       fields={fields}
       demoRows={demoRows}

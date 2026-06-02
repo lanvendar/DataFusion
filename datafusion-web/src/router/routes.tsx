@@ -23,8 +23,8 @@ import HomePage from "@/pages/home";
 import OverviewPage from "@/pages/common/overview-page";
 import DataTablePage from "@/pages/common/data-table-page";
 import MetadataDatasourcePage from "@/modules/metadata-datasource";
-import MetadataTableStructurePage from "@/pages/metadata-table-structure";
-import MetadataTableSyncPage from "@/pages/metadata-table-sync";
+import MetadataTableStructurePage from "@/modules/metadata-table-structure";
+import MetadataTableSyncPage from "@/modules/metadata-table-sync";
 import SchedulerTriggerPage from "@/pages/scheduler-trigger";
 import SchedulerVariablePage from "@/pages/scheduler-variable";
 import SchedulerFlowPage from "@/pages/scheduler-flow";
@@ -166,7 +166,7 @@ export const routeGroups: AppRouteGroup[] = [
             title="血缘资源导入"
             description="导入菜单、接口、ETL、表和指标资源，进入血缘图谱。"
             entityName="资源"
-            apiPath="/api/datafusion-manager/api/asset/resource/pageResouces"
+            apiPath="/api/asset/resource/pageResouces"
           />
         ),
       },
@@ -223,7 +223,7 @@ export const routeGroups: AppRouteGroup[] = [
             title="数据集成"
             description="创建离线/实时同步任务，维护源端、目标端和字段映射。"
             entityName="同步任务"
-            apiPath="/api/datafusion-manager/api/ingestion/task/page"
+            apiPath="/api/ingestion/datasync-task/page"
           />
         ),
       },

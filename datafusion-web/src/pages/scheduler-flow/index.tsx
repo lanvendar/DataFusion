@@ -122,10 +122,10 @@ export default function SchedulerFlowPage() {
         description="维护调度流程定义、发布状态、调度状态，并使用 React Flow 进行 DAG 编排。"
         entityName="流程"
         endpoints={{
-          list: "/api/datafusion-manager/api/scheduler/flow/page",
-          add: "/api/datafusion-manager/api/scheduler/flow/add",
-          update: "/api/datafusion-manager/api/scheduler/flow/update",
-          delete: "/api/datafusion-manager/api/scheduler/flow/delete",
+          list: "/api/scheduler/flow/page",
+          add: "/api/scheduler/flow/add",
+          update: "/api/scheduler/flow/update",
+          delete: "/api/scheduler/flow/delete",
         }}
         fields={fields}
         demoRows={demoRows}

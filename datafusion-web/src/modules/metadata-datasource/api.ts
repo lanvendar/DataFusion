@@ -10,7 +10,7 @@ import type {
   TableRegisterReq,
 } from "./dto";
 
-const prefix = "/api/datafusion-manager/api/metadata";
+const prefix = "/api/metadata";
 
 export const datasourceApi = {
   async page(params: DatasourcePageReq): Promise<DatasourcePageRes> {

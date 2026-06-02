@@ -48,10 +48,10 @@ export default function SchedulerEventPage() {
       description="维护调度事件、事件类型以及流程/任务联动关系。"
       entityName="事件"
       endpoints={{
-        list: "/api/datafusion-manager/api/scheduler/event/page",
-        add: "/api/datafusion-manager/api/scheduler/event/add",
-        update: "/api/datafusion-manager/api/scheduler/event/update",
-        delete: "/api/datafusion-manager/api/scheduler/event/delete/{id}",
+        list: "/api/scheduler/event/page",
+        add: "/api/scheduler/event/add",
+        update: "/api/scheduler/event/update",
+        delete: "/api/scheduler/event/delete/{id}",
       }}
       fields={fields}
       demoRows={demoRows}

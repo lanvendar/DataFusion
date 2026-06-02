@@ -66,10 +66,10 @@ export default function SchedulerTaskPage() {
       description="维护可被流程编排的任务定义、任务类型、执行组件和启用状态。"
       entityName="任务"
       endpoints={{
-        list: "/api/datafusion-manager/api/scheduler/task/page",
-        add: "/api/datafusion-manager/api/scheduler/task/add",
-        update: "/api/datafusion-manager/api/scheduler/task/update",
-        delete: "/api/datafusion-manager/api/scheduler/task/delete",
+        list: "/api/scheduler/task/page",
+        add: "/api/scheduler/task/add",
+        update: "/api/scheduler/task/update",
+        delete: "/api/scheduler/task/delete",
       }}
       fields={fields}
       demoRows={demoRows}

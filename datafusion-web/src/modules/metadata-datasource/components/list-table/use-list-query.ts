@@ -14,8 +14,18 @@ import type {
   DatasourcePageRes,
 } from "../../dto";
 
+function sameFilter(left: DatasourcePageOption, right: DatasourcePageOption) {
+  return (
+    left.name === right.name &&
+    left.databaseType === right.databaseType &&
+    left.databaseName === right.databaseName &&
+    left.schemaName === right.schemaName
+  );
+}
+
 export function useDatasourceListQuery() {
   const [filter, setFilter] = useState<DatasourcePageOption>(defaultFilter);
+  const [appliedFilter, setAppliedFilter] = useState<DatasourcePageOption>(defaultFilter);
   const [current, setCurrent] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
@@ -24,13 +34,13 @@ export function useDatasourceListQuery() {
       current,
       size: pageSize,
       option: {
-        name: filter.name || undefined,
-        databaseType: filter.databaseType || undefined,
-        databaseName: filter.databaseName || undefined,
-        schemaName: filter.schemaName || undefined,
+        name: appliedFilter.name || undefined,
+        databaseType: appliedFilter.databaseType || undefined,
+        databaseName: appliedFilter.databaseName || undefined,
+        schemaName: appliedFilter.schemaName || undefined,
       },
     }),
-    [current, filter, pageSize],
+    [appliedFilter, current, pageSize],
   );
 
   const query = useQuery({
@@ -55,7 +65,20 @@ export function useDatasourceListQuery() {
 
   const search = () => {
     setCurrent(1);
-    void query.refetch();
+    setAppliedFilter({ ...filter });
+    if (current === 1 && sameFilter(filter, appliedFilter)) {
+      void query.refetch();
+    }
+  };
+
+  const reset = () => {
+    const nextFilter = { ...defaultFilter };
+    setFilter(nextFilter);
+    setCurrent(1);
+    setAppliedFilter(nextFilter);
+    if (current === 1 && sameFilter(appliedFilter, defaultFilter)) {
+      void query.refetch();
+    }
   };
 
   return {
@@ -67,5 +90,6 @@ export function useDatasourceListQuery() {
     setPageSize,
     query,
     search,
+    reset,
   };
 }

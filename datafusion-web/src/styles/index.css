@@ -29,6 +29,10 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.brand-copy {
+  min-width: 0;
+}
+
 .brand-mark {
   display: grid;
   place-items: center;
@@ -53,31 +57,24 @@ body {
   font-size: 12px;
 }
 
-.app-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 72px;
-  padding: 0 28px;
-  background: #ffffff;
-  border-bottom: 1px solid #e7ebf2;
-}
-
-.header-kicker {
-  display: block;
-  color: #64748b;
-  font-size: 12px;
-}
-
-.header-title {
-  margin: 2px 0 0 !important;
-}
-
-.header-link {
+.brand-link {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  color: #2563eb;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.72);
+  border-radius: 8px;
+  font-size: 18px;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease;
+}
+
+.brand-link:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .app-content {
@@ -224,6 +221,32 @@ body {
 
 .filter-select {
   min-width: 150px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.stat-grid .ant-statistic {
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.json-block {
+  max-height: 560px;
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  color: #172033;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 @media (max-width: 1280px) {

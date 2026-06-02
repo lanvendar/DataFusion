@@ -13,7 +13,7 @@ export const defaultFilter: DatasourcePageOption = {
 
 export const databaseTypeOptions = [
   "MYSQL",
-  "POSTGRESQL",
+  "POSTGRES",
   "STARROCKS",
   "HIVE",
   "ORACLE",

@@ -18,6 +18,7 @@ export function DatasourceListTable({ loading, onAction }: DatasourceListTablePr
     setFilter,
     query,
     search,
+    reset,
     setCurrent,
     setPageSize,
   } = useDatasourceListQuery();
@@ -35,6 +36,7 @@ export function DatasourceListTable({ loading, onAction }: DatasourceListTablePr
         filter={filter}
         onFilterChange={setFilter}
         onSearch={search}
+        onReset={reset}
         onAction={onAction}
       />
       <Table<DatasourceItem>

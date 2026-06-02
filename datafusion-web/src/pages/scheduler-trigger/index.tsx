@@ -68,10 +68,10 @@ export default function SchedulerTriggerPage() {
       description="维护 cron、固定间隔和调度策略配置。"
       entityName="触发器"
       endpoints={{
-        list: "/api/datafusion-manager/api/scheduler/trigger/page",
-        add: "/api/datafusion-manager/api/scheduler/trigger/add",
-        update: "/api/datafusion-manager/api/scheduler/trigger/update",
-        delete: "/api/datafusion-manager/api/scheduler/trigger/{id}",
+        list: "/api/scheduler/trigger/page",
+        add: "/api/scheduler/trigger/add",
+        update: "/api/scheduler/trigger/update",
+        delete: "/api/scheduler/trigger/{id}",
       }}
       fields={fields}
       demoRows={demoRows}

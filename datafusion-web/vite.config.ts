@@ -21,7 +21,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      port: 5173,
+      port: 3000,
+      strictPort: true,
       proxy: {
         "/api": {
           target: apiTarget,
@@ -30,7 +31,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     preview: {
-      port: 4173,
+      port: 3000,
+      strictPort: true,
     },
     build: {
       rollupOptions: {
