@@ -28,7 +28,7 @@ import MetadataTableSyncPage from "@/modules/metadata-table-sync";
 import SchedulerTriggerPage from "@/modules/scheduler-trigger";
 import SchedulerVariablePage from "@/modules/scheduler-variable";
 import SchedulerFlowPage from "@/pages/scheduler-flow";
-import SchedulerTaskPage from "@/pages/scheduler-task";
+import SchedulerTaskPage from "@/modules/scheduler-task";
 import SchedulerEventPage from "@/modules/scheduler-event";
 import type { AppRouteGroup } from "@/types/navigation";
 
