@@ -29,6 +29,13 @@
 | `AgentProperties.ThreadPoolConfig` | `Internal` | 线程池配置 | `maxPoolSize` | `int` | 必填 | 最大线程数 |
 | `AgentProperties.ThreadPoolConfig` | `Internal` | 线程池配置 | `queueCapacity` | `int` | 必填 | 队列容量 |
 | `AgentProperties.ThreadPoolConfig` | `Internal` | 线程池配置 | `keepAliveSeconds` | `int` | 必填 | 线程存活时间 |
+| `AgentExecutionStatusRecord` | `Internal` | agent 本地执行状态记录 | `flowInstanceId` | `String` | 可选 | 流程实例 ID，用于生成状态文件目录 |
+| `AgentExecutionStatusRecord` | `Internal` | agent 本地执行状态记录 | `executionId` | `String` | 必填 | 执行实例 ID，当前映射为 `taskInstanceId` |
+| `AgentExecutionStatusRecord` | `Internal` | agent 本地执行状态记录 | `appId` | `String` | 可选 | 外部应用 ID，如 Flink Job ID、Yarn Application ID、DataX 任务 ID |
+| `AgentExecutionStatusRecord` | `Internal` | agent 本地执行状态记录 | `pid` | `String` | 可选 | 本地进程 ID |
+| `AgentExecutionStatusRecord` | `Internal` | agent 本地执行状态记录 | `workId` | `String` | 可选 | worker 节点 ID，缺省从当前 agent 运行状态补齐 |
+| `AgentExecutionStatusRecord` | `Internal` | agent 本地执行状态记录 | `status` | `String` | 可选 | 写入 `taskStatus.log` 的执行状态，推荐小写 |
+| `AgentExecutionStatusRecord` | `Internal` | agent 本地执行状态记录 | `result` | `String` | 可选 | 执行结果说明、错误信息或插件返回摘要 |
 | `TaskRequest` | `Request` | manager 调用 agent 控制任务 | 见 worker 数据定义 | 见 worker 数据定义 | 见 worker 数据定义 | 来自 `datafusion-common-data` |
 | `TaskResult` | `Response` | agent 返回或上报任务结果 | 见 worker 数据定义 | 见 worker 数据定义 | 见 worker 数据定义 | 来自 `datafusion-common-data` |
 | `Worker` | `Request` | agent 注册和心跳上报 | 见 worker 数据定义 | 见 worker 数据定义 | 见 worker 数据定义 | 来自 `datafusion-common-data` |
@@ -53,7 +60,9 @@
 | `AgentProperties` -> `Worker` | 启动时组合 worker 配置、本机 IP、hostName、插件类型和时间字段 | `id` 未配置时使用 `hostName:port` |
 | Spring `PluginTaskExecutor` Beans -> `WorkerPluginLoader` | 收集 Spring 容器中的插件执行器 | 生成 `pluginTypes` 并注册到 worker router |
 | HTTP `TaskRequest` -> `WorkerTaskOperator` | Controller 提交到 `agentTaskControlPool` 后调用 worker 框架 | agent 未 ready 时默认拒绝 |
-| `TaskResult` -> 本地状态文件 | 写入 `taskStatus.log` 和 `{taskInstanceId}.state` | 路径位于 `${modules}/task-status` |
+| `TaskRequest` -> `AgentWorkerTaskContextStorage` | agent 侧实现 `WorkerTaskContextStorage` 并按 `taskInstanceId` 存储 `RunningTaskContext` | `save` 时通过 `AgentExecutionStatusRecorder` 记录状态文件 |
+| `RunningTaskContext` -> `AgentExecutionStatusRecord` | `AgentWorkerTaskContextStorage.save` 转换并调用 `AgentExecutionStatusRecorder` | `pid` 仅在插件或扩展结果可提供时写入 |
+| `AgentExecutionStatusRecord` -> 本地状态文件 | 写入 `taskStatus.log` 和 `{executionId}.state` | 路径位于 `${modules}/task-status` |
 | `TaskResult` -> manager | `ManagerTaskResultReporter` 投递到 `agentResultReportPool` 后 HTTP 上报 | 上报失败第一版只记录日志 |
 
 ## 6. 枚举 / JSON / 特殊字段
@@ -73,4 +82,15 @@
 | `ThreadPoolBuilder` | `datafusion-common` | 创建线程池 | agent 所有任务相关线程池 |
 | `TaskRequest` / `TaskResult` / `Worker` | `datafusion-common-data` | 通信模型 | manager/agent/worker 共享 |
 | `WorkerTaskOperator` / `WorkerTaskService` | `datafusion-scheduler-worker` | worker 框架入口 | agent 装配并调用 |
+| `WorkerTaskContextStorage` / `RunningTaskContext` | `datafusion-scheduler-worker` | 运行上下文契约和模型 | agent 通过 `AgentWorkerTaskContextStorage` 实现 |
 | `PluginTaskExecutor` / `WorkerPluginLoader` | `datafusion-scheduler-worker` | 插件加载和执行契约 | agent 收集 Spring Bean |
+
+## 8. 本地状态文件格式
+
+`AgentExecutionStatusRecord` 写入 `taskStatus.log` 时使用如下格式：
+
+```text
+appid:{appId}|pid:{pid}|workId:{workId}|status:{status}
+```
+
+该对象只表达 agent 本地执行状态记录，不承担 worker 运行上下文、任务幂等或任务路由职责。

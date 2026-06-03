@@ -137,7 +137,7 @@ worker 记录至少包含：
 推荐幂等键：
 
 ```text
-taskInstanceId + attemptNo + actionType
+taskInstanceId + actionType
 ```
 
 worker 失联处理：

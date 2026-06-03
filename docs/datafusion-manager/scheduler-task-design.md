@@ -12,6 +12,18 @@
 
 `TaskController` 只管理任务定义，不直接提交 worker 任务，也不维护任务实例状态。任务实例执行链由 `TaskStorageImpl`、`FlowInfoServiceImpl` 和 `datafusion-scheduler-master` 处理。
 
+### 1.1 字段边界
+
+`scheduler_task_info` 当前同时保存任务定义属性和调度编排属性。任务定义页面和 `TaskController` 的新增/修改入参只处理任务定义属性。
+
+| 分类 | 字段 | 说明 |
+|------|------|------|
+| 任务定义属性 | `taskName`、`taskCode`、`description`、`taskTypeId`、`taskType`、`taskParam`、`definition` | 描述任务自身，允许在任务定义页面新增、修改和查看 |
+| 调度编排属性 | `isBound`、`flowId`、`pluginId`、`view`、`depEventIds`、`eventId`、`enabled` | 描述任务进入流程后的绑定、执行、画布、事件和启停信息，不在任务定义页面展示或编辑 |
+| 系统属性 | `id`、`syncFlag`、`sourceRoute`、`creator`、`updater`、`createTime`、`updateTime` | 由系统生成或维护，任务定义页面只读展示必要审计信息 |
+
+`pluginId` 是调度执行适配属性。短期由于表结构要求 `plugin_id uuid NOT NULL`，新增任务时由后端根据 `taskType` 解析默认执行插件并写入；任务定义页面不展示、不提交 `pluginId`。如果同一 `taskType` 后续支持多个执行插件，应在任务拖入流程后的节点配置中选择或覆盖，而不是在任务定义阶段暴露。
+
 ## 2. 接口契约
 
 | HTTP 方法 | 路径 | 请求 | 响应 | 说明 |
@@ -68,13 +80,13 @@
 
 | 场景 | 规则 | 异常/返回 |
 |------|------|-----------|
-| 分页查询 | `taskName`、`taskCode` 模糊匹配，`taskType/flowId/enabled/isBound` 精确匹配 | 返回 `PageResponse<TaskInfoDto>` |
+| 分页查询 | `taskName`、`taskCode` 模糊匹配，`taskType` 精确匹配；任务定义页面不提供 `flowId/enabled/isBound` 等调度属性筛选 | 返回 `PageResponse<TaskInfoDto>` |
 | 列表查询 | 与分页查询条件一致，不分页 | 返回 `List<TaskInfoDto>` |
 | 查询详情 | 根据 `id` 查询 | 不存在时抛 `CommonException(SERVICE_ERROR_C0300, "任务不存在")` |
-| 新增任务 | `taskName/taskCode/taskTypeId/taskType/pluginId` 必填；`taskCode` 唯一 | 重复编码或缺字段时失败 |
+| 新增任务 | `taskName/taskCode/taskTypeId/taskType` 必填；`taskCode` 唯一；`pluginId` 由后端按 `taskType` 填默认执行插件 | 重复编码、缺字段或无法解析默认执行插件时失败 |
 | 新增任务 | `id` 由 `UUID.nameUUIDFromBytes(taskCode)` 生成 | `taskCode` 变化会导致 ID 语义变化，新增前必须先校验唯一 |
-| 新增任务 | `isBound=false`、`enabled=false`、`syncFlag=false` | 作为未绑定、未启用的任务定义 |
-| 修改任务 | 先查询旧实体，再合并非空字段 | 合并后置 `syncFlag=false` |
+| 新增任务 | `isBound=false`、`flowId=null`、`view=null`、`depEventIds=null`、`eventId=null`、`enabled=false`、`syncFlag=false` | 调度编排属性由后端置默认值，不由任务定义页面提交 |
+| 修改任务 | 先查询旧实体，再合并任务定义属性的非空字段 | 不修改 `isBound/flowId/pluginId/view/depEventIds/eventId/enabled`；合并后置 `syncFlag=false` |
 | 删除任务 | 仅允许删除未绑定流程的任务 | 已绑定流程时抛 `任务已绑定流程, 无法删除` |
 
 ### 4.2 事务边界
@@ -108,6 +120,7 @@
 | `TaskStorageImpl` | scheduler master 适配 | 将任务定义转换为调度框架 `TaskInfo` |
 | `FlowInfoServiceImpl` | Service 注入 | 根据 `flowId` 组装流程 DAG 时读取任务定义 |
 | `TaskLinkService` | Service 注入 | 作为流程 DAG 的连线来源 |
+| 默认执行插件解析 | Service 内部规则 | 根据 `taskType` 获取默认 `pluginId`，用于满足 `scheduler_task_info.plugin_id` 非空约束 |
 
 ## 7. 安全和上下文
 
@@ -122,8 +135,21 @@
 - 不修改 `scheduler_task_info` 表结构。
 - 不把 `TaskInfoEntity` 与 `TaskInstanceEntity` 混用。
 - 不在本设计中新增任务执行插件协议。
+- 不在任务定义页面展示或编辑 `isBound`、`flowId`、`pluginId`、`view`、`depEventIds`、`eventId`、`enabled`。
+- 不在本设计中实现流程节点级插件覆盖；该能力属于流程编排/节点配置设计。
 
-## 9. 验证
+## 9. 后端实现说明
+
+本次前端迁移不提交 `pluginId`。后端新增任务时采用以下兼容逻辑：
+
+- `TaskInfoSaveDto.pluginId` 为非前端必填字段，保留字段只用于兼容旧调用方显式传值。
+- `TaskInfoServiceImpl.addTaskInfo` 新增时优先使用入参 `pluginId`；为空时按 `taskType` 解析默认执行插件，并写入 `TaskInfoEntity.pluginId`。
+- 第一版默认映射支持 `DATAX`、`SHELL`、`SQL`、`HTTP`、`SPARK`。
+- 如果无法根据 `taskType` 找到默认执行插件，后端返回明确业务错误，不能写入空 `pluginId`。
+
+该点只影响任务定义新增链路；任务修改链路仍不应从任务定义页面修改 `pluginId`。
+
+## 10. 验证
 
 - 单元测试: 建议覆盖新增任务、重复 `taskCode`、修改后唯一性检查、删除已绑定流程任务、按 `flowId` 查询任务。
 - 编译命令: `mvn -DskipTests compile -pl datafusion-manager -am`

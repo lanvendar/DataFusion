@@ -119,15 +119,15 @@ public interface TaskResultReporter {
 
 - 校验 `TaskRequest`。
 - 根据 `pluginType` 获取 `PluginTaskExecutor`。
-- 使用 `taskInstanceId + attemptNo` 维护运行中任务上下文。
+- 使用 `taskInstanceId` 维护运行中任务上下文。
 - 对同一上下文上的 `submitTask` 做串行化，避免瞬时重复提交重复启动任务。
 - 按 `submitMode` 区分同步提交和异步提交。
 - 对重复 `submitTask`、`stopTask`、`killTask`、`finishTask` 做幂等处理。
 - 调用 `TaskResultReporter` 异步上报插件执行结果。
 
-### WorkerTaskContextStore
+### WorkerTaskContextStorage
 
-`WorkerTaskContextStore` 保存 worker 本地运行中任务上下文，默认实现为内存实现 `InMemoryWorkerTaskContextStore`。
+`WorkerTaskContextStorage` 保存 worker 本地运行中任务上下文，默认实现为内存实现 `CachedWorkerTaskContextStorage`。
 
 第一版只保证单 agent 进程内幂等和恢复入口，跨进程恢复由 `datafusion-agent` 结合 `${modules}/task-status/` 和外部终端任务 ID 实现。
 
@@ -168,12 +168,12 @@ killTask -> 强制停止本地任务或外部应用 -> 上报 KILLED
 推荐幂等键：
 
 ```text
-taskInstanceId + attemptNo + actionType
+taskInstanceId + actionType
 ```
 
 规则：
 
-- 重复 `submitTask` 不重复启动同一 attempt。
+- 重复 `submitTask` 不重复启动同一任务实例。
 - 重复 `stopTask` / `killTask` 返回当前控制结果或当前终态。
 - 重复 `TaskResultReporter.report` 允许 manager 幂等消费。
 - 本地运行中任务上下文必须保存终端任务 ID 和最近状态。
@@ -196,14 +196,14 @@ taskInstanceId + attemptNo + actionType
 | `datafusion-scheduler-worker/src/main/java/com/datafusion/scheduler/worker/reporter/TaskResultReporter.java` | 任务结果上报接口 |
 | `datafusion-scheduler-worker/src/main/java/com/datafusion/scheduler/worker/reporter/NoopTaskResultReporter.java` | 空上报实现 |
 | `datafusion-scheduler-worker/src/main/java/com/datafusion/scheduler/worker/context/RunningTaskContext.java` | 运行中任务上下文 |
-| `datafusion-scheduler-worker/src/main/java/com/datafusion/scheduler/worker/context/WorkerTaskContextStore.java` | 运行中任务上下文存储接口 |
-| `datafusion-scheduler-worker/src/main/java/com/datafusion/scheduler/worker/context/InMemoryWorkerTaskContextStore.java` | 运行中任务上下文内存实现 |
+| `datafusion-scheduler-worker/src/main/java/com/datafusion/scheduler/worker/context/WorkerTaskContextStorage.java` | 运行中任务上下文存储接口 |
+| `datafusion-scheduler-worker/src/main/java/com/datafusion/scheduler/worker/context/CachedWorkerTaskContextStorage.java` | 运行中任务上下文内存实现 |
 
 ### 修改
 
 | 文件 | 说明 |
 |------|------|
-| `datafusion-common-data/src/main/java/com/datafusion/scheduler/model/TaskResult.java` | 使用 `submitMode` 替代 `isSync`，补充 `attemptNo` |
+| `datafusion-common-data/src/main/java/com/datafusion/scheduler/model/TaskResult.java` | 使用 `submitMode` 替代 `isSync` |
 | `datafusion-scheduler-worker/pom.xml` | 增加 `datafusion-common-data` 和 `datafusion-plugin-api` 依赖 |
 | `datafusion-scheduler-master` / `datafusion-manager` 相关类 | 引用 common-data 中的 `TaskRequest` 和 `Worker` |
 

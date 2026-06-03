@@ -22,7 +22,6 @@
 | `TaskRequest` | `Request` | master/manager 请求 worker 操作任务 | `appId` | `String` | 可选 | 外部终端任务 ID，如 PID、Flink Job ID、Yarn Application ID |
 | `TaskRequest` | `Request` | master/manager 请求 worker 操作任务 | `pluginType` | `String` | `submitTask` 必填 | 插件类型，用于路由 `PluginTaskExecutor` |
 | `TaskRequest` | `Request` | master/manager 请求 worker 操作任务 | `pluginParam` | `JsonNode` | 可选 | 插件参数 |
-| `TaskRequest` | `Request` | master/manager 请求 worker 操作任务 | `attemptNo` | `Integer` | 可选，默认 `0` | 当前任务尝试次数，幂等键组成部分 |
 | `TaskRequest` | `Request` | master/manager 请求 worker 操作任务 | `submitMode` | `SubmitModeEnum` | 可选，默认 `SYNC` | 提交模式，`SYNC` 或 `ASYNC` |
 | `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `taskInstanceId` | `String` | 可选 | 任务实例 ID |
 | `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `flowInstanceId` | `String` | 可选 | 流程实例 ID |
@@ -31,7 +30,6 @@
 | `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `outputVars` | `Map<String, Variable>` | 可选 | 输出变量 |
 | `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `workerId` | `String` | 可选 | worker ID |
 | `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `appId` | `String` | 可选 | 外部终端任务 ID |
-| `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `attemptNo` | `Integer` | 可选，默认 `0` | 当前任务尝试次数 |
 | `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `submitMode` | `SubmitModeEnum` | 可选，默认 `SYNC` | 提交模式 |
 | `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `result` | `String` | 可选 | 执行说明、错误信息或插件返回摘要 |
 | `Worker` | `Internal` | master/manager 维护 worker 节点 | `id` | `String` | 必填 | worker ID |
@@ -47,7 +45,6 @@
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `flowInstanceId` | `String` | 可选 | 流程实例 ID |
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `taskName` | `String` | 可选 | 任务名称 |
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `pluginType` | `String` | 必填 | 插件类型 |
-| `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `attemptNo` | `Integer` | 必填 | 当前尝试次数 |
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `appId` | `String` | 可选 | 外部终端任务 ID |
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `taskState` | `StatusEnum` | 可选 | 最近任务状态 |
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `submitMode` | `SubmitModeEnum` | 必填 | 提交模式 |
@@ -64,9 +61,9 @@
 
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
-| `TaskInstance` -> `TaskRequest` | 由 manager/master 侧运行时转换 | `retryTimes` 映射为 `attemptNo`，`pluginData.pluginType/pluginParam` 映射为 `pluginType/pluginParam` |
-| `TaskRequest` -> `RunningTaskContext` | worker 接收请求后创建或复用上下文 | 幂等键为 `taskInstanceId + attemptNo` |
-| `PluginTaskExecutor.submitTask` -> `TaskResult` | 插件返回执行结果 | worker 统一补齐 `taskInstanceId/flowInstanceId/taskName/attemptNo/submitMode` |
+| `TaskInstance` -> `TaskRequest` | 由 manager/master 侧运行时转换 | `pluginData.pluginType/pluginParam` 映射为 `pluginType/pluginParam` |
+| `TaskRequest` -> `RunningTaskContext` | worker 接收请求后创建或复用上下文 | 幂等键为 `taskInstanceId` |
+| `PluginTaskExecutor.submitTask` -> `TaskResult` | 插件返回执行结果 | worker 统一补齐 `taskInstanceId/flowInstanceId/taskName/submitMode` |
 | `RunningTaskContext` -> `TaskResult` | 重复请求返回最近结果或当前状态 | 已有终态时直接返回终态；运行中按 `submitMode` 返回 `RUNNING` 或 `SUBMIT_SUCCESS` |
 | `TaskResult` -> `TaskResultReporter.report` | worker 异步上报 manager/master | 上报实现位于 `datafusion-agent`，worker 只调用接口 |
 
@@ -76,7 +73,6 @@
 |------|----------|-----------|----------|------|
 | `submitMode` | 不涉及 | `SubmitModeEnum` | `SYNC` / `ASYNC` | 替代含义不清晰的 `sync` |
 | `taskState` | 不涉及 | `StatusEnum` | 使用 common-data 调度状态 | 提交响应只能返回 `RUNNING` 或 `SUBMIT_SUCCESS` |
-| `attemptNo` | 不涉及 | `Integer` | 缺省按 `0` 处理 | 幂等键组成部分 |
 | `definition` | 不涉及 | `JsonNode` | manager/master 传入，worker 不解析结构 | 插件自行解释 |
 | `pluginParam` | 不涉及 | `JsonNode` | manager/master 传入，worker 不解析结构 | 插件自行解释 |
 

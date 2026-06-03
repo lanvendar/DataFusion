@@ -9,7 +9,7 @@
 - 表名: `scheduler_task_info`
 - 操作: 不涉及
 - 主键: `id uuid`
-- 说明: 调度任务定义表，保存任务名称、编码、类型、插件、参数、流程绑定关系、事件关系和前端视图配置。
+- 说明: 调度任务表，当前同时保存任务定义属性、调度编排属性和系统属性。任务定义页面只新增、修改和展示任务定义属性。
 
 ### 1.2 DDL
 
@@ -42,7 +42,17 @@ CREATE TABLE scheduler_task_info (
 
 当前 DDL 未对 `task_code` 建唯一索引，唯一性由 Service 层校验。
 
-### 1.3 字段定义
+### 1.3 字段分层
+
+| 分类 | 字段 | 前端任务定义页处理方式 | 说明 |
+|------|------|------------------------|------|
+| 任务定义属性 | `task_name`、`task_code`、`description`、`task_type_id`、`task_type`、`task_param`、`definition` | 可新增、修改、查看 | 描述任务自身配置 |
+| 调度编排属性 | `is_bound`、`flow_id`、`plugin_id`、`view`、`dep_event_ids`、`event_id`、`enabled` | 不展示、不编辑、不提交 | 描述任务进入流程后的绑定、执行插件、画布、事件和启停信息 |
+| 系统属性 | `id`、`sync_flag`、`source_route`、`creator`、`updater`、`create_time`、`update_time` | 只读或不展示 | 由系统生成、维护或用于追踪 |
+
+`plugin_id` 虽然当前位于 `scheduler_task_info` 且非空，但它属于调度执行适配属性。新增任务定义时，后端根据 `taskType` 解析默认 `pluginId` 并写入；前端任务定义页不展示、不提交。后续若同一任务类型支持多个执行插件，应在流程节点配置阶段覆盖。
+
+### 1.4 字段定义
 
 | DB 列 | Java 字段 | Java 类型 | 必填 | 默认值 | 说明 |
 |-------|-----------|-----------|------|--------|------|
@@ -56,11 +66,11 @@ CREATE TABLE scheduler_task_info (
 | `definition` | `definition` | `JsonNode` | 否 | 无 | 任务定义 JSON |
 | `is_bound` | `isBound` | `Boolean` | 是 | `false` | 是否已绑定流程 |
 | `flow_id` | `flowId` | `UUID` | 否 | 无 | 绑定的流程 ID |
-| `plugin_id` | `pluginId` | `UUID` | 是 | 无 | 执行组件 ID |
-| `view` | `view` | `JsonNode` | 否 | 无 | 前端视图 JSON |
-| `dep_event_ids` | `depEventIds` | `String` | 否 | 无 | 依赖事件 ID，当前按逗号分隔字符串保存 |
-| `event_id` | `eventId` | `UUID` | 否 | 无 | 本任务产生的事件 ID |
-| `enabled` | `enabled` | `Boolean` | 是 | `false` | 是否启用 |
+| `plugin_id` | `pluginId` | `UUID` | 是 | 后端按 `taskType` 解析默认值 | 执行组件 ID，属于调度编排属性，任务定义页不展示、不提交 |
+| `view` | `view` | `JsonNode` | 否 | 无 | 前端流程画布视图 JSON，属于调度编排属性 |
+| `dep_event_ids` | `depEventIds` | `String` | 否 | 无 | 依赖事件 ID，属于调度编排属性，当前按逗号分隔字符串保存 |
+| `event_id` | `eventId` | `UUID` | 否 | 无 | 本任务产生的事件 ID，属于调度编排属性 |
+| `enabled` | `enabled` | `Boolean` | 是 | `false` | 是否启用调度，属于调度编排属性 |
 | `sync_flag` | `syncFlag` | `Boolean` | 是 | `false` | 任务同步标识，修改业务任务时置为 `false` |
 | `source_route` | `sourceRoute` | `String` | 否 | 无 | 原始业务跳转定位信息 |
 | `creator` | `creator` | `String` | 是 | 当前用户 | 创建人，继承自 `BaseEntity` |
@@ -101,9 +111,9 @@ CREATE TABLE scheduler_task_info (
 | `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `taskName` | `String` | `ILIKE` | 任务名称模糊查询 |
 | `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `taskCode` | `String` | `ILIKE` | 任务编码模糊查询 |
 | `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `taskType` | `String` | `eq` | 任务类型过滤 |
-| `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `flowId` | `UUID` | `eq` | 所属流程 ID 过滤 |
-| `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `enabled` | `Boolean` | `eq` | 启用状态过滤 |
-| `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `isBound` | `Boolean` | `eq` | 绑定状态过滤 |
+| `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `flowId` | `UUID` | 调度编排查询保留；任务定义页面不使用 | 所属流程 ID 过滤 |
+| `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `enabled` | `Boolean` | 调度编排查询保留；任务定义页面不使用 | 启用状态过滤 |
+| `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `isBound` | `Boolean` | 调度编排查询保留；任务定义页面不使用 | 绑定状态过滤 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `taskName` | `String` | `@NotBlank` | 任务名称 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `taskCode` | `String` | `@NotBlank` + 唯一性校验 | 任务编码 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `description` | `String` | 可选 | 任务描述 |
@@ -111,10 +121,10 @@ CREATE TABLE scheduler_task_info (
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `taskType` | `String` | `@NotBlank` | 任务类型 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `taskParam` | `String` | 可选，JSON 字符串 | 任务参数 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `definition` | `String` | 可选，JSON 字符串 | 任务定义 |
-| `TaskInfoSaveDto` | `Request` | 新增任务 | `pluginId` | `UUID` | `@NotNull` | 执行组件 ID |
-| `TaskInfoSaveDto` | `Request` | 新增任务 | `view` | `String` | 可选，JSON 字符串 | 前端视图 |
-| `TaskInfoSaveDto` | `Request` | 新增任务 | `depEventIds` | `String` | 可选 | 依赖事件 ID，逗号分隔 |
-| `TaskInfoSaveDto` | `Request` | 新增任务 | `eventId` | `UUID` | 可选 | 事件 ID |
+| `TaskInfoSaveDto` | `Request` | 新增任务 | `pluginId` | `UUID` | 不由前端提交；后端按 `taskType` 填默认值 | 执行组件 ID，保留字段用于兼容旧调用方显式传值 |
+| `TaskInfoSaveDto` | `Request` | 新增任务 | `view` | `String` | 不由任务定义页面提交 | 前端流程画布视图 |
+| `TaskInfoSaveDto` | `Request` | 新增任务 | `depEventIds` | `String` | 不由任务定义页面提交 | 依赖事件 ID，逗号分隔 |
+| `TaskInfoSaveDto` | `Request` | 新增任务 | `eventId` | `UUID` | 不由任务定义页面提交 | 事件 ID |
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `id` | `UUID` | `@NotNull` | 任务 ID |
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `taskName` | `String` | 非空时更新 | 任务名称 |
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `taskCode` | `String` | 非空时唯一性校验后更新 | 任务编码 |
@@ -123,11 +133,11 @@ CREATE TABLE scheduler_task_info (
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `taskType` | `String` | 非空时更新 | 任务类型 |
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `taskParam` | `String` | 非 `null` 时按 JSON 更新 | 任务参数 |
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `definition` | `String` | 非 `null` 时按 JSON 更新 | 任务定义 |
-| `TaskInfoUpdateDto` | `Request` | 修改任务 | `pluginId` | `UUID` | 非 `null` 时更新 | 执行组件 ID |
-| `TaskInfoUpdateDto` | `Request` | 修改任务 | `view` | `String` | 非 `null` 时按 JSON 更新 | 前端视图 |
-| `TaskInfoUpdateDto` | `Request` | 修改任务 | `depEventIds` | `String` | 非 `null` 时更新 | 依赖事件 ID |
-| `TaskInfoUpdateDto` | `Request` | 修改任务 | `eventId` | `UUID` | 非 `null` 时更新 | 事件 ID |
-| `TaskInfoUpdateDto` | `Request` | 修改任务 | `enabled` | `Boolean` | 非 `null` 时更新 | 是否启用 |
+| `TaskInfoUpdateDto` | `Request` | 修改任务 | `pluginId` | `UUID` | 不由任务定义页面提交；流程节点配置阶段另行处理 | 执行组件 ID |
+| `TaskInfoUpdateDto` | `Request` | 修改任务 | `view` | `String` | 不由任务定义页面提交；流程编排阶段另行处理 | 前端流程画布视图 |
+| `TaskInfoUpdateDto` | `Request` | 修改任务 | `depEventIds` | `String` | 不由任务定义页面提交；流程编排阶段另行处理 | 依赖事件 ID |
+| `TaskInfoUpdateDto` | `Request` | 修改任务 | `eventId` | `UUID` | 不由任务定义页面提交；流程编排阶段另行处理 | 事件 ID |
+| `TaskInfoUpdateDto` | `Request` | 修改任务 | `enabled` | `Boolean` | 不由任务定义页面提交；调度启停阶段另行处理 | 是否启用 |
 | `TaskInfoDto` | `Response` | 查询响应 | `id` | `UUID` | 无 | 主键 |
 | `TaskInfoDto` | `Response` | 查询响应 | `taskName` | `String` | 无 | 任务名称 |
 | `TaskInfoDto` | `Response` | 查询响应 | `taskCode` | `String` | 无 | 任务编码 |
@@ -164,10 +174,10 @@ CREATE TABLE scheduler_task_info (
 
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
-| `TaskInfoSaveDto` -> `TaskInfoEntity` | 复制任务基础字段和事件字段 | `id` 使用 `UUID.nameUUIDFromBytes(taskCode)`；JSON 字符串转 `JsonNode`；默认 `isBound/enabled/syncFlag=false` |
-| `TaskInfoUpdateDto` -> existing `TaskInfoEntity` | 非空字符串字段和非 `null` 对象字段合并 | 更新后置 `syncFlag=false`；`taskCode` 非空时重新校验唯一 |
-| `TaskInfoEntity` -> `TaskInfoDto` | 字段逐一复制 | `taskParam/definition/view` 从 `JsonNode` 转 JSON 字符串 |
-| `TaskInfoQueryDto` -> `LambdaQueryWrapper` | `taskName/taskCode` 使用 `ILIKE`，其他条件精确匹配 | 默认 `createTime desc` |
+| `TaskInfoSaveDto` -> `TaskInfoEntity` | 复制任务定义属性 | `id` 使用 `UUID.nameUUIDFromBytes(taskCode)`；`taskParam/definition` JSON 字符串转 `JsonNode`；`pluginId` 由后端按 `taskType` 解析默认值；默认 `isBound/enabled/syncFlag=false` |
+| `TaskInfoUpdateDto` -> existing `TaskInfoEntity` | 仅合并任务定义属性的非空字段 | 不更新 `isBound/flowId/pluginId/view/depEventIds/eventId/enabled`；更新后置 `syncFlag=false`；`taskCode` 非空时重新校验唯一 |
+| `TaskInfoEntity` -> `TaskInfoDto` | 字段逐一复制 | `taskParam/definition/view` 从 `JsonNode` 转 JSON 字符串；任务定义页面只展示任务定义属性和必要系统审计字段 |
+| `TaskInfoQueryDto` -> `LambdaQueryWrapper` | `taskName/taskCode` 使用 `ILIKE`，`taskType` 精确匹配；调度编排查询可继续使用 `flowId/enabled/isBound` | 默认 `createTime desc` |
 | `TaskInfoEntity` -> scheduler `TaskInfo` | `TaskStorageImpl` 转换为调度框架模型 | `taskParam` 转 `ParamData`；`depEventIds` 按逗号转集合；`enabled` 转 `isAble` |
 | `TaskInstanceEntity` -> scheduler `TaskInstance` | `TaskStorageImpl` 转换任务实例模型 | 不属于 `TaskController` 直接链路，仅作为调度执行适配 |
 
@@ -177,8 +187,8 @@ CREATE TABLE scheduler_task_info (
 |------|----------|-----------|----------|------|
 | `taskParam` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 任务参数 |
 | `definition` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 任务定义 |
-| `view` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 前端画布视图 |
-| `depEventIds` | `varchar` | `String` | 当前按逗号分隔字符串保存 | `TaskStorageImpl` 转调度模型时解析为集合 |
+| `view` | `json` | `JsonNode` | 流程编排阶段维护，任务定义页面不提交 | 前端画布视图 |
+| `depEventIds` | `varchar` | `String` | 流程编排阶段维护，当前按逗号分隔字符串保存 | `TaskStorageImpl` 转调度模型时解析为集合 |
 | `taskCode` | `varchar(255)` | `String` | Service 层唯一性校验 | 当前无数据库唯一索引 |
 | `syncFlag` | `bool` | `Boolean` | 新增和修改任务时置 `false` | 表示业务任务是否已同步到调度配置 |
 | `sourceRoute` | `text` | `String` | 当前 Controller DTO 未暴露 | 原始业务跳转定位信息 |
