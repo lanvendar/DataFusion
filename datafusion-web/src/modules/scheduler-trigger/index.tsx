@@ -1,7 +1,7 @@
 import { App, Space } from "antd";
 import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { PageHeader } from "@/components/page-header";
+import { PageHeader } from "@/components/page-layout";
 import { triggerApi } from "./api";
 import { TriggerForm, TriggerListTable } from "./components";
 import { SCHEDULER_TRIGGER_QUERY_KEY } from "./constants";

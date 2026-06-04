@@ -1,7 +1,7 @@
 import { App, Space } from "antd";
 import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { PageHeader } from "@/components/page-header";
+import { PageHeader } from "@/components/page-layout";
 import { eventApi } from "./api";
 import { EventForm, EventListTable } from "./components";
 import { SCHEDULER_EVENT_QUERY_KEY } from "./constants";

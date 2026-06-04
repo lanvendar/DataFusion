@@ -2,8 +2,8 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { BrowserRouter } from "react-router-dom";
 import AppLayout from "@/layout/app-layout";
 import MetadataTableStructureDetailPage from "@/modules/metadata-table-structure/detail-page";
+import NotFoundPage from "@/modules/not-found";
 import { routeGroups } from "@/router/routes";
-import NotFoundPage from "@/pages/not-found";
 
 export default function App() {
   return (

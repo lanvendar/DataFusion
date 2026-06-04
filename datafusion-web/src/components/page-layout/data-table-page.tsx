@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { App, Button, Card, Input, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
-import { PageHeader } from "@/components/page-header";
+import { PageHeader } from "./page-header";
 import {
   createDemoRows,
   type DemoRow,

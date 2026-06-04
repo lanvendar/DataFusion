@@ -4,7 +4,7 @@ import {
   ClockCircleOutlined,
   DeploymentUnitOutlined,
 } from "@ant-design/icons";
-import { PageHeader } from "@/components/page-header";
+import { PageHeader } from "./page-header";
 
 interface OverviewPageProps {
   title: string;

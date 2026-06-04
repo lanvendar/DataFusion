@@ -1,7 +1,7 @@
 import { App, Space } from "antd";
 import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { PageHeader } from "@/components/page-header";
+import { PageHeader } from "@/components/page-layout";
 import { datasourceApi } from "./api";
 import { DatasourceForm, DatasourceListTable, TableRegister } from "./components";
 import { METADATA_DATASOURCE_QUERY_KEY } from "./constants";

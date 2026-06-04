@@ -19,15 +19,14 @@ import {
   ScheduleOutlined,
   TableOutlined,
 } from "@ant-design/icons";
-import HomePage from "@/pages/home";
-import OverviewPage from "@/pages/common/overview-page";
-import DataTablePage from "@/pages/common/data-table-page";
+import { DataTablePage, OverviewPage } from "@/components/page-layout";
+import HomePage from "@/modules/home";
 import MetadataDatasourcePage from "@/modules/metadata-datasource";
 import MetadataTableStructurePage from "@/modules/metadata-table-structure";
 import MetadataTableSyncPage from "@/modules/metadata-table-sync";
+import SchedulerFlowPage from "@/modules/scheduler-flow";
 import SchedulerTriggerPage from "@/modules/scheduler-trigger";
 import SchedulerVariablePage from "@/modules/scheduler-variable";
-import SchedulerFlowPage from "@/pages/scheduler-flow";
 import SchedulerTaskPage from "@/modules/scheduler-task";
 import SchedulerEventPage from "@/modules/scheduler-event";
 import type { AppRouteGroup } from "@/types/navigation";

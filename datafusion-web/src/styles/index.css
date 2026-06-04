@@ -219,6 +219,26 @@ body {
   border-radius: 8px;
 }
 
+.flow-dag-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 280px;
+  gap: 16px;
+  min-height: calc(100vh - 180px);
+}
+
+.flow-dag-side {
+  min-width: 0;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #e7ebf2;
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.flow-dag-canvas {
+  min-width: 0;
+}
+
 .flow-hint,
 .floating-actions {
   position: fixed;
@@ -359,6 +379,10 @@ body {
 
 @media (max-width: 1280px) {
   .hero-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .flow-dag-layout {
     grid-template-columns: 1fr;
   }
 }

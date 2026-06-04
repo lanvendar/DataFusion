@@ -2,7 +2,7 @@ import { App, Space } from "antd";
 import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { PageHeader } from "@/components/page-header";
+import { PageHeader } from "@/components/page-layout";
 import { tableStructureApi } from "./api";
 import { TableStructureForm, TableStructureListTable } from "./components";
 import { METADATA_TABLE_STRUCTURE_QUERY_KEY } from "./constants";

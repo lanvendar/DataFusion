@@ -1,7 +1,7 @@
 import { App, Space } from "antd";
 import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { PageHeader } from "@/components/page-header";
+import { PageHeader } from "@/components/page-layout";
 import { tableSyncApi } from "./api";
 import { TableSyncDetail, TableSyncDrawer, TableSyncListTable } from "./components";
 import { METADATA_TABLE_SYNC_QUERY_KEY } from "./constants";

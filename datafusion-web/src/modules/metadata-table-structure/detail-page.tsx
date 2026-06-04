@@ -2,7 +2,7 @@ import { Button, Descriptions, Empty, Space, Spin, Table, Tabs } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
-import { PageHeader } from "@/components/page-header";
+import { PageHeader } from "@/components/page-layout";
 import { tableStructureApi } from "./api";
 import type { ColumnInfoDto } from "./dto";
 
