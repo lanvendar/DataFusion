@@ -16,8 +16,8 @@ package com.datafusion.scheduler.worker.storage;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.util.StrUtil;
 import com.datafusion.common.options.Options;
-import com.datafusion.scheduler.worker.model.TaskRequest;
-import com.datafusion.scheduler.worker.model.Worker;
+import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.model.Worker;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 
@@ -129,7 +129,7 @@ public class CachedWorkerStorage implements WorkerStorage {
 
     @Override
     public List<TaskRequest> getTaskInsByWorkerId(String workerId) {
-        return null;
+        return workerStorage.getTaskInsByWorkerId(workerId);
     }
 
     /**
@@ -148,6 +148,9 @@ public class CachedWorkerStorage implements WorkerStorage {
             raw.setPort(updated.getPort());
             raw.setStatus(updated.getStatus());
             raw.setPluginTypes(updated.getPluginTypes());
+            raw.setRegisterTime(updated.getRegisterTime());
+            raw.setLastHeartbeatTime(updated.getLastHeartbeatTime());
+            raw.setUpdateTime(updated.getUpdateTime());
         }
 
         return raw;

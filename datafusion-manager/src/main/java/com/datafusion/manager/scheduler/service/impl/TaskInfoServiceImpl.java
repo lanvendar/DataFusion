@@ -21,8 +21,11 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -37,6 +40,22 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEntity>
         implements TaskInfoService {
+
+    /**
+     * 默认插件ID命名空间.
+     */
+    private static final String DEFAULT_PLUGIN_ID_NAMESPACE = "scheduler-default-plugin:";
+
+    /**
+     * 默认执行插件ID.
+     */
+    private static final Map<String, UUID> DEFAULT_PLUGIN_ID_MAP = Map.of(
+            "DATAX", defaultPluginIdOf("DATAX"),
+            "SHELL", defaultPluginIdOf("SHELL"),
+            "SQL", defaultPluginIdOf("SQL"),
+            "HTTP", defaultPluginIdOf("HTTP"),
+            "SPARK", defaultPluginIdOf("SPARK")
+    );
 
     @Override
     public TaskInfoEntity getTaskInfo(UUID taskId) {
@@ -90,7 +109,7 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
         entity.setTaskType(dto.getTaskType());
         entity.setTaskParam(JacksonUtils.tryStr2JsonNode(dto.getTaskParam()));
         entity.setDefinition(JacksonUtils.tryStr2JsonNode(dto.getDefinition()));
-        entity.setPluginId(dto.getPluginId());
+        entity.setPluginId(resolveDefaultPluginId(dto));
         if (dto.getView() != null) {
             entity.setView(JacksonUtils.tryStr2JsonNode(dto.getView()));
         }
@@ -176,6 +195,34 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
     // region 私有方法
 
     /**
+     * 根据任务类型解析默认执行插件ID.
+     *
+     * @param dto 任务新增参数
+     * @return 默认执行插件ID
+     */
+    private UUID resolveDefaultPluginId(TaskInfoSaveDto dto) {
+        if (dto.getPluginId() != null) {
+            return dto.getPluginId();
+        }
+        String taskType = StringUtils.trimToEmpty(dto.getTaskType()).toUpperCase(Locale.ROOT);
+        UUID pluginId = DEFAULT_PLUGIN_ID_MAP.get(taskType);
+        if (pluginId == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "无法根据任务类型解析默认执行插件: " + dto.getTaskType());
+        }
+        return pluginId;
+    }
+
+    /**
+     * 生成稳定默认插件ID.
+     *
+     * @param taskType 任务类型
+     * @return 默认插件ID
+     */
+    private static UUID defaultPluginIdOf(String taskType) {
+        return UUID.nameUUIDFromBytes((DEFAULT_PLUGIN_ID_NAMESPACE + taskType).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
      * 构建查询条件.
      *
      * @param query 查询参数
@@ -185,9 +232,11 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
         LambdaQueryWrapper<TaskInfoEntity> wrapper = new LambdaQueryWrapper<>();
         if (query != null) {
             if (StringUtils.isNotBlank(query.getTaskName())) {
-                wrapper.apply("task_name ILIKE {0}", "%" + query.getTaskName() + "%");            }
+                wrapper.apply("task_name ILIKE {0}", "%" + query.getTaskName() + "%");
+            }
             if (StringUtils.isNotBlank(query.getTaskCode())) {
-                wrapper.apply("task_code ILIKE {0}", "%" + query.getTaskCode() + "%");            }
+                wrapper.apply("task_code ILIKE {0}", "%" + query.getTaskCode() + "%");
+            }
             if (StringUtils.isNotBlank(query.getTaskType())) {
                 wrapper.eq(TaskInfoEntity::getTaskType, query.getTaskType());
             }

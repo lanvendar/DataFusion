@@ -38,7 +38,7 @@ class SimpleFlowTest extends StateMachineTestBase {
         masterService.start();
         addSchedule(SimpleFlowExample.FLOW_ID);
 
-        // 等待任务到达 SUBMIT_SUCCESS（runTask 已调用）
+        // 等待任务到达 SUBMIT_SUCCESS（submitTask 已调用）
         TaskInstance taskIns = awaitAnyTaskState(SimpleFlowExample.FLOW_ID, StatusEnum.SUBMIT_SUCCESS);
         log.info("任务满足监测状态[SUBMIT_SUCCESS]: {}", taskIns.getInstanceId());
 

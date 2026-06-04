@@ -122,8 +122,7 @@ public enum DatabaseTypeEnum {
         this.typeName = typeName;
         this.defaultDriver = defaultDriver;
     }
-
-
+    
     /**
      * 判断数据库类型是否包含在枚举中.
      *
@@ -163,7 +162,7 @@ public enum DatabaseTypeEnum {
         if (databaseType == null) {
             return null;
         }
-        return Arrays.stream(DatabaseTypeEnum.values()).filter(s -> s.name().toLowerCase().equals(databaseType))
+        return Arrays.stream(DatabaseTypeEnum.values()).filter(s -> s.name().equalsIgnoreCase(databaseType))
                 .findFirst().orElseThrow(() -> new IllegalArgumentException("Invalid StatementTypeEnum: " + databaseType));
     }
     

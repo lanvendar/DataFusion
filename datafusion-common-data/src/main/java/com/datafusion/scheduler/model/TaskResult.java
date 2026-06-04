@@ -1,6 +1,7 @@
 package com.datafusion.scheduler.model;
 
 import com.datafusion.scheduler.enums.StatusEnum;
+import com.datafusion.scheduler.enums.SubmitModeEnum;
 import lombok.Builder;
 import lombok.Data;
 
@@ -56,9 +57,10 @@ public class TaskResult {
     private String appId;
 
     /**
-     * worker 端是否同步执行任务的标志,默认为同步执行.
+     * worker 端提交模式，默认为同步提交.
      */
-    private boolean isSync = true;
+    @Builder.Default
+    private SubmitModeEnum submitMode = SubmitModeEnum.SYNC;
 
     /**
      * 执行节点返回结果.

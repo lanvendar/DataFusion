@@ -1,7 +1,7 @@
 package com.datafusion.scheduler.worker.storage;
 
-import com.datafusion.scheduler.worker.model.TaskRequest;
-import com.datafusion.scheduler.worker.model.Worker;
+import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.model.Worker;
 
 import java.util.List;
 

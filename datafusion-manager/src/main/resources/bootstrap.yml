@@ -17,12 +17,12 @@ spring:
       discovery:
         enabled: false
   datasource:
-    url: jdbc:postgresql://172.26.185.208:5432/postgres
-    jdbc-url: jdbc:postgresql://172.26.185.208:5432/postgres
+    url: jdbc:postgresql://localhost:5432/datafusion
+    jdbc-url: jdbc:postgresql://localhost:5432/datafusion
     driver-class-name: org.postgresql.Driver
     driverClassName: org.postgresql.Driver
     username: postgres
-    password: mBLv0oY7MYu9138mfvopumqYctZWxkO0a3RRSE9lmBxoYOJzclYhPihZfxrmeP0x
+    password: 123456
     hikari:
       pool-name: datafusion-manager-local
       minimum-idle: 1
@@ -47,15 +47,15 @@ datafusion:
     data-source-infos:
       - id: 00000000-0000-0000-0000-000000000001
         database-type: postgres
-        host: 172.26.185.208
+        host: localhost
         port: 5432
         schema-name: public
         database-name: postgres
         database-encode: UTF-8
-        jdbc-url: jdbc:postgresql://172.26.185.208:5432/postgres
+        jdbc-url: jdbc:postgresql://localhost:5432/datafusion
         driver-class: org.postgresql.Driver
         username: postgres
-        password: mBLv0oY7MYu9138mfvopumqYctZWxkO0a3RRSE9lmBxoYOJzclYhPihZfxrmeP0x
+        password: 123456
   resource:
     sync:
       organization: local

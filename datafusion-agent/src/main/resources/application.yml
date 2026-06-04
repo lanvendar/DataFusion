@@ -1,0 +1,45 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: datafusion-agent
+
+datafusion:
+  agent:
+    modules: ${DATAFUSION_MODULES:${user.dir}}
+    worker:
+      port: ${server.port:8081}
+      accept-tasks-before-registered: false
+    manager:
+      base-url: ${DATAFUSION_MANAGER_URL:}
+      enabled: true
+      heartbeat-interval-ms: 15000
+    storage:
+      logs-dir: logs
+      task-status-dir: task-status
+    task-control-pool:
+      core-pool-size: 4
+      max-pool-size: 8
+      queue-capacity: 256
+      keep-alive-seconds: 60
+    task-run-pool:
+      core-pool-size: 8
+      max-pool-size: 16
+      queue-capacity: 512
+      keep-alive-seconds: 60
+    result-report-pool:
+      core-pool-size: 2
+      max-pool-size: 4
+      queue-capacity: 512
+      keep-alive-seconds: 60
+    heartbeat-pool:
+      core-pool-size: 1
+      max-pool-size: 2
+      queue-capacity: 128
+      keep-alive-seconds: 60
+    recovery-pool:
+      core-pool-size: 1
+      max-pool-size: 2
+      queue-capacity: 128
+      keep-alive-seconds: 60

@@ -4,7 +4,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
 import java.util.UUID;
 
 /**
@@ -68,7 +67,6 @@ public class TaskInfoSaveDto {
      * 执行组件ID.
      */
     @Schema(name = "pluginId", description = "执行组件ID")
-    @NotNull(message = "执行组件ID不能为空")
     private UUID pluginId;
 
     /**

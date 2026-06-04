@@ -20,7 +20,7 @@ public interface MasterTaskOperator {
      * @param taskIns task实例
      * @return task执行结果
      */
-    TaskResult runTask(TaskInstance taskIns) throws SchedulerException;
+    TaskResult submitTask(TaskInstance taskIns) throws SchedulerException;
 
     /**
      * 停止任务.

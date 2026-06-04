@@ -1,6 +1,6 @@
 package com.datafusion.scheduler.worker;
 
-import com.datafusion.scheduler.worker.model.Worker;
+import com.datafusion.scheduler.model.Worker;
 
 /**
  * 工作节点上下线事件监听器.

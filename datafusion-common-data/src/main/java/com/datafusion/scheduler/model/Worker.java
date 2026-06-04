@@ -1,17 +1,4 @@
-/*
- * Copyright © 2020-2022 Nimbus Corporation All rights reserved.
- *
- * 使本项目源码前请仔细阅读以下协议内容，如果你同意以下协议才能使用本项目所有的功能,
- * 否则如果你违反了以下协议，有可能陷入法律纠纷和赔偿，作者保留追究法律责任的权利.
- *
- * 1、本代码为商业源代码，只允许已授权内部人员查看使用
- * 2、任何人员无权将代码泄露或者授权给其他未被授权人员使用
- * 3、任何修改请保留原始作者信息，不得擅自删除及修改
- *
- * 请保留以上版权信息，否则作者将保留追究法律责任.
- */
-
-package com.datafusion.scheduler.worker.model;
+package com.datafusion.scheduler.model;
 
 import lombok.Data;
 
@@ -23,11 +10,26 @@ import java.util.Objects;
  * 调度的工作节点.
  *
  * @author 李正凯
- * @version 3.0 2022/5/10
+ * @version 3.0, 2022/5/10
  * @since 2022/5/10
  */
 @Data
 public class Worker {
+
+    /**
+     * 上线状态.
+     */
+    public static final Integer STATUS_UP = 1;
+
+    /**
+     * 下线状态.
+     */
+    public static final Integer STATUS_DOWN = 0;
+
+    /**
+     * 清除状态.
+     */
+    public static final Integer STATUS_DELETED = 2;
 
     /**
      * 工作节点id.
@@ -60,19 +62,19 @@ public class Worker {
     private String hostName;
 
     /**
-     * 上线状态.
+     * 首次注册时间.
      */
-    public static final Integer STATUS_UP = 1;
+    private Long registerTime;
 
     /**
-     * 下线状态.
+     * 最近心跳时间.
      */
-    public static final Integer STATUS_DOWN = 0;
+    private Long lastHeartbeatTime;
 
     /**
-     * 清除状态.
+     * 最近更新时间.
      */
-    public static final Integer STATUS_DELETED = 2;
+    private Long updateTime;
 
     @Override
     public boolean equals(Object o) {
@@ -83,7 +85,8 @@ public class Worker {
             return false;
         }
         Worker worker = (Worker) o;
-        return id.equals(worker.id) && hostName.equals(worker.hostName) && port.equals(worker.port);
+        return Objects.equals(id, worker.id) && Objects.equals(hostName, worker.hostName)
+                && Objects.equals(port, worker.port);
     }
 
     @Override

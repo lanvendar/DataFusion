@@ -2,6 +2,7 @@ package com.datafusion.scheduler.master.example;
 
 import com.datafusion.common.options.Options;
 import com.datafusion.scheduler.enums.StatusEnum;
+import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.master.MasterService;
 import com.datafusion.scheduler.master.MasterStorage;
 import com.datafusion.scheduler.master.event.storage.EventStorageMem;
@@ -103,7 +104,7 @@ abstract class StateMachineTestBase {
                 .taskState(resultState)
                 .workerId("test-worker")
                 .appId("test-app")
-                .isSync(true)
+                .submitMode(SubmitModeEnum.SYNC)
                 .result("test")
                 .build();
         masterService.getTaskAction().asyncHandle(result);

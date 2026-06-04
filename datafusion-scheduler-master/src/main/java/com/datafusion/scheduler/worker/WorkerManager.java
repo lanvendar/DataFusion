@@ -1,7 +1,7 @@
 package com.datafusion.scheduler.worker;
 
 import cn.hutool.core.collection.CollectionUtil;
-import com.datafusion.scheduler.worker.model.Worker;
+import com.datafusion.scheduler.model.Worker;
 import com.datafusion.scheduler.worker.storage.WorkerStorage;
 import lombok.extern.slf4j.Slf4j;
 
@@ -86,10 +86,14 @@ public class WorkerManager implements WorkerListener {
     @Override
     public void onActive(Worker workerNode) {
         log.info("节点上线：{}", workerNode);
+        long now = System.currentTimeMillis();
         Worker worker = storage.getWorker(workerNode.getHostName(), workerNode.getPort());
         if (null == worker) {
             worker = new Worker();
             worker.setId(UUID.randomUUID().toString());
+            worker.setRegisterTime(now);
+        } else if (worker.getRegisterTime() == null) {
+            worker.setRegisterTime(now);
         }
 
         worker.setIp(workerNode.getIp());
@@ -97,6 +101,8 @@ public class WorkerManager implements WorkerListener {
         worker.setStatus(Worker.STATUS_UP);
         worker.setHostName(workerNode.getHostName());
         worker.setPluginTypes(workerNode.getPluginTypes());
+        worker.setLastHeartbeatTime(now);
+        worker.setUpdateTime(now);
 
         storage.updateWorker(worker);
     }
@@ -112,6 +118,7 @@ public class WorkerManager implements WorkerListener {
         Worker worker = storage.getWorker(node.getHostName(), node.getPort());
         if (null != worker && worker.getStatus().equals(Worker.STATUS_UP)) {
             worker.setStatus(Worker.STATUS_DOWN);
+            worker.setUpdateTime(System.currentTimeMillis());
             storage.updateWorker(worker);
 
             // TODO failOver.
@@ -130,7 +137,8 @@ public class WorkerManager implements WorkerListener {
     }
 
     /**
-     * 默认获取支持指定插件的工作节点. 注意：不管由于并发还是节点实际状态不匹配，都有可能返回的是非活跃的工作节点.
+     * 默认获取支持指定插件的工作节点.
+     * 注意：不管由于并发还是节点实际状态不匹配，都有可能返回的是非活跃的工作节点.
      *
      * @param pluginType 插件类型
      * @return 工作节点

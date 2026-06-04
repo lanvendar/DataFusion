@@ -240,6 +240,7 @@ public class MetaDataServiceImpl implements MetaDataService {
         }
         return warnMsg;
     }
+
     private void processMetaData(List<String> tableNames, DataSourceInfoEntity ds,
                                  MetaDataSupport databaseService, TransformSupport transformService) {
         MetaDataQuery metaDataQuery = new MetaDataQuery();

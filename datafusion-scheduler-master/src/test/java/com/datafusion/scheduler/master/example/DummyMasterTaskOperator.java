@@ -1,6 +1,7 @@
 package com.datafusion.scheduler.master.example;
 
 import com.datafusion.scheduler.enums.StatusEnum;
+import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.exception.SchedulerException;
 import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
@@ -18,8 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 public class DummyMasterTaskOperator implements MasterTaskOperator {
 
     @Override
-    public TaskResult runTask(TaskInstance taskIns) throws SchedulerException {
-        log.info("runTask: InstanceId={},Name={},State={}", taskIns.getInstanceId(), taskIns.getTaskName(), taskIns.getState());
+    public TaskResult submitTask(TaskInstance taskIns) throws SchedulerException {
+        log.info("submitTask: InstanceId={},Name={},State={}", taskIns.getInstanceId(), taskIns.getTaskName(), taskIns.getState());
         return buildResult(taskIns, StatusEnum.SUBMIT_SUCCESS);
     }
 
@@ -50,7 +51,7 @@ public class DummyMasterTaskOperator implements MasterTaskOperator {
                 .outputVars(taskIns.getTaskData().getVars())
                 .workerId("dummyWorkerId")
                 .appId("dummyAppId")
-                .isSync(true)
+                .submitMode(SubmitModeEnum.SYNC)
                 .result("dummyResult")
                 .build();
     }

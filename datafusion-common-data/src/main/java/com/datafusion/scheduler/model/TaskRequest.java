@@ -1,6 +1,7 @@
-package com.datafusion.scheduler.worker.model;
+package com.datafusion.scheduler.model;
 
 import com.datafusion.scheduler.enums.StatusEnum;
+import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 
@@ -13,7 +14,6 @@ import lombok.Data;
  */
 @Data
 public class TaskRequest {
-    //region 请求和返回公共字段
 
     /**
      * 流程实例ID.
@@ -34,8 +34,6 @@ public class TaskRequest {
      * 任务状态.
      */
     private StatusEnum taskState;
-    //endregion
-    //region 请求字段
 
     /**
      * 任务定义.
@@ -48,13 +46,17 @@ public class TaskRequest {
     private String appId;
 
     /**
-     * 组件.
+     * 组件类型.
      */
     private String pluginType;
 
     /**
-     * 组件数据.
+     * 组件参数.
      */
     private JsonNode pluginParam;
-    //endregion
+
+    /**
+     * 提交模式.
+     */
+    private SubmitModeEnum submitMode = SubmitModeEnum.SYNC;
 }
