@@ -1,0 +1,176 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `id`,`decimal_val`,`string_val`,`year`,`period`,`scenario`,`version`,`entity`,`product`,`material`,`account`,`type`,`flow`,`trail`,`object`,`bu`,`mix`,`misc`,`item`,`createdate`,`createtime`,`day_pt` FROM `shys_maintable_roarg_gb`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_gb_maintable_roarg",
+            "tableComment": "成本主模型表|候选键:year,period,scenario,version,entity,product,material,account,type,flow,trail,object,bu,mix,misc,item",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "id,day_pt",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "id",
+                "type": "BIGINT",
+                "comment": "主键"
+              },
+              {
+                "name": "decimal_val",
+                "type": "DECIMAL(19,6)",
+                "comment": "数值"
+              },
+              {
+                "name": "string_val",
+                "type": "VARCHAR(255)",
+                "comment": "文本值"
+              },
+              {
+                "name": "year",
+                "type": "VARCHAR(50)",
+                "comment": "年度"
+              },
+              {
+                "name": "period",
+                "type": "VARCHAR(50)",
+                "comment": "期间"
+              },
+              {
+                "name": "scenario",
+                "type": "VARCHAR(50)",
+                "comment": "场景"
+              },
+              {
+                "name": "version",
+                "type": "VARCHAR(50)",
+                "comment": "版本"
+              },
+              {
+                "name": "entity",
+                "type": "VARCHAR(50)",
+                "comment": "组织"
+              },
+              {
+                "name": "product",
+                "type": "VARCHAR(50)",
+                "comment": "产品"
+              },
+              {
+                "name": "material",
+                "type": "VARCHAR(50)",
+                "comment": "物料"
+              },
+              {
+                "name": "account",
+                "type": "VARCHAR(50)",
+                "comment": "科目"
+              },
+              {
+                "name": "type",
+                "type": "VARCHAR(50)",
+                "comment": "类型"
+              },
+              {
+                "name": "flow",
+                "type": "VARCHAR(50)",
+                "comment": "变动"
+              },
+              {
+                "name": "trail",
+                "type": "VARCHAR(50)",
+                "comment": "轨迹"
+              },
+              {
+                "name": "object",
+                "type": "VARCHAR(50)",
+                "comment": "对象"
+              },
+              {
+                "name": "bu",
+                "type": "VARCHAR(50)",
+                "comment": "上游事业部"
+              },
+              {
+                "name": "mix",
+                "type": "VARCHAR(50)",
+                "comment": "混合"
+              },
+              {
+                "name": "misc",
+                "type": "VARCHAR(50)",
+                "comment": "综合"
+              },
+              {
+                "name": "item",
+                "type": "VARCHAR(50)",
+                "comment": "结转类型"
+              },
+              {
+                "name": "createdate",
+                "type": "DATE",
+                "comment": "创建日期"
+              },
+              {
+                "name": "createtime",
+                "type": "BIGINT",
+                "comment": "创建时间戳"
+              },
+              {
+                "name": "day_pt",
+                "type": "DATE",
+                "comment": "分区键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

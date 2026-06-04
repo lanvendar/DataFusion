@@ -1,0 +1,111 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `cube_id`,`function_code`,`status`,`access_right`,`group_code`,`line`,`description`,`createdate`,`createtime` FROM `shys_cube_access_control_sh_main_gb`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_gb_cube_access_control_sh_main",
+            "tableComment": "模型权限控制表",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "cube_id,function_code,status",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "cube_id",
+                "type": "VARCHAR(255)",
+                "comment": "关联主表id"
+              },
+              {
+                "name": "function_code",
+                "type": "VARCHAR(255)",
+                "comment": "功能编码"
+              },
+              {
+                "name": "status",
+                "type": "VARCHAR(255)",
+                "comment": "状态"
+              },
+              {
+                "name": "access_right",
+                "type": "INT",
+                "comment": "4 只读 5 可写"
+              },
+              {
+                "name": "group_code",
+                "type": "VARCHAR(255)",
+                "comment": "角色组code"
+              },
+              {
+                "name": "line",
+                "type": "INT",
+                "comment": "行号"
+              },
+              {
+                "name": "description",
+                "type": "VARCHAR(255)",
+                "comment": "更新用的标识id"
+              },
+              {
+                "name": "createdate",
+                "type": "DATE",
+                "comment": "创建日期"
+              },
+              {
+                "name": "createtime",
+                "type": "BIGINT",
+                "comment": "创建时间"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
