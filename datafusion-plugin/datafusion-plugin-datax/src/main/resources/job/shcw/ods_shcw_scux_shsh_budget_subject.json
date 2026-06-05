@@ -1,0 +1,156 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "AI_READ",
+            "password": "AIread258.",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://10.10.102.52:3306/srm_prod?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `budget_subject_id`,`tenant_id`,`subject_num`,`subject_name`,`company_id`,`company_num`,`company_name`,`budget_subject_type`,`project_status`,`investment_estimation`,`enabled`,`project_start_time`,`project_end_time`,`object_version_number`,`creation_date`,`created_by`,`last_updated_by`,`last_update_date` FROM `scux_shsh_budget_subject`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shcw_scux_shsh_budget_subject",
+            "tableComment": "预算主体表",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "budget_subject_id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "budget_subject_id",
+                "type": "BIGINT",
+                "comment": "表ID，主键，供其他表做外键"
+              },
+              {
+                "name": "tenant_id",
+                "type": "BIGINT",
+                "comment": "租户id"
+              },
+              {
+                "name": "subject_num",
+                "type": "VARCHAR(100)",
+                "comment": "预算主体编号"
+              },
+              {
+                "name": "subject_name",
+                "type": "VARCHAR(50)",
+                "comment": "预算主体名称"
+              },
+              {
+                "name": "company_id",
+                "type": "BIGINT",
+                "comment": "公司id"
+              },
+              {
+                "name": "company_num",
+                "type": "VARCHAR(50)",
+                "comment": "公司编码"
+              },
+              {
+                "name": "company_name",
+                "type": "VARCHAR(50)",
+                "comment": "公司名称"
+              },
+              {
+                "name": "budget_subject_type",
+                "type": "VARCHAR(50)",
+                "comment": "预算主体类型 值集：SCUX.SHSH_EXPENDITURE_TYPE"
+              },
+              {
+                "name": "project_status",
+                "type": "VARCHAR(50)",
+                "comment": "项目状态 值集:SCUX.SHSH.PROJECT_STATUS"
+              },
+              {
+                "name": "investment_estimation",
+                "type": "DECIMAL(50,2)",
+                "comment": "投资估算-亿元"
+              },
+              {
+                "name": "enabled",
+                "type": "TINYINT",
+                "comment": "是否启用"
+              },
+              {
+                "name": "project_start_time",
+                "type": "DATE",
+                "comment": "项目周期起"
+              },
+              {
+                "name": "project_end_time",
+                "type": "DATE",
+                "comment": "项目周期至"
+              },
+              {
+                "name": "object_version_number",
+                "type": "BIGINT",
+                "comment": "行版本号，用来处理锁"
+              },
+              {
+                "name": "creation_date",
+                "type": "DATETIME",
+                "comment": "创建时间"
+              },
+              {
+                "name": "created_by",
+                "type": "BIGINT",
+                "comment": "创建人"
+              },
+              {
+                "name": "last_updated_by",
+                "type": "BIGINT",
+                "comment": "最后更新人"
+              },
+              {
+                "name": "last_update_date",
+                "type": "DATETIME",
+                "comment": "最后更新时间"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
