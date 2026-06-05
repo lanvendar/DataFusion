@@ -59,7 +59,7 @@
             "column": [
               {
                 "name": "id",
-                "type": "BIGINT",
+                "type": "VARCHAR(255)",
                 "comment": "主键"
               },
               {

@@ -21,7 +21,7 @@
                   "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
-                  "SELECT `id`,`decimal_val`,`string_val`,`year`,`period`,`scenario`,`version`,`entity`,`product`,`material`,`account`,`type`,`flow`,`trail`,`object`,`bu`,`mix`,`misc`,`item`,`createdate`,`createtime`,`day_pt` FROM `shys_maintable_roarg_gb`"
+                  "SELECT `id`,`decimal_val`,`string_val`,`year`,`period`,`scenario`,`version`,`entity`,`product`,`material`,`account`,`type`,`flow`,`trail`,`object`,`bu`,`mix`,`misc`,`item`,`createdate`,`createtime`,`day_pt` FROM `shys_main_table_roarg_gb`"
                 ]
               }
             ]
@@ -55,7 +55,7 @@
               "partition": {}
             },
             "primaryKey": "id,day_pt",
-            "partitionKey": "",
+            "partitionKey": "day_pt",
             "column": [
               {
                 "name": "id",

@@ -55,7 +55,7 @@
               "partition": {}
             },
             "primaryKey": "id,day_pt",
-            "partitionKey": "",
+            "partitionKey": "day_pt",
             "column": [
               {
                 "name": "id",

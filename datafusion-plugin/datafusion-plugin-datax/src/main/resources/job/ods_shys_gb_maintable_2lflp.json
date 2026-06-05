@@ -21,7 +21,7 @@
                   "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
-                  "SELECT `id`,`decimal_val`,`string_val`,`entity`,`scenario`,`version`,`year`,`period`,`account`,`product`,`type`,`misc`,`material`,`icproduct`,`object`,`icbu`,`bu`,`item`,`interco`,`flow`,`createdate`,`createtime`,`day_pt` FROM `shys_maintable_2lflp_gb`"
+                  "SELECT `id`,`decimal_val`,`string_val`,`entity`,`scenario`,`version`,`year`,`period`,`account`,`product`,`type`,`misc`,`material`,`icproduct`,`object`,`icbu`,`bu`,`item`,`interco`,`flow`,`createdate`,`createtime`,`day_pt` FROM `shys_main_table_2lflp_gb`"
                 ]
               }
             ]
@@ -55,7 +55,7 @@
               "partition": {}
             },
             "primaryKey": "id,day_pt",
-            "partitionKey": "",
+            "partitionKey": "day_pt",
             "column": [
               {
                 "name": "id",

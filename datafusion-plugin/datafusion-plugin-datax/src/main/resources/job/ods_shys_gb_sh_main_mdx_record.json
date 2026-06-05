@@ -21,7 +21,7 @@
                   "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
-                  "SELECT `code`,`name`,`content`,`type`,`cube_name`,`cube_folderid`,`version`,`create_time`,`create_user`,`view`,`createdate`,`createtime` FROM `shys_sh_main_mdx_record_gb`"
+                  "SELECT `code`,`name`,`content`,`type`,`cube_name`,`cube_folderId` AS cube_folder_id,`version`,`create_time`,`create_user`,`del`,`view`,`createdate`,`createtime` FROM `shys_sh_main_mdx_record_gb`"
                 ]
               }
             ]
@@ -54,7 +54,7 @@
               "enabled": false,
               "partition": {}
             },
-            "primaryKey": "code",
+            "primaryKey": "code,name,type,cube_name,cube_folder_id,version,view",
             "partitionKey": "",
             "column": [
               {
@@ -75,7 +75,7 @@
               {
                 "name": "type",
                 "type": "INT",
-                "comment": "脚本类型 0-查询 1-计算"
+                "comment": "脚本类型  0：查询 1：计算"
               },
               {
                 "name": "cube_name",
@@ -83,24 +83,29 @@
                 "comment": "模型名称"
               },
               {
-                "name": "cube_folderid",
+                "name": "cube_folder_id",
                 "type": "VARCHAR(50)",
                 "comment": "模型文件id"
               },
               {
                 "name": "version",
                 "type": "INT",
-                "comment": "脚本版本"
+                "comment": "脚本版本(每修改一次+1)"
               },
               {
                 "name": "create_time",
-                "type": "DATETIME",
-                "comment": "写入时间"
+                "type": "VARCHAR(50)",
+                "comment": "创建时间"
               },
               {
                 "name": "create_user",
                 "type": "VARCHAR(50)",
-                "comment": "写入人"
+                "comment": "创建人"
+              },
+              {
+                "name": "del",
+                "type": "INT",
+                "comment": "是否为删除数据，0不是1是"
               },
               {
                 "name": "view",

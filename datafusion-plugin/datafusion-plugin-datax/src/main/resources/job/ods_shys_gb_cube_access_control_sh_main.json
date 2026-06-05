@@ -21,7 +21,7 @@
                   "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
-                  "SELECT `cube_id`,`function_code`,`status`,`access_right`,`group_code`,`line`,`description`,`createdate`,`createtime` FROM `shys_cube_access_control_sh_main_gb`"
+                  "SELECT `id`,`cube_id`,`function_code`,`status`,`access_right`,`group_code`,`line`,`description`,`createdate`,`createtime` FROM `shys_cube_access_control_sh_main_gb`"
                 ]
               }
             ]
@@ -54,22 +54,27 @@
               "enabled": false,
               "partition": {}
             },
-            "primaryKey": "cube_id,function_code,status",
+            "primaryKey": "cube_id,function_code,status,access_right,group_code,line,id",
             "partitionKey": "",
             "column": [
               {
+                "name": "id",
+                "type": "VARCHAR(128)",
+                "comment": "更新用的标识"
+              },
+              {
                 "name": "cube_id",
-                "type": "VARCHAR(255)",
+                "type": "VARCHAR(128)",
                 "comment": "关联主表id"
               },
               {
                 "name": "function_code",
-                "type": "VARCHAR(255)",
+                "type": "VARCHAR(128)",
                 "comment": "功能编码"
               },
               {
                 "name": "status",
-                "type": "VARCHAR(255)",
+                "type": "VARCHAR(64)",
                 "comment": "状态"
               },
               {
@@ -79,7 +84,7 @@
               },
               {
                 "name": "group_code",
-                "type": "VARCHAR(255)",
+                "type": "VARCHAR(128)",
                 "comment": "角色组code"
               },
               {
