@@ -77,9 +77,9 @@ Manager 扫描 `com.datafusion`，MyBatis Mapper 包主要包括：
 
 ## Skills
 
-Spring Web、Controller、Service、DTO、Mapper、Entity/PO、持久化和调度集成类变更，使用项目内 skill：
+Web 功能设计、前端页面/API client、Spring Web、Controller、Service、DTO、Mapper、Entity/PO、持久化和调度集成类变更，使用项目内 skill：
 
-- `.codex/skills/sdd-spring-web`
+- `.codex/skills/sdd-java-web`
 
 Java 风格和 Checkstyle 处理，使用项目内 skill：
 

@@ -1,0 +1,55 @@
+version: 1
+
+project_conventions: docs/.sdd/project-conventions.md
+
+modules:
+  datafusion-manager:
+    feature_docs_root: docs/datafusion-manager
+    source_roots:
+      - datafusion-manager/src/main/java
+      - datafusion-manager/src/main/resources
+    verify:
+      - mvn -DskipTests compile -pl datafusion-manager -am
+
+  datafusion-web:
+    feature_docs_root: docs/datafusion-manager
+    source_roots:
+      - datafusion-web/src
+    verify:
+      - npm run build
+      - npm run lint
+
+  datafusion-scheduler-master:
+    feature_docs_root: docs/datafusion-scheduler-master
+    source_roots:
+      - datafusion-scheduler-master/src/main/java
+    verify:
+      - mvn -DskipTests compile -pl datafusion-scheduler-master -am
+
+  datafusion-scheduler-worker:
+    feature_docs_root: docs/datafusion-scheduler-worker
+    source_roots:
+      - datafusion-scheduler-worker/src/main/java
+    verify:
+      - mvn -DskipTests compile -pl datafusion-scheduler-worker -am
+
+  datafusion-agent:
+    feature_docs_root: docs/datafusion-agent
+    source_roots:
+      - datafusion-agent/src/main/java
+    verify:
+      - mvn -DskipTests compile -pl datafusion-agent -am
+
+  datafusion-plugin:
+    feature_docs_root: docs/datafusion-plugin
+    source_roots:
+      - datafusion-plugin
+    verify:
+      - mvn -DskipTests compile -pl datafusion-plugin -am
+
+docs:
+  feature_root: docs
+  language: zh-CN
+  empty_marker: 无
+  data_define_suffix: data-define
+  design_suffix: design
