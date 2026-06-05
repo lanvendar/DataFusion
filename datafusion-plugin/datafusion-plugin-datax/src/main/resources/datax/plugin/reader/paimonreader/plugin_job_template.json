@@ -1,0 +1,22 @@
+{
+    "name": "paimonreader",
+    "parameter": {
+        "connectType": "S3",
+        "options": {
+            "warehouse": "",
+            "catalogType": "filesystem",
+            "database": "",
+            "endpoint": "",
+            "region": "us-east-1",
+            "accessKey": "",
+            "accessKeyRef": "",
+            "secretKey": "",
+            "secretKeyRef": "",
+            "pathStyleAccess": true,
+            "sslEnabled": false,
+            "hadoop.fs.s3a.connection.maximum": "100"
+        },
+        "table": "",
+        "sql": ""
+    }
+}
