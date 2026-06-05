@@ -30,6 +30,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         "com.datafusion.manager.ingestion.dao",
         "com.datafusion.manager.metadata.dao",
         "com.datafusion.manager.scheduler.dao",
+        "com.datafusion.manager.system.dao",
         "com.datafusion.manager.development.dao"
 })
 @EnableScheduling

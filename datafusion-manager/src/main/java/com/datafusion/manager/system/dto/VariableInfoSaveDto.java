@@ -1,4 +1,4 @@
-package com.datafusion.manager.scheduler.dto;
+package com.datafusion.manager.system.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -6,7 +6,7 @@ import lombok.Data;
 import javax.validation.constraints.NotBlank;
 
 /**
- * 调度-变量新增Dto.
+ * 系统-变量新增Dto.
  *
  * @author datafusion
  * @version 1.0.0, 2026/3/30

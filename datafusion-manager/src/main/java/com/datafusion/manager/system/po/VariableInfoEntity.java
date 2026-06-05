@@ -1,4 +1,4 @@
-package com.datafusion.manager.scheduler.po;
+package com.datafusion.manager.system.po;
 
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -6,14 +6,14 @@ import com.datafusion.common.spring.po.BaseIdEntity;
 import lombok.Data;
 
 /**
- * 调度-变量信息实体.
+ * 系统-变量信息实体.
  *
  * @author datafusion
  * @version 1.0.0, 2025/3/25
  * @since 1.0.0
  */
 @Data
-@TableName("scheduler_variable_info")
+@TableName("system_variable_info")
 public class VariableInfoEntity extends BaseIdEntity {
 
     /**

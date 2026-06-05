@@ -1,10 +1,10 @@
-package com.datafusion.manager.scheduler.dto;
+package com.datafusion.manager.system.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 /**
- * 调度-变量查询条件Dto.
+ * 系统-变量查询条件Dto.
  *
  * @author datafusion
  * @version 1.0.0, 2026/3/30

@@ -1,4 +1,4 @@
-package com.datafusion.manager.scheduler.service.impl;
+package com.datafusion.manager.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -8,13 +8,13 @@ import com.datafusion.common.exception.CommonException;
 import com.datafusion.common.exception.ErrorCodeEnum;
 import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
-import com.datafusion.manager.scheduler.dao.VariableInfoMapper;
-import com.datafusion.manager.scheduler.dto.VariableInfoDto;
-import com.datafusion.manager.scheduler.dto.VariableInfoQueryDto;
-import com.datafusion.manager.scheduler.dto.VariableInfoSaveDto;
-import com.datafusion.manager.scheduler.dto.VariableInfoUpdateDto;
-import com.datafusion.manager.scheduler.po.VariableInfoEntity;
-import com.datafusion.manager.scheduler.service.VariableInfoService;
+import com.datafusion.manager.system.dao.VariableInfoMapper;
+import com.datafusion.manager.system.dto.VariableInfoDto;
+import com.datafusion.manager.system.dto.VariableInfoQueryDto;
+import com.datafusion.manager.system.dto.VariableInfoSaveDto;
+import com.datafusion.manager.system.dto.VariableInfoUpdateDto;
+import com.datafusion.manager.system.po.VariableInfoEntity;
+import com.datafusion.manager.system.service.VariableInfoService;
 import com.datafusion.manager.utils.HttpUtils;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
@@ -26,7 +26,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * 调度-变量信息Service实现.
+ * 系统-变量信息Service实现.
  *
  * @author datafusion
  * @version 1.0.0, 2025/3/25

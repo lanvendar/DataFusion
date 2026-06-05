@@ -555,6 +555,54 @@ COMMENT ON COLUMN scheduler_flow_instance.update_time IS '修改时间';
 COMMENT ON COLUMN scheduler_flow_instance.flow_dag_snapshot IS '流程DAG快照';
 
 
+-- DROP TABLE scheduler_flow_instance_his;
+
+CREATE TABLE scheduler_flow_instance_his (
+id uuid NOT NULL, -- 实例id
+flow_id uuid NOT NULL, -- 流程ID
+flow_name varchar(64) NOT NULL, -- 流程名称
+flow_code varchar(50) NULL, -- 流程编码
+flow_type varchar NOT NULL, -- 流程类型
+status varchar(50) NOT NULL, -- 流程实例状态
+trigger_id varchar NOT NULL, -- 发布版本
+publish_version int8 NULL, -- 发布版本
+flow_param json NULL, -- 流程参数
+dep_event_ids varchar NULL, -- 全局依赖事件ID，英文逗号分割
+event_id uuid NULL, -- 事件ID
+schedule_time int8 NULL, -- 调度时间
+start_time int8 NULL, -- 开始时间
+end_time int8 NULL, -- 结束时间
+creator varchar(100) NOT NULL, -- 创建人
+updater varchar(100) NOT NULL, -- 修改人
+create_time timestamp(6) NOT NULL, -- 创建时间
+update_time timestamp(6) NOT NULL, -- 修改时间
+flow_dag_snapshot json NULL, -- 流程DAG快照
+CONSTRAINT flow_instance_his_pkey PRIMARY KEY (id)
+);
+
+COMMENT ON TABLE scheduler_flow_instance_his IS '流程运行实例历史表';
+
+COMMENT ON COLUMN scheduler_flow_instance_his.id IS '实例id';
+COMMENT ON COLUMN scheduler_flow_instance_his.flow_id IS '流程ID';
+COMMENT ON COLUMN scheduler_flow_instance_his.flow_name IS '流程名称';
+COMMENT ON COLUMN scheduler_flow_instance_his.flow_code IS '流程编码';
+COMMENT ON COLUMN scheduler_flow_instance_his.flow_type IS '流程类型';
+COMMENT ON COLUMN scheduler_flow_instance_his.status IS '流程实例状态';
+COMMENT ON COLUMN scheduler_flow_instance_his.trigger_id IS '发布版本';
+COMMENT ON COLUMN scheduler_flow_instance_his.publish_version IS '发布版本';
+COMMENT ON COLUMN scheduler_flow_instance_his.flow_param IS '流程参数';
+COMMENT ON COLUMN scheduler_flow_instance_his.dep_event_ids IS '全局依赖事件ID，英文逗号分割';
+COMMENT ON COLUMN scheduler_flow_instance_his.event_id IS '事件ID';
+COMMENT ON COLUMN scheduler_flow_instance_his.schedule_time IS '调度时间';
+COMMENT ON COLUMN scheduler_flow_instance_his.start_time IS '开始时间';
+COMMENT ON COLUMN scheduler_flow_instance_his.end_time IS '结束时间';
+COMMENT ON COLUMN scheduler_flow_instance_his.creator IS '创建人';
+COMMENT ON COLUMN scheduler_flow_instance_his.updater IS '修改人';
+COMMENT ON COLUMN scheduler_flow_instance_his.create_time IS '创建时间';
+COMMENT ON COLUMN scheduler_flow_instance_his.update_time IS '修改时间';
+COMMENT ON COLUMN scheduler_flow_instance_his.flow_dag_snapshot IS '流程DAG快照';
+
+
 -- DROP TABLE scheduler_task_info;
 
 CREATE TABLE scheduler_task_info (
@@ -668,6 +716,67 @@ COMMENT ON COLUMN scheduler_task_instance.create_time IS '创建时间';
 COMMENT ON COLUMN scheduler_task_instance.update_time IS '更新时间';
 
 
+-- DROP TABLE scheduler_task_instance_his;
+
+CREATE TABLE scheduler_task_instance_his (
+id uuid NOT NULL,
+flow_id uuid NOT NULL, -- 流程ID
+flow_instance_id uuid NOT NULL, -- 流程实例ID
+task_id uuid NOT NULL, -- 任务ID
+task_type varchar NOT NULL, --任务类型
+task_name varchar NOT NULL, -- 任务名称
+task_code varchar NOT NULL, -- 任务编码
+description varchar NULL, -- 任务描述
+task_param json NULL, -- 任务参数
+task_data json NULL, -- 渲染后的任务定义
+plugin_data json NULL, -- 组件数据
+"view" json NULL, -- 任务视图
+dep_event_ids text NULL, -- 依赖事件id
+event_id uuid NULL, -- 产生事件id
+status varchar NULL, -- 任务实例状态
+start_time int8 NULL, -- 任务实例开始时间
+end_time int8 NULL, -- 任务实例结束时间
+cost_time int4 NULL, -- 耗时
+last_instance_id text NULL, -- 上一个任务实例id
+next_instance_id text NULL, -- 下一个任务实例id
+worker_id uuid NULL, -- 执行节点id
+worker_result json NULL, -- 返回值
+creator varchar(100) NOT NULL, -- 创建人
+updater varchar(100) NOT NULL, -- 更新人
+create_time timestamp(6) NOT NULL, -- 创建时间
+update_time timestamp(6) NOT NULL, -- 更新时间
+CONSTRAINT task_instance_his_pkey PRIMARY KEY (id)
+);
+
+COMMENT ON TABLE scheduler_task_instance_his IS '任务运行实例历史表';
+
+COMMENT ON COLUMN scheduler_task_instance_his.flow_id IS '流程ID';
+COMMENT ON COLUMN scheduler_task_instance_his.flow_instance_id IS '流程实例ID';
+COMMENT ON COLUMN scheduler_task_instance_his.task_id IS '任务ID';
+COMMENT ON COLUMN scheduler_task_instance_his.task_type IS ' 任务类型';
+COMMENT ON COLUMN scheduler_task_instance_his.task_name IS '任务名称';
+COMMENT ON COLUMN scheduler_task_instance_his.task_code IS '任务编码';
+COMMENT ON COLUMN scheduler_task_instance_his.description IS '任务描述';
+COMMENT ON COLUMN scheduler_task_instance_his.task_param IS '任务参数';
+COMMENT ON COLUMN scheduler_task_instance_his.task_data IS '渲染后的任务定义';
+COMMENT ON COLUMN scheduler_task_instance_his.plugin_data IS '组件数据';
+COMMENT ON COLUMN scheduler_task_instance_his."view" IS '任务视图';
+COMMENT ON COLUMN scheduler_task_instance_his.dep_event_ids IS '依赖事件id';
+COMMENT ON COLUMN scheduler_task_instance_his.event_id IS '产生事件id';
+COMMENT ON COLUMN scheduler_task_instance_his.status IS '任务实例状态';
+COMMENT ON COLUMN scheduler_task_instance_his.start_time IS '任务实例开始时间';
+COMMENT ON COLUMN scheduler_task_instance_his.end_time IS '任务实例结束时间';
+COMMENT ON COLUMN scheduler_task_instance_his.cost_time IS '耗时';
+COMMENT ON COLUMN scheduler_task_instance_his.last_instance_id IS '上一个任务实例id';
+COMMENT ON COLUMN scheduler_task_instance_his.next_instance_id IS '下一个任务实例id';
+COMMENT ON COLUMN scheduler_task_instance_his.worker_id IS '执行节点id';
+COMMENT ON COLUMN scheduler_task_instance_his.worker_result IS '返回值';
+COMMENT ON COLUMN scheduler_task_instance_his.creator IS '创建人';
+COMMENT ON COLUMN scheduler_task_instance_his.updater IS '更新人';
+COMMENT ON COLUMN scheduler_task_instance_his.create_time IS '创建时间';
+COMMENT ON COLUMN scheduler_task_instance_his.update_time IS '更新时间';
+
+
 -- DROP TABLE scheduler_task_link;
 
 CREATE TABLE scheduler_task_link (
@@ -719,9 +828,9 @@ COMMENT ON COLUMN scheduler_trigger_info.create_time IS '创建时间';
 COMMENT ON COLUMN scheduler_trigger_info.update_time IS '修改时间';
 
 
--- DROP TABLE scheduler_variable_info;
+-- DROP TABLE system_variable_info;
 
-CREATE TABLE scheduler_variable_info (
+CREATE TABLE system_variable_info (
 id uuid NOT NULL,
 code varchar(255) NOT NULL, -- 变量编码
 "name" text NULL, -- 变量名称
@@ -732,20 +841,82 @@ creator varchar(100) NOT NULL, -- 创建人
 updater varchar(100) NOT NULL, -- 修改人
 create_time timestamp(6) NOT NULL, -- 创建时间
 update_time timestamp(6) NOT NULL, -- 修改时间
-CONSTRAINT variable_info_pkey PRIMARY KEY (id)
+CONSTRAINT system_variable_info_pkey PRIMARY KEY (id)
 );
 
 -- Column comments
 
-COMMENT ON COLUMN scheduler_variable_info.code IS '变量编码';
-COMMENT ON COLUMN scheduler_variable_info."name" IS '变量名称';
-COMMENT ON COLUMN scheduler_variable_info."type" IS '变量类型:CUSTOM(自定义);SYSTEM(系统全局)';
-COMMENT ON COLUMN scheduler_variable_info.value_type IS '变量值类型';
-COMMENT ON COLUMN scheduler_variable_info.value IS '值';
-COMMENT ON COLUMN scheduler_variable_info.creator IS '创建人';
-COMMENT ON COLUMN scheduler_variable_info.updater IS '修改人';
-COMMENT ON COLUMN scheduler_variable_info.create_time IS '创建时间';
-COMMENT ON COLUMN scheduler_variable_info.update_time IS '修改时间';
+COMMENT ON COLUMN system_variable_info.code IS '变量编码';
+COMMENT ON COLUMN system_variable_info."name" IS '变量名称';
+COMMENT ON COLUMN system_variable_info."type" IS '变量类型:CUSTOM(自定义);SYSTEM(系统全局)';
+COMMENT ON COLUMN system_variable_info.value_type IS '变量值类型';
+COMMENT ON COLUMN system_variable_info.value IS '值';
+COMMENT ON COLUMN system_variable_info.creator IS '创建人';
+COMMENT ON COLUMN system_variable_info.updater IS '修改人';
+COMMENT ON COLUMN system_variable_info.create_time IS '创建时间';
+COMMENT ON COLUMN system_variable_info.update_time IS '修改时间';
+
+
+-- DROP TABLE system_plugin_config;
+
+CREATE TABLE system_plugin_config (
+id uuid NOT NULL,
+plugin_name varchar(255) NOT NULL,
+plugin_type varchar(255) NOT NULL,
+run_mode varchar(255) NOT NULL,
+description varchar(255) NULL,
+env jsonb NULL,
+is_template bool NOT NULL DEFAULT false,
+is_del int2 NOT NULL DEFAULT 0,
+creator varchar(100) NOT NULL,
+updater varchar(100) NOT NULL,
+create_time timestamp(6) NOT NULL,
+update_time timestamp(6) NOT NULL,
+tenant_id uuid NOT NULL,
+CONSTRAINT system_plugin_config_pkey PRIMARY KEY (id)
+);
+
+COMMENT ON TABLE system_plugin_config IS '系统插件配置表';
+COMMENT ON COLUMN system_plugin_config.id IS '主键';
+COMMENT ON COLUMN system_plugin_config.plugin_name IS '插件名称';
+COMMENT ON COLUMN system_plugin_config.plugin_type IS '插件类型';
+COMMENT ON COLUMN system_plugin_config.run_mode IS '运行模式';
+COMMENT ON COLUMN system_plugin_config.description IS '描述';
+COMMENT ON COLUMN system_plugin_config.env IS '插件配置';
+COMMENT ON COLUMN system_plugin_config.is_template IS '模板数据标记';
+COMMENT ON COLUMN system_plugin_config.is_del IS '删除状态：0-正常; 1-删除';
+COMMENT ON COLUMN system_plugin_config.creator IS '创建人';
+COMMENT ON COLUMN system_plugin_config.updater IS '修改人';
+COMMENT ON COLUMN system_plugin_config.create_time IS '创建时间';
+COMMENT ON COLUMN system_plugin_config.update_time IS '修改时间';
+COMMENT ON COLUMN system_plugin_config.tenant_id IS '租户ID';
+
+
+-- DROP TABLE system_task_type_config;
+
+CREATE TABLE system_task_type_config (
+id uuid NOT NULL,
+task_type varchar(255) NOT NULL,
+default_plugin_id uuid NOT NULL,
+plugin_type varchar(255) NULL,
+creator varchar(100) NOT NULL,
+updater varchar(100) NOT NULL,
+create_time timestamp(6) NOT NULL,
+update_time timestamp(6) NOT NULL,
+tenant_id uuid NOT NULL,
+CONSTRAINT system_task_type_config_pkey PRIMARY KEY (id)
+);
+
+COMMENT ON TABLE system_task_type_config IS '任务类型配置表';
+COMMENT ON COLUMN system_task_type_config.id IS '主键';
+COMMENT ON COLUMN system_task_type_config.task_type IS '任务类型';
+COMMENT ON COLUMN system_task_type_config.default_plugin_id IS '默认插件ID';
+COMMENT ON COLUMN system_task_type_config.plugin_type IS '插件类型';
+COMMENT ON COLUMN system_task_type_config.creator IS '创建人';
+COMMENT ON COLUMN system_task_type_config.updater IS '修改人';
+COMMENT ON COLUMN system_task_type_config.create_time IS '创建时间';
+COMMENT ON COLUMN system_task_type_config.update_time IS '修改时间';
+COMMENT ON COLUMN system_task_type_config.tenant_id IS '租户ID';
 
 
 -- 平台外部清洗表

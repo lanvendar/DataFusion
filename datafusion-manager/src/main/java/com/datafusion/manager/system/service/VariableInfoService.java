@@ -1,19 +1,19 @@
-package com.datafusion.manager.scheduler.service;
+package com.datafusion.manager.system.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
-import com.datafusion.manager.scheduler.dto.VariableInfoDto;
-import com.datafusion.manager.scheduler.dto.VariableInfoQueryDto;
-import com.datafusion.manager.scheduler.dto.VariableInfoSaveDto;
-import com.datafusion.manager.scheduler.dto.VariableInfoUpdateDto;
-import com.datafusion.manager.scheduler.po.VariableInfoEntity;
+import com.datafusion.manager.system.dto.VariableInfoDto;
+import com.datafusion.manager.system.dto.VariableInfoQueryDto;
+import com.datafusion.manager.system.dto.VariableInfoSaveDto;
+import com.datafusion.manager.system.dto.VariableInfoUpdateDto;
+import com.datafusion.manager.system.po.VariableInfoEntity;
 
 import java.util.List;
 import java.util.UUID;
 
 /**
- * 调度-变量信息Service.
+ * 系统-变量信息Service.
  *
  * @author datafusion
  * @version 1.0.0, 2025/3/25
