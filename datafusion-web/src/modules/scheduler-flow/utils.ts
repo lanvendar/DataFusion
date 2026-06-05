@@ -3,6 +3,7 @@ import type {
   FlowCanvasNode,
   FlowDagEdgeDto,
   FlowDagNodeDto,
+  ParamDataValue,
 } from "./dto";
 
 export function formatJsonText(value?: Record<string, unknown> | string | null) {
@@ -45,31 +46,68 @@ export function normalizeTimestamp(value?: number | string | null) {
   return Number.isFinite(numeric) ? numeric : undefined;
 }
 
+export function parseParamData(value?: Record<string, unknown> | string | null): ParamDataValue {
+  if (!value) return {};
+
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    if (parsed && typeof parsed === "object") return parsed as ParamDataValue;
+  } catch {
+    return {};
+  }
+
+  return {};
+}
+
+function readNodePosition(node: FlowDagNodeDto, index: number) {
+  const position = node.nodeView?.position;
+  const legacyX = node.nodeView?.x;
+  const legacyY = node.nodeView?.y;
+
+  return {
+    x: typeof position?.x === "number" ? position.x : typeof legacyX === "number" ? legacyX : 120 + (index % 4) * 220,
+    y: typeof position?.y === "number" ? position.y : typeof legacyY === "number" ? legacyY : 120 + Math.floor(index / 4) * 140,
+  };
+}
+
 export function dagNodeToCanvas(node: FlowDagNodeDto, index: number): FlowCanvasNode {
-  const x = typeof node.nodeView?.x === "number" ? node.nodeView.x : 120 + (index % 4) * 220;
-  const y = typeof node.nodeView?.y === "number" ? node.nodeView.y : 120 + Math.floor(index / 4) * 140;
+  const position = readNodePosition(node, index);
+  const type = typeof node.nodeView?.extra?.type === "string" ? node.nodeView.extra.type : node.nodeView?.type;
 
   return {
     id: node.id,
-    type: node.nodeView?.type || "default",
-    position: { x, y },
+    type: type || "taskNode",
+    position,
+    style: node.nodeView?.style,
     data: {
+      taskId: node.data?.taskId || node.id,
       taskName: node.data?.taskName || node.id,
       taskCode: node.data?.taskCode,
       taskType: node.data?.taskType,
       description: node.data?.description,
+      syncFlag: node.data?.syncFlag,
+      taskParam: node.data?.taskParam,
+      definition: node.data?.definition,
     },
   };
 }
 
 export function dagEdgeToCanvas(edge: FlowDagEdgeDto): FlowCanvasEdge {
+  const type = typeof edge.edgeView?.extra?.type === "string" ? edge.edgeView.extra.type : edge.edgeView?.type;
+  const animated = typeof edge.edgeView?.extra?.animated === "boolean" ? edge.edgeView.extra.animated : edge.edgeView?.animated;
+  const sourceHandle = typeof edge.edgeView?.extra?.sourceHandle === "string" ? edge.edgeView.extra.sourceHandle : undefined;
+  const targetHandle = typeof edge.edgeView?.extra?.targetHandle === "string" ? edge.edgeView.extra.targetHandle : undefined;
+
   return {
     id: edge.id || `${edge.source}-${edge.target}`,
     source: edge.source,
     target: edge.target,
-    type: edge.edgeView?.type || "smoothstep",
-    animated: edge.edgeView?.animated ?? true,
+    sourceHandle,
+    targetHandle,
+    type: type || "smoothstep",
+    animated: animated ?? true,
     label: edge.edgeView?.label,
+    style: edge.edgeView?.style,
   };
 }
 
@@ -78,11 +116,16 @@ export function canvasNodeToDag(node: FlowCanvasNode): FlowDagNodeDto {
     id: node.id,
     data: node.data,
     nodeView: {
-      x: node.position.x,
-      y: node.position.y,
-      type: node.type,
-      width: node.measured?.width,
-      height: node.measured?.height,
+      position: {
+        x: node.position.x,
+        y: node.position.y,
+      },
+      style: node.style as Record<string, unknown> | undefined,
+      extra: {
+        type: node.type,
+        width: node.measured?.width,
+        height: node.measured?.height,
+      },
     },
   };
 }
@@ -93,9 +136,14 @@ export function canvasEdgeToDag(edge: FlowCanvasEdge): FlowDagEdgeDto {
     source: edge.source,
     target: edge.target,
     edgeView: {
-      type: edge.type,
-      animated: edge.animated,
       label: typeof edge.label === "string" ? edge.label : undefined,
+      style: edge.style as Record<string, unknown> | undefined,
+      extra: {
+        type: edge.type,
+        animated: edge.animated,
+        sourceHandle: edge.sourceHandle,
+        targetHandle: edge.targetHandle,
+      },
     },
   };
 }

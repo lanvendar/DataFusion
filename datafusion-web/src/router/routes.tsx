@@ -17,6 +17,7 @@ import {
   PartitionOutlined,
   ProfileOutlined,
   ScheduleOutlined,
+  SettingOutlined,
   TableOutlined,
 } from "@ant-design/icons";
 import { DataTablePage, OverviewPage } from "@/components/page-layout";
@@ -26,9 +27,11 @@ import MetadataTableStructurePage from "@/modules/metadata-table-structure";
 import MetadataTableSyncPage from "@/modules/metadata-table-sync";
 import SchedulerFlowPage from "@/modules/scheduler-flow";
 import SchedulerTriggerPage from "@/modules/scheduler-trigger";
-import SchedulerVariablePage from "@/modules/scheduler-variable";
 import SchedulerTaskPage from "@/modules/scheduler-task";
 import SchedulerEventPage from "@/modules/scheduler-event";
+import SystemPluginConfigPage from "@/modules/system-plugin-config";
+import SystemTaskTypeConfigPage from "@/modules/system-task-type-config";
+import SystemVariablePage from "@/modules/system-variable";
 import type { AppRouteGroup } from "@/types/navigation";
 
 export const routeGroups: AppRouteGroup[] = [
@@ -186,12 +189,6 @@ export const routeGroups: AppRouteGroup[] = [
         component: SchedulerTriggerPage,
       },
       {
-        path: "scheduler-variable",
-        label: "变量配置",
-        icon: ControlOutlined,
-        component: SchedulerVariablePage,
-      },
-      {
         path: "scheduler-flow",
         label: "流程管理",
         icon: DeploymentUnitOutlined,
@@ -208,6 +205,31 @@ export const routeGroups: AppRouteGroup[] = [
         label: "事件管理",
         icon: ApiOutlined,
         component: SchedulerEventPage,
+      },
+    ],
+  },
+  {
+    key: "system",
+    label: "系统配置",
+    icon: SettingOutlined,
+    children: [
+      {
+        path: "system-variable",
+        label: "变量配置",
+        icon: ControlOutlined,
+        component: SystemVariablePage,
+      },
+      {
+        path: "system-plugin-config",
+        label: "插件配置",
+        icon: AppstoreOutlined,
+        component: SystemPluginConfigPage,
+      },
+      {
+        path: "system-task-type-config",
+        label: "任务类型配置",
+        icon: DeploymentUnitOutlined,
+        component: SystemTaskTypeConfigPage,
       },
     ],
   },

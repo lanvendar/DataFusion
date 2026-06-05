@@ -117,6 +117,10 @@ export default function SchedulerFlowPage() {
           openForm("add");
           break;
         case PageActionEnum.EDIT:
+          if (record?.publishState || record?.enabled) {
+            message.warning("已发布或调度中的流程只能查看，不能编辑");
+            return;
+          }
           openForm("edit", record);
           break;
         case PageActionEnum.VIEW:
