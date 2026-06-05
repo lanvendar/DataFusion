@@ -1,0 +1,126 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `code`,`name`,`content`,`type`,`cube_name`,`cube_folder_id`,`version`,`create_time`,`create_user`,`view`,`createdate`,`createtime` FROM `shys_sh_pm_mdx_record_ys`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_ys_sh_pm_mdx_record",
+            "tableComment": "投资模型mdx计算记录",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "code,name,type,cube_name,cube_folder_id,version,view",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "code",
+                "type": "VARCHAR(50)",
+                "comment": "脚本编码"
+              },
+              {
+                "name": "name",
+                "type": "VARCHAR(50)",
+                "comment": "脚本名"
+              },
+              {
+                "name": "content",
+                "type": "VARCHAR(1000)",
+                "comment": "脚本内容"
+              },
+              {
+                "name": "type",
+                "type": "INT",
+                "comment": "脚本类型  0：查询 1：计算"
+              },
+              {
+                "name": "cube_name",
+                "type": "VARCHAR(50)",
+                "comment": "模型名称"
+              },
+              {
+                "name": "cube_folder_id",
+                "type": "VARCHAR(50)",
+                "comment": "模型文件id"
+              },
+              {
+                "name": "version",
+                "type": "INT",
+                "comment": "脚本版本(每修改一次+1)"
+              },
+              {
+                "name": "create_time",
+                "type": "DATETIME",
+                "comment": "写入时间"
+              },
+              {
+                "name": "create_user",
+                "type": "VARCHAR(50)",
+                "comment": "写入人"
+              },
+              {
+                "name": "view",
+                "type": "VARCHAR(128)",
+                "comment": "视图"
+              },
+              {
+                "name": "createdate",
+                "type": "DATE",
+                "comment": "创建日期"
+              },
+              {
+                "name": "createtime",
+                "type": "BIGINT",
+                "comment": "创建时间"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

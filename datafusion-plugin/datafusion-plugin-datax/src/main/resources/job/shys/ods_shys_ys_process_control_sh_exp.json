@@ -1,0 +1,151 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `process_seg_1_value`,`process_seg_2_value`,`process_seg_3_value`,`process_seg_4_value`,`process_seg_5_value`,`process_seg_6_value`,`process_seg_7_value`,`process_seg_8_value`,`process_seg_9_value`,`process_seg_10_value`,`create_time`,`creater`,`datablock_id`,`process_status`,`createdate`,`createtime`,`day_pt` FROM `shys_process_control_sh_exp_ys`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_ys_process_control_sh_exp",
+            "tableComment": "process_control_SH_EXP（增量日分区）",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "process_seg_1_value,process_seg_2_value,process_seg_3_value,process_seg_4_value,process_seg_5_value,process_seg_6_value,process_seg_7_value,process_seg_8_value,process_seg_9_value,process_seg_10_value,datablock_id,day_pt",
+            "partitionKey": "day_pt",
+            "column": [
+              {
+                "name": "process_seg_1_value",
+                "type": "VARCHAR(50)",
+                "comment": "流程字段1的值"
+              },
+              {
+                "name": "process_seg_2_value",
+                "type": "VARCHAR(50)",
+                "comment": "流程字段2的值"
+              },
+              {
+                "name": "process_seg_3_value",
+                "type": "VARCHAR(50)",
+                "comment": "流程字段3的值"
+              },
+              {
+                "name": "process_seg_4_value",
+                "type": "VARCHAR(50)",
+                "comment": "流程字段4的值"
+              },
+              {
+                "name": "process_seg_5_value",
+                "type": "VARCHAR(50)",
+                "comment": "流程字段5的值"
+              },
+              {
+                "name": "process_seg_6_value",
+                "type": "VARCHAR(50)",
+                "comment": "流程字段6的值"
+              },
+              {
+                "name": "process_seg_7_value",
+                "type": "VARCHAR(50)",
+                "comment": "流程字段7的值"
+              },
+              {
+                "name": "process_seg_8_value",
+                "type": "VARCHAR(50)",
+                "comment": "流程字段8的值"
+              },
+              {
+                "name": "process_seg_9_value",
+                "type": "VARCHAR(50)",
+                "comment": "流程字段9的值"
+              },
+              {
+                "name": "process_seg_10_value",
+                "type": "VARCHAR(50)",
+                "comment": "流程字段10的值"
+              },
+              {
+                "name": "create_time",
+                "type": "VARCHAR(255)",
+                "comment": "创建时间"
+              },
+              {
+                "name": "creater",
+                "type": "VARCHAR(255)",
+                "comment": "创建人"
+              },
+              {
+                "name": "datablock_id",
+                "type": "VARCHAR(255)",
+                "comment": "数据块ID"
+              },
+              {
+                "name": "process_status",
+                "type": "VARCHAR(50)",
+                "comment": "流程状态"
+              },
+              {
+                "name": "createdate",
+                "type": "DATE",
+                "comment": "创建日期"
+              },
+              {
+                "name": "createtime",
+                "type": "BIGINT",
+                "comment": "创建时间"
+              },
+              {
+                "name": "day_pt",
+                "type": "DATE",
+                "comment": "分区键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

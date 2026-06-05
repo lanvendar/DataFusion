@@ -1,0 +1,231 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `id`,`decimal_val`,`string_val`,`period`,`year`,`scenario`,`version`,`entity`,`account`,`flow`,`rptcurrency`,`grade`,`posit`,`object`,`type`,`misc`,`other1`,`other2`,`operate_type`,`data`,`create_time`,`op_uid`,`entry_mode`,`entry_object`,`cube_name`,`cube_folder_id`,`category`,`scene`,`view`,`audittrail`,`createdate`,`createtime`,`day_pt` FROM `shys_sh_hr_log_ys`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_ys_sh_hr_log",
+            "tableComment": "SH_HR_log（增量日分区）｜候选键：period,year,scenario,version,entity,account,flow,rptcurrency,grade,posit,object,type,misc,other1,other2,create_time,category,scene,audittrail",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "id,day_pt",
+            "partitionKey": "day_pt",
+            "column": [
+              {
+                "name": "id",
+                "type": "BIGINT",
+                "comment": "主键ID"
+              },
+              {
+                "name": "decimal_val",
+                "type": "DECIMAL(19,6)",
+                "comment": "数值"
+              },
+              {
+                "name": "string_val",
+                "type": "VARCHAR(255)",
+                "comment": "文本值"
+              },
+              {
+                "name": "period",
+                "type": "VARCHAR(50)",
+                "comment": "期间"
+              },
+              {
+                "name": "year",
+                "type": "VARCHAR(50)",
+                "comment": "年度"
+              },
+              {
+                "name": "scenario",
+                "type": "VARCHAR(255)",
+                "comment": "场景"
+              },
+              {
+                "name": "version",
+                "type": "VARCHAR(255)",
+                "comment": "版本"
+              },
+              {
+                "name": "entity",
+                "type": "VARCHAR(50)",
+                "comment": "组织"
+              },
+              {
+                "name": "account",
+                "type": "VARCHAR(50)",
+                "comment": "科目"
+              },
+              {
+                "name": "flow",
+                "type": "VARCHAR(50)",
+                "comment": "变动"
+              },
+              {
+                "name": "rptcurrency",
+                "type": "VARCHAR(50)",
+                "comment": "货币"
+              },
+              {
+                "name": "grade",
+                "type": "VARCHAR(50)",
+                "comment": "职级"
+              },
+              {
+                "name": "posit",
+                "type": "VARCHAR(50)",
+                "comment": "岗位"
+              },
+              {
+                "name": "object",
+                "type": "VARCHAR(50)",
+                "comment": "对象"
+              },
+              {
+                "name": "type",
+                "type": "VARCHAR(50)",
+                "comment": "类型"
+              },
+              {
+                "name": "misc",
+                "type": "VARCHAR(50)",
+                "comment": "综合"
+              },
+              {
+                "name": "other1",
+                "type": "VARCHAR(50)",
+                "comment": "预留1"
+              },
+              {
+                "name": "other2",
+                "type": "VARCHAR(50)",
+                "comment": "预留2"
+              },
+              {
+                "name": "operate_type",
+                "type": "INT",
+                "comment": "数据类型：数据或者备注，1：数据，2：备注"
+              },
+              {
+                "name": "data",
+                "type": "VARCHAR(255)",
+                "comment": "修改后的数值"
+              },
+              {
+                "name": "create_time",
+                "type": "DATETIME",
+                "comment": "操作时间"
+              },
+              {
+                "name": "op_uid",
+                "type": "VARCHAR(255)",
+                "comment": "操作人"
+              },
+              {
+                "name": "entry_mode",
+                "type": "INT",
+                "comment": "录入方式：脚本计算or电子表格保存 1：脚本计算，2：电子表格保存"
+              },
+              {
+                "name": "entry_object",
+                "type": "VARCHAR(255)",
+                "comment": "具体的脚本名称或者电子表格id"
+              },
+              {
+                "name": "cube_name",
+                "type": "VARCHAR(255)",
+                "comment": "通过哪个cube输入:名称"
+              },
+              {
+                "name": "cube_folder_id",
+                "type": "VARCHAR(255)",
+                "comment": "通过哪个cube输入:folderId"
+              },
+              {
+                "name": "category",
+                "type": "VARCHAR(50)",
+                "comment": "分类"
+              },
+              {
+                "name": "scene",
+                "type": "VARCHAR(50)",
+                "comment": "场景"
+              },
+              {
+                "name": "view",
+                "type": "VARCHAR(128)",
+                "comment": "视图"
+              },
+              {
+                "name": "audittrail",
+                "type": "VARCHAR(50)",
+                "comment": "审计轨迹"
+              },
+              {
+                "name": "createdate",
+                "type": "DATE",
+                "comment": "创建日期"
+              },
+              {
+                "name": "createtime",
+                "type": "BIGINT",
+                "comment": "创建时间"
+              },
+              {
+                "name": "day_pt",
+                "type": "DATE",
+                "comment": "日期格式:yyyy-MM-dd"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

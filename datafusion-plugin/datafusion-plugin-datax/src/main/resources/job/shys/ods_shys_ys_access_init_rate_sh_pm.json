@@ -1,0 +1,121 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `cube_name`,`status`,`cube_folder_id`,`cube_path`,`create_time`,`update_time`,`creator`,`message`,`id`,`createdate`,`createtime` FROM `shys_access_init_rate_sh_pm_ys`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_ys_access_init_rate_sh_pm",
+            "tableComment": "投资模型初始化",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "cube_name",
+                "type": "VARCHAR(100)",
+                "comment": "模型名称"
+              },
+              {
+                "name": "status",
+                "type": "VARCHAR(10)",
+                "comment": "初始化状态，1-开始 2-完成 3-失败"
+              },
+              {
+                "name": "cube_folder_id",
+                "type": "VARCHAR(255)",
+                "comment": "模型文件夹id"
+              },
+              {
+                "name": "cube_path",
+                "type": "VARCHAR(255)",
+                "comment": "模型路径"
+              },
+              {
+                "name": "create_time",
+                "type": "VARCHAR(255)",
+                "comment": "创建时间"
+              },
+              {
+                "name": "update_time",
+                "type": "VARCHAR(255)",
+                "comment": "更新时间"
+              },
+              {
+                "name": "creator",
+                "type": "VARCHAR(255)",
+                "comment": "创建人"
+              },
+              {
+                "name": "message",
+                "type": "VARCHAR(1200)",
+                "comment": "消息"
+              },
+              {
+                "name": "id",
+                "type": "VARCHAR(255)",
+                "comment": "主键"
+              },
+              {
+                "name": "createdate",
+                "type": "DATE",
+                "comment": "创建日期"
+              },
+              {
+                "name": "createtime",
+                "type": "BIGINT",
+                "comment": "创建时间"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

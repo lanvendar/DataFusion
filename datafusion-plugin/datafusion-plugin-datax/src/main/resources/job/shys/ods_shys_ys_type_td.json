@@ -1,0 +1,301 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `id`,`parent_id`,`parent_name`,`name`,`aggweight`,`is_base`,`sharedmember`,`level` AS tree_level,`sort_col`,`base_count`,`description_zh_cn`,`description_en`,`description_de`,`description_ar`,`description_es`,`description_fr`,`description_ru`,`description_zh_tw`,`description_ja`,`description_he`,`is_active`,`p0`,`p1`,`p2`,`p3`,`p4`,`p5`,`p6`,`p7`,`p8`,`p9`,`p10`,`p11`,`p12`,`p13`,`p14`,`p15`,`p16`,`p17`,`p18`,`p19`,`ud2`,`ud4`,`ud1`,`ud3`,`ud5`,`description_pt` FROM `shys_type_td_ys`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_ys_type_td",
+            "tableComment": "类型维度表",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "id",
+                "type": "INT",
+                "comment": "主键"
+              },
+              {
+                "name": "parent_id",
+                "type": "INT",
+                "comment": "父级节点id"
+              },
+              {
+                "name": "parent_name",
+                "type": "VARCHAR(255)",
+                "comment": "父级节点编码"
+              },
+              {
+                "name": "name",
+                "type": "VARCHAR(255)",
+                "comment": "成员编码"
+              },
+              {
+                "name": "aggweight",
+                "type": "DECIMAL(5,2)",
+                "comment": "比重"
+              },
+              {
+                "name": "is_base",
+                "type": "TINYINT",
+                "comment": "是否末级节点"
+              },
+              {
+                "name": "sharedmember",
+                "type": "TINYINT",
+                "comment": "是否共享节点"
+              },
+              {
+                "name": "tree_level",
+                "type": "INT",
+                "comment": "层级"
+              },
+              {
+                "name": "sort_col",
+                "type": "VARCHAR(255)",
+                "comment": "排序"
+              },
+              {
+                "name": "base_count",
+                "type": "INT",
+                "comment": "叶子结点数"
+              },
+              {
+                "name": "description_zh_cn",
+                "type": "VARCHAR(255)",
+                "comment": "中文(简体)描述"
+              },
+              {
+                "name": "description_en",
+                "type": "VARCHAR(255)",
+                "comment": "英语描述"
+              },
+              {
+                "name": "description_de",
+                "type": "VARCHAR(255)",
+                "comment": "德语描述"
+              },
+              {
+                "name": "description_ar",
+                "type": "VARCHAR(255)",
+                "comment": "阿拉伯语描述"
+              },
+              {
+                "name": "description_es",
+                "type": "VARCHAR(255)",
+                "comment": "西班牙语描述"
+              },
+              {
+                "name": "description_fr",
+                "type": "VARCHAR(255)",
+                "comment": "法语描述"
+              },
+              {
+                "name": "description_ru",
+                "type": "VARCHAR(255)",
+                "comment": "俄语描述"
+              },
+              {
+                "name": "description_zh_tw",
+                "type": "VARCHAR(255)",
+                "comment": "中文(繁体)描述"
+              },
+              {
+                "name": "description_ja",
+                "type": "VARCHAR(255)",
+                "comment": "日语描述"
+              },
+              {
+                "name": "description_he",
+                "type": "VARCHAR(255)",
+                "comment": "希伯来语描述"
+              },
+              {
+                "name": "is_active",
+                "type": "TINYINT",
+                "comment": "是否生效"
+              },
+              {
+                "name": "p0",
+                "type": "INT",
+                "comment": "树链0"
+              },
+              {
+                "name": "p1",
+                "type": "INT",
+                "comment": "树链1"
+              },
+              {
+                "name": "p2",
+                "type": "INT",
+                "comment": "树链2"
+              },
+              {
+                "name": "p3",
+                "type": "INT",
+                "comment": "树链3"
+              },
+              {
+                "name": "p4",
+                "type": "INT",
+                "comment": "树链4"
+              },
+              {
+                "name": "p5",
+                "type": "INT",
+                "comment": "树链5"
+              },
+              {
+                "name": "p6",
+                "type": "INT",
+                "comment": "树链6"
+              },
+              {
+                "name": "p7",
+                "type": "INT",
+                "comment": "树链7"
+              },
+              {
+                "name": "p8",
+                "type": "INT",
+                "comment": "树链8"
+              },
+              {
+                "name": "p9",
+                "type": "INT",
+                "comment": "树链9"
+              },
+              {
+                "name": "p10",
+                "type": "INT",
+                "comment": "树链10"
+              },
+              {
+                "name": "p11",
+                "type": "INT",
+                "comment": "树链11"
+              },
+              {
+                "name": "p12",
+                "type": "INT",
+                "comment": "树链12"
+              },
+              {
+                "name": "p13",
+                "type": "INT",
+                "comment": "树链13"
+              },
+              {
+                "name": "p14",
+                "type": "INT",
+                "comment": "树链14"
+              },
+              {
+                "name": "p15",
+                "type": "INT",
+                "comment": "树链15"
+              },
+              {
+                "name": "p16",
+                "type": "INT",
+                "comment": "树链16"
+              },
+              {
+                "name": "p17",
+                "type": "INT",
+                "comment": "树链17"
+              },
+              {
+                "name": "p18",
+                "type": "INT",
+                "comment": "树链18"
+              },
+              {
+                "name": "p19",
+                "type": "INT",
+                "comment": "树链19"
+              },
+              {
+                "name": "ud2",
+                "type": "VARCHAR(255)",
+                "comment": "预留字段2"
+              },
+              {
+                "name": "ud4",
+                "type": "VARCHAR(255)",
+                "comment": "预留字段4"
+              },
+              {
+                "name": "ud1",
+                "type": "VARCHAR(255)",
+                "comment": "成本要素对应作业类型"
+              },
+              {
+                "name": "ud3",
+                "type": "VARCHAR(255)",
+                "comment": "预留字段3"
+              },
+              {
+                "name": "ud5",
+                "type": "VARCHAR(255)",
+                "comment": "预留字段5"
+              },
+              {
+                "name": "description_pt",
+                "type": "VARCHAR(255)",
+                "comment": "葡萄牙语描述"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

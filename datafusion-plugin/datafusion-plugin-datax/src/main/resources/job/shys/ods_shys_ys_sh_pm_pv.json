@@ -1,0 +1,141 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `account_type`,`scenario_type`,`move_type`,`period`,`ytd`,`hytd`,`qtd`,`mtd`,`periodic`,`min_level`,`period_level`,`sibling_idx`,`create_time`,`createdate`,`createtime` FROM `shys_sh_pm_pv_ys`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_ys_sh_pm_pv",
+            "tableComment": "投资模型期间累计",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "account_type,scenario_type,move_type,period,ytd,hytd,qtd,mtd,periodic,min_level,period_level,sibling_idx",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "account_type",
+                "type": "VARCHAR(64)",
+                "comment": "科目类型"
+              },
+              {
+                "name": "scenario_type",
+                "type": "VARCHAR(64)",
+                "comment": "场景类型"
+              },
+              {
+                "name": "move_type",
+                "type": "VARCHAR(64)",
+                "comment": "变动类型"
+              },
+              {
+                "name": "period",
+                "type": "VARCHAR(64)",
+                "comment": "期间"
+              },
+              {
+                "name": "ytd",
+                "type": "VARCHAR(64)",
+                "comment": "年初至当期的累计"
+              },
+              {
+                "name": "hytd",
+                "type": "VARCHAR(64)",
+                "comment": "半年初至当期的累计"
+              },
+              {
+                "name": "qtd",
+                "type": "VARCHAR(64)",
+                "comment": "季初至当期的累计"
+              },
+              {
+                "name": "mtd",
+                "type": "VARCHAR(64)",
+                "comment": "月初至当期的累计"
+              },
+              {
+                "name": "periodic",
+                "type": "VARCHAR(64)",
+                "comment": "当期发生额"
+              },
+              {
+                "name": "min_level",
+                "type": "VARCHAR(64)",
+                "comment": "最新层级"
+              },
+              {
+                "name": "period_level",
+                "type": "VARCHAR(64)",
+                "comment": "期间层级"
+              },
+              {
+                "name": "sibling_idx",
+                "type": "VARCHAR(64)",
+                "comment": "同级索引"
+              },
+              {
+                "name": "create_time",
+                "type": "VARCHAR(64)",
+                "comment": "创建时间"
+              },
+              {
+                "name": "createdate",
+                "type": "DATE",
+                "comment": "创建日期"
+              },
+              {
+                "name": "createtime",
+                "type": "BIGINT",
+                "comment": "创建时间"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
