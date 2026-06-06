@@ -46,6 +46,7 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { eventApi } from "../../scheduler-event/api";
 import { flowApi, schedulerFlowRelationApi } from "../api";
 import type {
   FlowCanvasEdge,
@@ -96,8 +97,14 @@ function isUnsynced(value?: boolean) {
 }
 
 function TaskNode({ data, selected }: NodeProps<FlowCanvasNode>) {
+  const className = [
+    "flow-task-node",
+    data.enabled ? "enabled" : "disabled",
+    selected ? "selected" : "",
+  ].filter(Boolean).join(" ");
+
   return (
-    <div className={selected ? "flow-task-node selected" : "flow-task-node"}>
+    <div className={className}>
       <Handle type="target" position={Position.Top} id="top-target" />
       <Handle type="source" position={Position.Top} id="top-source" />
       <Handle type="target" position={Position.Left} id="left-target" />
@@ -131,6 +138,7 @@ function createNodeFromTask(task: TaskListItem, position: { x: number; y: number
       taskType: task.taskType,
       description: task.description,
       syncFlag: task.syncFlag,
+      enabled: false,
     },
   };
 }
@@ -218,7 +226,7 @@ function FlowTaskPanel({
 function BasicInfoPanel({ node }: { node?: FlowCanvasNode }) {
   const data = node?.data;
   const paramData = parseParamData(data?.taskParam);
-  const paramsText = formatJsonText(paramData.params as Record<string, unknown> | string | null);
+  const varsText = formatJsonText(paramData.vars || {});
   const definitionText = formatJsonText(data?.definition);
 
   if (!node || !data) {
@@ -239,8 +247,8 @@ function BasicInfoPanel({ node }: { node?: FlowCanvasNode }) {
         <Descriptions.Item label="任务描述">{data.description || "-"}</Descriptions.Item>
       </Descriptions>
       <div>
-        <Typography.Text strong>任务参数 params</Typography.Text>
-        <pre className="json-block">{paramsText || "暂无任务参数"}</pre>
+        <Typography.Text strong>调度变量 vars</Typography.Text>
+        <pre className="json-block">{varsText || "暂无调度变量"}</pre>
       </div>
       <div>
         <Typography.Text strong>任务定义</Typography.Text>
@@ -284,12 +292,29 @@ function buildSchedulePayload(values: ScheduleInfoFormValues, paramData: ReturnT
   };
 }
 
+function buildGeneratedEventName(data?: Partial<TaskDetailItem>) {
+  if (!data?.taskName || !data.taskCode) return "";
+  return `${data.taskName}|${data.taskCode}`;
+}
+
+function findEventName(events: Array<{ id: string; eventName?: string; name?: string }>, eventId?: string) {
+  if (!eventId) return "";
+  const event = events.find((item) => item.id === eventId);
+  return event?.eventName || event?.name || "";
+}
+
+function isEventMissingError(error: unknown) {
+  return error instanceof Error && error.message.includes("事件不存在");
+}
+
 function ScheduleInfoPanel({
   node,
+  nodes,
   readOnly,
   onNodeDataPatch,
 }: {
   node?: FlowCanvasNode;
+  nodes: FlowCanvasNode[];
   readOnly: boolean;
   onNodeDataPatch: (nodeId: string, data: Partial<FlowDagNodeData>) => void;
 }) {
@@ -297,6 +322,8 @@ function ScheduleInfoPanel({
   const [form] = Form.useForm<ScheduleInfoFormValues>();
   const taskId = node?.id;
   const [saving, setSaving] = useState(false);
+  const [eventSaving, setEventSaving] = useState(false);
+  const [closedEventIds, setClosedEventIds] = useState<Set<string>>(() => new Set());
   const [saveStatus, setSaveStatus] = useState("");
   const lastSavedPayloadRef = useRef("");
   const detailQuery = useQuery({
@@ -318,7 +345,20 @@ function ScheduleInfoPanel({
   const detail = detailQuery.data;
   const fallbackDetail = node?.data as Partial<TaskDetailItem> | undefined;
   const scheduleData = detail || fallbackDetail;
+  const generatedEventName = useMemo(() => buildGeneratedEventName(scheduleData), [scheduleData]);
+  const currentEventId = Form.useWatch("eventId", form);
+  const effectiveEventId = useMemo(() => {
+    if (currentEventId && !closedEventIds.has(currentEventId)) return currentEventId;
+    const fallbackEventId = scheduleData?.eventId;
+    return fallbackEventId && !closedEventIds.has(fallbackEventId) ? fallbackEventId : undefined;
+  }, [closedEventIds, currentEventId, scheduleData?.eventId]);
   const paramData = useMemo(() => parseParamData(scheduleData?.taskParam), [scheduleData?.taskParam]);
+  const producedEventName = useMemo(() => {
+    if (!effectiveEventId) return "";
+
+    const eventName = findEventName(eventQuery.data || [], effectiveEventId);
+    return eventName || generatedEventName;
+  }, [effectiveEventId, eventQuery.data, generatedEventName]);
   const variableRows = useMemo<VariableRow[]>(() => {
     const vars = paramData.vars || {};
     return Object.entries(vars).map(([key, value]) => ({
@@ -384,23 +424,38 @@ function ScheduleInfoPanel({
     const nextValues = {
       pluginId: scheduleData?.pluginId,
       depEventIds: normalizeStringArray(scheduleData?.depEventIds),
-      eventId: scheduleData?.eventId,
+      eventId: scheduleData?.eventId && !closedEventIds.has(scheduleData.eventId) ? scheduleData.eventId : undefined,
       enabled: Boolean(scheduleData?.enabled),
       varsText: formatJsonText(paramData.vars || {}),
     };
     form.setFieldsValue(nextValues);
     lastSavedPayloadRef.current = buildSchedulePayload(nextValues, paramData).payload;
     setSaveStatus("");
-  }, [form, node, paramData, scheduleData?.depEventIds, scheduleData?.enabled, scheduleData?.eventId, scheduleData?.pluginId]);
+  }, [closedEventIds, form, node, paramData, scheduleData?.depEventIds, scheduleData?.enabled, scheduleData?.eventId, scheduleData?.pluginId]);
 
-  const saveScheduleInfo = useCallback(async (showMessage = false) => {
+  useEffect(() => {
+    setClosedEventIds(new Set());
+  }, [taskId]);
+
+  const saveScheduleInfo = useCallback(async (
+    showMessage = false,
+    overrides: Partial<ScheduleInfoFormValues> = {},
+    options: { clearEventId?: boolean; throwOnError?: boolean } = {},
+  ) => {
     if (!taskId || readOnly) return;
 
-    const values = await form.validateFields();
+    const formValues = await form.validateFields();
+    const values = {
+      ...formValues,
+      ...overrides,
+    };
     try {
       const { payload, taskParam } = buildSchedulePayload(values, paramData);
+      const nextPayload = options.clearEventId
+        ? JSON.stringify({ ...JSON.parse(payload), clearEventId: true })
+        : payload;
 
-      if (payload === lastSavedPayloadRef.current) return;
+      if (nextPayload === lastSavedPayloadRef.current) return;
 
       setSaving(true);
       setSaveStatus("自动保存中...");
@@ -409,6 +464,7 @@ function ScheduleInfoPanel({
         pluginId: values.pluginId || undefined,
         depEventIds: (values.depEventIds || []).join(","),
         eventId: values.eventId || undefined,
+        clearEventId: options.clearEventId,
         enabled: values.enabled,
         taskParam,
       });
@@ -430,16 +486,132 @@ function ScheduleInfoPanel({
       if (error instanceof Error) {
         message.error(error.message);
       }
+      if (options.throwOnError) {
+        throw error;
+      }
     } finally {
       setSaving(false);
     }
   }, [detailQuery, form, message, onNodeDataPatch, paramData, readOnly, taskId]);
 
   const handleScheduleValuesChange = (changedValues: Partial<ScheduleInfoFormValues>) => {
-    if (readOnly || !taskId || Object.prototype.hasOwnProperty.call(changedValues, "varsText")) return;
+    if (
+      readOnly
+      || !taskId
+      || Object.prototype.hasOwnProperty.call(changedValues, "varsText")
+      || Object.prototype.hasOwnProperty.call(changedValues, "eventId")
+    ) {
+      return;
+    }
     window.setTimeout(() => {
       void saveScheduleInfo();
     });
+  };
+
+  const eventReferencedByNode = useMemo(() => {
+    if (!effectiveEventId) return undefined;
+    return nodes.find((item) =>
+      item.id !== taskId && normalizeStringArray(item.data?.depEventIds).includes(effectiveEventId),
+    );
+  }, [effectiveEventId, nodes, taskId]);
+
+  const handleGeneratedEventChange = async (checked: boolean) => {
+    if (!taskId || readOnly) return;
+    if (!checked) {
+      if (!effectiveEventId) return;
+      if (eventReferencedByNode) {
+        message.warning("该事件已被其他任务依赖引用，请解除依赖后关闭");
+        return;
+      }
+
+      setEventSaving(true);
+      const eventIdToClose = effectiveEventId;
+      form.setFieldsValue({ eventId: undefined });
+      setClosedEventIds((eventIds) => new Set(eventIds).add(eventIdToClose));
+      try {
+        await saveScheduleInfo(false, { eventId: undefined }, { clearEventId: true, throwOnError: true });
+      } catch (error) {
+        setClosedEventIds((eventIds) => {
+          const nextEventIds = new Set(eventIds);
+          nextEventIds.delete(eventIdToClose);
+          return nextEventIds;
+        });
+        form.setFieldsValue({ eventId: eventIdToClose });
+        if (error instanceof Error) {
+          message.error(error.message || "关闭生成事件失败");
+        }
+        setEventSaving(false);
+        return;
+      }
+
+      try {
+        await eventApi.delete(eventIdToClose);
+      } catch (error) {
+        if (!isEventMissingError(error)) {
+          setClosedEventIds((eventIds) => {
+            const nextEventIds = new Set(eventIds);
+            nextEventIds.delete(eventIdToClose);
+            return nextEventIds;
+          });
+          form.setFieldsValue({ eventId: eventIdToClose });
+          await saveScheduleInfo(false, { eventId: eventIdToClose });
+          if (error instanceof Error) {
+            message.error(error.message || "关闭生成事件失败，请解除依赖后关闭");
+          }
+          setEventSaving(false);
+          return;
+        }
+      }
+
+      try {
+        form.setFieldsValue({ eventId: undefined });
+        onNodeDataPatch(taskId, { eventId: undefined, syncFlag: false });
+        await eventQuery.refetch();
+        await detailQuery.refetch();
+        message.success("生成事件已关闭");
+      } finally {
+        setEventSaving(false);
+      }
+      return;
+    }
+
+    if (effectiveEventId) return;
+    if (!generatedEventName) {
+      message.error("任务名称或任务编码为空，无法生成事件名称");
+      return;
+    }
+
+    setEventSaving(true);
+    try {
+      const reusableEvent = (eventQuery.data || []).find((event) =>
+        (event.eventName || event.name) === generatedEventName
+        && event.eventType === "1"
+        && (!event.taskId || event.taskId === taskId),
+      );
+      const eventId = reusableEvent?.id || await eventApi.add({
+        eventName: generatedEventName,
+        eventType: "1",
+        taskId,
+      });
+      setClosedEventIds((eventIds) => {
+        const nextEventIds = new Set(eventIds);
+        nextEventIds.delete(eventId);
+        return nextEventIds;
+      });
+      form.setFieldsValue({ eventId });
+      await saveScheduleInfo(false, { eventId }, { throwOnError: true });
+      onNodeDataPatch(taskId, { eventId, syncFlag: false });
+      await eventQuery.refetch();
+      await detailQuery.refetch();
+      message.success("生成事件已开启");
+    } catch (error) {
+      form.setFieldsValue({ eventId: undefined });
+      if (error instanceof Error) {
+        message.error(error.message || "开启生成事件失败");
+      }
+    } finally {
+      setEventSaving(false);
+    }
   };
 
   if (!node) {
@@ -474,13 +646,20 @@ function ScheduleInfoPanel({
               options={eventOptions}
             />
           </Form.Item>
-          <Form.Item label="产出事件" name="eventId">
-            <Select
-              showSearch
-              placeholder="请选择产出事件"
-              optionFilterProp="label"
-              options={eventOptions}
+          <Form.Item name="eventId" hidden>
+            <Input />
+          </Form.Item>
+          <Form.Item label="生成事件">
+            <Switch
+              checked={Boolean(effectiveEventId)}
+              loading={eventSaving}
+              checkedChildren="开启"
+              unCheckedChildren="关闭"
+              onChange={handleGeneratedEventChange}
             />
+          </Form.Item>
+          <Form.Item label="eventName">
+            <Input value={producedEventName} placeholder="开启后自动生成事件名称" readOnly />
           </Form.Item>
           <Form.Item label="启用状态" name="enabled" valuePropName="checked">
             <Switch checkedChildren="启用" unCheckedChildren="禁用" />
@@ -523,12 +702,14 @@ function ScheduleInfoPanel({
 
 function NodeSidePanel({
   selectedNode,
+  nodes,
   open,
   readOnly,
   onClose,
   onNodeDataPatch,
 }: {
   selectedNode?: FlowCanvasNode;
+  nodes: FlowCanvasNode[];
   open: boolean;
   readOnly: boolean;
   onClose: () => void;
@@ -557,6 +738,7 @@ function NodeSidePanel({
               children: (
                 <ScheduleInfoPanel
                   node={selectedNode}
+                  nodes={nodes}
                   readOnly={readOnly}
                   onNodeDataPatch={onNodeDataPatch}
                 />
@@ -582,7 +764,7 @@ function DagEditorContent({
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowCanvasNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowCanvasEdge>([]);
   const [selectedNode, setSelectedNode] = useState<FlowCanvasNode>();
-  const [selectedEdge, setSelectedEdge] = useState<Edge>();
+  const [, setSelectedEdge] = useState<Edge>();
   const [nodeDrawerOpen, setNodeDrawerOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -899,6 +1081,7 @@ function DagEditorContent({
             </Spin>
             <NodeSidePanel
               selectedNode={selectedNode}
+              nodes={nodes}
               open={nodeDrawerOpen && Boolean(selectedNode)}
               readOnly={readOnly}
               onClose={() => setNodeDrawerOpen(false)}

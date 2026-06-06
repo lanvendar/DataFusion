@@ -127,11 +127,11 @@ export function FlowDetail({ open, flowId, onClose }: FlowDetailProps) {
             </Descriptions>
 
             <JsonEditor
-              title="流程参数 JSON"
+              title="流程变量参数 JSON"
               value={flowParamText}
               disabled
               rows={10}
-              placeholder="暂无流程参数"
+              placeholder="暂无流程变量参数"
             />
           </Space>
         )}

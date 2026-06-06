@@ -1,6 +1,5 @@
 package com.datafusion.scheduler.master.flow.handler;
 
-import cn.hutool.core.bean.BeanUtil;
 import com.datafusion.common.date.DateTimeStamp;
 import com.datafusion.scheduler.enums.ActionType;
 import com.datafusion.scheduler.enums.StatusEnum;
@@ -105,11 +104,10 @@ public class FlowInitMsgHandler extends AbstractFlowMsgHandler {
         setField(flowIns::setFlowName, flowInfo::getFlowName, "flowName不能为空");
         //设置流程图
         //flowIns.setFlowDag(info.getFlowDag());
-        ParamData flowParamData = new ParamData();
-        BeanUtil.copyProperties(flowParamData, flowInfo.getFlowParam());
+        ParamData flowParamData = copyParamData(flowInfo.getFlowParam());
         //设置必要的业务时间，date需要为新的对象，避免与info中的BizDate共享
         //TODO 流程上是否需要参数，参数在业务任务中已经配置，流程是否只需要把scheduleTime传递给业务时间就够了？
-        setBizDateInVars(flowParamData.getVars(), flowIns.getScheduleTime());
+        setBizDateInVars(flowParamData, flowIns.getScheduleTime());
         flowIns.setFlowParam(flowParamData);
         // 设置依赖事件ID和事件ID
         setField(flowIns::setDepEventIds, flowInfo::getDepEventIds, "depEventIds不能为空");
@@ -122,13 +120,14 @@ public class FlowInitMsgHandler extends AbstractFlowMsgHandler {
     /**
      * 设置BizDate参数,根据调度时间设置流程的业务时间.
      *
-     * @param vars         参数列表
+     * @param paramData    参数对象
      * @param scheduleTime 调度时间
      */
-    private void setBizDateInVars(Map<String, Variable> vars, long scheduleTime) {
-        if (null == vars) {
-            vars = new HashMap<>();
+    private void setBizDateInVars(ParamData paramData, long scheduleTime) {
+        if (paramData.getVars() == null) {
+            paramData.setVars(new HashMap<>());
         }
+        Map<String, Variable> vars = paramData.getVars();
         // 设置业务时间变量
         if (null == vars.get(BuiltinParamEnum.BIZ_DATE.getParamName())) {
             Variable bizDate = new Variable();
@@ -144,6 +143,39 @@ public class FlowInitMsgHandler extends AbstractFlowMsgHandler {
             Long time = DateTimeStamp.getTimeFromNature(scheduleTime, bizDateAlign.getValue());
             bizDate.setValue(String.valueOf(time));
         }
+    }
+
+    /**
+     * 拷贝参数对象.
+     *
+     * @param source 源参数
+     * @return 新参数
+     */
+    private ParamData copyParamData(ParamData source) {
+        ParamData target = new ParamData();
+        Map<String, Variable> copiedVars = new HashMap<>();
+        if (source != null && source.getVars() != null) {
+            source.getVars().forEach((key, value) -> copiedVars.put(key, copyVariable(value)));
+        }
+        target.setVars(copiedVars);
+        return target;
+    }
+
+    /**
+     * 拷贝变量对象.
+     *
+     * @param source 原变量
+     * @return 新变量
+     */
+    private Variable copyVariable(Variable source) {
+        if (source == null) {
+            return null;
+        }
+        Variable target = new Variable();
+        target.setName(source.getName());
+        target.setType(source.getType());
+        target.setValue(source.getValue());
+        return target;
     }
 
     /**

@@ -1,22 +1,24 @@
 package com.datafusion.agent.config;
 
-import com.datafusion.agent.client.HttpManagerClient;
-import com.datafusion.agent.client.ManagerClient;
-import com.datafusion.agent.runtime.AgentExecutionStatusRecorder;
+import com.datafusion.agent.rpc.HttpManagerClient;
+import com.datafusion.agent.rpc.ManagerClient;
+import com.datafusion.agent.rpc.ManagerTaskResultReporter;
 import com.datafusion.agent.runtime.AgentRuntimeState;
-import com.datafusion.agent.runtime.task.AgentWorkerTaskContextStorage;
-import com.datafusion.agent.runtime.FileAgentExecutionStatusRecorder;
-import com.datafusion.agent.runtime.task.ManagerTaskResultReporter;
+import com.datafusion.agent.runtime.worker.context.AgentWorkerTaskContextStorage;
+import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateReportScheduler;
+import com.datafusion.agent.runtime.worker.reporter.FileWorkerTaskExecutionStateStore;
 import com.datafusion.common.threadpool.NamedThreadFactory;
 import com.datafusion.common.threadpool.ThreadPoolBuilder;
 import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.worker.WorkerTaskOperator;
 import com.datafusion.scheduler.worker.WorkerTaskService;
 import com.datafusion.scheduler.worker.context.WorkerTaskContextStorage;
+import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import com.datafusion.scheduler.worker.plugin.WorkerPluginLoader;
 import com.datafusion.scheduler.worker.plugin.WorkerTaskOperatorRouter;
 import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
+import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStateStore;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -93,6 +95,16 @@ public class AgentConfiguration {
     }
 
     /**
+     * 状态刷新调度器.
+     *
+     * @return 状态刷新调度器
+     */
+    @Bean(name = "agentStateRefreshScheduler", destroyMethod = "shutdown")
+    public ScheduledExecutorService agentStateRefreshScheduler() {
+        return Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("agent-state-refresh-scheduler"));
+    }
+
+    /**
      * 恢复线程池.
      *
      * @param properties agent 配置
@@ -161,24 +173,25 @@ public class AgentConfiguration {
     /**
      * worker 任务上下文存储.
      *
-     * @param statusRecorder 执行状态记录器
+     * @param stateStore 任务执行状态存储
      * @return worker 任务上下文存储
      */
     @Bean
-    public WorkerTaskContextStorage workerTaskContextStore(AgentExecutionStatusRecorder statusRecorder) {
-        return new AgentWorkerTaskContextStorage(statusRecorder);
+    public WorkerTaskContextStorage workerTaskContextStore(WorkerTaskExecutionStateStore stateStore) {
+        return new AgentWorkerTaskContextStorage(stateStore);
     }
 
     /**
-     * agent 执行状态记录器.
+     * worker 任务执行状态存储.
      *
      * @param properties agent 配置
      * @param state      agent 运行状态
-     * @return agent 执行状态记录器
+     * @return worker 任务执行状态存储
      */
     @Bean
-    public AgentExecutionStatusRecorder agentExecutionStatusRecorder(AgentProperties properties, AgentRuntimeState state) {
-        return new FileAgentExecutionStatusRecorder(properties, state);
+    public WorkerTaskExecutionStateStore workerTaskExecutionStateStore(AgentProperties properties,
+            AgentRuntimeState state) {
+        return new FileWorkerTaskExecutionStateStore(properties, state);
     }
 
     /**
@@ -192,6 +205,25 @@ public class AgentConfiguration {
     public TaskResultReporter taskResultReporter(ManagerClient managerClient,
             @Qualifier("agentResultReportPool") ThreadPoolExecutor reportPool) {
         return new ManagerTaskResultReporter(managerClient, reportPool);
+    }
+
+    /**
+     * agent 任务状态上报计划.
+     *
+     * @param stateStore    任务执行状态存储
+     * @param reporter      任务结果上报器
+     * @param scheduler     状态刷新调度器
+     * @param stateMappings 插件运行模式状态映射
+     * @param properties    agent 配置
+     * @return agent 任务状态上报计划
+     */
+    @Bean
+    public AgentTaskStateReportScheduler agentTaskStateReportScheduler(WorkerTaskExecutionStateStore stateStore,
+            TaskResultReporter reporter, @Qualifier("agentStateRefreshScheduler") ScheduledExecutorService scheduler,
+            List<PluginRunModeStateMapping> stateMappings, AgentProperties properties) {
+        AgentProperties.StateRefresh config = properties.getStateRefresh();
+        return new AgentTaskStateReportScheduler(stateStore, reporter, scheduler, stateMappings,
+                config.getIntervalMs(), config.getUnknownThreshold());
     }
 
     /**

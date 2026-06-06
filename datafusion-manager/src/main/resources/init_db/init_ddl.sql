@@ -466,7 +466,7 @@ CREATE TABLE scheduler_flow_info (
  trigger_id uuid NOT NULL, -- 触发器ID
  description varchar(1000) NULL, -- 流程描述
  flow_type varchar NOT NULL, -- 流程类型
- flow_param json NULL, -- 流程参数信息
+ flow_param json NULL, -- 流程变量参数信息
  start_time int8 NULL, -- 调度开始时间
  end_time int8 NULL, -- 调度结束时间
  enabled bool DEFAULT false NOT NULL, -- 是否调度:0-未调度,1-调度中
@@ -492,7 +492,7 @@ COMMENT ON COLUMN scheduler_flow_info.group_id IS '流程分组';
 COMMENT ON COLUMN scheduler_flow_info.trigger_id IS '触发器ID';
 COMMENT ON COLUMN scheduler_flow_info.description IS '流程描述';
 COMMENT ON COLUMN scheduler_flow_info.flow_type IS '流程类型';
-COMMENT ON COLUMN scheduler_flow_info.flow_param IS '流程参数信息';
+COMMENT ON COLUMN scheduler_flow_info.flow_param IS '流程变量参数信息';
 COMMENT ON COLUMN scheduler_flow_info.start_time IS '调度开始时间';
 COMMENT ON COLUMN scheduler_flow_info.end_time IS '调度结束时间';
 COMMENT ON COLUMN scheduler_flow_info.enabled IS '是否调度:0-未调度,1-调度中';
@@ -518,7 +518,7 @@ flow_type varchar NOT NULL, -- 流程类型
 status varchar(50) NOT NULL, -- 流程实例状态
 trigger_id varchar NOT NULL, -- 发布版本
 publish_version int8 NULL, -- 发布版本
-flow_param json NULL, -- 流程参数
+flow_param json NULL, -- 流程变量参数
 dep_event_ids varchar NULL, -- 全局依赖事件ID，英文逗号分割
 event_id uuid NULL, -- 事件ID
 schedule_time int8 NULL, -- 调度时间
@@ -542,7 +542,7 @@ COMMENT ON COLUMN scheduler_flow_instance.flow_type IS '流程类型';
 COMMENT ON COLUMN scheduler_flow_instance.status IS '流程实例状态';
 COMMENT ON COLUMN scheduler_flow_instance.trigger_id IS '发布版本';
 COMMENT ON COLUMN scheduler_flow_instance.publish_version IS '发布版本';
-COMMENT ON COLUMN scheduler_flow_instance.flow_param IS '流程参数';
+COMMENT ON COLUMN scheduler_flow_instance.flow_param IS '流程变量参数';
 COMMENT ON COLUMN scheduler_flow_instance.dep_event_ids IS '全局依赖事件ID，英文逗号分割';
 COMMENT ON COLUMN scheduler_flow_instance.event_id IS '事件ID';
 COMMENT ON COLUMN scheduler_flow_instance.schedule_time IS '调度时间';
@@ -566,7 +566,7 @@ flow_type varchar NOT NULL, -- 流程类型
 status varchar(50) NOT NULL, -- 流程实例状态
 trigger_id varchar NOT NULL, -- 发布版本
 publish_version int8 NULL, -- 发布版本
-flow_param json NULL, -- 流程参数
+flow_param json NULL, -- 流程变量参数
 dep_event_ids varchar NULL, -- 全局依赖事件ID，英文逗号分割
 event_id uuid NULL, -- 事件ID
 schedule_time int8 NULL, -- 调度时间
@@ -590,7 +590,7 @@ COMMENT ON COLUMN scheduler_flow_instance_his.flow_type IS '流程类型';
 COMMENT ON COLUMN scheduler_flow_instance_his.status IS '流程实例状态';
 COMMENT ON COLUMN scheduler_flow_instance_his.trigger_id IS '发布版本';
 COMMENT ON COLUMN scheduler_flow_instance_his.publish_version IS '发布版本';
-COMMENT ON COLUMN scheduler_flow_instance_his.flow_param IS '流程参数';
+COMMENT ON COLUMN scheduler_flow_instance_his.flow_param IS '流程变量参数';
 COMMENT ON COLUMN scheduler_flow_instance_his.dep_event_ids IS '全局依赖事件ID，英文逗号分割';
 COMMENT ON COLUMN scheduler_flow_instance_his.event_id IS '事件ID';
 COMMENT ON COLUMN scheduler_flow_instance_his.schedule_time IS '调度时间';
@@ -612,7 +612,7 @@ task_code varchar(255) NOT NULL, -- 任务编码
 description varchar(1000) NULL, -- 任务描述
 task_type_id varchar(255) NOT NULL, -- 任务类型ID
 task_type varchar(255) NOT NULL, -- 任务类型
-task_param json NULL, -- 任务参数
+task_param json NULL, -- 任务变量参数
 definition json NULL, -- 任务定义
 is_bound bool DEFAULT false NOT NULL, -- 是否绑定流程
 flow_id uuid NULL, -- 流程ID
@@ -638,7 +638,7 @@ COMMENT ON COLUMN scheduler_task_info.task_code IS '任务编码';
 COMMENT ON COLUMN scheduler_task_info.description IS '任务描述';
 COMMENT ON COLUMN scheduler_task_info.task_type_id IS '任务类型ID';
 COMMENT ON COLUMN scheduler_task_info.task_type IS '任务类型';
-COMMENT ON COLUMN scheduler_task_info.task_param IS '任务参数';
+COMMENT ON COLUMN scheduler_task_info.task_param IS '任务变量参数';
 COMMENT ON COLUMN scheduler_task_info.definition IS '任务定义';
 COMMENT ON COLUMN scheduler_task_info.is_bound IS '是否绑定流程';
 COMMENT ON COLUMN scheduler_task_info.flow_id IS '流程ID';
@@ -666,7 +666,7 @@ task_type varchar NOT NULL, --任务类型
 task_name varchar NOT NULL, -- 任务名称
 task_code varchar NOT NULL, -- 任务编码
 description varchar NULL, -- 任务描述
-task_param json NULL, -- 任务参数
+task_param json NULL, -- 任务变量参数
 task_data json NULL, -- 渲染后的任务定义
 plugin_data json NULL, -- 组件数据
 "view" json NULL, -- 任务视图
@@ -696,7 +696,7 @@ COMMENT ON COLUMN scheduler_task_instance.task_type IS ' 任务类型';
 COMMENT ON COLUMN scheduler_task_instance.task_name IS '任务名称';
 COMMENT ON COLUMN scheduler_task_instance.task_code IS '任务编码';
 COMMENT ON COLUMN scheduler_task_instance.description IS '任务描述';
-COMMENT ON COLUMN scheduler_task_instance.task_param IS '任务参数';
+COMMENT ON COLUMN scheduler_task_instance.task_param IS '任务变量参数';
 COMMENT ON COLUMN scheduler_task_instance.task_data IS '渲染后的任务定义';
 COMMENT ON COLUMN scheduler_task_instance.plugin_data IS '组件数据';
 COMMENT ON COLUMN scheduler_task_instance."view" IS '任务视图';
@@ -727,7 +727,7 @@ task_type varchar NOT NULL, --任务类型
 task_name varchar NOT NULL, -- 任务名称
 task_code varchar NOT NULL, -- 任务编码
 description varchar NULL, -- 任务描述
-task_param json NULL, -- 任务参数
+task_param json NULL, -- 任务变量参数
 task_data json NULL, -- 渲染后的任务定义
 plugin_data json NULL, -- 组件数据
 "view" json NULL, -- 任务视图
@@ -750,6 +750,7 @@ CONSTRAINT task_instance_his_pkey PRIMARY KEY (id)
 
 COMMENT ON TABLE scheduler_task_instance_his IS '任务运行实例历史表';
 
+COMMENT ON COLUMN scheduler_task_instance_his.id IS '主键';
 COMMENT ON COLUMN scheduler_task_instance_his.flow_id IS '流程ID';
 COMMENT ON COLUMN scheduler_task_instance_his.flow_instance_id IS '流程实例ID';
 COMMENT ON COLUMN scheduler_task_instance_his.task_id IS '任务ID';
@@ -757,7 +758,7 @@ COMMENT ON COLUMN scheduler_task_instance_his.task_type IS ' 任务类型';
 COMMENT ON COLUMN scheduler_task_instance_his.task_name IS '任务名称';
 COMMENT ON COLUMN scheduler_task_instance_his.task_code IS '任务编码';
 COMMENT ON COLUMN scheduler_task_instance_his.description IS '任务描述';
-COMMENT ON COLUMN scheduler_task_instance_his.task_param IS '任务参数';
+COMMENT ON COLUMN scheduler_task_instance_his.task_param IS '任务变量参数';
 COMMENT ON COLUMN scheduler_task_instance_his.task_data IS '渲染后的任务定义';
 COMMENT ON COLUMN scheduler_task_instance_his.plugin_data IS '组件数据';
 COMMENT ON COLUMN scheduler_task_instance_his."view" IS '任务视图';

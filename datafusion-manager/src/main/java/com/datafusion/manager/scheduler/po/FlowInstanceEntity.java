@@ -62,7 +62,7 @@ public class FlowInstanceEntity extends BaseIdEntity {
     private Long publishVersion;
 
     /**
-     * 流程参数(JSON).
+     * 流程变量参数(JSON).
      */
     @TableField("flow_param")
     private JsonNode flowParam;

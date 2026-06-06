@@ -1,0 +1,66 @@
+import { Space, Tag, Typography } from "antd";
+import dayjs from "dayjs";
+import {
+  EMPTY_PLACEHOLDER,
+  statusColorMap,
+  statusOptions,
+} from "./constants";
+
+export function getRows<T>(page?: { dataList?: T[]; records?: T[]; list?: T[] }) {
+  return page?.dataList || page?.records || page?.list || [];
+}
+
+export function formatTime(value?: number) {
+  if (!value) return EMPTY_PLACEHOLDER;
+  return dayjs(value).format("YYYY-MM-DD HH:mm:ss");
+}
+
+export function formatDuration(value?: number) {
+  if (value === undefined || value === null) return EMPTY_PLACEHOLDER;
+  if (value < 1000) return `${value}ms`;
+  return `${(value / 1000).toFixed(1)}s`;
+}
+
+export function formatJson(value?: unknown) {
+  if (!value) return EMPTY_PLACEHOLDER;
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+export function renderStatus(value?: string) {
+  const label = statusOptions.find((item) => item.value === value)?.label || value || EMPTY_PLACEHOLDER;
+  return <Tag color={value ? statusColorMap[value] || "default" : "default"}>{label}</Tag>;
+}
+
+export function renderType(value?: string) {
+  return <Tag>{value || EMPTY_PLACEHOLDER}</Tag>;
+}
+
+export function renderCopyableId(value?: string) {
+  if (!value) return <Typography.Text type="secondary">{EMPTY_PLACEHOLDER}</Typography.Text>;
+
+  return (
+    <Typography.Text
+      copyable={{ text: value }}
+      ellipsis={{ tooltip: value }}
+      style={{ display: "block", maxWidth: "100%", fontSize: 12 }}
+      type="secondary"
+    >
+      {value}
+    </Typography.Text>
+  );
+}
+
+export function renderTimeBlock(startTime?: number, endTime?: number, duration?: number) {
+  return (
+    <Space direction="vertical" size={2}>
+      <Typography.Text>{formatTime(startTime)}</Typography.Text>
+      <Typography.Text type="secondary">{formatTime(endTime)}</Typography.Text>
+      <Typography.Text type="secondary">{formatDuration(duration)}</Typography.Text>
+    </Space>
+  );
+}

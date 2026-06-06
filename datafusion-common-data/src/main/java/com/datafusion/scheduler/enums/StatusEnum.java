@@ -150,7 +150,8 @@ public enum StatusEnum {
         if (target == null) {
             return null;
         }
-        return EnumSet.allOf(StatusEnum.class).stream().filter(s -> s.getStateType().equals(target)).findAny()
+        return EnumSet.allOf(StatusEnum.class).stream()
+                .filter(s -> s.getStateType().equals(target)).findAny()
                 .orElseThrow(() -> new IllegalArgumentException("Invalid StateEnum: " + target));
     }
     

@@ -24,9 +24,9 @@ public class NodeDto {
     private String id;
 
     /**
-     * 业务数据(提交时忽略, 响应时填充).
+     * 业务数据(提交时忽略, 响应时从task_info填充).
      */
-    @Schema(name = "data", description = "业务数据(响应时填充)")
+    @Schema(name = "data", description = "业务数据(响应时从task_info填充)")
     private NodeDataDto data;
 
     /**

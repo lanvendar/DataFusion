@@ -1,6 +1,7 @@
 package com.datafusion.manager.scheduler.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -248,7 +249,16 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
             NodeDataDto data = new NodeDataDto();
             data.setTaskId(task.getId().toString());
             data.setTaskName(task.getTaskName());
+            data.setTaskCode(task.getTaskCode());
             data.setTaskType(task.getTaskType());
+            data.setDescription(task.getDescription());
+            data.setSyncFlag(task.getSyncFlag());
+            data.setPluginId(task.getPluginId() == null ? null : task.getPluginId().toString());
+            data.setDepEventIds(task.getDepEventIds());
+            data.setEventId(task.getEventId() == null ? null : task.getEventId().toString());
+            data.setEnabled(task.getEnabled());
+            data.setTaskParam(JacksonUtils.isEmpty(task.getTaskParam()) ? null : JacksonUtils.tryObj2Str(task.getTaskParam()));
+            data.setDefinition(JacksonUtils.isEmpty(task.getDefinition()) ? null : JacksonUtils.tryObj2Str(task.getDefinition()));
             node.setData(data);
 
             nodes.add(node);
@@ -318,15 +328,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
                             "任务[" + task.getTaskCode() + "]已被其他流程引用");
                 }
 
-                task.setIsBound(true);
-                task.setFlowId(flowId);
-
-                // 将 nodeView 写入 view JSON
-                if (node.getNodeView() != null) {
-                    task.setView(JacksonUtils.convertPojoToJsonNodeSafely(node.getNodeView()));
-                }
-
-                taskInfoService.updateById(task);
+                bindTaskToFlow(taskId, flowId, node);
             }
         }
 
@@ -475,10 +477,38 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
     private void unbindTasks(UUID flowId) {
         List<TaskInfoEntity> tasks = taskInfoService.listByFlowId(flowId);
         for (TaskInfoEntity task : tasks) {
-            task.setIsBound(false);
-            task.setFlowId(null);
-            taskInfoService.updateById(task);
+            LambdaUpdateWrapper<TaskInfoEntity> wrapper = new LambdaUpdateWrapper<>();
+            wrapper.eq(TaskInfoEntity::getId, task.getId())
+                    .set(TaskInfoEntity::getIsBound, false)
+                    .set(TaskInfoEntity::getFlowId, null)
+                    .set(TaskInfoEntity::getView, null)
+                    .set(TaskInfoEntity::getSyncFlag, false)
+                    .set(TaskInfoEntity::getUpdater, HttpUtils.getCurrentUserName())
+                    .set(TaskInfoEntity::getUpdateTime, new Date());
+            taskInfoService.update(wrapper);
         }
+    }
+
+    /**
+     * 绑定任务到流程并只更新编排字段.
+     *
+     * @param taskId 任务ID
+     * @param flowId 流程ID
+     * @param node   DAG节点
+     */
+    private void bindTaskToFlow(UUID taskId, UUID flowId, NodeDto node) {
+        LambdaUpdateWrapper<TaskInfoEntity> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(TaskInfoEntity::getId, taskId)
+                .set(TaskInfoEntity::getIsBound, true)
+                .set(TaskInfoEntity::getFlowId, flowId)
+                .set(TaskInfoEntity::getSyncFlag, false)
+                .set(TaskInfoEntity::getUpdater, HttpUtils.getCurrentUserName())
+                .set(TaskInfoEntity::getUpdateTime, new Date());
+
+        if (node.getNodeView() != null) {
+            wrapper.set(TaskInfoEntity::getView, JacksonUtils.convertPojoToJsonNodeSafely(node.getNodeView()));
+        }
+        taskInfoService.update(wrapper);
     }
 
     /**

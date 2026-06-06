@@ -258,8 +258,7 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
         request.setFlowInstanceId(taskIns.getFlowInstanceId());
         request.setTaskInstanceId(taskIns.getInstanceId());
         request.setTaskName(taskIns.getTaskName());
-        // TODO 替换任务定义.
-        request.setDefinition(taskIns.getTaskData().getParams());
+        request.setTaskData(taskIns.getTaskData());
 
         TaskResult taskResult = taskIns.getTaskResult();
         if (null != taskResult) {

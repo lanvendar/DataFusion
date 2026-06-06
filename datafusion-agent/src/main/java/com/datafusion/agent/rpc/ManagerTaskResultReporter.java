@@ -1,6 +1,5 @@
-package com.datafusion.agent.runtime.task;
+package com.datafusion.agent.rpc;
 
-import com.datafusion.agent.client.ManagerClient;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
 import lombok.extern.slf4j.Slf4j;

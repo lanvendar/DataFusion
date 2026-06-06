@@ -8,7 +8,10 @@ import type {
   FlowPageRes,
   FlowPublishReq,
   FlowSaveReq,
+  PluginConfigListItem,
   TaskListItem,
+  TaskDetailItem,
+  TaskUpdateReq,
   TriggerListItem,
 } from "./dto";
 
@@ -75,5 +78,17 @@ export const schedulerFlowRelationApi = {
 
   tasks(option: Record<string, unknown> = {}): Promise<TaskListItem[]> {
     return request<TaskListItem[]>({ url: "/api/scheduler/task/list", method: "POST", data: option });
+  },
+
+  taskDetail(id: string): Promise<TaskDetailItem> {
+    return request<TaskDetailItem>({ url: `/api/scheduler/task/detail/${id}`, method: "GET" });
+  },
+
+  updateTask(params: TaskUpdateReq): Promise<boolean> {
+    return request<boolean>({ url: "/api/scheduler/task/update", method: "POST", data: params });
+  },
+
+  plugins(option: Record<string, unknown> = {}): Promise<PluginConfigListItem[]> {
+    return request<PluginConfigListItem[]>({ url: "/api/system/plugin/list", method: "POST", data: option });
   },
 };

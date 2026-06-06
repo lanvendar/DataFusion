@@ -146,7 +146,7 @@ public class EventInfoServiceImpl extends ServiceImpl<EventInfoMapper, EventInfo
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "事件不存在");
         }
 
-        checkEventNotReferenced(id);
+        checkEventNotReferenced(entity);
 
         return removeById(id);
     }
@@ -198,14 +198,17 @@ public class EventInfoServiceImpl extends ServiceImpl<EventInfoMapper, EventInfo
     /**
      * 检查事件是否被流程或任务引用.
      *
-     * @param eventId 事件ID
+     * @param event 事件实体
      */
-    private void checkEventNotReferenced(UUID eventId) {
-        String eventIdStr = eventId.toString();
+    private void checkEventNotReferenced(EventInfoEntity event) {
+        UUID eventId = event.getId();
 
         // 检查 flow_info.event_id
         LambdaQueryWrapper<FlowInfoEntity> flowEventWrapper = new LambdaQueryWrapper<>();
         flowEventWrapper.eq(FlowInfoEntity::getEventId, eventId);
+        if (event.getFlowId() != null) {
+            flowEventWrapper.ne(FlowInfoEntity::getId, event.getFlowId());
+        }
         if (flowInfoService.count(flowEventWrapper) > 0) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "事件已被流程引用, 无法删除");
         }
@@ -213,9 +216,14 @@ public class EventInfoServiceImpl extends ServiceImpl<EventInfoMapper, EventInfo
         // 检查 task_info.event_id
         LambdaQueryWrapper<TaskInfoEntity> taskEventWrapper = new LambdaQueryWrapper<>();
         taskEventWrapper.eq(TaskInfoEntity::getEventId, eventId);
+        if (event.getTaskId() != null) {
+            taskEventWrapper.ne(TaskInfoEntity::getId, event.getTaskId());
+        }
         if (taskInfoService.count(taskEventWrapper) > 0) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "事件已被任务引用, 无法删除");
         }
+
+        String eventIdStr = eventId.toString();
 
         // 检查 flow_info.dep_event_ids (逗号分割字符串, LIKE 模糊匹配后应用层精确确认)
         LambdaQueryWrapper<FlowInfoEntity> flowDepWrapper = new LambdaQueryWrapper<>();

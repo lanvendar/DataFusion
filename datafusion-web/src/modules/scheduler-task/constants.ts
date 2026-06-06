@@ -31,7 +31,7 @@ export const demoTaskRows: TaskItem[] = [
     taskCode: "sync_order_ods",
     taskTypeId: "DATAX",
     taskType: "DATAX",
-    taskParam: "{\"source\":\"ods_order\"}",
+    taskParam: "{\"vars\":{\"source\":{\"name\":\"source\",\"type\":\"IN\",\"value\":\"ods_order\"}}}",
     definition: "{\"writer\":\"dwd_order\"}",
     creator: "scheduler",
     updater: "scheduler",

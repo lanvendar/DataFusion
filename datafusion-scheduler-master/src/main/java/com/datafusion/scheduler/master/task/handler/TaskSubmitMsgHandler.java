@@ -9,12 +9,15 @@ import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.master.actor.ActorSysContext;
 import com.datafusion.scheduler.master.event.GlobalEventOperator;
 import com.datafusion.scheduler.master.flow.FlowMsg;
+import com.datafusion.scheduler.master.param.PlaceholderContext;
+import com.datafusion.scheduler.master.param.PlaceholderFacade;
 import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.TaskMsg;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
 import com.datafusion.scheduler.master.task.storage.TaskStorage;
-import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.Variable;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.EnumSet;
@@ -76,9 +79,11 @@ public class TaskSubmitMsgHandler extends AbstractTaskMsgHandler {
         super.notifyFlowActor(msgSubmitting, context);
 
         try {
-            TaskResult taskResult = super.masterTaskOperator.submitTask(renderTaskParam(taskIns));
+            TaskInstance submitTaskIns = renderTaskParam(taskIns);
+            TaskResult taskResult = super.masterTaskOperator.submitTask(submitTaskIns);
             //处理 worker 端返回的同步和异步任务结果
             StatusEnum taskState = StatusEnum.SUBMIT_SUCCESS;
+            taskIns.setTaskData(submitTaskIns.getTaskData());
             if (null != taskResult) {
                 if (taskResult.getSubmitMode() == SubmitModeEnum.SYNC) {
                     taskState = taskResult.getTaskState();
@@ -123,15 +128,61 @@ public class TaskSubmitMsgHandler extends AbstractTaskMsgHandler {
      */
     protected TaskInstance renderTaskParam(TaskInstance taskIns) {
         log.debug("根据task id获取完整task param，taskInstanceId={}", taskIns.getInstanceId());
-        String taskParam = JacksonUtils.tryObj2Str(taskIns.getTaskData().getParams());
-
-        Map<String, String> fullInputVarMap = new HashMap<>(2);
-        // TODO 待实现
         TaskInstance newTaskIns = new TaskInstance();
         BeanUtil.copyProperties(taskIns, newTaskIns);
-
-        newTaskIns.setTaskData(new ParamData());
-        newTaskIns.getTaskData().setParams(JacksonUtils.tryStr2JsonNode(taskParam));
+        newTaskIns.setTaskData(renderDefinition(taskIns));
         return newTaskIns;
+    }
+
+    /**
+     * 渲染任务定义.
+     *
+     * @param taskIns task instance
+     * @return 渲染后的任务定义
+     */
+    private JsonNode renderDefinition(TaskInstance taskIns) {
+        JsonNode definition = taskIns.getTaskData();
+        if (definition == null || definition.isNull()) {
+            return definition;
+        }
+
+        String definitionText = JacksonUtils.tryObj2Str(definition);
+        PlaceholderContext context = PlaceholderContext.builder()
+                .variables(copyVars(taskIns))
+                .build();
+        String renderedDefinition = PlaceholderFacade.getInstance().replacePlaceholders(definitionText, context);
+        return JacksonUtils.tryStr2JsonNode(renderedDefinition);
+    }
+
+    /**
+     * 拷贝任务变量.
+     *
+     * @param taskIns task instance
+     * @return 变量Map
+     */
+    private Map<String, Variable> copyVars(TaskInstance taskIns) {
+        Map<String, Variable> copiedVars = new HashMap<>();
+        if (taskIns.getTaskParam() == null || taskIns.getTaskParam().getVars() == null) {
+            return copiedVars;
+        }
+        taskIns.getTaskParam().getVars().forEach((key, value) -> copiedVars.put(key, copyVariable(value)));
+        return copiedVars;
+    }
+
+    /**
+     * 拷贝变量对象.
+     *
+     * @param source 原变量
+     * @return 新变量
+     */
+    private Variable copyVariable(Variable source) {
+        if (source == null) {
+            return null;
+        }
+        Variable target = new Variable();
+        target.setName(source.getName());
+        target.setType(source.getType());
+        target.setValue(source.getValue());
+        return target;
     }
 }

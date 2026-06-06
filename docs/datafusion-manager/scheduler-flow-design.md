@@ -197,7 +197,7 @@
 | 标签页 | 数据来源 | 展示内容 |
 |--------|----------|----------|
 | 基本信息 | 不额外请求后端，直接使用 DAG 节点 `data` 中的 task 信息 | 任务名称、任务编码、任务类型、任务描述、`syncFlag` 同步状态、`taskParam.vars` 摘要、`definition` 摘要或 JSON |
-| 调度信息 | 选中节点并切换到该标签页时调用 `GET /api/scheduler/task/detail/{id}` 补齐节点调度字段 | 可编辑 `pluginId`、`depEventIds`、`eventId`、`enabled`、`taskParam.vars` |
+| 调度信息 | 选中节点并切换到该标签页时调用 `GET /api/scheduler/task/detail/{id}` 补齐节点调度字段 | 可编辑 `pluginId`、`depEventIds`、生成事件开关、`enabled`、`taskParam.vars` |
 
 `ParamData` 只承载调度变量集合：
 
@@ -207,7 +207,16 @@
 
 `taskParam.vars` 第一版使用 JSON 编辑器承载，保存时保持 `ParamData.vars` 结构并只替换 `vars` 部分。后续如果变量结构稳定，可以升级为可增删行的表格编辑。
 
-调度信息在流程编排页支持编辑。`pluginId` 通过 `/api/system/plugin/list` 加载插件配置选项，`depEventIds/eventId` 通过 `/api/scheduler/event/list` 加载事件选项，保存时复用 `POST /api/scheduler/task/update` 提交节点调度字段。已发布或已启用流程仍只能查看，不允许编辑调度信息。
+调度信息在流程编排页支持编辑。`pluginId` 通过 `/api/system/plugin/list` 加载插件配置选项，`depEventIds` 通过 `/api/scheduler/event/list` 加载依赖事件选项，保存时复用 `POST /api/scheduler/task/update` 提交节点调度字段。已发布或已启用流程仍只能查看，不允许编辑调度信息。
+
+任务产出事件不再由用户手工选择，右侧调度信息使用【生成事件】开关维护：
+
+- 开启时按 `eventName = taskName|taskCode` 自动调用 `POST /api/scheduler/event/add` 创建 TASK 事件，`eventType=1`、`taskId=当前任务ID`，并将返回的事件 ID 写入 `scheduler_task_info.event_id`。
+- 关闭时先检查当前画布内是否有其他任务的 `depEventIds` 引用该事件；如存在依赖，前端提示“该事件已被其他任务依赖引用，请解除依赖后关闭”，不允许关闭。
+- 通过前端检查后，先调用 `POST /api/scheduler/task/update` 并传 `clearEventId=true` 清空当前任务 `event_id`，再调用 `POST /api/scheduler/event/delete/{id}` 删除事件；后端事件删除仍负责全局引用兜底校验。
+- 开关下方展示当前生成事件的 `eventName`，用于确认事件名称，不作为可编辑输入。
+
+画布节点颜色跟随任务启用状态：`enabled=true` 为白色，`enabled=false` 或未设置为浅灰色。
 
 ### 7.4 同步状态警示
 
@@ -230,7 +239,7 @@
 - 拖拽任务到画布生成节点。
 - 节点移动、4 个 handle 连线、删除节点、删除边。
 - 右侧【基本信息】和【调度信息】标签页。
-- 右侧【调度信息】可编辑执行插件、依赖事件、产出事件、启用状态和 `taskParam.vars`。
+- 右侧【调度信息】可编辑执行插件、依赖事件、生成事件开关、启用状态和 `taskParam.vars`。
 - 保存 `DagSaveDto`。
 - 已发布或已启用流程只读查看，不允许编辑流程基础信息或 DAG 编排。
 

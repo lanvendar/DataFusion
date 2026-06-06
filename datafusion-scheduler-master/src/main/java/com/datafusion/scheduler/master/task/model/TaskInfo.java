@@ -2,6 +2,7 @@ package com.datafusion.scheduler.master.task.model;
 
 import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.PluginData;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 
 import java.util.Set;
@@ -45,6 +46,11 @@ public class TaskInfo {
      * 业务参数，数组.
      */
     private ParamData taskParam;
+
+    /**
+     * 任务定义.
+     */
+    private JsonNode definition;
 
     /**
      * 事件任务依赖清单，集合.

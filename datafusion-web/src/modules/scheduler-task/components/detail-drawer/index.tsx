@@ -92,10 +92,10 @@ export function TaskDetail({ open, taskId, onClose }: TaskDetailProps) {
             </Descriptions>
 
             <JsonEditor
-              title="任务参数 JSON"
+              title="任务变量参数 JSON"
               value={taskParamText}
               disabled
-              placeholder="暂无任务参数"
+              placeholder="暂无任务变量参数"
             />
             <JsonEditor
               title="任务定义 JSON"

@@ -7,6 +7,7 @@ import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.PluginData;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.Variable;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 
 import java.util.Map;
@@ -134,9 +135,14 @@ public class TaskInstance {
     private String eventId;
 
     /**
-     * 任务参数及渲染后的任务执行数据.
+     * 运行期任务变量参数.
      */
-    private ParamData taskData;
+    private ParamData taskParam;
+
+    /**
+     * 渲染后的任务执行数据.
+     */
+    private JsonNode taskData;
 
     /**
      * 业务结果.
@@ -161,8 +167,8 @@ public class TaskInstance {
      */
     public Long eventTime() {
         Long eventTime = null;
-        if (this.getTaskData() != null) {
-            Map<String, Variable> vars = taskData.getVars();
+        if (this.getTaskParam() != null) {
+            Map<String, Variable> vars = taskParam.getVars();
             if (vars != null) {
                 Variable v = vars.get(BuiltinParamEnum.BIZ_DATE.getParamName());
                 if (v != null) {
@@ -182,8 +188,8 @@ public class TaskInstance {
      */
     public String eventSegment() {
         String eventSegment = null;
-        if (this.getTaskData() != null) {
-            Map<String, Variable> vars = taskData.getVars();
+        if (this.getTaskParam() != null) {
+            Map<String, Variable> vars = taskParam.getVars();
             if (vars != null) {
                 Variable v = vars.get(BuiltinParamEnum.BIZ_DATE_ALIGN.getParamName());
                 if (v != null) {

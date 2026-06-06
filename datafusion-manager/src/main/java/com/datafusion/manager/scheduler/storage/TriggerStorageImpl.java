@@ -190,7 +190,7 @@ public class TriggerStorageImpl implements TriggerStorage {
         ins.setInstanceId(uuidToStr(entity.getId()));
         ins.setScheduleTime(entity.getScheduleTime() != null ? entity.getScheduleTime() : 0L);
         ins.setScheduleSign(0);
-        ins.setState(entity.getStatus() != null ? StatusEnum.valueOf(entity.getStatus()) : null);
+        ins.setState(entity.getStatus() != null ? StatusEnum.fromString(entity.getStatus()) : null);
         return ins;
     }
 
@@ -200,7 +200,7 @@ public class TriggerStorageImpl implements TriggerStorage {
         entity.setFlowId(strToUuid(triggerIns.getPayloadId()));
         entity.setPublishVersion(triggerIns.getVersion() != null ? Long.parseLong(triggerIns.getVersion()) : null);
         entity.setScheduleTime(triggerIns.getScheduleTime());
-        entity.setStatus(triggerIns.getState() != null ? triggerIns.getState().name() : null);
+        entity.setStatus(triggerIns.getState() != null ? triggerIns.getState().getStateType() : null);
         return entity;
     }
 

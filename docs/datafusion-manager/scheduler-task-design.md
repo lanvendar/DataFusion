@@ -86,7 +86,7 @@
 | 新增任务 | `taskName/taskCode/taskTypeId/taskType` 必填；`taskCode` 唯一；`pluginId` 由后端按 `taskType` 填默认执行插件 | 重复编码、缺字段或无法解析默认执行插件时失败 |
 | 新增任务 | `id` 由 `UUID.nameUUIDFromBytes(taskCode)` 生成 | `taskCode` 变化会导致 ID 语义变化，新增前必须先校验唯一 |
 | 新增任务 | `isBound=false`、`flowId=null`、`view=null`、`depEventIds=null`、`eventId=null`、`enabled=false`、`syncFlag=false` | 调度编排属性由后端置默认值，不由任务定义页面提交 |
-| 修改任务 | 先查询旧实体，再合并任务定义属性的非空字段 | 不修改 `isBound/flowId/pluginId/view/depEventIds/eventId/enabled`；合并后置 `syncFlag=false` |
+| 修改任务 | 先查询旧实体，再合并非空字段 | 任务定义页面不提交 `pluginId/view/depEventIds/eventId/enabled`；流程编排阶段可维护这些字段；`clearEventId=true` 时清空 `eventId`；合并后置 `syncFlag=false` |
 | 删除任务 | 仅允许删除未绑定流程的任务 | 已绑定流程时抛 `任务已绑定流程, 无法删除` |
 
 ### 4.2 事务边界

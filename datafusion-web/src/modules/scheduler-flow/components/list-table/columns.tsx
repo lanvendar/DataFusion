@@ -73,18 +73,23 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<FlowItem>
       render: (_, record) => {
         const published = Boolean(record.publishState);
         const enabled = Boolean(record.enabled);
-        const cannotDelete = published || enabled;
+        const readOnly = published || enabled;
 
         return (
           <Space>
             <Button type="link" icon={<EyeOutlined />} onClick={() => onAction(PageActionEnum.VIEW, record)}>
               查看
             </Button>
-            <Button type="link" icon={<EditOutlined />} onClick={() => onAction(PageActionEnum.EDIT, record)}>
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              disabled={readOnly}
+              onClick={() => onAction(PageActionEnum.EDIT, record)}
+            >
               编辑
             </Button>
             <Button type="link" icon={<ShareAltOutlined />} onClick={() => onAction(PageActionEnum.DAG_EDIT, record)}>
-              编排
+              {readOnly ? "查看编排" : "编排"}
             </Button>
             {published ? (
               <Button type="link" icon={<StopOutlined />} onClick={() => onAction(PageActionEnum.UNPUBLISH, record)}>
@@ -105,11 +110,11 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<FlowItem>
               </Button>
             )}
             <Popconfirm
-              title={cannotDelete ? "流程已发布或调度中，无法删除" : "确认删除该流程吗？"}
+              title={readOnly ? "流程已发布或调度中，无法删除" : "确认删除该流程吗？"}
               onConfirm={() => onAction(PageActionEnum.DELETE, record)}
-              okButtonProps={{ disabled: cannotDelete }}
+              okButtonProps={{ disabled: readOnly }}
             >
-              <Button type="link" danger icon={<DeleteOutlined />} disabled={cannotDelete}>
+              <Button type="link" danger icon={<DeleteOutlined />} disabled={readOnly}>
                 删除
               </Button>
             </Popconfirm>

@@ -169,6 +169,10 @@ CREATE TABLE scheduler_task_link (
 | `NodeDataDto` | `Response` | DAG 节点业务数据 | `taskType` | `String` | 响应时填充 | 任务类型 |
 | `NodeDataDto` | `Response` | DAG 节点业务数据 | `description` | `String` | 响应时填充 | 任务描述 |
 | `NodeDataDto` | `Response` | DAG 节点业务数据 | `syncFlag` | `Boolean` | 响应时填充 | 任务同步状态 |
+| `NodeDataDto` | `Response` | DAG 节点业务数据 | `pluginId` | `String` | 响应时填充 | 执行插件 ID |
+| `NodeDataDto` | `Response` | DAG 节点业务数据 | `depEventIds` | `String` | 响应时填充 | 依赖事件 ID，逗号分隔 |
+| `NodeDataDto` | `Response` | DAG 节点业务数据 | `eventId` | `String` | 响应时填充 | 任务产出事件 ID |
+| `NodeDataDto` | `Response` | DAG 节点业务数据 | `enabled` | `Boolean` | 响应时填充 | 任务启用状态，供画布节点颜色使用 |
 | `NodeDataDto` | `Response` | DAG 节点业务数据 | `taskParam` | `String` | 响应时填充，JSON 字符串 | 任务变量参数，用于前端解析 `ParamData.vars` |
 | `NodeDataDto` | `Response` | DAG 节点业务数据 | `definition` | `String` | 响应时填充，JSON 字符串 | 任务定义 |
 | `TaskInfoQueryDto` | `Query` | 流程编排任务池查询 | `keyword` | `String` | `ILIKE` OR 查询 | 同时模糊匹配 `taskName` 和 `taskCode` |
@@ -199,7 +203,7 @@ CREATE TABLE scheduler_task_link (
 | `FlowInfoUpdateDto` -> existing `FlowInfoEntity` | 仅允许未发布且未启用流程合并非空字段 | `flowCode` 非空时重新校验唯一；`depEventIds` 非 `null` 时整体覆盖 |
 | `FlowInfoEntity` -> `FlowInfoDto` | 字段逐一复制 | `flowParam` 转 JSON 字符串；`depEventIds` 逗号字符串拆成列表 |
 | `FlowInfoQueryDto` -> `LambdaQueryWrapper` | `flowName` 模糊匹配，`flowType/enabled/publishState` 精确匹配 | 默认按 `createTime desc` 排序 |
-| `TaskInfoEntity` -> `NodeDto` | `task_info.id` 作为 `node.id`，任务基本信息填充 `node.data` | `task_info.view` 解析为 `NodeViewDto`；`node.data` 需覆盖右侧【基本信息】展示字段 |
+| `TaskInfoEntity` -> `NodeDto` | `task_info.id` 作为 `node.id`，任务基本信息和节点调度信息填充 `node.data` | `task_info.view` 解析为 `NodeViewDto`；`node.data` 需覆盖右侧【基本信息】展示字段，并提供 `enabled/eventId/depEventIds/pluginId` 给画布颜色和调度信息初始展示 |
 | `EdgeDto` -> `TaskLinkEntity` | `source/target` 转 `startId/endId`，`flowId` 来自 `DagSaveDto` | 入库 `id` 使用 `UUID.randomUUID()`，不使用前端 edge ID |
 | `TaskLinkEntity` -> `EdgeDto` | `id/startId/endId` 转字符串 | `task_link.view` 解析为 `EdgeViewDto` |
 | `TaskInfoQueryDto` -> 任务池查询 | `isBound=false` 且 `keyword` 对 `taskName/taskCode` 做 OR 模糊匹配 | 默认按 `updateTime desc` 排序；返回 `id/taskName/taskCode/taskType/syncFlag` 等任务池卡片字段 |

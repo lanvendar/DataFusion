@@ -26,6 +26,7 @@ import MetadataDatasourcePage from "@/modules/metadata-datasource";
 import MetadataTableStructurePage from "@/modules/metadata-table-structure";
 import MetadataTableSyncPage from "@/modules/metadata-table-sync";
 import SchedulerFlowPage from "@/modules/scheduler-flow";
+import SchedulerInstancePage from "@/modules/scheduler-instance";
 import SchedulerTriggerPage from "@/modules/scheduler-trigger";
 import SchedulerTaskPage from "@/modules/scheduler-task";
 import SchedulerEventPage from "@/modules/scheduler-event";
@@ -205,6 +206,12 @@ export const routeGroups: AppRouteGroup[] = [
         label: "事件管理",
         icon: ApiOutlined,
         component: SchedulerEventPage,
+      },
+      {
+        path: "scheduler-instance",
+        label: "实例查询",
+        icon: NodeIndexOutlined,
+        component: SchedulerInstancePage,
       },
     ],
   },

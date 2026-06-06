@@ -42,7 +42,7 @@ export function useTaskSubmit({
         description: values.description,
         taskTypeId: values.taskTypeId,
         taskType: taskTypeOption?.value || values.taskTypeId,
-        taskParam: normalizeJsonText(values.taskParamText, "任务参数"),
+        taskParam: normalizeJsonText(values.taskParamText, "任务变量参数"),
         definition: normalizeJsonText(values.definitionText, "任务定义"),
       };
 

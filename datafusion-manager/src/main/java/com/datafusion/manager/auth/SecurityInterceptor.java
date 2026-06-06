@@ -7,6 +7,7 @@ import com.datafusion.manager.auth.dto.FeignAuthentication;
 import com.datafusion.manager.auth.dto.UserPrincipleNoAuth;
 import com.datafusion.manager.utils.HttpUtils;
 import feign.RequestTemplate;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -45,10 +46,10 @@ public class SecurityInterceptor {
     /**
      * 构造函数，注入RedisTemplate.
      *
-     * @param tokenRedisTemplate RedisTemplate实例.
+     * @param tokenRedisTemplateProvider RedisTemplate实例提供器.
      */
-    public SecurityInterceptor(RedisTemplate<Object, Object> tokenRedisTemplate) {
-        this.tokenRedisTemplate = tokenRedisTemplate;
+    public SecurityInterceptor(ObjectProvider<RedisTemplate<Object, Object>> tokenRedisTemplateProvider) {
+        this.tokenRedisTemplate = tokenRedisTemplateProvider.getIfAvailable();
     }
     
     /**

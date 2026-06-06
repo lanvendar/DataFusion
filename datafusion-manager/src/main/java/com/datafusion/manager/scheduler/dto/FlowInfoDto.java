@@ -55,9 +55,9 @@ public class FlowInfoDto {
     private String flowType;
 
     /**
-     * 流程参数(JSON).
+     * 流程变量参数(JSON).
      */
-    @Schema(name = "flowParam", description = "流程参数(JSON)")
+    @Schema(name = "flowParam", description = "流程变量参数(JSON)")
     private String flowParam;
 
     /**

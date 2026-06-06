@@ -125,7 +125,7 @@ public class FlowStorageImpl implements FlowStorage {
         ins.setFlowName(entity.getFlowName());
         ins.setFlowType(entity.getFlowType() != null ? FlowTypeEnum.fromString(entity.getFlowType()) : null);
         ins.setVersion(entity.getPublishVersion() != null ? String.valueOf(entity.getPublishVersion()) : null);
-        ins.setState(entity.getStatus() != null ? StatusEnum.valueOf(entity.getStatus()) : null);
+        ins.setState(entity.getStatus() != null ? StatusEnum.fromString(entity.getStatus()) : null);
         ins.setScheduleTime(entity.getScheduleTime());
         ins.setStartTime(entity.getStartTime());
         ins.setEndTime(entity.getEndTime());
@@ -142,7 +142,7 @@ public class FlowStorageImpl implements FlowStorage {
         entity.setFlowName(ins.getFlowName());
         entity.setFlowType(ins.getFlowType() != null ? ins.getFlowType().getType() : null);
         entity.setPublishVersion(ins.getVersion() != null ? Long.parseLong(ins.getVersion()) : null);
-        entity.setStatus(ins.getState() != null ? ins.getState().name() : null);
+        entity.setStatus(ins.getState() != null ? ins.getState().getStateType() : null);
         entity.setScheduleTime(ins.getScheduleTime());
         entity.setStartTime(ins.getStartTime());
         entity.setEndTime(ins.getEndTime());

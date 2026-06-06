@@ -2,6 +2,48 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.datafusion.manager.scheduler.dao.TaskInstanceMapper">
 
+    <select id="pageTaskInstance" resultType="com.datafusion.manager.scheduler.po.TaskInstanceEntity">
+        select ti.*
+        from scheduler_task_instance ti
+        left join scheduler_flow_instance fi on fi.id = ti.flow_instance_id
+        <where>
+            <if test="query != null">
+                <if test="query.flowKeyword != null and query.flowKeyword != ''">
+                    and (fi.flow_name like concat('%', #{query.flowKeyword}, '%')
+                        or ti.flow_instance_id::text = #{query.flowKeyword}
+                        or ti.flow_id::text = #{query.flowKeyword})
+                </if>
+                <if test="query.taskKeyword != null and query.taskKeyword != ''">
+                    and (ti.task_name like concat('%', #{query.taskKeyword}, '%')
+                        or ti.id::text = #{query.taskKeyword}
+                        or ti.task_id::text = #{query.taskKeyword})
+                </if>
+                <if test="query.status != null and query.status != ''">
+                    and ti.status = #{query.status}
+                </if>
+                <if test="query.scheduleStartTime != null">
+                    and fi.schedule_time &gt;= #{query.scheduleStartTime}
+                </if>
+                <if test="query.scheduleEndTime != null">
+                    and fi.schedule_time &lt;= #{query.scheduleEndTime}
+                </if>
+                <if test="query.startTime != null">
+                    and ti.start_time &gt;= #{query.startTime}
+                </if>
+                <if test="query.endTime != null">
+                    and ti.start_time &lt;= #{query.endTime}
+                </if>
+                <if test="query.finishStartTime != null">
+                    and ti.end_time &gt;= #{query.finishStartTime}
+                </if>
+                <if test="query.finishEndTime != null">
+                    and ti.end_time &lt;= #{query.finishEndTime}
+                </if>
+            </if>
+        </where>
+        order by ti.start_time desc nulls last, ti.create_time desc
+    </select>
+
     <select id="getInstanceById" resultType="com.datafusion.manager.scheduler.po.TaskInstanceEntity">
         select *
         from scheduler_task_instance
@@ -29,6 +71,25 @@
     <delete id="removeByFlowInsId">
         delete from scheduler_task_instance
         where flow_instance_id = #{flowInstanceId}
+    </delete>
+
+    <select id="listArchiveCandidates" resultType="com.datafusion.manager.scheduler.po.TaskInstanceEntity">
+        select *
+        from scheduler_task_instance
+        where status in
+        <foreach collection="statuses" item="status" open="(" separator="," close=")">
+            #{status}
+        </foreach>
+        order by update_time asc
+        limit #{limit}
+    </select>
+
+    <delete id="removeByInstanceIds">
+        delete from scheduler_task_instance
+        where id in
+        <foreach collection="instanceIds" item="instanceId" open="(" separator="," close=")">
+            #{instanceId}
+        </foreach>
     </delete>
 
 </mapper>

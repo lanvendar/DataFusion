@@ -1,6 +1,8 @@
 package com.datafusion.manager.scheduler.dao;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.datafusion.manager.scheduler.dto.SchedulerInstanceQueryDto;
 import com.datafusion.manager.scheduler.po.TaskInstanceEntity;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -17,6 +19,16 @@ import java.util.UUID;
  */
 @Mapper
 public interface TaskInstanceMapper extends BaseMapper<TaskInstanceEntity> {
+
+    /**
+     * 分页查询实时任务实例.
+     *
+     * @param page  分页对象
+     * @param query 查询条件
+     * @return 实时任务实例分页
+     */
+    Page<TaskInstanceEntity> pageTaskInstance(Page<TaskInstanceEntity> page,
+                                              @Param("query") SchedulerInstanceQueryDto query);
 
     /**
      * 根据实例ID查询任务实例.
@@ -57,4 +69,22 @@ public interface TaskInstanceMapper extends BaseMapper<TaskInstanceEntity> {
      * @return 影响行数
      */
     int removeByFlowInsId(@Param("flowInstanceId") UUID flowInstanceId);
+
+    /**
+     * 查询待归档的成功任务实例.
+     *
+     * @param statuses 成功状态集合
+     * @param limit    查询数量
+     * @return 任务实例列表
+     */
+    List<TaskInstanceEntity> listArchiveCandidates(@Param("statuses") List<String> statuses,
+                                                   @Param("limit") int limit);
+
+    /**
+     * 批量删除任务实例.
+     *
+     * @param instanceIds 实例ID列表
+     * @return 影响行数
+     */
+    int removeByInstanceIds(@Param("instanceIds") List<UUID> instanceIds);
 }

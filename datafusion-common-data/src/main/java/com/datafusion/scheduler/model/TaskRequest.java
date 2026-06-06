@@ -36,9 +36,9 @@ public class TaskRequest {
     private StatusEnum taskState;
 
     /**
-     * 任务定义.
+     * 渲染后的任务执行数据.
      */
-    private JsonNode definition;
+    private JsonNode taskData;
 
     /**
      * 第三方插件运行唯一主键 appId.

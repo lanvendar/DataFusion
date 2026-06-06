@@ -38,7 +38,7 @@ public class FlowInfo {
     private String version;
 
     /**
-     * 流程参数.
+     * 流程变量参数.
      */
     private ParamData flowParam;
 
@@ -57,4 +57,3 @@ public class FlowInfo {
      */
     private PluginData pluginData;
 }
-

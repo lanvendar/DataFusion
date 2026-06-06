@@ -181,8 +181,8 @@ export function FlowForm({
           <Form.Item name="description" label="流程描述" rules={[{ max: 1000, message: "流程描述不能超过1000个字符" }]}>
             <Input.TextArea rows={4} placeholder="请输入流程描述" />
           </Form.Item>
-          <Form.Item name="flowParamText" label="流程参数">
-            <JsonEditor title="流程参数 JSON" placeholder="请输入流程参数（JSON 格式）" rows={10} />
+          <Form.Item name="flowParamText" label="流程变量参数">
+            <JsonEditor title="流程变量参数 JSON" placeholder="请输入流程变量参数（JSON 格式）" rows={10} />
           </Form.Item>
         </Form>
       </Spin>

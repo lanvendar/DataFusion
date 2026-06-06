@@ -89,6 +89,8 @@ export interface EventListItem {
   eventName?: string;
   name?: string;
   eventType?: string;
+  flowId?: string;
+  taskId?: string;
 }
 
 export interface TaskListItem {
@@ -99,9 +101,53 @@ export interface TaskListItem {
   description?: string;
   isBound?: boolean;
   flowId?: string;
+  syncFlag?: boolean;
+}
+
+export interface TaskDetailItem extends TaskListItem {
+  taskTypeId?: string;
+  taskParam?: string;
+  definition?: string;
+  pluginId?: string;
+  depEventIds?: string[] | string;
+  eventId?: string;
+  enabled?: boolean;
+}
+
+export interface TaskUpdateReq {
+  id: string;
+  pluginId?: string;
+  depEventIds?: string;
+  eventId?: string;
+  clearEventId?: boolean;
+  enabled?: boolean;
+  taskParam?: string;
+}
+
+export interface PluginConfigListItem {
+  id: string;
+  pluginName?: string;
+  pluginType?: string;
+  runMode?: string;
+}
+
+export interface SchedulerVariableValue {
+  name?: string;
+  type?: string;
+  value?: string;
+}
+
+export interface ParamDataValue {
+  vars?: Record<string, SchedulerVariableValue>;
 }
 
 export interface FlowDagNodeView {
+  position?: {
+    x?: number;
+    y?: number;
+  };
+  style?: Record<string, unknown>;
+  extra?: Record<string, unknown>;
   x?: number;
   y?: number;
   type?: string;
@@ -111,6 +157,8 @@ export interface FlowDagNodeView {
 }
 
 export interface FlowDagEdgeView {
+  style?: Record<string, unknown>;
+  extra?: Record<string, unknown>;
   type?: string;
   animated?: boolean;
   label?: string;
@@ -118,10 +166,18 @@ export interface FlowDagEdgeView {
 }
 
 export interface FlowDagNodeData {
+  taskId?: string;
   taskName?: string;
   taskCode?: string;
   taskType?: string;
   description?: string;
+  syncFlag?: boolean;
+  pluginId?: string;
+  depEventIds?: string[] | string;
+  eventId?: string;
+  enabled?: boolean;
+  taskParam?: string;
+  definition?: string;
   [key: string]: unknown;
 }
 

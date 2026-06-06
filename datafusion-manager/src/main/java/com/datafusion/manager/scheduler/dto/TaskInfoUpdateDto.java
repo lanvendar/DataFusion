@@ -55,9 +55,9 @@ public class TaskInfoUpdateDto {
     private String taskType;
 
     /**
-     * 任务参数(JSON).
+     * 任务变量参数(JSON).
      */
-    @Schema(name = "taskParam", description = "任务参数(JSON)")
+    @Schema(name = "taskParam", description = "任务变量参数(JSON)")
     private String taskParam;
 
     /**
@@ -89,6 +89,12 @@ public class TaskInfoUpdateDto {
      */
     @Schema(name = "eventId", description = "事件ID")
     private UUID eventId;
+
+    /**
+     * 是否清空事件ID.
+     */
+    @Schema(name = "clearEventId", description = "是否清空事件ID")
+    private Boolean clearEventId;
 
     /**
      * 是否启用.

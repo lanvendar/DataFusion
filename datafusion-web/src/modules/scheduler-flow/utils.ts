@@ -86,6 +86,10 @@ export function dagNodeToCanvas(node: FlowDagNodeDto, index: number): FlowCanvas
       taskType: node.data?.taskType,
       description: node.data?.description,
       syncFlag: node.data?.syncFlag,
+      pluginId: node.data?.pluginId,
+      depEventIds: node.data?.depEventIds,
+      eventId: node.data?.eventId,
+      enabled: node.data?.enabled,
       taskParam: node.data?.taskParam,
       definition: node.data?.definition,
     },
@@ -114,7 +118,16 @@ export function dagEdgeToCanvas(edge: FlowDagEdgeDto): FlowCanvasEdge {
 export function canvasNodeToDag(node: FlowCanvasNode): FlowDagNodeDto {
   return {
     id: node.id,
-    data: node.data,
+    data: {
+      taskId: node.data.taskId,
+      taskName: node.data.taskName,
+      taskCode: node.data.taskCode,
+      taskType: node.data.taskType,
+      description: node.data.description,
+      syncFlag: node.data.syncFlag,
+      taskParam: node.data.taskParam,
+      definition: node.data.definition,
+    },
     nodeView: {
       position: {
         x: node.position.x,

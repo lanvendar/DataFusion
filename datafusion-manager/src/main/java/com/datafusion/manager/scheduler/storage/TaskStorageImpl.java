@@ -16,6 +16,7 @@ import com.datafusion.scheduler.master.task.storage.TaskStorage;
 import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.PluginData;
 import com.datafusion.scheduler.model.TaskResult;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -124,7 +125,8 @@ public class TaskStorageImpl implements TaskStorage {
         info.setTaskType(entity.getTaskType());
         info.setTaskName(entity.getTaskName());
         info.setTaskDesc(entity.getDescription());
-        info.setTaskParam(JacksonUtils.tryObj2Bean(entity.getTaskParam(), ParamData.class));
+        info.setTaskParam(toParamData(entity.getTaskParam()));
+        info.setDefinition(entity.getDefinition());
         info.setDepEventIds(ImplUtil.parseCommaSet(entity.getDepEventIds()));
         info.setEventId(ImplUtil.uuidToStr(entity.getEventId()));
         info.setIsAble(entity.getEnabled());
@@ -142,7 +144,7 @@ public class TaskStorageImpl implements TaskStorage {
         ins.setTaskType(entity.getTaskType());
         ins.setTaskName(entity.getTaskName());
         ins.setTaskDesc(entity.getDescription());
-        ins.setState(entity.getStatus() != null ? StatusEnum.valueOf(entity.getStatus()) : null);
+        ins.setState(entity.getStatus() != null ? StatusEnum.fromString(entity.getStatus()) : null);
         ins.setStartTime(entity.getStartTime());
         ins.setEndTime(entity.getEndTime());
         ins.setCostTime(entity.getCostTime() != null ? entity.getCostTime().longValue() : null);
@@ -150,7 +152,8 @@ public class TaskStorageImpl implements TaskStorage {
         ins.setNextInstanceIds(ImplUtil.parseCommaSet(entity.getNextInstanceId()));
         ins.setDepEventIds(ImplUtil.parseCommaSet(entity.getDepEventIds()));
         ins.setEventId(ImplUtil.uuidToStr(entity.getEventId()));
-        ins.setTaskData(JacksonUtils.tryObj2Bean(entity.getTaskData(), ParamData.class));
+        ins.setTaskParam(toParamData(entity.getTaskParam()));
+        ins.setTaskData(entity.getTaskData());
         ins.setTaskResult(JacksonUtils.tryObj2Bean(entity.getWorkerResult(), TaskResult.class));
         ins.setPluginData(JacksonUtils.tryObj2Bean(entity.getPluginData(), PluginData.class));
         return ins;
@@ -164,7 +167,7 @@ public class TaskStorageImpl implements TaskStorage {
         entity.setTaskType(ins.getTaskType());
         entity.setTaskName(ins.getTaskName());
         entity.setDescription(ins.getTaskDesc());
-        entity.setStatus(ins.getState() != null ? ins.getState().name() : null);
+        entity.setStatus(ins.getState() != null ? ins.getState().getStateType() : null);
         entity.setStartTime(ins.getStartTime());
         entity.setEndTime(ins.getEndTime());
         entity.setCostTime(ins.getCostTime() != null ? ins.getCostTime().intValue() : null);
@@ -172,7 +175,8 @@ public class TaskStorageImpl implements TaskStorage {
         entity.setNextInstanceId(ImplUtil.joinCommaSet(ins.getNextInstanceIds()));
         entity.setDepEventIds(ImplUtil.joinCommaSet(ins.getDepEventIds()));
         entity.setEventId(ImplUtil.strToUuid(ins.getEventId()));
-        entity.setTaskData(JacksonUtils.tryObj2JsonNode(ins.getTaskData()));
+        entity.setTaskParam(JacksonUtils.tryObj2JsonNode(ins.getTaskParam()));
+        entity.setTaskData(ins.getTaskData());
         entity.setWorkerResult(JacksonUtils.tryObj2JsonNode(ins.getTaskResult()));
         entity.setPluginData(JacksonUtils.tryObj2JsonNode(ins.getPluginData()));
         return entity;
@@ -187,6 +191,13 @@ public class TaskStorageImpl implements TaskStorage {
         link.setStartId(ImplUtil.uuidToStr(entity.getStartId()));
         link.setEndId(ImplUtil.uuidToStr(entity.getEndId()));
         return link;
+    }
+
+    private ParamData toParamData(JsonNode jsonNode) {
+        if (JacksonUtils.isEmpty(jsonNode)) {
+            return new ParamData();
+        }
+        return JacksonUtils.tryObj2Bean(jsonNode, ParamData.class);
     }
     // endregion
 }

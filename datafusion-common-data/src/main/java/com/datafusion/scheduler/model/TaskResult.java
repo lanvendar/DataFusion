@@ -57,6 +57,11 @@ public class TaskResult {
     private String appId;
 
     /**
+     * 任务日志文件路径.
+     */
+    private String logPath;
+
+    /**
      * worker 端提交模式，默认为同步提交.
      */
     @Builder.Default

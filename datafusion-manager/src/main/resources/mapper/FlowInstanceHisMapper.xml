@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.scheduler.dao.FlowInstanceHisMapper">
+
+    <select id="pageFlowInstance" resultType="com.datafusion.manager.scheduler.po.FlowInstanceHisEntity">
+        select fi.*
+        from scheduler_flow_instance_his fi
+        <where>
+            <if test="query != null">
+                <if test="query.flowKeyword != null and query.flowKeyword != ''">
+                    and (fi.flow_name like concat('%', #{query.flowKeyword}, '%')
+                        or fi.id::text = #{query.flowKeyword}
+                        or fi.flow_id::text = #{query.flowKeyword})
+                </if>
+                <if test="query.taskKeyword != null and query.taskKeyword != ''">
+                    and exists (
+                        select 1
+                        from scheduler_task_instance_his ti
+                        where ti.flow_instance_id = fi.id
+                          and (ti.task_name like concat('%', #{query.taskKeyword}, '%')
+                            or ti.id::text = #{query.taskKeyword}
+                            or ti.task_id::text = #{query.taskKeyword})
+                    )
+                </if>
+                <if test="query.status != null and query.status != ''">
+                    and fi.status = #{query.status}
+                </if>
+                <if test="query.scheduleStartTime != null">
+                    and fi.schedule_time &gt;= #{query.scheduleStartTime}
+                </if>
+                <if test="query.scheduleEndTime != null">
+                    and fi.schedule_time &lt;= #{query.scheduleEndTime}
+                </if>
+                <if test="query.startTime != null">
+                    and fi.start_time &gt;= #{query.startTime}
+                </if>
+                <if test="query.endTime != null">
+                    and fi.start_time &lt;= #{query.endTime}
+                </if>
+                <if test="query.finishStartTime != null">
+                    and fi.end_time &gt;= #{query.finishStartTime}
+                </if>
+                <if test="query.finishEndTime != null">
+                    and fi.end_time &lt;= #{query.finishEndTime}
+                </if>
+            </if>
+        </where>
+        order by fi.schedule_time desc nulls last, fi.create_time desc
+    </select>
+
+    <select id="getInstanceById" resultType="com.datafusion.manager.scheduler.po.FlowInstanceHisEntity">
+        select *
+        from scheduler_flow_instance_his
+        where id = #{instanceId}
+    </select>
+
+    <insert id="insertIgnoreBatch">
+        insert into scheduler_flow_instance_his (
+            id,
+            flow_id,
+            flow_name,
+            flow_code,
+            flow_type,
+            status,
+            trigger_id,
+            publish_version,
+            flow_param,
+            dep_event_ids,
+            event_id,
+            schedule_time,
+            start_time,
+            end_time,
+            creator,
+            updater,
+            create_time,
+            update_time,
+            flow_dag_snapshot
+        )
+        select
+            id,
+            flow_id,
+            flow_name,
+            flow_code,
+            flow_type,
+            status,
+            trigger_id,
+            publish_version,
+            flow_param,
+            dep_event_ids,
+            event_id,
+            schedule_time,
+            start_time,
+            end_time,
+            creator,
+            updater,
+            create_time,
+            update_time,
+            flow_dag_snapshot
+        from scheduler_flow_instance
+        where id in
+        <foreach collection="instanceIds" item="instanceId" open="(" separator="," close=")">
+            #{instanceId}
+        </foreach>
+        on conflict (id) do nothing
+    </insert>
+
+</mapper>

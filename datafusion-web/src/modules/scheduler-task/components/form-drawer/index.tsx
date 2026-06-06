@@ -113,8 +113,8 @@ export function TaskForm({
           <Form.Item name="description" label="任务描述" rules={[{ max: 1000, message: "任务描述不能超过1000个字符" }]}>
             <Input.TextArea rows={4} placeholder="请输入任务描述" />
           </Form.Item>
-          <Form.Item name="taskParamText" label="任务参数">
-            <JsonEditor title="任务参数 JSON" placeholder="请输入任务参数（JSON 格式）" />
+          <Form.Item name="taskParamText" label="任务变量参数">
+            <JsonEditor title="任务变量参数 JSON" placeholder="请输入任务变量参数（JSON 格式）" />
           </Form.Item>
           <Form.Item name="definitionText" label="任务定义">
             <JsonEditor title="任务定义 JSON" placeholder="请输入任务定义（JSON 格式）" rows={10} />

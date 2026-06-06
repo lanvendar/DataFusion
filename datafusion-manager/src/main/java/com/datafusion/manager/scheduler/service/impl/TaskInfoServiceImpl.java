@@ -1,6 +1,7 @@
 package com.datafusion.manager.scheduler.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -16,16 +17,14 @@ import com.datafusion.manager.scheduler.dto.TaskInfoSaveDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoUpdateDto;
 import com.datafusion.manager.scheduler.po.TaskInfoEntity;
 import com.datafusion.manager.scheduler.service.TaskInfoService;
+import com.datafusion.manager.system.service.TaskTypeConfigService;
 import com.datafusion.manager.utils.HttpUtils;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -42,20 +41,9 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
         implements TaskInfoService {
 
     /**
-     * 默认插件ID命名空间.
+     * 任务类型配置Service.
      */
-    private static final String DEFAULT_PLUGIN_ID_NAMESPACE = "scheduler-default-plugin:";
-
-    /**
-     * 默认执行插件ID.
-     */
-    private static final Map<String, UUID> DEFAULT_PLUGIN_ID_MAP = Map.of(
-            "DATAX", defaultPluginIdOf("DATAX"),
-            "SHELL", defaultPluginIdOf("SHELL"),
-            "SQL", defaultPluginIdOf("SQL"),
-            "HTTP", defaultPluginIdOf("HTTP"),
-            "SPARK", defaultPluginIdOf("SPARK")
-    );
+    private final TaskTypeConfigService taskTypeConfigService;
 
     @Override
     public TaskInfoEntity getTaskInfo(UUID taskId) {
@@ -177,7 +165,14 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
         entity.setSyncFlag(false);
         entity.setUpdater(HttpUtils.getCurrentUserName());
         entity.setUpdateTime(new Date());
-        return updateById(entity);
+        boolean updated = updateById(entity);
+        if (Boolean.TRUE.equals(dto.getClearEventId())) {
+            LambdaUpdateWrapper<TaskInfoEntity> clearEventWrapper = new LambdaUpdateWrapper<>();
+            clearEventWrapper.eq(TaskInfoEntity::getId, dto.getId())
+                    .set(TaskInfoEntity::getEventId, null);
+            updated = update(clearEventWrapper);
+        }
+        return updated;
     }
 
     @Override
@@ -204,22 +199,7 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
         if (dto.getPluginId() != null) {
             return dto.getPluginId();
         }
-        String taskType = StringUtils.trimToEmpty(dto.getTaskType()).toUpperCase(Locale.ROOT);
-        UUID pluginId = DEFAULT_PLUGIN_ID_MAP.get(taskType);
-        if (pluginId == null) {
-            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "无法根据任务类型解析默认执行插件: " + dto.getTaskType());
-        }
-        return pluginId;
-    }
-
-    /**
-     * 生成稳定默认插件ID.
-     *
-     * @param taskType 任务类型
-     * @return 默认插件ID
-     */
-    private static UUID defaultPluginIdOf(String taskType) {
-        return UUID.nameUUIDFromBytes((DEFAULT_PLUGIN_ID_NAMESPACE + taskType).getBytes(StandardCharsets.UTF_8));
+        return taskTypeConfigService.getDefaultPluginIdByTaskType(dto.getTaskType());
     }
 
     /**

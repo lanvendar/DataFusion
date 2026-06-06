@@ -1,4 +1,4 @@
-package com.datafusion.agent.client;
+package com.datafusion.agent.rpc;
 
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.Worker;

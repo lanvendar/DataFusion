@@ -50,7 +50,7 @@ public class FlowInfoEntity extends BaseIdEntity {
     private String flowType;
 
     /**
-     * 流程参数信息(JSON).
+     * 流程变量参数信息(JSON).
      */
     @TableField("flow_param")
     private JsonNode flowParam;

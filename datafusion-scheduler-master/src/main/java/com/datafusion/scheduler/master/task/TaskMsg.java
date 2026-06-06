@@ -37,7 +37,7 @@ public class TaskMsg implements ActorMsg {
     private String flowInstanceId;
 
     /**
-     * 流程参数.
+     * 流程变量参数.
      */
     private ParamData flowParamData;
 

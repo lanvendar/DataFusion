@@ -1,7 +1,8 @@
 package com.datafusion.agent.runtime;
 
-import com.datafusion.agent.client.ManagerClient;
 import com.datafusion.agent.config.AgentProperties;
+import com.datafusion.agent.rpc.ManagerClient;
+import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateReportScheduler;
 import com.datafusion.scheduler.model.Worker;
 import com.datafusion.scheduler.worker.plugin.WorkerTaskOperatorRouter;
 import lombok.extern.slf4j.Slf4j;
@@ -60,6 +61,11 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
     private final ScheduledExecutorService heartbeatScheduler;
 
     /**
+     * 任务状态上报计划.
+     */
+    private final AgentTaskStateReportScheduler taskStateReportScheduler;
+
+    /**
      * 构造函数.
      *
      * @param properties    agent 配置
@@ -68,21 +74,25 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
      * @param router        插件路由
      * @param heartbeatPool 心跳线程池
      * @param heartbeatScheduler 心跳调度器
+     * @param taskStateReportScheduler 任务状态上报计划
      */
     public AgentLifecycle(AgentProperties properties, ManagerClient managerClient, AgentRuntimeState runtimeState,
             WorkerTaskOperatorRouter router, @Qualifier("agentHeartbeatPool") ThreadPoolExecutor heartbeatPool,
-            @Qualifier("agentHeartbeatScheduler") ScheduledExecutorService heartbeatScheduler) {
+            @Qualifier("agentHeartbeatScheduler") ScheduledExecutorService heartbeatScheduler,
+            AgentTaskStateReportScheduler taskStateReportScheduler) {
         this.properties = properties;
         this.managerClient = managerClient;
         this.runtimeState = runtimeState;
         this.router = router;
         this.heartbeatPool = heartbeatPool;
         this.heartbeatScheduler = heartbeatScheduler;
+        this.taskStateReportScheduler = taskStateReportScheduler;
     }
 
     @Override
     public void run(ApplicationArguments args) {
         initWorker();
+        taskStateReportScheduler.start();
         long interval = Math.max(properties.getManager().getHeartbeatIntervalMs(), 1000L);
         heartbeatScheduler.scheduleWithFixedDelay(() -> heartbeatPool.execute(this::registerOrHeartbeat),
                 0L, interval, TimeUnit.MILLISECONDS);

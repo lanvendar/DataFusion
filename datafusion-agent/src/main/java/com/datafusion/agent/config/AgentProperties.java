@@ -35,6 +35,11 @@ public class AgentProperties {
     private Storage storage = new Storage();
 
     /**
+     * 状态刷新配置.
+     */
+    private StateRefresh stateRefresh = new StateRefresh();
+
+    /**
      * 任务控制线程池配置.
      */
     private ThreadPoolConfig taskControlPool = new ThreadPoolConfig(4, 8, 256, 60);
@@ -128,6 +133,23 @@ public class AgentProperties {
          * 任务状态目录名.
          */
         private String taskStatusDir = "task-status";
+    }
+
+    /**
+     * 状态刷新配置.
+     */
+    @Data
+    public static class StateRefresh {
+
+        /**
+         * 状态刷新间隔，单位毫秒.
+         */
+        private long intervalMs = 15000L;
+
+        /**
+         * 推进 UNKNOWN 的连续查询失败阈值.
+         */
+        private int unknownThreshold = 3;
     }
 
     /**

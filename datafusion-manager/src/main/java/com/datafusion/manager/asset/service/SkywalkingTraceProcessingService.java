@@ -22,6 +22,7 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -119,17 +120,17 @@ public class SkywalkingTraceProcessingService {
      *
      * @param graphqlService      Skywalking GraphQL客户端
      * @param traceGraphBuilder   血缘解析服务
-     * @param redissonClient      Redisson客户端
+     * @param redissonClientProvider Redisson客户端提供器
      * @param assetResourceMapper mapper
      */
     @Autowired
     public SkywalkingTraceProcessingService(SkywalkingGraphqlClient graphqlService,
             TraceGraphBuilder traceGraphBuilder,
-            RedissonClient redissonClient,
+            ObjectProvider<RedissonClient> redissonClientProvider,
             AssetResourceMapper assetResourceMapper) {
         this.graphqlService = graphqlService;
         this.traceGraphBuilder = traceGraphBuilder;
-        this.redissonClient = redissonClient;
+        this.redissonClient = redissonClientProvider.getIfAvailable();
         this.assetResourceMapper = assetResourceMapper;
     }
 
@@ -247,79 +248,108 @@ public class SkywalkingTraceProcessingService {
     @Transactional(rollbackFor = Throwable.class)
     public void processServiceResources(String serviceName, List<AssetLineageResourceEntity> serviceResources, LocalDate startDate,
                                         LocalDate endDate, int sampleCount, int hourSplit) {
-        String lockKey = "api_link_update_lock:" + serviceName;
+        if (redissonClient == null) {
+            log.warn("Redisson未启用，服务 {} 的API链路解析将跳过分布式锁。", serviceName);
+            processServiceResourcesInternal(serviceName, serviceResources, startDate, endDate, sampleCount, hourSplit);
+            return;
+        }
+        String lockKey = LOCK_PREFIX + serviceName;
         RLock lock = redissonClient.getLock(lockKey);
+        try {
+            if (lock.tryLock(LOCK_WAIT_TIME_SECONDS, LOCK_LEASE_TIME_MINUTES, TimeUnit.MINUTES)) {
+                try {
+                    processServiceResourcesInternal(serviceName, serviceResources, startDate, endDate, sampleCount, hourSplit);
+                } finally {
+                    if (lock.isHeldByCurrentThread()) {
+                        lock.unlock();
+                    }
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("同步失败，线程被中断。", e);
+        } catch (Exception e) {
+            log.error("同步失败", e);
+        }
+    }
+
+    /**
+     * 处理单个服务资源的核心逻辑.
+     *
+     * @param serviceName      服务名
+     * @param serviceResources 服务下的所有资源
+     * @param startDate        开始日期
+     * @param endDate          结束日期
+     * @param sampleCount      每个耗时区间采样数量
+     * @param hourSplit        间隔多长时间采样一次
+     */
+    private void processServiceResourcesInternal(String serviceName, List<AssetLineageResourceEntity> serviceResources,
+            LocalDate startDate, LocalDate endDate, int sampleCount, int hourSplit) {
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
         try {
-            if (lock.tryLock(0, 10, TimeUnit.MINUTES)) {
+            List<Triple<AssetLineageResourceEntity, String, Pair<String, List<CallEdge>>>> results = executeApiLinkUpdate(
+                    serviceName, serviceResources, startDate, endDate, sampleCount, hourSplit);
+
+            // --- 按ResourceID分组收集数据，WeLocation使用List收集，最终统一由mergeWeLocations合并 ---
+            Map<UUID, List<CallEdge>> resourceEdgesMap = new HashMap<>();
+            Map<UUID, List<ResourceSnapshotBuilder.WeLocation>> resourceWlMap = new HashMap<>();
+            Map<UUID, String> resourceTraceIdMap = new HashMap<>();
+
+            for (Triple<AssetLineageResourceEntity, String, Pair<String, List<CallEdge>>> triple : results) {
+                UUID resId = triple.getLeft().getId();
+                resourceEdgesMap.put(resId, mergeCallEdges(resourceEdgesMap.get(resId), triple.getRight().getRight()));
+                resourceTraceIdMap.put(resId, triple.getMiddle());
+
                 try {
-                    List<Triple<AssetLineageResourceEntity, String, Pair<String, List<CallEdge>>>> results = executeApiLinkUpdate(
-                            serviceName, serviceResources, startDate, endDate, sampleCount, hourSplit);
-
-                    // --- 按ResourceID分组收集数据，WeLocation使用List收集，最终统一由mergeWeLocations合并 ---
-                    Map<UUID, List<CallEdge>> resourceEdgesMap = new HashMap<>();
-                    Map<UUID, List<ResourceSnapshotBuilder.WeLocation>> resourceWlMap = new HashMap<>();
-                    Map<UUID, String> resourceTraceIdMap = new HashMap<>();
-
-                    for (Triple<AssetLineageResourceEntity, String, Pair<String, List<CallEdge>>> triple : results) {
-                        UUID resId = triple.getLeft().getId();
-                        resourceEdgesMap.put(resId, mergeCallEdges(resourceEdgesMap.get(resId), triple.getRight().getRight()));
-                        resourceTraceIdMap.put(resId, triple.getMiddle());
-
-                        try {
-                            List<ResourceSnapshotBuilder.WeLocation> list = mapper.readValue(triple.getRight().getLeft(),
-                                    new com.fasterxml.jackson.core.type.TypeReference<List<ResourceSnapshotBuilder.WeLocation>>() {
-                                    });
-                            resourceWlMap.computeIfAbsent(resId, k -> new ArrayList<>()).addAll(list);
-                        } catch (Exception e) {
-                            log.warn("反序列化WeLocation失败, resId={}", resId, e);
-                        }
-                    }
-
-                    List<AssetLineageResourceEntity> finished = new ArrayList<>();
-                    for (AssetLineageResourceEntity resource : serviceResources) {
-                        if (!resourceEdgesMap.containsKey(resource.getId())) {
-                            continue;
-                        }
-
-                        ResourceSnapshotBuilder.ApiResourceResultSnapshot snapshot = ResourceSnapshotBuilder.builder(resource, true);
-
-                        // --- 合并WeLocation：数据库原有 + 本次新解析，统一调用mergeWeLocations去重 ---
-                        List<ResourceSnapshotBuilder.WeLocation> allWlToProcess = new ArrayList<>();
-                        // A. 添加数据库中原有的
-                        if (snapshot != null && snapshot.getCallChain() != null && snapshot.getCallChain().getWeLocationList() != null) {
-                            allWlToProcess.addAll(snapshot.getCallChain().getWeLocationList());
-                        }
-                        // B. 添加本次新解析的
-                        List<ResourceSnapshotBuilder.WeLocation> newWls = resourceWlMap.get(resource.getId());
-                        if (newWls != null) {
-                            allWlToProcess.addAll(newWls);
-                        }
-
-                        // C. 统一合并去重（基于 projectName + weLocation，tagSet取并集）
-                        Set<ResourceSnapshotBuilder.WeLocation> finalWlSet = mergeWeLocations(allWlToProcess);
-
-                        ResourceSnapshotBuilder.CallChain chain = new ResourceSnapshotBuilder.CallChain();
-                        List<CallEdge> finalEdges = mergeCallEdges(
-                                (snapshot != null && snapshot.getCallChain() != null) ? snapshot.getCallChain().getCallEdges() : null,
-                                resourceEdgesMap.get(resource.getId()));
-                        chain.setTraceId(resourceTraceIdMap.get(resource.getId()));
-                        chain.setCallEdges(finalEdges);
-                        chain.setWeLocationList(new ArrayList<>(finalWlSet));
-
-                        if (snapshot == null) {
-                            snapshot = new ResourceSnapshotBuilder.ApiResourceResultSnapshot();
-                        }
-                        snapshot.setCallChain(chain);
-                        resource.setResultSnapshot(JacksonUtils.convertPojoToJsonNodeSafely(snapshot));
-                        finished.add(resource);
-                    }
-                    updateResourceStatus(finished, ResourceStatusEnum.PARSE_SUCCESS.getStatus(), null);
-                } finally {
-                    lock.unlock();
+                    List<ResourceSnapshotBuilder.WeLocation> list = mapper.readValue(triple.getRight().getLeft(),
+                            new com.fasterxml.jackson.core.type.TypeReference<List<ResourceSnapshotBuilder.WeLocation>>() {
+                            });
+                    resourceWlMap.computeIfAbsent(resId, k -> new ArrayList<>()).addAll(list);
+                } catch (Exception e) {
+                    log.warn("反序列化WeLocation失败, resId={}", resId, e);
                 }
             }
+
+            List<AssetLineageResourceEntity> finished = new ArrayList<>();
+            for (AssetLineageResourceEntity resource : serviceResources) {
+                if (!resourceEdgesMap.containsKey(resource.getId())) {
+                    continue;
+                }
+
+                ResourceSnapshotBuilder.ApiResourceResultSnapshot snapshot = ResourceSnapshotBuilder.builder(resource, true);
+
+                // --- 合并WeLocation：数据库原有 + 本次新解析，统一调用mergeWeLocations去重 ---
+                List<ResourceSnapshotBuilder.WeLocation> allWlToProcess = new ArrayList<>();
+                // A. 添加数据库中原有的
+                if (snapshot != null && snapshot.getCallChain() != null && snapshot.getCallChain().getWeLocationList() != null) {
+                    allWlToProcess.addAll(snapshot.getCallChain().getWeLocationList());
+                }
+                // B. 添加本次新解析的
+                List<ResourceSnapshotBuilder.WeLocation> newWls = resourceWlMap.get(resource.getId());
+                if (newWls != null) {
+                    allWlToProcess.addAll(newWls);
+                }
+
+                // C. 统一合并去重（基于 projectName + weLocation，tagSet取并集）
+                Set<ResourceSnapshotBuilder.WeLocation> finalWlSet = mergeWeLocations(allWlToProcess);
+
+                ResourceSnapshotBuilder.CallChain chain = new ResourceSnapshotBuilder.CallChain();
+                List<CallEdge> finalEdges = mergeCallEdges(
+                        (snapshot != null && snapshot.getCallChain() != null) ? snapshot.getCallChain().getCallEdges() : null,
+                        resourceEdgesMap.get(resource.getId()));
+                chain.setTraceId(resourceTraceIdMap.get(resource.getId()));
+                chain.setCallEdges(finalEdges);
+                chain.setWeLocationList(new ArrayList<>(finalWlSet));
+
+                if (snapshot == null) {
+                    snapshot = new ResourceSnapshotBuilder.ApiResourceResultSnapshot();
+                }
+                snapshot.setCallChain(chain);
+                resource.setResultSnapshot(JacksonUtils.convertPojoToJsonNodeSafely(snapshot));
+                finished.add(resource);
+            }
+            updateResourceStatus(finished, ResourceStatusEnum.PARSE_SUCCESS.getStatus(), null);
         } catch (Exception e) {
             log.error("同步失败", e);
         }
@@ -664,6 +694,10 @@ public class SkywalkingTraceProcessingService {
      * @return SkyWalkingServiceDto
      */
     private SkyWalkingServiceDto getServiceWithCache(String serviceName, String startTime, String endTime) {
+        if (redissonClient == null) {
+            log.debug("Redisson未启用，直接查询Skywalking获取服务 {} 的信息。", serviceName);
+            return getServiceFromSkywalking(serviceName, startTime, endTime);
+        }
         String cacheKey = SERVICE_CACHE_PREFIX + serviceName;
 
         Object cachedService = redissonClient.getBucket(cacheKey).get();
@@ -673,12 +707,7 @@ public class SkywalkingTraceProcessingService {
         }
 
         log.info("缓存未命中，查询Skywalking获取服务 {} 的信息。", serviceName);
-        List<SkyWalkingServiceDto> allServices = graphqlService.getAllServices(startTime, endTime, "MINUTE");
-        SkyWalkingServiceDto targetService = allServices.stream()
-                .filter(s -> serviceName.equals(s.getName()))
-                .findFirst()
-                .orElse(null);
-
+        SkyWalkingServiceDto targetService = getServiceFromSkywalking(serviceName, startTime, endTime);
         if (targetService != null) {
             redissonClient.getBucket(cacheKey).set(targetService,
                     SERVICE_CACHE_TTL_DAYS, TimeUnit.DAYS);
@@ -686,6 +715,22 @@ public class SkywalkingTraceProcessingService {
         }
 
         return targetService;
+    }
+
+    /**
+     * 从Skywalking查询服务信息.
+     *
+     * @param serviceName 服务名称
+     * @param startTime   开始时间
+     * @param endTime     结束时间
+     * @return SkyWalkingServiceDto
+     */
+    private SkyWalkingServiceDto getServiceFromSkywalking(String serviceName, String startTime, String endTime) {
+        List<SkyWalkingServiceDto> allServices = graphqlService.getAllServices(startTime, endTime, "MINUTE");
+        return allServices.stream()
+                .filter(s -> serviceName.equals(s.getName()))
+                .findFirst()
+                .orElse(null);
     }
 
     /**

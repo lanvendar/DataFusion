@@ -242,17 +242,19 @@ abstract class StateMachineTestBase {
         info.setIsAble(true);
         info.setEventId(eventId);
         info.setTaskParam(createDefaultParamData());
+        info.setDefinition(createDefaultDefinition());
         info.setPluginData(new PluginData());
         return info;
     }
 
     private ParamData createDefaultParamData() {
         ParamData paramData = new ParamData();
-        ObjectMapper objectMapper = new ObjectMapper();
-        ObjectNode emptyJsonNode = objectMapper.createObjectNode();
-        paramData.setParams(emptyJsonNode);
         Map<String, Variable> vars = new HashMap<>();
         paramData.setVars(vars);
         return paramData;
+    }
+
+    private ObjectNode createDefaultDefinition() {
+        return new ObjectMapper().createObjectNode();
     }
 }

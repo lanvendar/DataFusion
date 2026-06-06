@@ -2,6 +2,36 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.datafusion.manager.scheduler.dao.EventInstanceMapper">
 
+    <select id="pageEventInstance" resultType="com.datafusion.manager.scheduler.po.EventInstanceEntity">
+        select ei.*
+        from scheduler_event_instance ei
+        <where>
+            <if test="query != null">
+                <if test="query.eventKeyword != null and query.eventKeyword != ''">
+                    and (ei.event_name like concat('%', #{query.eventKeyword}, '%')
+                        or ei.id::text = #{query.eventKeyword}
+                        or ei.event_id::text = #{query.eventKeyword})
+                </if>
+                <if test="query.eventType != null and query.eventType != ''">
+                    and ei.event_type = #{query.eventType}
+                </if>
+                <if test="query.flowInstanceId != null">
+                    and ei.flow_instance_id = #{query.flowInstanceId}
+                </if>
+                <if test="query.taskInstanceId != null">
+                    and ei.task_instance_id = #{query.taskInstanceId}
+                </if>
+                <if test="query.effectStartTime != null">
+                    and ei.effect_time &gt;= #{query.effectStartTime}
+                </if>
+                <if test="query.effectEndTime != null">
+                    and ei.effect_time &lt;= #{query.effectEndTime}
+                </if>
+            </if>
+        </where>
+        order by ei.effect_time desc nulls last
+    </select>
+
     <select id="loadByEventId" resultType="com.datafusion.manager.scheduler.po.EventInstanceEntity">
         select *
         from scheduler_event_instance

@@ -71,7 +71,7 @@ public class FlowInstance implements Comparable<FlowInstance> {
     private String flowName;
 
     /**
-     * 流程参数.
+     * 流程变量参数.
      */
     private ParamData flowParam;
 

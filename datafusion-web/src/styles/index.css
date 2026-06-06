@@ -219,6 +219,57 @@ body {
   border-radius: 8px;
 }
 
+.scheduler-instance-table .ant-table-expanded-row > .ant-table-cell {
+  padding: 0;
+  background: #ffffff;
+}
+
+.scheduler-instance-expanded-content {
+  width: max-content;
+  margin-left: 56px;
+}
+
+.scheduler-instance-task-grid {
+  width: 100%;
+  background: #ffffff;
+}
+
+.scheduler-instance-task-grid-header,
+.scheduler-instance-task-grid-row {
+  display: grid;
+  align-items: stretch;
+}
+
+.scheduler-instance-task-grid-header {
+  min-height: 48px;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+  color: #172033;
+  font-weight: 600;
+}
+
+.scheduler-instance-task-grid-header > div,
+.scheduler-instance-task-grid-cell {
+  min-width: 0;
+  padding: 16px;
+}
+
+.scheduler-instance-task-grid-row {
+  min-height: 72px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.scheduler-instance-task-grid-cell {
+  display: flex;
+  align-items: center;
+}
+
+.scheduler-instance-task-grid-empty {
+  padding: 24px 16px;
+  color: #64748b;
+  text-align: center;
+}
+
 .flow-dag-layout {
   position: relative;
   display: grid;
@@ -317,6 +368,14 @@ body {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+}
+
+.flow-task-node.enabled {
+  background: #ffffff;
+}
+
+.flow-task-node.disabled {
+  background: #f3f4f6;
 }
 
 .flow-task-node.selected {

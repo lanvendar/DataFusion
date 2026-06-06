@@ -1,14 +1,36 @@
 package com.datafusion.manager.scheduler.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.datafusion.common.exception.CommonException;
+import com.datafusion.common.exception.ErrorCodeEnum;
+import com.datafusion.common.spring.dto.request.page.PageQuery;
+import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.manager.scheduler.dao.TaskInstanceMapper;
+import com.datafusion.manager.scheduler.dao.TaskInstanceHisMapper;
+import com.datafusion.manager.scheduler.dto.FlowInstanceTaskQueryDto;
+import com.datafusion.manager.scheduler.dto.SchedulerInstanceQueryDto;
+import com.datafusion.manager.scheduler.dto.TaskInstanceDto;
+import com.datafusion.manager.scheduler.dto.TaskInstanceLogDto;
+import com.datafusion.manager.scheduler.dto.TaskInstanceLogQueryDto;
 import com.datafusion.manager.scheduler.po.TaskInstanceEntity;
+import com.datafusion.manager.scheduler.po.TaskInstanceHisEntity;
 import com.datafusion.manager.scheduler.service.TaskInstanceService;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * 调度-任务实例Service实现.
@@ -21,6 +43,104 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, TaskInstanceEntity>
         implements TaskInstanceService {
+
+    /**
+     * 默认日志读取大小.
+     */
+    private static final int DEFAULT_LOG_LIMIT = 64 * 1024;
+
+    /**
+     * 最大日志读取大小.
+     */
+    private static final int MAX_LOG_LIMIT = 1024 * 1024;
+
+    /**
+     * 历史视图类型.
+     */
+    private static final String VIEW_TYPE_HISTORY = "HISTORY";
+
+    /**
+     * 普通日志类型.
+     */
+    private static final String LOG_TYPE_LOG = "LOG";
+
+    /**
+     * 错误日志类型.
+     */
+    private static final String LOG_TYPE_ERROR = "ERROR";
+
+    /**
+     * 状态日志类型.
+     */
+    private static final String LOG_TYPE_STATUS = "STATUS";
+
+    /**
+     * 历史任务实例Mapper.
+     */
+    private final TaskInstanceHisMapper taskInstanceHisMapper;
+
+    /**
+     * 模块根目录.
+     */
+    @Value("${datafusion.modules:${user.dir}}")
+    private String modulesRoot;
+
+    @Override
+    public PageResponse<TaskInstanceDto> pageTaskInstance(PageQuery<SchedulerInstanceQueryDto> query) {
+        PageQuery<SchedulerInstanceQueryDto> pageQuery = normalizePageQuery(query);
+        SchedulerInstanceQueryDto option = normalizeOption(pageQuery.getOption());
+
+        if (isHistory(option.getViewType())) {
+            Page<TaskInstanceHisEntity> page = new Page<>(pageQuery.getCurrent(), pageQuery.getSize());
+            Page<TaskInstanceHisEntity> result = taskInstanceHisMapper.pageTaskInstance(page, option);
+            return toPageResponse(result.getRecords(), result.getCurrent(), result.getSize(), result.getTotal());
+        }
+
+        Page<TaskInstanceEntity> page = new Page<>(pageQuery.getCurrent(), pageQuery.getSize());
+        Page<TaskInstanceEntity> result = baseMapper.pageTaskInstance(page, option);
+        return toPageResponse(result.getRecords(), result.getCurrent(), result.getSize(), result.getTotal());
+    }
+
+    @Override
+    public TaskInstanceDto getTaskInstanceById(UUID id) {
+        TaskInstanceEntity entity = findTaskInstance(id);
+        if (entity == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "任务实例不存在");
+        }
+        return toDto(entity);
+    }
+
+    @Override
+    public List<TaskInstanceDto> listByFlowInstance(FlowInstanceTaskQueryDto query) {
+        if (query == null || query.getFlowInstanceId() == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程实例ID不能为空");
+        }
+
+        if (isHistory(query.getViewType())) {
+            return taskInstanceHisMapper.listByFlowInsId(query.getFlowInstanceId()).stream()
+                    .map(this::toDto)
+                    .collect(Collectors.toList());
+        }
+        return baseMapper.listByFlowInsId(query.getFlowInstanceId()).stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public TaskInstanceLogDto readTaskInstanceLog(TaskInstanceLogQueryDto query) {
+        if (query == null || query.getTaskInstanceId() == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "任务实例ID不能为空");
+        }
+
+        TaskInstanceEntity entity = findTaskInstance(query.getTaskInstanceId());
+        if (entity == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "任务实例不存在");
+        }
+
+        String logType = StringUtils.defaultIfBlank(query.getLogType(), LOG_TYPE_LOG).toUpperCase();
+        Path path = resolveLogPath(entity, logType);
+        return readLogFile(path, logType, query.getOffset(), query.getLimit());
+    }
 
     @Override
     public TaskInstanceEntity getInstanceById(UUID instanceId) {
@@ -45,5 +165,185 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
     @Override
     public int removeByFlowInsId(UUID flowInstanceId) {
         return baseMapper.removeByFlowInsId(flowInstanceId);
+    }
+
+    private PageQuery<SchedulerInstanceQueryDto> normalizePageQuery(PageQuery<SchedulerInstanceQueryDto> query) {
+        if (query != null) {
+            return query;
+        }
+        return new PageQuery<>(new SchedulerInstanceQueryDto());
+    }
+
+    private SchedulerInstanceQueryDto normalizeOption(SchedulerInstanceQueryDto option) {
+        return option != null ? option : new SchedulerInstanceQueryDto();
+    }
+
+    private boolean isHistory(String viewType) {
+        return VIEW_TYPE_HISTORY.equalsIgnoreCase(viewType);
+    }
+
+    private TaskInstanceEntity findTaskInstance(UUID id) {
+        TaskInstanceEntity entity = baseMapper.getInstanceById(id);
+        if (entity != null) {
+            return entity;
+        }
+        return taskInstanceHisMapper.getInstanceById(id);
+    }
+
+    private PageResponse<TaskInstanceDto> toPageResponse(List<? extends TaskInstanceEntity> records,
+                                                         long current,
+                                                         long size,
+                                                         long total) {
+        PageResponse<TaskInstanceDto> response = new PageResponse<>();
+        response.setDataList(records.stream().map(this::toDto).collect(Collectors.toList()));
+        response.setCurrent((int) current);
+        response.setSize((int) size);
+        response.setTotal((int) total);
+        return response;
+    }
+
+    private TaskInstanceDto toDto(TaskInstanceEntity entity) {
+        TaskInstanceDto dto = new TaskInstanceDto();
+        dto.setId(entity.getId());
+        dto.setFlowInstanceId(entity.getFlowInstanceId());
+        dto.setTaskId(entity.getTaskId());
+        dto.setTaskType(entity.getTaskType());
+        dto.setTaskName(entity.getTaskName());
+        dto.setTaskCode(entity.getTaskCode());
+        dto.setStatus(entity.getStatus());
+        dto.setStartTime(entity.getStartTime());
+        dto.setEndTime(entity.getEndTime());
+        dto.setCostTime(entity.getCostTime());
+        dto.setLastInstanceId(entity.getLastInstanceId());
+        dto.setNextInstanceId(entity.getNextInstanceId());
+        dto.setWorkerId(entity.getWorkerId());
+        dto.setWorkerResult(entity.getWorkerResult());
+        dto.setWorkerResultText(extractWorkerResultText(entity.getWorkerResult()));
+        dto.setLogPath(extractLogPath(entity.getWorkerResult()));
+        return dto;
+    }
+
+    private String extractWorkerResultText(JsonNode workerResult) {
+        if (workerResult == null || workerResult.isNull()) {
+            return null;
+        }
+        if (workerResult.hasNonNull("result")) {
+            return workerResult.get("result").asText();
+        }
+        if (workerResult.hasNonNull("appId")) {
+            return "appId: " + workerResult.get("appId").asText();
+        }
+        if (workerResult.hasNonNull("workerId")) {
+            return "workerId: " + workerResult.get("workerId").asText();
+        }
+        return workerResult.toString();
+    }
+
+    private String extractLogPath(JsonNode workerResult) {
+        if (workerResult == null || workerResult.isNull() || !workerResult.hasNonNull("logPath")) {
+            return null;
+        }
+        return workerResult.get("logPath").asText();
+    }
+
+    private Path resolveLogPath(TaskInstanceEntity entity, String logType) {
+        String workerLogPath = extractLogPath(entity.getWorkerResult());
+        if (LOG_TYPE_LOG.equals(logType) && StringUtils.isNotBlank(workerLogPath)) {
+            return Path.of(workerLogPath);
+        }
+
+        Path fallback = findConventionLogPath(entity, logType);
+        if (fallback != null) {
+            return fallback;
+        }
+
+        if (StringUtils.isNotBlank(workerLogPath)) {
+            return Path.of(workerLogPath);
+        }
+        return null;
+    }
+
+    private Path findConventionLogPath(TaskInstanceEntity entity, String logType) {
+        String date = formatDate(entity.getStartTime());
+        if (date == null || entity.getFlowInstanceId() == null || entity.getId() == null) {
+            return null;
+        }
+
+        if (LOG_TYPE_STATUS.equals(logType)) {
+            return Path.of(modulesRoot, "task-status", date, entity.getFlowInstanceId().toString(),
+                    entity.getId().toString(), "taskStatus.log");
+        }
+
+        Path logDir = Path.of(modulesRoot, "logs", date, entity.getFlowInstanceId().toString(), entity.getId().toString());
+        if (!Files.isDirectory(logDir)) {
+            return null;
+        }
+        String suffix = LOG_TYPE_ERROR.equals(logType) ? ".err.log" : ".log";
+        return findFirstLogFile(logDir, suffix, LOG_TYPE_LOG.equals(logType));
+    }
+
+    private Path findFirstLogFile(Path directory, String suffix, boolean excludeErrorLog) {
+        try (Stream<Path> stream = Files.list(directory)) {
+            return stream.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(suffix))
+                    .filter(path -> !excludeErrorLog || !path.getFileName().toString().endsWith(".err.log"))
+                    .sorted()
+                    .findFirst()
+                    .orElse(null);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private String formatDate(Long timestamp) {
+        if (timestamp == null) {
+            return null;
+        }
+        return java.time.Instant.ofEpochMilli(timestamp)
+                .atZone(java.time.ZoneId.systemDefault())
+                .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+    }
+
+    private TaskInstanceLogDto readLogFile(Path path, String logType, Long offsetValue, Integer limitValue) {
+        TaskInstanceLogDto dto = new TaskInstanceLogDto();
+        dto.setLogType(logType);
+        dto.setPath(path != null ? path.toString() : null);
+        dto.setContent("");
+        dto.setNextOffset(offsetValue != null ? Math.max(0L, offsetValue) : 0L);
+        dto.setHasMore(false);
+
+        if (path == null || !Files.isRegularFile(path)) {
+            return dto;
+        }
+
+        long offset = offsetValue != null ? Math.max(0L, offsetValue) : 0L;
+        int limit = normalizeLimit(limitValue);
+        try (RandomAccessFile file = new RandomAccessFile(path.toFile(), "r")) {
+            long length = file.length();
+            if (offset > length) {
+                offset = length;
+            }
+            int readSize = (int) Math.min(limit, length - offset);
+            byte[] buffer = new byte[readSize];
+            file.seek(offset);
+            int read = file.read(buffer);
+            if (read > 0) {
+                dto.setContent(new String(buffer, 0, read, StandardCharsets.UTF_8));
+                dto.setNextOffset(offset + read);
+                dto.setHasMore(dto.getNextOffset() < length);
+            } else {
+                dto.setNextOffset(offset);
+            }
+            return dto;
+        } catch (IOException e) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "读取任务日志失败");
+        }
+    }
+
+    private int normalizeLimit(Integer limitValue) {
+        if (limitValue == null || limitValue <= 0) {
+            return DEFAULT_LOG_LIMIT;
+        }
+        return Math.min(limitValue, MAX_LOG_LIMIT);
     }
 }

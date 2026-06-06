@@ -89,7 +89,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
         RunningTaskContext context = contextStore.getOrCreate(request);
         synchronized (context) {
             if (isDuplicateSubmit(context)) {
-                return submitResponseFromContext(context);
+                return responseFromContext(context);
             }
 
             PluginTaskExecutor executor = routeExecutor(request);
@@ -98,16 +98,26 @@ public class WorkerTaskService implements WorkerTaskOperator {
                 updateContext(context, result);
                 return result;
             }
+            TaskRequest preparedRequest;
+            try {
+                preparedRequest = prepareRequest(executor, request);
+            } catch (RuntimeException e) {
+                TaskResult result = failureResult(request, StatusEnum.SUBMIT_FAILURE, e.getMessage());
+                updateContext(context, result);
+                return result;
+            }
+            context.updateRequest(preparedRequest);
+            contextStore.save(context);
 
-            if (request.getSubmitMode() == SubmitModeEnum.ASYNC) {
-                TaskResult accepted = baseResult(request, StatusEnum.SUBMIT_SUCCESS, "任务已异步提交");
+            if (preparedRequest.getSubmitMode() == SubmitModeEnum.ASYNC) {
+                TaskResult accepted = baseResult(preparedRequest, StatusEnum.SUBMIT_SUCCESS, "任务已异步提交");
                 updateContext(context, accepted);
-                asyncExecutor.execute(() -> submitPluginAndReport(executor, request, context));
+                asyncExecutor.execute(() -> submitPluginAndReport(executor, preparedRequest, context));
                 return accepted;
             }
 
-            TaskResult result = safeExecuteSubmit(executor, request);
-            TaskResult submitResult = normalizeSyncSubmitResult(request, result);
+            TaskResult result = safeExecuteSubmit(executor, preparedRequest);
+            TaskResult submitResult = normalizeSyncSubmitResult(preparedRequest, result);
             updateContext(context, submitResult);
             if (result != submitResult) {
                 reportAndUpdate(context, result);
@@ -122,13 +132,14 @@ public class WorkerTaskService implements WorkerTaskOperator {
         validateTaskInstanceId(request);
         RunningTaskContext context = currentContext(request);
         if (context != null && isFinalState(context.getTaskState())) {
-            return submitResponseFromContext(context);
+            return responseFromContext(context);
         }
-        PluginTaskExecutor executor = routeExecutor(resolveRequest(request, context));
+        TaskRequest resolvedRequest = resolveRequest(request, context);
+        PluginTaskExecutor executor = routeExecutor(resolvedRequest);
         if (executor == null) {
-            return failureResult(request, StatusEnum.STOP_FAILURE, "未匹配到插件执行器: " + request.getPluginType());
+            return failureResult(resolvedRequest, StatusEnum.STOP_FAILURE, "未匹配到插件执行器: " + resolvedRequest.getPluginType());
         }
-        TaskResult result = safeExecuteControl(executor, request, StatusEnum.STOP_FAILURE, TaskControlAction.STOP);
+        TaskResult result = safeExecuteControl(executor, resolvedRequest, StatusEnum.STOP_FAILURE, TaskControlAction.STOP);
         updateContext(context, result);
         reportAndUpdate(context, result);
         return result;
@@ -140,13 +151,14 @@ public class WorkerTaskService implements WorkerTaskOperator {
         validateTaskInstanceId(request);
         RunningTaskContext context = currentContext(request);
         if (context != null && isFinalState(context.getTaskState())) {
-            return submitResponseFromContext(context);
+            return responseFromContext(context);
         }
-        PluginTaskExecutor executor = routeExecutor(resolveRequest(request, context));
+        TaskRequest resolvedRequest = resolveRequest(request, context);
+        PluginTaskExecutor executor = routeExecutor(resolvedRequest);
         if (executor == null) {
-            return failureResult(request, StatusEnum.KILLED, "未匹配到插件执行器: " + request.getPluginType());
+            return failureResult(resolvedRequest, StatusEnum.KILLED, "未匹配到插件执行器: " + resolvedRequest.getPluginType());
         }
-        TaskResult result = safeExecuteControl(executor, request, StatusEnum.KILLED, TaskControlAction.KILL);
+        TaskResult result = safeExecuteControl(executor, resolvedRequest, StatusEnum.KILLED, TaskControlAction.KILL);
         updateContext(context, result);
         reportAndUpdate(context, result);
         return result;
@@ -157,15 +169,16 @@ public class WorkerTaskService implements WorkerTaskOperator {
         normalizeRequest(request);
         validateTaskInstanceId(request);
         RunningTaskContext context = currentContext(request);
-        PluginTaskExecutor executor = routeExecutor(resolveRequest(request, context));
+        TaskRequest resolvedRequest = resolveRequest(request, context);
+        PluginTaskExecutor executor = routeExecutor(resolvedRequest);
         if (executor == null) {
-            return failureResult(request, StatusEnum.RUN_FAILURE, "未匹配到插件执行器: " + request.getPluginType());
+            return failureResult(resolvedRequest, StatusEnum.RUN_FAILURE, "未匹配到插件执行器: " + resolvedRequest.getPluginType());
         }
-        TaskResult result = safeExecuteControl(executor, request, StatusEnum.RUN_SUCCESS, TaskControlAction.FINISH);
+        TaskResult result = safeExecuteControl(executor, resolvedRequest, StatusEnum.RUN_SUCCESS, TaskControlAction.FINISH);
         updateContext(context, result);
         if (isFinalState(result.getTaskState())) {
-            executor.destroyTask(request);
-            contextStore.remove(request.getTaskInstanceId());
+            executor.destroyTask(resolvedRequest);
+            contextStore.remove(resolvedRequest.getTaskInstanceId());
         }
         return result;
     }
@@ -182,6 +195,15 @@ public class WorkerTaskService implements WorkerTaskOperator {
         } catch (RuntimeException e) {
             return failureResult(request, StatusEnum.RUN_FAILURE, e.getMessage());
         }
+    }
+
+    private TaskRequest prepareRequest(PluginTaskExecutor executor, TaskRequest request) {
+        TaskRequest preparedRequest = executor.prepareTask(request);
+        if (preparedRequest == null) {
+            throw new IllegalArgumentException("插件准备结果不能为空");
+        }
+        normalizeRequest(preparedRequest);
+        return preparedRequest;
     }
 
     private TaskResult safeExecuteControl(PluginTaskExecutor executor, TaskRequest request, StatusEnum defaultState,
@@ -222,21 +244,15 @@ public class WorkerTaskService implements WorkerTaskOperator {
         return fillResult(request, result, StatusEnum.RUNNING);
     }
 
-    private TaskResult submitResponseFromContext(RunningTaskContext context) {
-        if (context.getLastResult() != null) {
-            return context.getLastResult();
+    private TaskResult responseFromContext(RunningTaskContext context) {
+        TaskResult result = context.toTaskResult();
+        if (result.getTaskState() == null) {
+            StatusEnum state = context.getSubmitMode() == SubmitModeEnum.ASYNC ? StatusEnum.SUBMIT_SUCCESS : StatusEnum.RUNNING;
+            result.setTaskState(state);
         }
-        StatusEnum state = context.getSubmitMode() == SubmitModeEnum.ASYNC ? StatusEnum.SUBMIT_SUCCESS : StatusEnum.RUNNING;
-        TaskResult result = TaskResult.builder()
-                .taskInstanceId(context.getTaskInstanceId())
-                .flowInstanceId(context.getFlowInstanceId())
-                .taskName(context.getTaskName())
-                .taskState(state)
-                .appId(context.getAppId())
-                .submitMode(context.getSubmitMode())
-                .result("重复请求返回当前任务上下文")
-                .build();
-        context.updateResult(result);
+        if (result.getResult() == null) {
+            result.setResult("重复请求返回当前任务上下文");
+        }
         return result;
     }
 
@@ -257,11 +273,8 @@ public class WorkerTaskService implements WorkerTaskOperator {
     }
 
     private TaskRequest resolveRequest(TaskRequest request, RunningTaskContext context) {
-        if (request.getPluginType() == null && context != null && context.getRequest() != null) {
-            request.setPluginType(context.getRequest().getPluginType());
-        }
-        if (request.getAppId() == null && context != null) {
-            request.setAppId(context.getAppId());
+        if (context != null) {
+            return context.fillRequest(request);
         }
         return request;
     }
@@ -274,7 +287,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
     }
 
     private boolean isDuplicateSubmit(RunningTaskContext context) {
-        return context != null && context.getLastResult() != null;
+        return context != null && context.isSubmitted();
     }
 
     private void validateSubmitRequest(TaskRequest request) {

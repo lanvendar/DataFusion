@@ -4,7 +4,11 @@ import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.Variable;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
+
+import java.util.Map;
 
 /**
  * Worker 本地运行中任务上下文.
@@ -37,7 +41,12 @@ public class RunningTaskContext {
     private String pluginType;
 
     /**
-     * 第三方插件运行唯一主键 appId.
+     * agent 终端运行模式.
+     */
+    private String runMode;
+
+    /**
+     * 终端任务 ID.
      */
     private String appId;
 
@@ -52,14 +61,34 @@ public class RunningTaskContext {
     private SubmitModeEnum submitMode;
 
     /**
-     * 原始请求.
+     * 是否已经提交过.
      */
-    private TaskRequest request;
+    private boolean submitted;
 
     /**
-     * 最近一次任务结果.
+     * 渲染后的任务执行数据.
      */
-    private TaskResult lastResult;
+    private JsonNode taskData;
+
+    /**
+     * 插件参数.
+     */
+    private JsonNode pluginParam;
+
+    /**
+     * 输出变量列表.
+     */
+    private Map<String, Variable> outputVars;
+
+    /**
+     * 任务日志文件路径.
+     */
+    private String logPath;
+
+    /**
+     * 执行结果说明.
+     */
+    private String result;
 
     /**
      * 创建时间.
@@ -87,7 +116,8 @@ public class RunningTaskContext {
         context.setAppId(request.getAppId());
         context.setTaskState(request.getTaskState());
         context.setSubmitMode(request.getSubmitMode());
-        context.setRequest(request);
+        context.setTaskData(request.getTaskData());
+        context.setPluginParam(request.getPluginParam());
         context.setCreateTime(now);
         context.setUpdateTime(now);
         return context;
@@ -99,11 +129,116 @@ public class RunningTaskContext {
      * @param result 任务结果
      */
     public void updateResult(TaskResult result) {
-        this.lastResult = result;
+        this.submitted = true;
         if (result != null) {
-            this.taskState = result.getTaskState();
-            this.appId = result.getAppId();
+            if (result.getTaskState() != null) {
+                this.taskState = result.getTaskState();
+            }
+            if (result.getAppId() != null) {
+                this.appId = result.getAppId();
+            }
+            if (result.getOutputVars() != null) {
+                this.outputVars = result.getOutputVars();
+            }
+            if (result.getLogPath() != null) {
+                this.logPath = result.getLogPath();
+            }
+            if (result.getResult() != null) {
+                this.result = result.getResult();
+            }
+            if (result.getSubmitMode() != null) {
+                this.submitMode = result.getSubmitMode();
+            }
         }
         this.updateTime = System.currentTimeMillis();
+    }
+
+    /**
+     * 更新任务请求快照.
+     *
+     * @param request 任务请求
+     */
+    public void updateRequest(TaskRequest request) {
+        if (request == null) {
+            return;
+        }
+        if (request.getFlowInstanceId() != null) {
+            this.flowInstanceId = request.getFlowInstanceId();
+        }
+        if (request.getTaskName() != null) {
+            this.taskName = request.getTaskName();
+        }
+        if (request.getPluginType() != null) {
+            this.pluginType = request.getPluginType();
+        }
+        if (request.getAppId() != null) {
+            this.appId = request.getAppId();
+        }
+        if (request.getTaskState() != null) {
+            this.taskState = request.getTaskState();
+        }
+        if (request.getSubmitMode() != null) {
+            this.submitMode = request.getSubmitMode();
+        }
+        if (request.getTaskData() != null) {
+            this.taskData = request.getTaskData();
+        }
+        if (request.getPluginParam() != null) {
+            this.pluginParam = request.getPluginParam();
+        }
+        this.updateTime = System.currentTimeMillis();
+    }
+
+    /**
+     * 根据当前上下文构建任务结果.
+     *
+     * @return 任务结果
+     */
+    public TaskResult toTaskResult() {
+        return TaskResult.builder()
+                .taskInstanceId(taskInstanceId)
+                .flowInstanceId(flowInstanceId)
+                .taskName(taskName)
+                .taskState(taskState)
+                .outputVars(outputVars)
+                .appId(appId)
+                .logPath(logPath)
+                .submitMode(submitMode)
+                .result(result)
+                .build();
+    }
+
+    /**
+     * 使用上下文补齐任务请求.
+     *
+     * @param request 任务请求
+     * @return 补齐后的任务请求
+     */
+    public TaskRequest fillRequest(TaskRequest request) {
+        if (request.getFlowInstanceId() == null) {
+            request.setFlowInstanceId(flowInstanceId);
+        }
+        if (request.getTaskName() == null) {
+            request.setTaskName(taskName);
+        }
+        if (request.getTaskState() == null) {
+            request.setTaskState(taskState);
+        }
+        if (request.getAppId() == null) {
+            request.setAppId(appId);
+        }
+        if (request.getPluginType() == null) {
+            request.setPluginType(pluginType);
+        }
+        if (request.getTaskData() == null) {
+            request.setTaskData(taskData);
+        }
+        if (request.getPluginParam() == null) {
+            request.setPluginParam(pluginParam);
+        }
+        if (request.getSubmitMode() == null) {
+            request.setSubmitMode(submitMode);
+        }
+        return request;
     }
 }

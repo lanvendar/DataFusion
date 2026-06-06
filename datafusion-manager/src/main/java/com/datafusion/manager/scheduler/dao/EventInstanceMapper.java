@@ -1,6 +1,8 @@
 package com.datafusion.manager.scheduler.dao;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.datafusion.manager.scheduler.dto.EventInstanceQueryDto;
 import com.datafusion.manager.scheduler.po.EventInstanceEntity;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -16,6 +18,16 @@ import java.util.List;
  */
 @Mapper
 public interface EventInstanceMapper extends BaseMapper<EventInstanceEntity> {
+
+    /**
+     * 分页查询事件实例.
+     *
+     * @param page  分页对象
+     * @param query 查询条件
+     * @return 事件实例分页
+     */
+    Page<EventInstanceEntity> pageEventInstance(Page<EventInstanceEntity> page,
+                                                @Param("query") EventInstanceQueryDto query);
 
     /**
      * 按事件ID和类型查询事件实例列表(带时间范围过滤).

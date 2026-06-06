@@ -46,7 +46,7 @@ export function useFlowSubmit({
         flowType: values.flowType,
         triggerId: values.triggerId,
         depEventIds: values.depEventIds || [],
-        flowParam: normalizeJsonText(values.flowParamText, "流程参数"),
+        flowParam: normalizeJsonText(values.flowParamText, "流程变量参数"),
         startTime: values.scheduleWindow?.[0]?.valueOf(),
         endTime: values.scheduleWindow?.[1]?.valueOf(),
       };

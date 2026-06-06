@@ -16,9 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * 任务初始化消息处理器.
@@ -99,19 +96,58 @@ public class TaskInitMsgHandler extends AbstractTaskMsgHandler {
         // taskIns.setEventTime(taskInfo.getEventTime());
         // taskIns.setStartTime(null);
         // taskIns.setEndTime(null);
-        ParamData taskParamData = taskInfo.getTaskParam();
-        // 合并流程参数至任务参数,包含业务时间.
-        if (null != msg.getFlowParamData()) {
-            Map<String, Variable> flowVars = Optional.ofNullable(msg.getFlowParamData().getVars()).orElseGet(HashMap::new);
-            Map<String, Variable> taskVars = Optional.ofNullable(taskParamData.getVars()).orElseGet(HashMap::new);
-
-            // 合并参数,优先取task中的参数
-            Map<String, Variable> mergedMap = Stream.concat(taskVars.entrySet().stream(), flowVars.entrySet().stream())
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1));
-            taskParamData.setVars(mergedMap);
-        }
-        taskIns.setTaskData(taskParamData);
+        // 合并流程变量至任务变量, 包含业务时间, 变量冲突时优先取任务变量.
+        taskIns.setTaskParam(mergeTaskParam(taskInfo.getTaskParam(), msg.getFlowParamData()));
+        taskIns.setTaskData(taskInfo.getDefinition());
         taskIns.setTaskResult(null);
         return taskIns;
+    }
+
+    /**
+     * 合并任务变量和流程变量.
+     *
+     * @param taskParam 任务变量
+     * @param flowParam 流程变量
+     * @return 合并后的任务变量
+     */
+    private ParamData mergeTaskParam(ParamData taskParam, ParamData flowParam) {
+        ParamData result = new ParamData();
+        Map<String, Variable> mergedVars = new HashMap<>();
+        mergedVars.putAll(copyVars(flowParam));
+        mergedVars.putAll(copyVars(taskParam));
+        result.setVars(mergedVars);
+        return result;
+    }
+
+    /**
+     * 拷贝变量Map.
+     *
+     * @param paramData 参数对象
+     * @return 变量Map
+     */
+    private Map<String, Variable> copyVars(ParamData paramData) {
+        Map<String, Variable> copiedVars = new HashMap<>();
+        if (paramData == null || paramData.getVars() == null) {
+            return copiedVars;
+        }
+        paramData.getVars().forEach((key, value) -> copiedVars.put(key, copyVariable(value)));
+        return copiedVars;
+    }
+
+    /**
+     * 拷贝变量对象.
+     *
+     * @param source 原变量
+     * @return 新变量
+     */
+    private Variable copyVariable(Variable source) {
+        if (source == null) {
+            return null;
+        }
+        Variable target = new Variable();
+        target.setName(source.getName());
+        target.setType(source.getType());
+        target.setValue(source.getValue());
+        return target;
     }
 }

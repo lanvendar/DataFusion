@@ -1,6 +1,10 @@
 package com.datafusion.manager.scheduler.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.datafusion.common.spring.dto.request.page.PageQuery;
+import com.datafusion.common.spring.dto.response.PageResponse;
+import com.datafusion.manager.scheduler.dto.FlowInstanceDto;
+import com.datafusion.manager.scheduler.dto.SchedulerInstanceQueryDto;
 import com.datafusion.manager.scheduler.po.FlowInstanceEntity;
 
 import java.util.List;
@@ -14,6 +18,22 @@ import java.util.UUID;
  * @since 1.0.0
  */
 public interface FlowInstanceService extends IService<FlowInstanceEntity> {
+
+    /**
+     * 分页查询流程实例.
+     *
+     * @param query 查询条件
+     * @return 流程实例分页
+     */
+    PageResponse<FlowInstanceDto> pageFlowInstance(PageQuery<SchedulerInstanceQueryDto> query);
+
+    /**
+     * 查询流程实例详情.
+     *
+     * @param id 流程实例ID
+     * @return 流程实例详情
+     */
+    FlowInstanceDto getFlowInstanceById(UUID id);
 
     /**
      * 根据实例ID查询流程实例.

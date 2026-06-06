@@ -62,7 +62,7 @@ public class TaskInstanceEntity extends BaseIdEntity {
     private String description;
 
     /**
-     * 任务参数(JSON).
+     * 任务变量参数(JSON).
      */
     @TableField("task_param")
     private JsonNode taskParam;

@@ -20,6 +20,16 @@ public interface PluginTaskExecutor {
     String pluginType();
 
     /**
+     * 任务提交前的插件侧准备动作.
+     *
+     * @param request 任务请求
+     * @return 准备后的任务请求
+     */
+    default TaskRequest prepareTask(TaskRequest request) {
+        return request;
+    }
+
+    /**
      * 提交任务.
      *
      * @param request 任务请求

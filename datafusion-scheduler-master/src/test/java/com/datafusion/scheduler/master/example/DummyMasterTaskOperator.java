@@ -48,7 +48,7 @@ public class DummyMasterTaskOperator implements MasterTaskOperator {
                 .flowInstanceId(taskIns.getFlowInstanceId())
                 .taskName(taskIns.getTaskName())
                 .taskState(state)
-                .outputVars(taskIns.getTaskData().getVars())
+                .outputVars(taskIns.getTaskParam() != null ? taskIns.getTaskParam().getVars() : null)
                 .workerId("dummyWorkerId")
                 .appId("dummyAppId")
                 .submitMode(SubmitModeEnum.SYNC)

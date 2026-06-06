@@ -1,4 +1,4 @@
-package com.datafusion.agent.controller;
+package com.datafusion.agent.rpc;
 
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.AgentRuntimeState;
@@ -21,16 +21,16 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
- * Agent 内部调度接口.
+ * Agent 内部调度 RPC Provider.
  *
  * @author datafusion
- * @version 1.0.0, 2026/6/2
+ * @version 1.0.0, 2026/6/6
  * @since 1.0.0
  */
 @Slf4j
 @RestController
-@RequestMapping("/internal/schedule")
-public class InternalScheduleController {
+@RequestMapping("/internal/scheduler")
+public class AgentExecutorRpcProvider {
 
     /**
      * worker 任务操作入口.
@@ -60,9 +60,9 @@ public class InternalScheduleController {
      * @param runtimeState       agent 运行状态
      * @param properties         agent 配置
      */
-    public InternalScheduleController(WorkerTaskOperator workerTaskOperator,
-            @Qualifier("agentTaskControlPool") ThreadPoolExecutor taskControlPool, AgentRuntimeState runtimeState,
-            AgentProperties properties) {
+    public AgentExecutorRpcProvider(WorkerTaskOperator workerTaskOperator,
+                                    @Qualifier("agentTaskControlPool") ThreadPoolExecutor taskControlPool, AgentRuntimeState runtimeState,
+                                    AgentProperties properties) {
         this.workerTaskOperator = workerTaskOperator;
         this.taskControlPool = taskControlPool;
         this.runtimeState = runtimeState;
@@ -77,7 +77,7 @@ public class InternalScheduleController {
      */
     @PostMapping("/submitTask")
     public Result<TaskResult> submitTask(@RequestBody TaskRequest request) {
-        return execute(request, () -> workerTaskOperator.submitTask(request));
+        return execute(() -> workerTaskOperator.submitTask(request));
     }
 
     /**
@@ -88,7 +88,7 @@ public class InternalScheduleController {
      */
     @PostMapping("/stopTask")
     public Result<TaskResult> stopTask(@RequestBody TaskRequest request) {
-        return execute(request, () -> workerTaskOperator.stopTask(request));
+        return execute(() -> workerTaskOperator.stopTask(request));
     }
 
     /**
@@ -99,7 +99,7 @@ public class InternalScheduleController {
      */
     @PostMapping("/killTask")
     public Result<TaskResult> killTask(@RequestBody TaskRequest request) {
-        return execute(request, () -> workerTaskOperator.killTask(request));
+        return execute(() -> workerTaskOperator.killTask(request));
     }
 
     /**
@@ -110,17 +110,16 @@ public class InternalScheduleController {
      */
     @PostMapping("/finishTask")
     public Result<TaskResult> finishTask(@RequestBody TaskRequest request) {
-        return execute(request, () -> workerTaskOperator.finishTask(request));
+        return execute(() -> workerTaskOperator.finishTask(request));
     }
 
-    private Result<TaskResult> execute(TaskRequest request, Callable<TaskResult> action) {
+    private Result<TaskResult> execute(Callable<TaskResult> action) {
         if (!isReady()) {
             return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "agent未注册到manager,暂不可调度");
         }
         try {
             Future<TaskResult> future = taskControlPool.submit(action);
-            TaskResult result = future.get();
-            return Result.success(result);
+            return Result.success(future.get());
         } catch (RejectedExecutionException e) {
             log.warn("任务控制线程池已满", e);
             return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "agent任务控制线程池已满");
@@ -129,7 +128,8 @@ public class InternalScheduleController {
             return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "agent任务控制请求被中断");
         } catch (ExecutionException e) {
             log.warn("agent任务控制请求执行失败", e);
-            return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, e.getMessage());
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, cause.getMessage());
         }
     }
 

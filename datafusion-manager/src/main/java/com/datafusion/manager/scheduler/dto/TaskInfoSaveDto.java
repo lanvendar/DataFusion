@@ -52,9 +52,9 @@ public class TaskInfoSaveDto {
     private String taskType;
 
     /**
-     * 任务参数(JSON).
+     * 任务变量参数(JSON).
      */
-    @Schema(name = "taskParam", description = "任务参数(JSON)")
+    @Schema(name = "taskParam", description = "任务变量参数(JSON)")
     private String taskParam;
 
     /**
