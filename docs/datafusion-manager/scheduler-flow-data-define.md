@@ -75,7 +75,7 @@ CREATE TABLE scheduler_task_link (
 | `trigger_id` | `triggerId` | `UUID` | 是 | 无 | 触发器 ID |
 | `description` | `description` | `String` | 否 | 无 | 流程描述 |
 | `flow_type` | `flowType` | `String` | 是 | 无 | 流程类型 |
-| `flow_param` | `flowParam` | `JsonNode` | 否 | 无 | 流程参数 JSON |
+| `flow_param` | `flowParam` | `JsonNode` | 否 | 无 | 流程变量参数 JSON，遵循 `ParamData.vars` |
 | `start_time` | `startTime` | `Long` | 否 | 无 | 调度开始时间 |
 | `end_time` | `endTime` | `Long` | 否 | 无 | 调度结束时间 |
 | `enabled` | `enabled` | `Boolean` | 是 | `false` | 是否启用调度 |
@@ -99,7 +99,7 @@ CREATE TABLE scheduler_task_link (
 | `groupId` | `group_id` | `UUID` | `@TableField("group_id")` | 流程分组 |
 | `description` | `description` | `String` | `@TableField("description")` | 流程描述 |
 | `flowType` | `flow_type` | `String` | `@TableField("flow_type")` | 流程类型 |
-| `flowParam` | `flow_param` | `JsonNode` | `@TableField("flow_param")` | 流程参数 JSON |
+| `flowParam` | `flow_param` | `JsonNode` | `@TableField("flow_param")` | 流程变量参数 JSON，遵循 `ParamData.vars` |
 | `startTime` | `start_time` | `Long` | `@TableField("start_time")` | 调度开始时间 |
 | `endTime` | `end_time` | `Long` | `@TableField("end_time")` | 调度结束时间 |
 | `enabled` | `enabled` | `Boolean` | `@TableField("enabled")` | 是否启用调度 |
@@ -127,7 +127,7 @@ CREATE TABLE scheduler_task_link (
 | `FlowInfoSaveDto` | `Request` | 新增流程 | `groupId` | `UUID` | 可选 | 流程分组 |
 | `FlowInfoSaveDto` | `Request` | 新增流程 | `description` | `String` | 可选 | 流程描述 |
 | `FlowInfoSaveDto` | `Request` | 新增流程 | `flowType` | `String` | `@NotBlank` | 流程类型 |
-| `FlowInfoSaveDto` | `Request` | 新增流程 | `flowParam` | `String` | 可选，JSON 字符串 | 流程参数 |
+| `FlowInfoSaveDto` | `Request` | 新增流程 | `flowParam` | `String` | 可选，JSON 字符串 | 流程变量参数 |
 | `FlowInfoSaveDto` | `Request` | 新增流程 | `startTime` | `Long` | 可选 | 调度开始时间 |
 | `FlowInfoSaveDto` | `Request` | 新增流程 | `endTime` | `Long` | 可选 | 调度结束时间 |
 | `FlowInfoSaveDto` | `Request` | 新增流程 | `depEventIds` | `List<String>` | 可选 | 依赖事件 ID 列表 |
@@ -138,7 +138,7 @@ CREATE TABLE scheduler_task_link (
 | `FlowInfoUpdateDto` | `Request` | 修改流程 | `groupId` | `UUID` | 非 `null` 时更新 | 流程分组 |
 | `FlowInfoUpdateDto` | `Request` | 修改流程 | `description` | `String` | 非 `null` 时更新 | 流程描述 |
 | `FlowInfoUpdateDto` | `Request` | 修改流程 | `flowType` | `String` | 非空时更新 | 流程类型 |
-| `FlowInfoUpdateDto` | `Request` | 修改流程 | `flowParam` | `String` | 非 `null` 时按 JSON 更新 | 流程参数 |
+| `FlowInfoUpdateDto` | `Request` | 修改流程 | `flowParam` | `String` | 非 `null` 时按 JSON 更新 | 流程变量参数 |
 | `FlowInfoUpdateDto` | `Request` | 修改流程 | `startTime` | `Long` | 非 `null` 时更新 | 调度开始时间 |
 | `FlowInfoUpdateDto` | `Request` | 修改流程 | `endTime` | `Long` | 非 `null` 时更新 | 调度结束时间 |
 | `FlowInfoUpdateDto` | `Request` | 修改流程 | `depEventIds` | `List<String>` | 非 `null` 时覆盖 | 依赖事件 ID 列表 |
@@ -146,7 +146,7 @@ CREATE TABLE scheduler_task_link (
 | `FlowPublishDto` | `Request` | 发布流程 | `id` | `UUID` | `@NotNull` | 流程 ID |
 | `FlowPublishDto` | `Request` | 发布流程 | `enableSchedule` | `Boolean` | 可选 | 发布后是否同时启用调度 |
 | `FlowInfoDto` | `Response` | 查询响应 | `id/flowName/flowCode/groupId/description/flowType` | 多类型 | 无 | 流程基础信息 |
-| `FlowInfoDto` | `Response` | 查询响应 | `flowParam` | `String` | `JsonNode` -> JSON 字符串 | 流程参数 |
+| `FlowInfoDto` | `Response` | 查询响应 | `flowParam` | `String` | `JsonNode` -> JSON 字符串 | 流程变量参数 |
 | `FlowInfoDto` | `Response` | 查询响应 | `startTime/endTime/enabled` | 多类型 | 无 | 调度窗口和启用状态 |
 | `FlowInfoDto` | `Response` | 查询响应 | `depEventIds` | `List<String>` | 逗号字符串拆分 | 依赖事件 ID |
 | `FlowInfoDto` | `Response` | 查询响应 | `eventId/triggerId/publishState/publishVersion` | 多类型 | 无 | 事件、触发器和发布信息 |
@@ -169,7 +169,7 @@ CREATE TABLE scheduler_task_link (
 | `NodeDataDto` | `Response` | DAG 节点业务数据 | `taskType` | `String` | 响应时填充 | 任务类型 |
 | `NodeDataDto` | `Response` | DAG 节点业务数据 | `description` | `String` | 响应时填充 | 任务描述 |
 | `NodeDataDto` | `Response` | DAG 节点业务数据 | `syncFlag` | `Boolean` | 响应时填充 | 任务同步状态 |
-| `NodeDataDto` | `Response` | DAG 节点业务数据 | `taskParam` | `String` | 响应时填充，JSON 字符串 | 任务参数，用于前端解析 `ParamData.params` |
+| `NodeDataDto` | `Response` | DAG 节点业务数据 | `taskParam` | `String` | 响应时填充，JSON 字符串 | 任务变量参数，用于前端解析 `ParamData.vars` |
 | `NodeDataDto` | `Response` | DAG 节点业务数据 | `definition` | `String` | 响应时填充，JSON 字符串 | 任务定义 |
 | `TaskInfoQueryDto` | `Query` | 流程编排任务池查询 | `keyword` | `String` | `ILIKE` OR 查询 | 同时模糊匹配 `taskName` 和 `taskCode` |
 | `TaskInfoQueryDto` | `Query` | 流程编排任务池查询 | `isBound` | `Boolean` | `eq false` | 任务池固定查询未绑定任务 |
@@ -211,8 +211,8 @@ CREATE TABLE scheduler_task_link (
 | 字段 | 存储类型 | Java 类型 | 转换规则 | 说明 |
 |------|----------|-----------|----------|------|
 | `flowType` | `varchar` | `String` | `FlowStorageImpl` 中转 `FlowTypeEnum.fromString` | API 当前使用字符串，不做枚举校验 |
-| `flowParam` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 流程参数，遵循 `ParamData` 结构 |
-| `taskParam` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 任务参数，遵循 `ParamData` 结构；`params` 用于基本信息展示，`vars` 用于调度信息展示 |
+| `flowParam` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 流程变量参数，遵循 `ParamData.vars` 结构 |
+| `taskParam` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 任务变量参数，遵循 `ParamData.vars` 结构；任务定义本体使用 `definition` |
 | `depEventIds` | `varchar` | `String` | API 使用 `List<String>`，DB 使用逗号分隔字符串 | 后续建议下沉为关联表或 JSON 数组 |
 | `view` | `json` | `JsonNode` | 当前流程接口不直接写入 | 流程画布级视图 |
 | `task_info.view` | `json` | `JsonNode` | `NodeViewDto` 与 `JsonNode` 互转 | DAG 节点视图；前端需要持久化的节点位置、样式和展示信息都可放入 `nodeView` |

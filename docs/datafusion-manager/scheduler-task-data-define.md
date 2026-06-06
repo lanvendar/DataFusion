@@ -62,7 +62,7 @@ CREATE TABLE scheduler_task_info (
 | `description` | `description` | `String` | 否 | 无 | 任务描述 |
 | `task_type_id` | `taskTypeId` | `String` | 是 | 无 | 任务类型 ID |
 | `task_type` | `taskType` | `String` | 是 | 无 | 任务类型，用于查询过滤和调度模型转换 |
-| `task_param` | `taskParam` | `JsonNode` | 否 | 无 | 任务参数 JSON |
+| `task_param` | `taskParam` | `JsonNode` | 否 | 无 | 任务变量参数 JSON，遵循 `ParamData.vars` |
 | `definition` | `definition` | `JsonNode` | 否 | 无 | 任务定义 JSON |
 | `is_bound` | `isBound` | `Boolean` | 是 | `false` | 是否已绑定流程 |
 | `flow_id` | `flowId` | `UUID` | 否 | 无 | 绑定的流程 ID |
@@ -88,7 +88,7 @@ CREATE TABLE scheduler_task_info (
 | `description` | `description` | `String` | `@TableField("description")` | 任务描述 |
 | `taskTypeId` | `task_type_id` | `String` | `@TableField("task_type_id")` | 任务类型 ID |
 | `taskType` | `task_type` | `String` | `@TableField("task_type")` | 任务类型 |
-| `taskParam` | `task_param` | `JsonNode` | `@TableField("task_param")` | 任务参数 JSON |
+| `taskParam` | `task_param` | `JsonNode` | `@TableField("task_param")` | 任务变量参数 JSON，遵循 `ParamData.vars` |
 | `definition` | `definition` | `JsonNode` | `@TableField("definition")` | 任务定义 JSON |
 | `isBound` | `is_bound` | `Boolean` | `@TableField("is_bound")` | 是否绑定流程 |
 | `flowId` | `flow_id` | `UUID` | `@TableField("flow_id")` | 流程 ID |
@@ -119,7 +119,7 @@ CREATE TABLE scheduler_task_info (
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `description` | `String` | 可选 | 任务描述 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `taskTypeId` | `String` | `@NotBlank` | 任务类型 ID |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `taskType` | `String` | `@NotBlank` | 任务类型 |
-| `TaskInfoSaveDto` | `Request` | 新增任务 | `taskParam` | `String` | 可选，JSON 字符串 | 任务参数 |
+| `TaskInfoSaveDto` | `Request` | 新增任务 | `taskParam` | `String` | 可选，JSON 字符串 | 任务变量参数 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `definition` | `String` | 可选，JSON 字符串 | 任务定义 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `pluginId` | `UUID` | 不由前端提交；后端按 `taskType` 填默认值 | 执行组件 ID，保留字段用于兼容旧调用方显式传值 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `view` | `String` | 不由任务定义页面提交 | 前端流程画布视图 |
@@ -131,7 +131,7 @@ CREATE TABLE scheduler_task_info (
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `description` | `String` | 非 `null` 时更新 | 任务描述 |
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `taskTypeId` | `String` | 非空时更新 | 任务类型 ID |
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `taskType` | `String` | 非空时更新 | 任务类型 |
-| `TaskInfoUpdateDto` | `Request` | 修改任务 | `taskParam` | `String` | 非 `null` 时按 JSON 更新 | 任务参数 |
+| `TaskInfoUpdateDto` | `Request` | 修改任务 | `taskParam` | `String` | 非 `null` 时按 JSON 更新 | 任务变量参数 |
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `definition` | `String` | 非 `null` 时按 JSON 更新 | 任务定义 |
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `pluginId` | `UUID` | 不由任务定义页面提交；流程节点配置阶段另行处理 | 执行组件 ID |
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `view` | `String` | 不由任务定义页面提交；流程编排阶段另行处理 | 前端流程画布视图 |
@@ -144,7 +144,7 @@ CREATE TABLE scheduler_task_info (
 | `TaskInfoDto` | `Response` | 查询响应 | `description` | `String` | 无 | 任务描述 |
 | `TaskInfoDto` | `Response` | 查询响应 | `taskTypeId` | `String` | 无 | 任务类型 ID |
 | `TaskInfoDto` | `Response` | 查询响应 | `taskType` | `String` | 无 | 任务类型 |
-| `TaskInfoDto` | `Response` | 查询响应 | `taskParam` | `String` | `JsonNode` -> JSON 字符串 | 任务参数 |
+| `TaskInfoDto` | `Response` | 查询响应 | `taskParam` | `String` | `JsonNode` -> JSON 字符串 | 任务变量参数 |
 | `TaskInfoDto` | `Response` | 查询响应 | `definition` | `String` | `JsonNode` -> JSON 字符串 | 任务定义 |
 | `TaskInfoDto` | `Response` | 查询响应 | `isBound` | `Boolean` | 无 | 是否绑定流程 |
 | `TaskInfoDto` | `Response` | 查询响应 | `flowId` | `UUID` | 无 | 流程 ID |
@@ -178,14 +178,14 @@ CREATE TABLE scheduler_task_info (
 | `TaskInfoUpdateDto` -> existing `TaskInfoEntity` | 仅合并任务定义属性的非空字段 | 不更新 `isBound/flowId/pluginId/view/depEventIds/eventId/enabled`；更新后置 `syncFlag=false`；`taskCode` 非空时重新校验唯一 |
 | `TaskInfoEntity` -> `TaskInfoDto` | 字段逐一复制 | `taskParam/definition/view` 从 `JsonNode` 转 JSON 字符串；任务定义页面只展示任务定义属性和必要系统审计字段 |
 | `TaskInfoQueryDto` -> `LambdaQueryWrapper` | `taskName/taskCode` 使用 `ILIKE`，`taskType` 精确匹配；调度编排查询可继续使用 `flowId/enabled/isBound` | 默认 `createTime desc` |
-| `TaskInfoEntity` -> scheduler `TaskInfo` | `TaskStorageImpl` 转换为调度框架模型 | `taskParam` 转 `ParamData`；`depEventIds` 按逗号转集合；`enabled` 转 `isAble` |
-| `TaskInstanceEntity` -> scheduler `TaskInstance` | `TaskStorageImpl` 转换任务实例模型 | 不属于 `TaskController` 直接链路，仅作为调度执行适配 |
+| `TaskInfoEntity` -> scheduler `TaskInfo` | `TaskStorageImpl` 转换为调度框架模型 | `taskParam` 转 `ParamData.vars`；`definition` 透传为 `JsonNode`；`depEventIds` 按逗号转集合；`enabled` 转 `isAble` |
+| `TaskInstanceEntity` -> scheduler `TaskInstance` | `TaskStorageImpl` 转换任务实例模型 | `task_param` 转运行期 `ParamData.vars`；`task_data` 转渲染后的任务定义 |
 
 ## 6. 枚举 / JSON / 特殊字段
 
 | 字段 | 存储类型 | Java 类型 | 转换规则 | 说明 |
 |------|----------|-----------|----------|------|
-| `taskParam` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 任务参数 |
+| `taskParam` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 任务变量参数，遵循 `ParamData.vars` |
 | `definition` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 任务定义 |
 | `view` | `json` | `JsonNode` | 流程编排阶段维护，任务定义页面不提交 | 前端画布视图 |
 | `depEventIds` | `varchar` | `String` | 流程编排阶段维护，当前按逗号分隔字符串保存 | `TaskStorageImpl` 转调度模型时解析为集合 |

@@ -196,15 +196,16 @@
 
 | 标签页 | 数据来源 | 展示内容 |
 |--------|----------|----------|
-| 基本信息 | 不额外请求后端，直接使用 DAG 节点 `data` 中的 task 信息 | 任务名称、任务编码、任务类型、任务描述、`syncFlag` 同步状态、`taskParam.params`、`definition` 摘要或 JSON |
+| 基本信息 | 不额外请求后端，直接使用 DAG 节点 `data` 中的 task 信息 | 任务名称、任务编码、任务类型、任务描述、`syncFlag` 同步状态、`taskParam.vars` 摘要、`definition` 摘要或 JSON |
 | 调度信息 | 选中节点并切换到该标签页时调用 `GET /api/scheduler/task/detail/{id}` 补齐节点调度字段 | 可编辑 `pluginId`、`depEventIds`、`eventId`、`enabled`、`taskParam.vars` |
 
-`taskParam` 遵循 `ParamData` 语义拆分：
+`ParamData` 只承载调度变量集合：
 
-- `taskParam.params` 表示任务参数本体，放在【基本信息】中。
-- `taskParam.vars` 表示调度运行时变量输入和表达式替换配置，放在【调度信息】中。
+- `flowParam.vars` 表示流程级调度运行时变量输入和表达式替换配置。
+- `taskParam.vars` 表示任务级调度运行时变量输入和表达式替换配置。
+- `definition` 表示任务定义本体。
 
-`taskParam.vars` 第一版使用 JSON 编辑器承载，保存时保持 `ParamData` 结构并只替换 `vars` 部分，避免误改 `params`。后续如果变量结构稳定，可以升级为可增删行的表格编辑。
+`taskParam.vars` 第一版使用 JSON 编辑器承载，保存时保持 `ParamData.vars` 结构并只替换 `vars` 部分。后续如果变量结构稳定，可以升级为可增删行的表格编辑。
 
 调度信息在流程编排页支持编辑。`pluginId` 通过 `/api/system/plugin/list` 加载插件配置选项，`depEventIds/eventId` 通过 `/api/scheduler/event/list` 加载事件选项，保存时复用 `POST /api/scheduler/task/update` 提交节点调度字段。已发布或已启用流程仍只能查看，不允许编辑调度信息。
 

@@ -1,126 +1,73 @@
 # 调度 Agent 设计
 
-> 数据结构定义见 [agent-data-define.md](./agent-data-define.md)，本文档不重复字段定义。
+> 数据结构定义见 [agent-data-define.md](./agent-data-define.md)。worker 通用契约见 [scheduler-worker-design.md](../datafusion-scheduler-worker/scheduler-worker-design.md)。
 
-`datafusion-agent` 是 worker 的运行时应用层，负责承载 `datafusion-scheduler-worker`，提供 Spring Boot 启动、HTTP 接口、配置加载、线程池、插件加载、worker 注册心跳、任务执行集成、任务状态记录和结果上报。
+## 1. 定位
 
-## 边界
+`datafusion-agent` 是 `datafusion-scheduler-worker` 的运行时应用。agent 负责 Spring Boot 启动、RPC Provider、manager client、线程池、worker 契约装配、插件运行时实现、任务执行状态存储、状态上报计划和结果上报。
 
-`datafusion-scheduler-master` / `datafusion-scheduler-worker` 是调度框架层，仅作为 jar 包提供核心能力、接口契约、状态机、模型和默认实现。
+框架与运行时边界：
 
-`datafusion-manager` / `datafusion-agent` 是运行时应用层，负责 Spring Boot 启动、HTTP 接口、配置加载、持久化实现、鉴权、部署和外部系统集成。
+- `datafusion-scheduler-worker` 定义通用 SPI 和中性模型。
+- `datafusion-agent` 实现 worker SPI，并对接 manager、本地文件、后续 Redis、Kubernetes、Yarn 等运行时系统。
+- `datafusion-agent` 不依赖具体业务插件模块；业务插件以 jar、Pod + jar、Yarn application jar、脚本或镜像等 artifact 形式运行。
 
-禁止反向依赖：框架层不得依赖运行时应用层；运行时应用层可以依赖并装配框架层。
-
-`datafusion-agent` 可以使用 `datafusion-common-spring` 的公共 Web 对象，例如 `Result<T>`、错误响应和校验能力。`datafusion-scheduler-worker` 不使用这些 Spring/Web 对象。
-
-## 职责
-
-- 启动并装配 worker 框架组件。
-- 初始化通过 `ThreadPoolBuilder` 创建的线程池。
-- 扫描并加载本节点支持的任务插件。
-- 向 Nacos 注册 agent 服务实例。
-- 向 manager 注册 worker 调度信息并发送心跳。
-- 暴露 master 调用的内部任务控制 HTTP 接口。
-- 将任务请求提交到 worker 框架和插件执行器。
-- 记录任务状态、终端任务 ID 和任务日志。
-- 将任务结果异步上报 manager。
-- 启动时恢复本节点未完成任务。
-
-## 模块依赖
+## 2. 目标类目录
 
 ```text
-datafusion-agent
-    -> datafusion-scheduler-worker
-    -> datafusion-common-data
-    -> datafusion-common-spring
+com.datafusion.agent
+    AgentApplication
+
+com.datafusion.agent.config
+    AgentConfiguration
+    AgentProperties
+
+com.datafusion.agent.rpc
+    SchedulerExecutorRpcProvider
+    ManagerClient
+    HttpManagerClient
+    ManagerTaskResultReporter
+
+com.datafusion.agent.runtime
+    AgentLifecycle
+    AgentRuntimeState
+
+com.datafusion.agent.runtime.worker.context
+    AgentWorkerTaskContextStorage
+
+com.datafusion.agent.runtime.worker.plugin.shell
+    ShellLocalPluginTaskExecutor
+    ShellLocalRunModeStateMapping
+
+com.datafusion.agent.runtime.worker.reporter
+    AgentTaskStateReportScheduler
+    FileWorkerTaskExecutionStateStore
 ```
 
-通信模型归属：
+说明：
 
-- `TaskRequest`、`TaskResult`、worker 注册/心跳相关 DTO 统一从 `datafusion-common-data` 引入。
-- `WorkerManager`、`WorkerStorage` 和 worker 选择策略属于 master 侧能力，agent 不直接依赖。
-- `datafusion-agent` 不依赖 `datafusion-scheduler-master`，只通过 HTTP 接口与 manager 通信。
+- `rpc` 是 manager 与 agent 的远程通信边界。
+- `runtime.worker.*` 是 agent 对 `datafusion-scheduler-worker` 契约的运行时实现。
+- `ShellLocalRunModeStateMapping` 只表达 `SHELL + LOCAL` 的状态映射。Flink、Spark、DataX 等插件应在各自插件包中提供状态映射实现。
 
-## 启动流程
+## 3. 启动流程
 
 ```text
-读取配置
+读取 AgentProperties
     -> 初始化线程池
-    -> 初始化 worker 框架组件
-    -> 加载插件并生成 pluginTypes
-    -> 恢复本节点未完成任务
-    -> 向 Nacos 注册 agent 服务
-    -> 向 manager 注册 worker 调度信息
-    -> 启动心跳
-    -> 开放任务控制接口
+    -> 装配 WorkerTaskService / WorkerTaskOperatorRouter / WorkerTaskContextStorage
+    -> 加载 PluginTaskExecutor 和 PluginRunModeStateMapping
+    -> 恢复未清理 WorkerTaskExecutionState 的上报计划
+    -> 注册 worker 到 manager
+    -> 启动心跳和状态上报计划
+    -> 开放 SchedulerExecutorRpcProvider
 ```
 
-启动规则：
+manager 注册成功前默认不接收新任务；`acceptTasksBeforeRegistered=true` 时允许绕过该限制。
 
-- 线程池必须先于任务接口可用前初始化完成。
-- 插件加载完成后才能生成 `pluginTypes`。
-- 任务恢复应在 worker 进入可调度状态前完成。
-- manager 注册成功后，agent 才能接收新的任务提交。
-- 仅 Nacos 注册成功不代表 worker 可调度。
+## 4. RPC 边界
 
-## 注册与发现
-
-agent 采用“双注册”模型：
-
-- 向 Nacos 注册 agent 服务实例，用于 HTTP 服务寻址。
-- 向 manager 注册 worker 调度信息，用于任务分配、能力匹配、心跳和 failover。
-
-manager 注册信息至少包含：
-
-- `id`
-- `ip`
-- `port`
-- `hostName`
-- `pluginTypes`
-- `status`
-- `registerTime`
-- `lastHeartbeatTime`
-- `updateTime`
-
-异常处理：
-
-- Nacos 不可用但 manager 地址可配置时，agent 可以继续向 manager 注册。
-- manager 不可用时，agent 不进入可调度状态，并持续重试注册。
-- agent 已注册到 Nacos 但未注册到 manager 时，任务接口返回节点未就绪。
-- manager 心跳或结果上报失败时，本地任务继续运行，上报进入重试。
-
-## 线程池
-
-agent 收到 manager 的任务控制请求后，HTTP 线程只做参数校验、提交和快速返回，实际操作必须进入通过 `ThreadPoolBuilder` 创建的线程池。
-
-建议线程池：
-
-- `agentTaskControlPool`：处理 run / stop / kill / finish 控制请求。
-- `agentTaskRunPool`：执行插件任务或外部应用提交逻辑。
-- `agentResultReportPool`：异步上报任务结果。
-- `agentHeartbeatPool`：执行注册、心跳和主动下线。
-- `agentRecoveryPool`：启动时恢复未完成任务。
-
-线程池名称必须稳定，便于日志和监控定位。任务执行池满时返回资源不足；结果上报池满时写入本地待上报记录并重试。
-
-## 插件加载
-
-agent 调用 worker 框架定义的 `WorkerPluginLoader` 加载插件：
-
-```text
-WorkerPluginLoader.loadPlugins
-    -> 获得 PluginTaskExecutor 列表
-    -> 注册到 WorkerTaskOperatorRouter
-    -> 生成 pluginTypes
-    -> 注册或心跳时上报 manager
-```
-
-部分插件初始化失败不影响 agent 基础启动。失败插件不得出现在 `pluginTypes` 中，并应记录明确日志。
-
-## HTTP 接口
-
-agent 对 manager 暴露任务控制接口：
+agent 对 manager 暴露：
 
 ```text
 POST /internal/schedule/submitTask
@@ -138,149 +85,99 @@ POST /internal/schedule/worker/offline
 POST /internal/schedule/reportTaskResult
 ```
 
-接口响应使用 `datafusion-common-spring` 的公共响应结构，例如 `Result<T>`。
+`SchedulerExecutorRpcProvider` 只做 RPC 适配、ready 校验、线程池隔离和返回包装；任务执行语义进入 worker 框架。`ManagerClient` / `HttpManagerClient` 是 outbound RPC client。`ManagerTaskResultReporter` 实现 worker 的 `TaskResultReporter`，通过 `ManagerClient` 上报。
 
-## 提交语义
+TODO：恢复上报计划需要 manager 提供“按 worker 查询未完成任务”的接口。接口路径、请求对象和响应对象待 manager 开发时补充。
 
-异步提交：
+## 5. 插件与运行模式
+
+`pluginType` 用于路由 `PluginTaskExecutor`，例如 `SHELL`、`DATAX`、`FLINK`、`SPARK`。
+
+`runMode` 是终端运行形态，例如 `LOCAL`、`K8S`、`YARN`。它不是全局状态查询实现。状态映射按 `pluginType + runMode` 选择 `PluginRunModeStateMapping`。
+
+推荐插件闭环：
 
 ```text
-接收 submitTask
-    -> 提交到线程池
-    -> 返回 SUBMIT_SUCCESS + submitMode=ASYNC
-    -> 后台执行
-    -> 异步上报 RUNNING / RUN_SUCCESS / RUN_FAILURE
+TaskRequest(taskData, pluginParam)
+    -> PluginTaskExecutor.prepareTask
+    -> PluginTaskExecutor.submitTask
+    -> 写入 WorkerTaskExecutionState(appId, pluginType, runMode, status)
+    -> PluginRunModeStateMapping.mapState
+    -> TaskResultReporter.report
+    -> manager 调用 finishTask 后 destroyTask 并删除状态记录
 ```
 
-同步提交：
+`deployMode` 是插件内部部署语义，例如 Flink/Spark 的 standalone、session、application；不等同于 agent 的 `runMode`。
+
+## 6. 状态上报计划
+
+任务提交成功后，agent 写入 `WorkerTaskExecutionState`，并通过状态上报计划持续同步状态。
 
 ```text
-接收 submitTask
-    -> 提交并确认任务进入运行态
-    -> 返回 RUNNING + submitMode=SYNC
-    -> 异步上报 RUN_SUCCESS / RUN_FAILURE
+WorkerTaskExecutionStateStore.listRecords
+    -> 按 pluginType + runMode 找 PluginRunModeStateMapping
+    -> mapState 得到 StatusEnum
+    -> 状态变化后 record
+    -> TaskResultReporter.report
+    -> 终态继续幂等上报
+    -> manager 调用 finishTask 后 remove
 ```
 
-任务最终成功或失败只能通过 `/internal/schedule/reportTaskResult` 异步上报。
+规则：
 
-## 任务状态恢复
+- 状态刷新只读查询终端状态，不停止、不强杀、不重启任务。
+- `.state.status` 使用 `StatusEnum.name()`，不定义 agent 私有状态。
+- manager 幂等消费结果，agent 不在状态记录中维护上报确认状态。
+- manager 不可用时保留当前状态，等待下一轮刷新继续上报。
+- 查询暂时不可用时保持原状态；连续 `UNKNOWN` 达到阈值后可推进为 `UNKNOWN`。
+- `finishTask` 是 manager 收到最终状态后的本地资源清理入口。
 
-agent 启动时需要恢复上次在本节点执行但未完成的任务。
+## 7. 本地文件约定
 
-数据来源：
-
-- manager 查询到的本 worker 未完成任务。
-- agent 本地任务状态文件。
-- 外部系统中的终端任务 ID，例如 PID、Flink Job ID、Yarn Application ID。
-
-处理规则：
-
-- 仍在运行的任务恢复本地上下文。
-- 已消失或状态不确定的任务上报失败、强制终止或待人工处理。
-- 恢复流程必须幂等，重复启动不能重复推进错误状态。
-
-## 日志与状态文件
-
-agent 任务日志根目录：
+日志根目录：
 
 ```text
-${modules}/logs/
-    执行日期/
-        流程实例id/
-            任务实例id/
-                *.log
-                *.err.log
+${modules}/logs/{date}/{flowInstanceId}/{taskInstanceId}/
 ```
 
-agent 任务状态根目录：
+状态根目录：
 
 ```text
-${modules}/task-status/
-    执行日期/
-        流程实例id/
-            任务实例id/
-                *.state
-                taskStatus.log
+${modules}/task-status/{date}/{flowInstanceId}/{taskInstanceId}/
+    {taskInstanceId}.state
+    taskStatus.log
 ```
 
 `taskStatus.log` 推荐格式：
 
 ```text
-appid:123|pid:111|workId:456|status:running
+appId:{appId}|workId:{workId}|status:{StatusEnum.name}
 ```
 
-其中 `appid` 表示 Flink Job ID、Yarn Application ID、DataX 任务 ID 等外部应用 ID；`pid` 表示本地进程 ID；`workId` 表示 worker 节点 ID。
+`{taskInstanceId}.state` 使用 JSON 写入 `WorkerTaskExecutionState`。`LOCAL` Shell 任务允许 `appId=pid`；最终成功/失败由 watcher 或包装脚本写入 `exitCode` 和最终 `StatusEnum`，不通过 pid 消失推断成功或失败。
 
-agent 使用 `AgentExecutionStatusRecord` 作为本地执行状态记录对象，字段与 `taskStatus.log` 的核心内容对应，包含 `appId`、`pid`、`workId`、`status`，并补充 `flowInstanceId`、`executionId` 和 `result` 用于目录定位、状态文件和排查。
+## 8. 第一版边界
 
-`AgentExecutionStatusRecorder` 只负责记录本地执行状态，不继承、不替代 worker 框架的 `WorkerTaskContextStorage`。`WorkerTaskContextStorage` 负责运行中任务上下文和幂等；`AgentExecutionStatusRecorder` 负责写入 `taskStatus.log`、`.state`，并为启动恢复和问题排查提供依据。
+第一版实现：
 
-`AgentWorkerTaskContextStorage` 是 agent 侧 `WorkerTaskContextStorage` 实现。它保存 `RunningTaskContext`，并在上下文保存时使用 `AgentExecutionStatusRecorder` 记录执行状态文件，避免 Controller、worker 框架和文件记录逻辑互相散落。
-
-`AgentExecutionStatusRecorder` 不直接接收 `TaskRequest` 或 `TaskResult`。agent 由 `AgentWorkerTaskContextStorage` 将 `RunningTaskContext` 转换为 `AgentExecutionStatusRecord`，避免本地文件记录器与调度通信模型强耦合。
-
-## 幂等
-
-agent 必须处理重复提交、重复停止、重复强制停止和重复结果上报。
-
-推荐幂等键：
-
-```text
-taskInstanceId + actionType
-```
-
-规则：
-
-- 同一任务实例的重复 `submitTask` 不重复启动任务。
-- 重复 `stopTask` / `killTask` 返回当前控制结果或当前终态。
-- 结果上报失败时可重试，manager 端必须能幂等消费。
-- 本地状态写入和实际执行无法原子化时，以终端任务 ID 和幂等键恢复状态。
-
-## 实现清单
-
-- 改造为 Spring Boot worker 运行时应用。
-- 装配 worker 框架组件和公共线程池。
-- 实现 worker 注册、心跳和下线。
-- 实现内部任务控制 API。
-- 实现插件扫描、加载和 `pluginTypes` 上报。
-- 实现任务状态文件、日志和终端任务 ID 记录。
-- 实现 manager 短暂不可用时的心跳、注册和结果上报重试。
-- 实现启动恢复。
-
-## 第一版实现边界
-
-已实现：
-
-- Spring Boot 入口 `AgentApplication`。
-- `AgentProperties` 配置对象。
-- 使用 `ThreadPoolBuilder` 装配 `agentTaskControlPool`、`agentTaskRunPool`、`agentResultReportPool`、`agentHeartbeatPool`、`agentRecoveryPool`。
-- 装配 `WorkerTaskService`、`WorkerTaskOperatorRouter`、`WorkerPluginLoader`、`WorkerTaskContextStorage`。
-- 提供 agent 侧 `AgentWorkerTaskContextStorage` 作为 `WorkerTaskContextStorage` 运行时实现，用于当前进程内运行上下文和重复提交幂等，并通过 `AgentExecutionStatusRecorder` 记录状态文件。
-- 通过 Spring 容器中的 `PluginTaskExecutor` Bean 生成 `pluginTypes`。
-- 暴露 `/internal/schedule/submitTask`、`/stopTask`、`/killTask`、`/finishTask`。
-- 使用 `Result<T>` 包装 HTTP 响应。
-- 启动后按配置向 manager 注册，注册成功后进入 ready，并周期心跳。
-- 关闭时向 manager 下线。
-- 结果上报投递到 `agentResultReportPool`。
-- 通过 `AgentExecutionStatusRecorder` 本地写入 `${modules}/task-status/{date}/{flowInstanceId}/{executionId}/taskStatus.log` 和 `{executionId}.state`。
+- Spring Boot agent 运行时。
+- manager 注册、心跳、下线和任务结果上报。
+- `SchedulerExecutorRpcProvider` 的四个任务控制接口。
+- worker 框架装配和 Spring Bean 插件加载。
+- 文件版 `WorkerTaskExecutionStateStore`。
+- 状态上报计划。
+- `SHELL + LOCAL` 提交、停止、强杀、日志重定向、退出码监听和状态映射。
 
 暂不实现：
 
-- 不直接引入 Nacos discovery 具体实现；保留给后续 Spring Cloud 或 Nacos client 装配。
-- 不实现真实插件目录扫描；第一版通过 Spring Bean 收集 `PluginTaskExecutor`。
-- 不实现跨进程任务恢复；`AgentWorkerTaskContextStorage` 第一版为内存实现，保留 `agentRecoveryPool` 和本地状态文件作为后续恢复基础。
-- 不实现结果上报持久化重试队列；第一版上报失败记录日志。
-- 不实现具体 DataX、Flink、Spark、Shell 插件执行逻辑。
+- Nacos discovery 具体实现。
+- 真实插件目录扫描。
+- Redis 状态存储。
+- K8S / YARN 真实提交器和状态映射。
+- 结果上报持久化队列。
+- 本地进程句柄恢复或第三方任务干预。
 
-## 验证
-
-- agent 启动后初始化线程池并加载插件。
-- agent 注册后 manager 能看到 `pluginTypes`。
-- agent 心跳能更新 `lastHeartbeatTime`。
-- `/submitTask` 返回 `SUBMIT_SUCCESS` 或 `RUNNING`，最终状态异步上报。
-- stop / kill 能定位终端任务并上报结果。
-- manager 短暂不可用后结果上报能重试成功。
-- agent 重启后能恢复未完成任务。
+## 9. 验证
 
 ```powershell
 mvn -DskipTests compile -pl datafusion-agent -am

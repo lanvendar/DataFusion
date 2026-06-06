@@ -43,7 +43,7 @@
 | `status` | `varchar(50)` | `status` | `String` | 是 | 无 | 无 | 流程实例状态 | 保存 `StatusEnum.stateType` |
 | `trigger_id` | `varchar` | `triggerId` | `String` | 是 | 无 | 无 | 发布版本 | 触发器 ID，现有注释与字段语义不完全一致 |
 | `publish_version` | `int8` | `publishVersion` | `Long` | 否 | 无 | 无 | 发布版本 | 发布版本 |
-| `flow_param` | `json` | `flowParam` | `JsonNode` | 否 | 无 | 无 | 流程参数 | 流程参数快照 |
+| `flow_param` | `json` | `flowParam` | `JsonNode` | 否 | 无 | 无 | 流程变量参数 | 流程变量参数快照，遵循 `ParamData.vars` |
 | `dep_event_ids` | `varchar` | `depEventIds` | `String` | 否 | 无 | 无 | 全局依赖事件ID，英文逗号分割 | 依赖事件 ID |
 | `event_id` | `uuid` | `eventId` | `UUID` | 否 | 无 | 无 | 事件ID | 流程产生事件 ID |
 | `schedule_time` | `int8` | `scheduleTime` | `Long` | 否 | 无 | 无 | 调度时间 | 毫秒时间戳 |
@@ -61,7 +61,7 @@
 
 - 表名: `scheduler_flow_instance_his`。
 - Java 持久化模型: `FlowInstanceHisEntity`。
-- 数据来源: `SchedulerInstanceArchiveJob` 定时迁移 `StatusEnum.isSuccess()` 为 `true` 的实时流程实例。
+- 数据来源: `SchedulerInstanceArchiveScheduleJob` 定时迁移 `StatusEnum.isSuccess()` 为 `true` 的实时流程实例。
 
 #### scheduler_task_instance
 
@@ -75,7 +75,7 @@
 | `task_name` | `varchar` | `taskName` | `String` | 是 | 无 | 无 | 任务名称 | 任务名称快照 |
 | `task_code` | `varchar` | `taskCode` | `String` | 是 | 无 | 无 | 任务编码 | 任务编码快照 |
 | `description` | `varchar` | `description` | `String` | 否 | 无 | 无 | 任务描述 | 任务描述 |
-| `task_param` | `json` | `taskParam` | `JsonNode` | 否 | 无 | 无 | 任务参数 | 任务参数快照 |
+| `task_param` | `json` | `taskParam` | `JsonNode` | 否 | 无 | 无 | 任务变量参数 | 运行期变量参数快照，遵循 `ParamData.vars` |
 | `task_data` | `json` | `taskData` | `JsonNode` | 否 | 无 | 无 | 渲染后的任务定义 | 渲染后的任务定义 |
 | `plugin_data` | `json` | `pluginData` | `JsonNode` | 否 | 无 | 无 | 组件数据 | 执行插件数据 |
 | `view` | `json` | `view` | `JsonNode` | 否 | 无 | 无 | 任务视图 | 前端画布视图 |
@@ -100,7 +100,7 @@
 
 - 表名: `scheduler_task_instance_his`。
 - Java 持久化模型: `TaskInstanceHisEntity`。
-- 数据来源: `SchedulerInstanceArchiveJob` 定时迁移 `StatusEnum.isSuccess()` 为 `true` 的实时任务实例。
+- 数据来源: `SchedulerInstanceArchiveScheduleJob` 定时迁移 `StatusEnum.isSuccess()` 为 `true` 的实时任务实例。
 
 #### scheduler_event_instance
 

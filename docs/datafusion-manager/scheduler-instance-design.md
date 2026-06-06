@@ -24,7 +24,7 @@
 | 展开流程实例任务 | 主表展开行 | `taskInstanceApi.listByFlowInstance` -> `TaskInstanceController.listByFlowInstance` | `scheduler_task_instance` / `scheduler_task_instance_his` | `TaskInstanceDto[]` | 按当前 `viewType` 懒加载实时或历史任务 |
 | 查询事件实例 | 事件实例页面或详情入口 | `EventInstanceController.page` -> `EventInstanceService.pageEventInstance` | `scheduler_event_instance` | `PageQuery<EventInstanceQueryDto>` | 可独立页面 |
 | 查看任务日志 | 任务实例行操作 | `TaskInstanceLogController.content` -> 日志读取 Service | 共享日志目录 | `TaskInstanceLogQueryDto` / `TaskInstanceLogDto` | 日志路径由 agent 写日志后通过 `TaskResult` 回传，不落库 |
-| 成功实例归档 | 定时归档任务 | `SchedulerInstanceArchiveJob` -> archive Service -> Mapper | `scheduler_flow_instance_his` / `scheduler_task_instance_his` | 实时表成功实例 | 流程实例和任务实例状态满足 `StatusEnum.isSuccess()` 时，从实时表迁移到历史表 |
+| 成功实例归档 | Spring Schedule 定时任务 | `SchedulerInstanceArchiveScheduleJob` -> archive Service -> Mapper | `scheduler_flow_instance_his` / `scheduler_task_instance_his` | 实时表成功实例 | 默认每天执行一次，流程实例和任务实例状态满足 `StatusEnum.isSuccess()` 时，从实时表迁移到历史表 |
 
 ## 3. 接口契约
 
@@ -68,7 +68,7 @@
 | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/controller/TaskInstanceController.java` | 任务实例查询入口 |
 | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/controller/EventInstanceController.java` | 事件实例查询入口 |
 | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/controller/TaskInstanceLogController.java` | 任务实例日志入口 |
-| `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/job/SchedulerInstanceArchiveJob.java` | 成功实例归档定时任务 |
+| `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/jobs/SchedulerInstanceArchiveScheduleJob.java` | 成功实例归档 Spring Schedule 定时任务 |
 | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/service/SchedulerInstanceArchiveService.java` | 成功实例归档 Service |
 | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto/SchedulerInstanceQueryDto.java` | 流程和任务实例查询条件 |
 | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto/FlowInstanceTaskQueryDto.java` | 流程展开任务实例查询条件 |
@@ -150,7 +150,7 @@
 | 展开任务实例 | 按 `viewType` 选择 `scheduler_task_instance` 或 `scheduler_task_instance_his`，再按 `flow_instance_id` 查询，默认按 `create_time asc` | 返回任务列表 |
 | worker 结果展示 | 保留 `worker_result` 原始 JSON，额外派生摘要文本和日志路径 | 为空显示 `-` |
 | 日志读取 | 不新增表，优先使用 `TaskResult` 回传的日志文件路径；缺失时使用任务 `startTime` 派生 `yyyyMMdd` 并按约定目录兜底定位 | 文件不存在时返回空内容或明确业务错误 |
-| 成功实例归档 | 定时任务扫描实时表中 `StatusEnum.fromString(status).isSuccess() == true` 的流程实例和任务实例，插入对应 `*_his` 表后删除实时表记录；当前成功态为 `RUN_SUCCESS` / `ENFORCE_SUCCESS` | 同一批次内插入历史表和删除实时表需要事务；重复归档按主键幂等处理 |
+| 成功实例归档 | Spring Schedule 默认每天凌晨 2 点扫描实时表中成功态 `31` / `33` 的流程实例和任务实例，插入对应 `*_his` 表后删除实时表记录；cron 可通过 `datafusion.scheduler.instance.archive.cron` 覆盖 | 同一批次内插入历史表和删除实时表需要事务；重复归档按主键幂等处理 |
 | 定义修改 | 实例域不允许修改定义 | 引导用户取消调度、取消发布后回定义域修改 |
 | 操作入口 | 原型中的重启、停止、重跑、强制成功等写操作第一版不实现；刷新仅作为重新查询当前行的读操作 | 不提供写接口 |
 
@@ -227,7 +227,7 @@
 | `datafusion-scheduler-master` | `FlowStorageImpl` / `TaskStorageImpl` / `EventStorageImpl` | master 负责运行态创建和状态推进，manager 查询实例 |
 | `datafusion-agent` | 共享日志目录 + `TaskResult` | 任务日志由 agent 产生并写入共享目录，agent 在 `TaskResult` 中回传日志文件路径，manager 按路径只读 |
 | MyBatis-Plus | Mapper / ServiceImpl | 查询实例表 |
-| `SchedulerInstanceArchiveJob` | 定时任务 | 将成功流程实例、任务实例从实时表迁移到历史表 |
+| `SchedulerInstanceArchiveScheduleJob` | Spring Schedule 定时任务 | 默认每天凌晨 2 点将成功流程实例、任务实例从实时表迁移到历史表 |
 | `StatusEnum` | 枚举判断 | 状态落库使用 `stateType`，读取使用 `fromString()`，归档成功态使用 `isSuccess()` |
 
 日志目录约定：
@@ -254,7 +254,7 @@ ${modules}/task-status/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/taskStatus.l
 - 不新增 `TaskInstanceLog` 表。
 - 不实现重启、停止、重跑、强制成功等写操作。
 - 不修改 `scheduler_flow_instance`、`scheduler_task_instance`、`scheduler_event_instance` 实时表结构；仅新增流程和任务实例历史表。
-- 不在实例页面直接编辑 DAG、任务参数或插件参数。
+- 不在实例页面直接编辑 DAG、任务变量参数或插件参数。
 
 ## 10. 验证方式
 
