@@ -16,6 +16,7 @@ import {
   NodeIndexOutlined,
   PartitionOutlined,
   ProfileOutlined,
+  ClusterOutlined,
   ScheduleOutlined,
   SettingOutlined,
   TableOutlined,
@@ -27,6 +28,7 @@ import MetadataTableStructurePage from "@/modules/metadata-table-structure";
 import MetadataTableSyncPage from "@/modules/metadata-table-sync";
 import SchedulerFlowPage from "@/modules/scheduler-flow";
 import SchedulerInstancePage from "@/modules/scheduler-instance";
+import SchedulerWorkerPage from "@/modules/scheduler-worker";
 import SchedulerTriggerPage from "@/modules/scheduler-trigger";
 import SchedulerTaskPage from "@/modules/scheduler-task";
 import SchedulerEventPage from "@/modules/scheduler-event";
@@ -206,6 +208,12 @@ export const routeGroups: AppRouteGroup[] = [
         label: "事件管理",
         icon: ApiOutlined,
         component: SchedulerEventPage,
+      },
+      {
+        path: "scheduler-worker",
+        label: "Worker 管理",
+        icon: ClusterOutlined,
+        component: SchedulerWorkerPage,
       },
       {
         path: "scheduler-instance",

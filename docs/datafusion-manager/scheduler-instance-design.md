@@ -4,14 +4,14 @@
 
 ## 1. 能力范围
 
-- 能力: 调度运行实例查询，包括流程实例、任务实例、事件实例和任务实例日志读取。
+- 能力: 调度运行实例查询和操作，包括流程实例、任务实例、事件实例、任务实例日志读取，以及 `MasterService` 中 `flowAction` / `taskAction` 已公开的实例操作。
 - 模块: `datafusion-manager`。
 - Java 后端包: `com.datafusion.manager.scheduler`。
 - 前端路径: `datafusion-web/src/modules/scheduler-instance`。
 - 路由 / API 前缀: 前端路由建议为 `/scheduler-instance`，后端接口按 `/api/scheduler/{flow|task|event}/instance` 风格提供。
 - 调用链路: `*InstanceController` -> `*InstanceService` -> `*InstanceMapper`；流程和任务实例按 `viewType` 路由到实时表或历史表，事件实例查询 `scheduler_event_instance`。
 
-`scheduler-instance` 是运行态查询域，只展示一次调度运行发生了什么、当前状态、运行结果和日志位置。它不承担流程定义、任务定义、事件定义、触发器定义或变量定义的修改能力。
+`scheduler-instance` 是运行态实例域，展示一次调度运行发生了什么、当前状态、运行结果和日志位置，并承载运行实例上的手动操作。它不承担流程定义、任务定义、事件定义、触发器定义或变量定义的修改能力。
 
 定义修改必须走定义域规则：先取消调度，再取消发布，然后回到 `scheduler-flow`、`scheduler-task`、`scheduler-event` 等定义模块修改。
 
@@ -24,6 +24,8 @@
 | 展开流程实例任务 | 主表展开行 | `taskInstanceApi.listByFlowInstance` -> `TaskInstanceController.listByFlowInstance` | `scheduler_task_instance` / `scheduler_task_instance_his` | `TaskInstanceDto[]` | 按当前 `viewType` 懒加载实时或历史任务 |
 | 查询事件实例 | 事件实例页面或详情入口 | `EventInstanceController.page` -> `EventInstanceService.pageEventInstance` | `scheduler_event_instance` | `PageQuery<EventInstanceQueryDto>` | 可独立页面 |
 | 查看任务日志 | 任务实例行操作 | `TaskInstanceLogController.content` -> 日志读取 Service | 共享日志目录 | `TaskInstanceLogQueryDto` / `TaskInstanceLogDto` | 日志路径由 agent 写日志后通过 `TaskResult` 回传，不落库 |
+| 操作流程实例 | 流程实例行操作 | `FlowInstanceController.action` -> `FlowInstanceService.actionFlowInstance` -> `MasterService.getFlowAction()` | `scheduler_flow_instance` + master actor | `SchedulerInstanceActionDto` | 仅实时实例；按 `flowAction` 当前公开能力提交指令 |
+| 操作任务实例 | 任务实例行操作 | `TaskInstanceController.action` -> `TaskInstanceService.actionTaskInstance` -> `MasterService.getTaskAction()` | `scheduler_task_instance` + master actor / agent | `SchedulerInstanceActionDto` | 仅实时实例；按 `taskAction` 当前公开能力提交指令 |
 | 成功实例归档 | Spring Schedule 定时任务 | `SchedulerInstanceArchiveScheduleJob` -> archive Service -> Mapper | `scheduler_flow_instance_his` / `scheduler_task_instance_his` | 实时表成功实例 | 默认每天执行一次，流程实例和任务实例状态满足 `StatusEnum.isSuccess()` 时，从实时表迁移到历史表 |
 
 ## 3. 接口契约
@@ -34,6 +36,7 @@
 |-------------|------|----------------|-----------------|-------|
 | `POST` | `/api/scheduler/flow/instance/page` | `PageQuery<SchedulerInstanceQueryDto>` | `Result<PageResponse<FlowInstanceDto>>` | 流程实例主列表 |
 | `GET` | `/api/scheduler/flow/instance/{id}` | 路径参数 `UUID id` | `Result<FlowInstanceDto>` | 流程实例详情 |
+| `POST` | `/api/scheduler/flow/instance/action` | `SchedulerInstanceActionDto` | `Result<Boolean>` | 流程实例操作 |
 
 ### 3.2 TaskInstanceController
 
@@ -42,6 +45,7 @@
 | `POST` | `/api/scheduler/task/instance/page` | `PageQuery<SchedulerInstanceQueryDto>` | `Result<PageResponse<TaskInstanceDto>>` | 任务实例独立分页 |
 | `POST` | `/api/scheduler/task/instance/listByFlowInstance` | `FlowInstanceTaskQueryDto` | `Result<List<TaskInstanceDto>>` | 展开流程实例任务，按 `viewType` 查询实时或历史任务表 |
 | `GET` | `/api/scheduler/task/instance/{id}` | 路径参数 `UUID id` | `Result<TaskInstanceDto>` | 任务实例详情 |
+| `POST` | `/api/scheduler/task/instance/action` | `SchedulerInstanceActionDto` | `Result<Boolean>` | 任务实例操作 |
 
 ### 3.3 EventInstanceController
 
@@ -73,6 +77,8 @@
 | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto/SchedulerInstanceQueryDto.java` | 流程和任务实例查询条件 |
 | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto/FlowInstanceTaskQueryDto.java` | 流程展开任务实例查询条件 |
 | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto/EventInstanceQueryDto.java` | 事件实例查询条件 |
+| `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto/SchedulerInstanceActionDto.java` | 流程/任务实例操作请求 |
+| `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto/SchedulerInstanceAvailableActionDto.java` | 流程/任务实例可用操作响应 |
 | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto/FlowInstanceDto.java` | 流程实例响应 |
 | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto/TaskInstanceDto.java` | 任务实例响应 |
 | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto/EventInstanceDto.java` | 事件实例响应 |
@@ -90,8 +96,8 @@
 
 | 文件 | 说明 |
 |------|-------|
-| `FlowInstanceService` / `FlowInstanceServiceImpl` | 补充页面分页和详情查询 |
-| `TaskInstanceService` / `TaskInstanceServiceImpl` | 补充页面分页、详情、按流程实例查询 |
+| `FlowInstanceService` / `FlowInstanceServiceImpl` | 补充页面分页、详情查询和流程实例操作 |
+| `TaskInstanceService` / `TaskInstanceServiceImpl` | 补充页面分页、详情、按流程实例查询和任务实例操作 |
 | `EventInstanceService` / `EventInstanceServiceImpl` | 补充页面分页和详情查询 |
 | `FlowInstanceMapper` / `TaskInstanceMapper` / `EventInstanceMapper` | 必要时补充关联分页查询 |
 | `FlowInstanceMapper.xml` / `TaskInstanceMapper.xml` / `EventInstanceMapper.xml` | 必要时补充自定义 SQL |
@@ -106,8 +112,11 @@
 |--------|------|-------|
 | `FlowInstanceEntity` / `TaskInstanceEntity` / `EventInstanceEntity` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/po` | 复用现有实时表 PO |
 | `FlowStorageImpl` / `TaskStorageImpl` / `EventStorageImpl` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/storage` | master 运行态落库适配 |
+| `MasterService` | `datafusion-scheduler-master` | 流程/任务实例操作入口 |
+| `SchedulerInstanceActionPolicy` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/model` | 查询响应和 action 提交复用的状态到可用操作策略 |
 | `Result<T>`、`PageQuery<T>`、`PageResponse<T>` | `datafusion-common-spring` | API 响应和分页模型 |
 | `StatusEnum` | `datafusion-common-data` | 状态存储、展示和成功归档判断 |
+| `ActionType` | `datafusion-common-data` | 实例操作类型 |
 | `TaskResult` | `datafusion-common-data` | worker 返回结果和日志路径 |
 
 ## 5. Java 后端设计
@@ -124,6 +133,8 @@
 | `EventInstanceController.page` | `PageQuery<EventInstanceQueryDto>` | `Result<PageResponse<EventInstanceDto>>` | 事件实例分页 |
 | `EventInstanceController.getById` | `UUID id` | `Result<EventInstanceDto>` | 详情 |
 | `TaskInstanceLogController.content` | `TaskInstanceLogQueryDto` | `Result<TaskInstanceLogDto>` | 日志读取 |
+| `FlowInstanceController.action` | `SchedulerInstanceActionDto` | `Result<Boolean>` | 流程实例操作 |
+| `TaskInstanceController.action` | `SchedulerInstanceActionDto` | `Result<Boolean>` | 任务实例操作 |
 
 ### 5.2 Service
 
@@ -137,6 +148,8 @@
 | `pageEventInstance` | `PageQuery<EventInstanceQueryDto>` | `PageResponse<EventInstanceDto>` | 事件实例分页 |
 | `getEventInstanceById` | `UUID id` | `EventInstanceDto` | 不存在抛业务异常 |
 | `readTaskInstanceLog` | `TaskInstanceLogQueryDto` | `TaskInstanceLogDto` | 按偏移读取日志 |
+| `actionFlowInstance` | `SchedulerInstanceActionDto` | `Boolean` | 查询实时流程实例，转换为 scheduler `FlowInstance`，按 `actionType` 调用 `MasterService.getFlowAction()` |
+| `actionTaskInstance` | `SchedulerInstanceActionDto` | `Boolean` | 查询实时任务实例，转换为 scheduler `TaskInstance`，按 `actionType` 调用 `MasterService.getTaskAction()` |
 | `archiveSuccessInstances` | 归档批次参数 | `int` | 定时迁移成功流程实例和任务实例 |
 
 ### 5.3 业务规则
@@ -152,7 +165,38 @@
 | 日志读取 | 不新增表，优先使用 `TaskResult` 回传的日志文件路径；缺失时使用任务 `startTime` 派生 `yyyyMMdd` 并按约定目录兜底定位 | 文件不存在时返回空内容或明确业务错误 |
 | 成功实例归档 | Spring Schedule 默认每天凌晨 2 点扫描实时表中成功态 `31` / `33` 的流程实例和任务实例，插入对应 `*_his` 表后删除实时表记录；cron 可通过 `datafusion.scheduler.instance.archive.cron` 覆盖 | 同一批次内插入历史表和删除实时表需要事务；重复归档按主键幂等处理 |
 | 定义修改 | 实例域不允许修改定义 | 引导用户取消调度、取消发布后回定义域修改 |
-| 操作入口 | 原型中的重启、停止、重跑、强制成功等写操作第一版不实现；刷新仅作为重新查询当前行的读操作 | 不提供写接口 |
+| 流程实例操作 | 仅允许实时流程实例；支持 `FlowAction.flowSubmit`、`flowStop`，分别对应 `SUBMIT`、`STOP` | 实例不存在、历史实例或不支持的 `actionType` 返回业务异常；第一版不开放 `REINIT` |
+| 任务实例操作 | 仅允许实时任务实例；支持 `TaskAction.taskSubmit`、`taskStop`、`taskKill`、`taskRestart`、`taskEnforceSuccess`，分别对应 `SUBMIT`、`STOP`、`KILL`、`RESTART`、`ENFORCE_SUCCESS` | 实例不存在、历史实例或不支持的 `actionType` 返回业务异常；任务实例行不开放 `REINIT`，`TaskAction.taskReInit(FlowInstance)` 仅作为流程重新初始化的联动入口 |
+| 可用操作计算 | 后端统一根据实时实例状态计算 `availableActions`，前端只渲染返回结果 | 历史实例返回空列表；所有可用操作均 `confirmRequired=true`；action 接口提交时再次按同一策略校验 |
+| 操作日志 | 操作不新增审计表；Service 打印操作日志，至少包含 actionType、flowInstanceId、taskInstanceId、当前用户和操作结果 | 日志失败不影响操作返回 |
+
+#### 5.3.1 实例操作状态矩阵
+
+流程实例可用操作:
+
+| 当前状态 | 可用操作 | 说明 |
+|----------|----------|------|
+| `INIT_SUCCESS` | `SUBMIT` | 已初始化成功，可立即提交 |
+| `WAIT_DEPENDENT` | `SUBMIT` | 等待依赖中，可手动提交 |
+| `RUNNING` | `STOP` | 运行中可停止 |
+
+第一版流程实例不在界面显示 `REINIT`。虽然 `FlowAction.flowReInit` 已存在，但它依赖当前仍未完成的 `TaskAction.taskReInit(FlowInstance)`，避免用户触发半完成的重新初始化。
+
+任务实例可用操作:
+
+| 当前状态 | 可用操作 | 说明 |
+|----------|----------|------|
+| `INIT_SUCCESS` | `SUBMIT`、`STOP` | 已初始化成功，可提交或停止 |
+| `WAIT_DEPENDENT` | `SUBMIT`、`STOP` | 等待依赖中，可提交或停止 |
+| `INIT_FAILURE` | `STOP`、`ENFORCE_SUCCESS` | 初始化失败可停止或强制成功 |
+| `SUBMIT_SUCCESS` | `STOP` | 已提交成功但未运行完成，可停止 |
+| `SUBMIT_FAILURE` | `STOP`、`RESTART`、`ENFORCE_SUCCESS` | 提交失败可停止、重启或强制成功 |
+| `RUNNING` | `STOP` | 运行中可停止 |
+| `RUN_FAILURE` | `RESTART`、`ENFORCE_SUCCESS` | 运行失败可重启或强制成功 |
+| `STOP_SUCCESS` | `RESTART`、`ENFORCE_SUCCESS` | 停止成功可重启或强制成功 |
+| `STOP_FAILURE` | `KILL`、`RESTART`、`ENFORCE_SUCCESS` | 停止失败可强杀、重启或强制成功 |
+| `KILLED` | `RESTART`、`ENFORCE_SUCCESS` | 已强停可重启或强制成功 |
+| `UNKNOWN` | `ENFORCE_SUCCESS` | 未知状态只允许强制成功 |
 
 ### 5.4 事务边界
 
@@ -186,8 +230,8 @@
 |------------------|----------------|------------|--------------|-------|
 | `SchedulerInstancePage` | 页面容器、查询状态、实时/历史切换 | `SchedulerInstanceQueryDto` | 查询、重置、切换 tab | 首屏为实例查询页，`viewType` 切换放在列表标题右侧 |
 | `InstanceFilterBar` | 查询区 | 表单状态 | `onSearch` / `onReset` | 流程名称/ID、任务名称/ID、实例状态、调度时间范围、开始时间范围、结束时间范围 |
-| `FlowInstanceTable` | 流程实例主表 | `FlowInstanceDto[]` | 展开、刷新、打开详情 | 支持展开任务实例；起止时间按开始/结束两行展示 |
-| `TaskInstanceSubTable` | 展开行任务表 | `TaskInstanceDto[]` | 查看依赖图、查看日志 | 懒加载；返回结果列展示 worker 摘要 |
+| `FlowInstanceTable` | 流程实例主表 | `FlowInstanceDto[]` | 展开、刷新、打开详情、操作流程实例 | 支持展开任务实例；起止时间按开始/结束两行展示；操作按钮按 `availableActions` 渲染 |
+| `TaskInstanceSubTable` | 展开行任务表 | `TaskInstanceDto[]` | 查看依赖图、查看日志、操作任务实例 | 懒加载；返回结果列展示 worker 摘要；操作按钮按 `availableActions` 渲染 |
 | `TaskInstanceDependencyDrawer` | 任务依赖图展示 | `FlowInstanceDto` + `TaskInstanceDto` | 关闭 | 只读展示，优先使用 `flowDagSnapshot` 和任务上下游实例 ID |
 | `TaskInstanceLogDrawer` | 日志内容展示 | `TaskInstanceLogDto` | 加载更多、关闭 | 等宽字体展示 |
 | `EventInstancePage` | 事件实例查询 | `EventInstanceDto[]` | 查询、详情 | 可后续加入独立菜单或详情页 |
@@ -196,8 +240,8 @@
 
 | 表格 | 列 | 说明 |
 |------|------|-------|
-| 流程实例主表 | 展开、流程名称、流程实例ID、实例状态、调度时间、起止时间、操作 | 对齐原型中的实例列表；操作列第一版仅提供刷新当前行数据 |
-| 任务实例子表 | 任务实例、任务实例ID、任务状态、返回结果、起止时间、操作 | 展开流程后加载；操作列提供查看依赖图、查看日志；重启不在第一版实现 |
+| 流程实例主表 | 展开、流程名称、流程实例ID、实例状态、调度时间、起止时间、操作 | 对齐原型中的实例列表；操作列提供刷新和后端返回的流程实例可用操作 |
+| 任务实例子表 | 任务实例、任务实例ID、任务状态、返回结果、起止时间、操作 | 展开流程后加载；操作列提供查看依赖图、查看日志和 `taskAction` 已开放的实例操作 |
 
 ### 6.2 交互行为
 
@@ -211,7 +255,9 @@
 | 查看依赖图 | 点击任务行查看依赖图 | 设置当前流程和任务实例 | 无新增写接口 | 打开只读依赖图抽屉 |
 | 查看日志 | 点击任务行日志 | 设置当前日志查询 | `taskInstanceLogApi.content` | 打开日志抽屉 |
 | 加载更多日志 | 点击加载更多 | 更新 offset | `taskInstanceLogApi.content` | 追加日志内容 |
-| 重启任务 | 原型中的任务行重启 | 第一版不提供 | 无 | 隐藏或禁用；后续如实现需新增权限、幂等和审计设计 |
+| 操作流程实例 | 点击流程行操作 | 提交 `SchedulerInstanceActionDto` | `flowInstanceApi.action` | 成功后刷新当前流程行；失败展示错误 |
+| 操作任务实例 | 点击任务行操作 | 提交 `SchedulerInstanceActionDto` | `taskInstanceApi.action` | 成功后刷新当前任务行和所在流程；失败展示错误 |
+| 二次确认 | 点击任一 `availableActions` 操作 | 用户确认后提交 action | 对应 action API | `confirmRequired=true` 时必须确认；第一版所有实例操作均需要确认 |
 
 ### 6.3 路由 / 菜单
 
@@ -226,6 +272,7 @@
 |--------------------|--------|-------|
 | `datafusion-scheduler-master` | `FlowStorageImpl` / `TaskStorageImpl` / `EventStorageImpl` | master 负责运行态创建和状态推进，manager 查询实例 |
 | `datafusion-agent` | 共享日志目录 + `TaskResult` | 任务日志由 agent 产生并写入共享目录，agent 在 `TaskResult` 中回传日志文件路径，manager 按路径只读 |
+| `MasterService` | `flowAction` / `taskAction` | 实例操作通过 master action 进入 actor 状态机 |
 | MyBatis-Plus | Mapper / ServiceImpl | 查询实例表 |
 | `SchedulerInstanceArchiveScheduleJob` | Spring Schedule 定时任务 | 默认每天凌晨 2 点将成功流程实例、任务实例从实时表迁移到历史表 |
 | `StatusEnum` | 枚举判断 | 状态落库使用 `stateType`，读取使用 `fromString()`，归档成功态使用 `isSuccess()` |
@@ -242,24 +289,24 @@ ${modules}/task-status/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/taskStatus.l
 
 ## 8. 安全与上下文
 
-- 当前用户: 查询接口不写审计字段；日志读取只读文件。
+- 当前用户: 查询接口不写审计字段；实例操作只打印日志，不新增审计表。
 - 租户 / 项目 / 应用上下文: 现有实例表无租户或项目字段，第一版不做租户过滤。
 - 密码 / token 处理: 无。
-- 权限边界: 第一版只读。若后续增加停止、重跑、强制成功等操作，必须补充权限、幂等和操作审计设计。
+- 权限边界: 实例操作按现有接口权限体系控制；第一版不新增操作审计表，至少打印操作日志。
 
 ## 9. 不实现范围
 
 - 不修改流程定义、任务定义、事件定义、触发器定义或变量定义。
 - 不新增人工操作记录表。
 - 不新增 `TaskInstanceLog` 表。
-- 不实现重启、停止、重跑、强制成功等写操作。
+- 不开放 master action 未公开或未实现的实例操作；任务实例行不开放 `REINIT`，`TaskAction.taskReInit(FlowInstance)` 当前仅作为 `FlowAction.flowReInit` 的联动入口，后续实现流程 `REINIT` 时需要补齐或增加保护。
 - 不修改 `scheduler_flow_instance`、`scheduler_task_instance`、`scheduler_event_instance` 实时表结构；仅新增流程和任务实例历史表。
 - 不在实例页面直接编辑 DAG、任务变量参数或插件参数。
 
 ## 10. 验证方式
 
-- 单元测试: 覆盖 `REALTIME/HISTORY` 表路由、流程名称/ID 查询、任务名称/ID 关联查询、展开任务实例、事件实例分页、成功实例归档、日志文件不存在。
+- 单元测试: 覆盖 `REALTIME/HISTORY` 表路由、流程名称/ID 查询、任务名称/ID 关联查询、展开任务实例、事件实例分页、成功实例归档、日志文件不存在、流程/任务实例操作 actionType 校验、`availableActions` 状态矩阵。
 - 编译 / 构建命令: `mvn -DskipTests compile -pl datafusion-manager -am`。
 - 前端验证: `cd datafusion-web && npm run build`，必要时补充 `npm run lint`。
 - 风格 / lint: Java 按 `style/codeStyle.md` 和 `style/CheckStyle-13.0.0.xml`；前端按现有 ESLint。
-- 手工检查: 使用原型页面条件验证 `/flow/instance/page`、`/task/instance/listByFlowInstance`、`/task/instance/log/content`。
+- 手工检查: 使用原型页面条件验证 `/flow/instance/page`、`/task/instance/listByFlowInstance`、`/task/instance/log/content`、`/flow/instance/action`、`/task/instance/action`，并检查不同状态下按钮展示和二次确认。

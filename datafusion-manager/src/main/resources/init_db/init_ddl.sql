@@ -828,7 +828,54 @@ COMMENT ON COLUMN scheduler_trigger_info.updater IS '修改人';
 COMMENT ON COLUMN scheduler_trigger_info.create_time IS '创建时间';
 COMMENT ON COLUMN scheduler_trigger_info.update_time IS '修改时间';
 
+-- 调度 worker 信息
+-- DROP TABLE scheduler_worker_registry;
 
+CREATE TABLE scheduler_worker_registry (
+id uuid NOT NULL,
+worker_code varchar(128) NOT NULL, -- worker编码
+host_name varchar(128) NOT NULL, -- 主机名称
+host varchar(45) NOT NULL, -- IP地址
+port int4 NOT NULL, -- 端口
+status int4 NOT NULL, -- 状态：0-下线 1-上线 2-清除
+"zone" varchar(64) NULL, -- 区域/分组，预留字段
+plugins varchar(256) NULL, -- 组件类型列表，逗号分隔
+register_time timestamp(6) NULL, -- 注册时间
+last_heartbeat_time timestamp(6) NULL, -- 最近心跳时间
+is_active int2 NOT NULL, -- 是否有效：1-有效 0-无效
+remark varchar(255) NULL, -- 资源说明
+creator varchar(100) NOT NULL, -- 创建人
+updater varchar(100) NOT NULL, -- 修改人
+create_time timestamp(6) NOT NULL, -- 创建时间
+update_time timestamp(6) NOT NULL, -- 修改时间
+tenant_id uuid NULL, -- 租户ID
+CONSTRAINT scheduler_worker_registry_host_port_uk UNIQUE (host, port),
+CONSTRAINT scheduler_worker_registry_pkey PRIMARY KEY (id),
+CONSTRAINT scheduler_worker_registry_worker_code_uk UNIQUE (worker_code)
+);
+COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 worker 的注册状态、心跳时间、插件能力和运行元信息';
+
+-- Column comments
+
+COMMENT ON COLUMN scheduler_worker_registry.worker_code IS 'worker编码';
+COMMENT ON COLUMN scheduler_worker_registry.host_name IS '主机名称';
+COMMENT ON COLUMN scheduler_worker_registry.host IS 'IP地址';
+COMMENT ON COLUMN scheduler_worker_registry.port IS '端口';
+COMMENT ON COLUMN scheduler_worker_registry.status IS '状态：0-下线 1-上线 2-清除';
+COMMENT ON COLUMN scheduler_worker_registry."zone" IS '区域/分组，预留字段';
+COMMENT ON COLUMN scheduler_worker_registry.plugins IS '组件类型列表，逗号分隔';
+COMMENT ON COLUMN scheduler_worker_registry.register_time IS '注册时间';
+COMMENT ON COLUMN scheduler_worker_registry.last_heartbeat_time IS '最近心跳时间';
+COMMENT ON COLUMN scheduler_worker_registry.is_active IS '是否有效：1-有效 0-无效';
+COMMENT ON COLUMN scheduler_worker_registry.remark IS '资源说明';
+COMMENT ON COLUMN scheduler_worker_registry.creator IS '创建人';
+COMMENT ON COLUMN scheduler_worker_registry.updater IS '修改人';
+COMMENT ON COLUMN scheduler_worker_registry.create_time IS '创建时间';
+COMMENT ON COLUMN scheduler_worker_registry.update_time IS '修改时间';
+COMMENT ON COLUMN scheduler_worker_registry.tenant_id IS '租户ID';
+
+
+-- 系统配置模块
 -- DROP TABLE system_variable_info;
 
 CREATE TABLE system_variable_info (

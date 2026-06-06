@@ -4,6 +4,7 @@ import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.manager.scheduler.dto.FlowInstanceTaskQueryDto;
+import com.datafusion.manager.scheduler.dto.SchedulerInstanceActionDto;
 import com.datafusion.manager.scheduler.dto.SchedulerInstanceQueryDto;
 import com.datafusion.manager.scheduler.dto.TaskInstanceDto;
 import com.datafusion.manager.scheduler.service.TaskInstanceService;
@@ -72,5 +73,17 @@ public class TaskInstanceController {
     @Operation(summary = "查询任务实例详情")
     public Result<TaskInstanceDto> getById(@PathVariable UUID id) {
         return Result.success(taskInstanceService.getTaskInstanceById(id));
+    }
+
+    /**
+     * 操作任务实例.
+     *
+     * @param action 操作请求
+     * @return 是否提交成功
+     */
+    @PostMapping("/action")
+    @Operation(summary = "操作任务实例")
+    public Result<Boolean> action(@RequestBody SchedulerInstanceActionDto action) {
+        return Result.success(taskInstanceService.actionTaskInstance(action));
     }
 }

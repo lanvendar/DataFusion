@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -112,4 +113,10 @@ public class TaskInstanceDto {
      */
     @Schema(name = "logPath", description = "日志路径")
     private String logPath;
+
+    /**
+     * 可用操作.
+     */
+    @Schema(name = "availableActions", description = "可用操作")
+    private List<SchedulerInstanceAvailableActionDto> availableActions;
 }

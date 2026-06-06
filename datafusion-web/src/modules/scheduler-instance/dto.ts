@@ -2,6 +2,13 @@ export type SchedulerInstanceViewType = "REALTIME" | "HISTORY";
 
 export type TaskInstanceLogType = "LOG" | "ERROR" | "STATUS";
 
+export type SchedulerInstanceActionType =
+  | "SUBMIT"
+  | "STOP"
+  | "KILL"
+  | "RESTART"
+  | "ENFORCE_SUCCESS";
+
 export interface SchedulerInstanceQueryOption {
   flowKeyword?: string;
   taskKeyword?: string;
@@ -18,6 +25,18 @@ export interface SchedulerInstanceQueryOption {
 export interface FlowInstanceTaskQuery {
   flowInstanceId: string;
   viewType?: SchedulerInstanceViewType;
+}
+
+export interface SchedulerInstanceAvailableAction {
+  actionType: SchedulerInstanceActionType;
+  label: string;
+  confirmRequired?: boolean;
+}
+
+export interface SchedulerInstanceActionRequest {
+  flowInstanceId?: string;
+  taskInstanceId?: string;
+  actionType: SchedulerInstanceActionType;
 }
 
 export interface EventInstanceQueryOption {
@@ -58,6 +77,7 @@ export interface FlowInstanceItem {
   endTime?: number;
   duration?: number;
   flowDagSnapshot?: unknown;
+  availableActions?: SchedulerInstanceAvailableAction[];
 }
 
 export interface TaskInstanceItem {
@@ -77,6 +97,7 @@ export interface TaskInstanceItem {
   workerResult?: unknown;
   workerResultText?: string;
   logPath?: string;
+  availableActions?: SchedulerInstanceAvailableAction[];
 }
 
 export interface EventInstanceItem {

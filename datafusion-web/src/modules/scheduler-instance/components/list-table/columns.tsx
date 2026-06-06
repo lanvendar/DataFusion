@@ -20,9 +20,10 @@ import {
 
 interface UseColumnsProps {
   onRefresh: () => void;
+  onFlowAction: (record: FlowInstanceItem, actionType: string) => void;
 }
 
-export function useColumns({ onRefresh }: UseColumnsProps): ColumnsType<FlowInstanceItem> {
+export function useColumns({ onRefresh, onFlowAction }: UseColumnsProps): ColumnsType<FlowInstanceItem> {
   return [
     {
       title: "流程实例",
@@ -69,10 +70,21 @@ export function useColumns({ onRefresh }: UseColumnsProps): ColumnsType<FlowInst
       title: "操作",
       key: "action",
       width: ACTION_COLUMN_WIDTH,
-      render: () => (
-        <Button type="link" icon={<ReloadOutlined />} onClick={onRefresh}>
-          刷新
-        </Button>
+      render: (_, record) => (
+        <Space className="scheduler-instance-actions" size={[4, 4]} wrap>
+          <Button type="link" icon={<ReloadOutlined />} onClick={onRefresh}>
+            刷新
+          </Button>
+          {(record.availableActions || []).map((action) => (
+            <Button
+              key={action.actionType}
+              type="link"
+              onClick={() => onFlowAction(record, action.actionType)}
+            >
+              {action.label}
+            </Button>
+          ))}
+        </Space>
       ),
     },
   ];

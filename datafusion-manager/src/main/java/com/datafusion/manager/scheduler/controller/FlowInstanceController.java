@@ -4,6 +4,7 @@ import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.manager.scheduler.dto.FlowInstanceDto;
+import com.datafusion.manager.scheduler.dto.SchedulerInstanceActionDto;
 import com.datafusion.manager.scheduler.dto.SchedulerInstanceQueryDto;
 import com.datafusion.manager.scheduler.service.FlowInstanceService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -58,5 +59,17 @@ public class FlowInstanceController {
     @Operation(summary = "查询流程实例详情")
     public Result<FlowInstanceDto> getById(@PathVariable UUID id) {
         return Result.success(flowInstanceService.getFlowInstanceById(id));
+    }
+
+    /**
+     * 操作流程实例.
+     *
+     * @param action 操作请求
+     * @return 是否提交成功
+     */
+    @PostMapping("/action")
+    @Operation(summary = "操作流程实例")
+    public Result<Boolean> action(@RequestBody SchedulerInstanceActionDto action) {
+        return Result.success(flowInstanceService.actionFlowInstance(action));
     }
 }

@@ -2,9 +2,8 @@ import { Button, Space, Typography } from "antd";
 import { useQuery } from "@tanstack/react-query";
 import { taskInstanceApi } from "../../api";
 import {
-  CHILD_GRID_TEMPLATE,
-  CHILD_TABLE_WIDTH,
   EMPTY_PLACEHOLDER,
+  EXPANDED_TASK_GRID_TEMPLATE,
   SCHEDULER_INSTANCE_TASK_QUERY_KEY,
 } from "../../constants";
 import type {
@@ -24,6 +23,7 @@ interface TaskInstanceGridProps {
   viewType: SchedulerInstanceViewType;
   onOpenDependency: (flow: FlowInstanceItem, task: TaskInstanceItem) => void;
   onOpenLog: (task: TaskInstanceItem) => void;
+  onTaskAction: (flow: FlowInstanceItem, task: TaskInstanceItem, actionType: string) => void;
 }
 
 export function TaskInstanceGrid({
@@ -31,6 +31,7 @@ export function TaskInstanceGrid({
   viewType,
   onOpenDependency,
   onOpenLog,
+  onTaskAction,
 }: TaskInstanceGridProps) {
   const query = useQuery({
     queryKey: [SCHEDULER_INSTANCE_TASK_QUERY_KEY, flow.id, viewType],
@@ -40,9 +41,11 @@ export function TaskInstanceGrid({
   const tasks = query.data || [];
 
   return (
-    <div className="scheduler-instance-expanded-content" style={{ width: CHILD_TABLE_WIDTH }}>
+    <div className="scheduler-instance-expanded-content">
       <div className="scheduler-instance-task-grid">
-        <div className="scheduler-instance-task-grid-header" style={{ gridTemplateColumns: CHILD_GRID_TEMPLATE }}>
+        {/* TODO: 后续可将父表和子表统一改为同一套 CSS Grid 渲染，彻底避免 AntD Table + 子 grid 在不同分辨率下列宽漂移。 */}
+        <div className="scheduler-instance-task-grid-header" style={{ gridTemplateColumns: EXPANDED_TASK_GRID_TEMPLATE }}>
+          <div className="scheduler-instance-task-grid-placeholder" />
           <div>任务实例</div>
           <div>任务类型</div>
           <div>任务状态</div>
@@ -60,8 +63,9 @@ export function TaskInstanceGrid({
           <div
             className="scheduler-instance-task-grid-row"
             key={record.id}
-            style={{ gridTemplateColumns: CHILD_GRID_TEMPLATE }}
+            style={{ gridTemplateColumns: EXPANDED_TASK_GRID_TEMPLATE }}
           >
+            <div className="scheduler-instance-task-grid-cell scheduler-instance-task-grid-placeholder" />
             <div className="scheduler-instance-task-grid-cell">
               <Space direction="vertical" size={2} style={{ maxWidth: "100%" }}>
                 <Typography.Link
@@ -90,14 +94,23 @@ export function TaskInstanceGrid({
             <div className="scheduler-instance-task-grid-cell">
               {renderTimeBlock(record.startTime, record.endTime, record.costTime)}
             </div>
-            <div className="scheduler-instance-task-grid-cell">
-              <Space size={0}>
+            <div className="scheduler-instance-task-grid-cell scheduler-instance-task-grid-action-cell">
+              <Space className="scheduler-instance-actions" size={[4, 4]} wrap>
                 <Button type="link" onClick={() => onOpenDependency(flow, record)}>
                   查看依赖图
                 </Button>
                 <Button type="link" onClick={() => onOpenLog(record)}>
                   查看日志
                 </Button>
+                {(record.availableActions || []).map((action) => (
+                  <Button
+                    key={action.actionType}
+                    type="link"
+                    onClick={() => onTaskAction(flow, record, action.actionType)}
+                  >
+                    {action.label}
+                  </Button>
+                ))}
               </Space>
             </div>
           </div>

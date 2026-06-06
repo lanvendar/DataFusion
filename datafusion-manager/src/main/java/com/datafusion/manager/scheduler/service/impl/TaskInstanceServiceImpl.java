@@ -4,21 +4,35 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.datafusion.common.exception.CommonException;
 import com.datafusion.common.exception.ErrorCodeEnum;
+import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.manager.scheduler.dao.TaskInstanceMapper;
 import com.datafusion.manager.scheduler.dao.TaskInstanceHisMapper;
 import com.datafusion.manager.scheduler.dto.FlowInstanceTaskQueryDto;
+import com.datafusion.manager.scheduler.dto.SchedulerInstanceActionDto;
 import com.datafusion.manager.scheduler.dto.SchedulerInstanceQueryDto;
 import com.datafusion.manager.scheduler.dto.TaskInstanceDto;
 import com.datafusion.manager.scheduler.dto.TaskInstanceLogDto;
 import com.datafusion.manager.scheduler.dto.TaskInstanceLogQueryDto;
+import com.datafusion.manager.scheduler.model.SchedulerInstanceActionPolicy;
 import com.datafusion.manager.scheduler.po.TaskInstanceEntity;
 import com.datafusion.manager.scheduler.po.TaskInstanceHisEntity;
 import com.datafusion.manager.scheduler.service.TaskInstanceService;
+import com.datafusion.manager.utils.HttpUtils;
+import com.datafusion.manager.utils.ImplUtil;
+import com.datafusion.scheduler.enums.ActionType;
+import com.datafusion.scheduler.enums.StatusEnum;
+import com.datafusion.scheduler.master.MasterService;
+import com.datafusion.scheduler.master.task.model.TaskInstance;
+import com.datafusion.scheduler.model.ParamData;
+import com.datafusion.scheduler.model.PluginData;
+import com.datafusion.scheduler.model.TaskResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -40,6 +54,7 @@ import java.util.stream.Stream;
  * @since 1.0.0
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, TaskInstanceEntity>
         implements TaskInstanceService {
@@ -78,6 +93,11 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
      * 历史任务实例Mapper.
      */
     private final TaskInstanceHisMapper taskInstanceHisMapper;
+
+    /**
+     * master 服务.
+     */
+    private final ObjectProvider<MasterService> masterServiceProvider;
 
     /**
      * 模块根目录.
@@ -140,6 +160,46 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
         String logType = StringUtils.defaultIfBlank(query.getLogType(), LOG_TYPE_LOG).toUpperCase();
         Path path = resolveLogPath(entity, logType);
         return readLogFile(path, logType, query.getOffset(), query.getLimit());
+    }
+
+    @Override
+    public Boolean actionTaskInstance(SchedulerInstanceActionDto action) {
+        if (action == null || action.getTaskInstanceId() == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "任务实例ID不能为空");
+        }
+        ActionType actionType = parseActionType(action.getActionType());
+        TaskInstanceEntity entity = baseMapper.getInstanceById(action.getTaskInstanceId());
+        if (entity == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "仅支持操作实时任务实例");
+        }
+        if (!SchedulerInstanceActionPolicy.canTaskAction(entity.getStatus(), actionType)) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "当前任务实例状态不支持该操作");
+        }
+
+        TaskInstance instance = toTaskInstance(entity);
+        MasterService masterService = masterServiceProvider.getObject();
+        switch (actionType) {
+            case SUBMIT:
+                masterService.getTaskAction().taskSubmit(instance);
+                break;
+            case STOP:
+                masterService.getTaskAction().taskStop(instance);
+                break;
+            case KILL:
+                masterService.getTaskAction().taskKill(instance);
+                break;
+            case RESTART:
+                masterService.getTaskAction().taskRestart(instance);
+                break;
+            case ENFORCE_SUCCESS:
+                masterService.getTaskAction().taskEnforceSuccess(instance);
+                break;
+            default:
+                throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "不支持的任务实例操作");
+        }
+        log.info("操作任务实例,user={},taskInstanceId={},flowInstanceId={},actionType={},result={}",
+                HttpUtils.getCurrentUserName(), action.getTaskInstanceId(), entity.getFlowInstanceId(), actionType, true);
+        return true;
     }
 
     @Override
@@ -220,6 +280,7 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
         dto.setWorkerResult(entity.getWorkerResult());
         dto.setWorkerResultText(extractWorkerResultText(entity.getWorkerResult()));
         dto.setLogPath(extractLogPath(entity.getWorkerResult()));
+        dto.setAvailableActions(SchedulerInstanceActionPolicy.taskActions(entity.getStatus()));
         return dto;
     }
 
@@ -345,5 +406,43 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
             return DEFAULT_LOG_LIMIT;
         }
         return Math.min(limitValue, MAX_LOG_LIMIT);
+    }
+
+    private ActionType parseActionType(String actionType) {
+        try {
+            return ActionType.valueOf(actionType);
+        } catch (Exception e) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "任务实例操作类型不合法");
+        }
+    }
+
+    private TaskInstance toTaskInstance(TaskInstanceEntity entity) {
+        TaskInstance instance = new TaskInstance();
+        instance.setInstanceId(ImplUtil.uuidToStr(entity.getId()));
+        instance.setFlowInstanceId(ImplUtil.uuidToStr(entity.getFlowInstanceId()));
+        instance.setTaskId(ImplUtil.uuidToStr(entity.getTaskId()));
+        instance.setTaskType(entity.getTaskType());
+        instance.setTaskName(entity.getTaskName());
+        instance.setTaskDesc(entity.getDescription());
+        instance.setState(entity.getStatus() != null ? StatusEnum.fromString(entity.getStatus()) : null);
+        instance.setStartTime(entity.getStartTime());
+        instance.setEndTime(entity.getEndTime());
+        instance.setCostTime(entity.getCostTime() != null ? entity.getCostTime().longValue() : null);
+        instance.setLastInstanceIds(ImplUtil.parseCommaSet(entity.getLastInstanceId()));
+        instance.setNextInstanceIds(ImplUtil.parseCommaSet(entity.getNextInstanceId()));
+        instance.setDepEventIds(ImplUtil.parseCommaSet(entity.getDepEventIds()));
+        instance.setEventId(ImplUtil.uuidToStr(entity.getEventId()));
+        instance.setTaskParam(toParamData(entity.getTaskParam()));
+        instance.setTaskData(entity.getTaskData());
+        instance.setTaskResult(JacksonUtils.tryObj2Bean(entity.getWorkerResult(), TaskResult.class));
+        instance.setPluginData(JacksonUtils.tryObj2Bean(entity.getPluginData(), PluginData.class));
+        return instance;
+    }
+
+    private ParamData toParamData(JsonNode jsonNode) {
+        if (JacksonUtils.isEmpty(jsonNode)) {
+            return new ParamData();
+        }
+        return JacksonUtils.tryObj2Bean(jsonNode, ParamData.class);
     }
 }

@@ -1,18 +1,18 @@
 package com.datafusion.manager.scheduler.master.task;
 
 import com.datafusion.common.exception.ErrorCodeEnum;
-import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.common.spring.dto.response.Result;
+import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.exception.SchedulerException;
 import com.datafusion.scheduler.exception.SchedulerExceptionCode;
 import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
 import com.datafusion.scheduler.model.PluginData;
-import com.datafusion.scheduler.model.TaskResult;
-import com.datafusion.scheduler.worker.WorkerManager;
 import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.Worker;
+import com.datafusion.scheduler.worker.WorkerManager;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -44,17 +44,22 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
     /**
      * 提交任务的uri.
      */
-    public static final String SUBMIT_TASK_URL = "http://host:port/internal/schedule/submitTask";
+    public static final String SUBMIT_TASK_URL = "http://host:port/internal/scheduler/submitTask";
 
     /**
      * 停止任务的uri.
      */
-    public static final String STOP_TASK_URL = "http://host:port/internal/schedule/stopTask";
+    public static final String STOP_TASK_URL = "http://host:port/internal/scheduler/stopTask";
+
+    /**
+     * 强制停止任务的uri.
+     */
+    public static final String KILL_TASK_URL = "http://host:port/internal/scheduler/killTask";
 
     /**
      * 完成任务的uri.
      */
-    public static final String FINISH_TASK_URL = "http://host:port/internal/schedule/finishTask";
+    public static final String FINISH_TASK_URL = "http://host:port/internal/scheduler/finishTask";
 
     /**
      * 工作节点存储服务.
@@ -93,8 +98,8 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
      * @param connectionRequestTimeout 从线程池中获取线程超时时间
      * @param socketTimeout            数据超时时间
      */
-    public HttpMasterTaskOperator(WorkerManager manager, int maxConcurrent, int maxPerRoute, int connectionTimeout, int connectionRequestTimeout,
-                            int socketTimeout) {
+    public HttpMasterTaskOperator(WorkerManager manager, int maxConcurrent, int maxPerRoute, int connectionTimeout,
+                                  int connectionRequestTimeout, int socketTimeout) {
         this.manager = manager;
         PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
         //客户端总并行链接最大数
@@ -106,8 +111,11 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
                 // .addInterceptorFirst(new HttpClientLogInterceptor())
                 .build();
 
-        config = RequestConfig.custom().setConnectTimeout(connectionTimeout).setConnectionRequestTimeout(connectionRequestTimeout)
-                .setSocketTimeout(socketTimeout).build();
+        config = RequestConfig.custom()
+                .setConnectTimeout(connectionTimeout)
+                .setConnectionRequestTimeout(connectionRequestTimeout)
+                .setSocketTimeout(socketTimeout)
+                .build();
     }
     // endregion
 
@@ -171,7 +179,18 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
 
     @Override
     public TaskResult killTask(TaskInstance taskIns) throws SchedulerException {
-        return null;
+        Worker worker = getLastExecutedWorker(taskIns);
+        if (null == worker || !worker.isAlive()) {
+            log.warn("[{}] - 工作节点不可用, 无法强制停止任务", taskIns.getInstanceId());
+            throw new SchedulerException(SchedulerExceptionCode.CANNOT_FIND_RESOURCE);
+        }
+
+        try {
+            return requestToWorker(KILL_TASK_URL, worker, taskIns);
+        } catch (Exception e) {
+            log.error("[{}] - 发送kill task请求失败", taskIns.getInstanceId(), e);
+            throw new SchedulerException("http error" + HttpStatus.SC_INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**
@@ -237,12 +256,17 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
         }
 
         TaskResult response;
-        if (result != null && result.getCode().equals(ErrorCodeEnum.SUCCESS.getCode())) {
+        if (result != null && ErrorCodeEnum.SUCCESS.getCode().equals(result.getCode())) {
             response = result.getData();
+            if (response == null) {
+                response = TaskResult.builder().result("worker响应数据为空").build();
+            }
         } else {
+            String errorMsg = result == null ? "worker响应为空或解析失败" : result.getErrorMsg();
+            Object code = result == null ? null : result.getCode();
             log.warn("[{}] - 发送请求给工作节点失败,错误码:{}, 错误信息:{}",
-                    taskIns.getInstanceId(), result.getCode(), result.getErrorMsg());
-            response = TaskResult.builder().result(result.getErrorMsg()).build();
+                    taskIns.getInstanceId(), code, errorMsg);
+            response = TaskResult.builder().result(errorMsg).build();
         }
         return response;
     }
@@ -290,21 +314,20 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
         StringEntity se = new StringEntity(param, StandardCharsets.UTF_8);
         httpPost.setEntity(se);
 
-        CloseableHttpResponse response = httpClient.execute(httpPost);
-
-        if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-            EntityUtils.consume(response.getEntity());
-            throw new SchedulerException("http error" + HttpStatus.SC_INTERNAL_SERVER_ERROR);
-        }
-        HttpEntity resEntity = response.getEntity();
-        //关闭响应
-        if (resEntity != null) {
-            String sRet = EntityUtils.toString(resEntity, StandardCharsets.UTF_8);
-            EntityUtils.consume(response.getEntity());
-            return sRet;
-        } else {
-            EntityUtils.consume(response.getEntity());
-            return null;
+        try (CloseableHttpResponse response = httpClient.execute(httpPost)) {
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                EntityUtils.consume(response.getEntity());
+                throw new SchedulerException("http error" + HttpStatus.SC_INTERNAL_SERVER_ERROR);
+            }
+            HttpEntity resEntity = response.getEntity();
+            if (resEntity != null) {
+                String result = EntityUtils.toString(resEntity, StandardCharsets.UTF_8);
+                EntityUtils.consume(response.getEntity());
+                return result;
+            } else {
+                EntityUtils.consume(response.getEntity());
+                return null;
+            }
         }
     }
     // endregion

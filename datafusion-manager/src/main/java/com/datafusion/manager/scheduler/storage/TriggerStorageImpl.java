@@ -64,7 +64,7 @@ public class TriggerStorageImpl implements TriggerStorage {
         List<FlowInfoEntity> enabledFlows = flowInfoService.listAllEnabled();
         List<TriggerInfo> result = new ArrayList<>();
         for (FlowInfoEntity flow : enabledFlows) {
-            TriggerInfoEntity trigger = triggerInfoService.getByTriggerId(flow.getId());
+            TriggerInfoEntity trigger = getTriggerEntity(flow);
             if (trigger != null) {
                 result.add(toTriggerInfo(flow, trigger));
             }
@@ -79,7 +79,7 @@ public class TriggerStorageImpl implements TriggerStorage {
         if (flow == null) {
             return null;
         }
-        TriggerInfoEntity trigger = triggerInfoService.getByTriggerId(flowId);
+        TriggerInfoEntity trigger = getTriggerEntity(flow);
         if (trigger == null) {
             return null;
         }
@@ -163,8 +163,7 @@ public class TriggerStorageImpl implements TriggerStorage {
 
     private TriggerInfoEntity toTriggerInfoEntity(TriggerInfo triggerInfo) {
         TriggerInfoEntity entity = new TriggerInfoEntity();
-        // triggerId即为payloadId(共享主键)
-        entity.setId(strToUuid(triggerInfo.getPayloadId()));
+        entity.setId(strToUuid(triggerInfo.getTriggerId()));
         entity.setType(triggerInfo.getTriggerType() != null
                 ? String.valueOf(triggerInfo.getTriggerType().ordinal()) : null);
         entity.setPolicy(triggerInfo.getTriggerPolicy() != null
@@ -178,6 +177,13 @@ public class TriggerStorageImpl implements TriggerStorage {
             entity.setInterval((int) (ms / MINUTES_TO_MS));
         }
         return entity;
+    }
+
+    private TriggerInfoEntity getTriggerEntity(FlowInfoEntity flow) {
+        if (flow.getTriggerId() != null) {
+            return triggerInfoService.getByTriggerId(flow.getTriggerId());
+        }
+        return triggerInfoService.getByTriggerId(flow.getId());
     }
 
     private TriggerInstance toTriggerInstance(FlowInstanceEntity entity) {

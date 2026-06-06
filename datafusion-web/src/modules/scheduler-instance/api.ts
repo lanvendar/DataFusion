@@ -6,6 +6,7 @@ import type {
   FlowInstanceTaskQuery,
   PageQuery,
   PageResponse,
+  SchedulerInstanceActionRequest,
   SchedulerInstanceQueryOption,
   TaskInstanceItem,
   TaskInstanceLogContent,
@@ -28,6 +29,14 @@ export const flowInstanceApi = {
   detail(id: string): Promise<FlowInstanceItem> {
     return request<FlowInstanceItem>({ url: `${flowPrefix}/${id}`, method: "GET" });
   },
+
+  action(params: SchedulerInstanceActionRequest): Promise<boolean> {
+    return request<boolean>({
+      url: `${flowPrefix}/action`,
+      method: "POST",
+      data: params,
+    });
+  },
 };
 
 export const taskInstanceApi = {
@@ -49,6 +58,14 @@ export const taskInstanceApi = {
 
   detail(id: string): Promise<TaskInstanceItem> {
     return request<TaskInstanceItem>({ url: `${taskPrefix}/${id}`, method: "GET" });
+  },
+
+  action(params: SchedulerInstanceActionRequest): Promise<boolean> {
+    return request<boolean>({
+      url: `${taskPrefix}/action`,
+      method: "POST",
+      data: params,
+    });
   },
 
   logContent(params: TaskInstanceLogQuery): Promise<TaskInstanceLogContent> {

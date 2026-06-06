@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -94,4 +95,10 @@ public class FlowInstanceDto {
      */
     @Schema(name = "flowDagSnapshot", description = "流程DAG快照")
     private JsonNode flowDagSnapshot;
+
+    /**
+     * 可用操作.
+     */
+    @Schema(name = "availableActions", description = "可用操作")
+    private List<SchedulerInstanceAvailableActionDto> availableActions;
 }

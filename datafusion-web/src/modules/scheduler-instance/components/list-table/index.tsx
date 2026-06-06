@@ -1,13 +1,17 @@
-import { Card, Segmented, Space, Table } from "antd";
+import { Card, Modal, Segmented, Space, Table, message } from "antd";
 import type { TablePaginationConfig } from "antd";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { flowInstanceApi, taskInstanceApi } from "../../api";
 import {
   DEFAULT_PAGE_SIZE,
   EXPAND_COLUMN_WIDTH,
+  SCHEDULER_INSTANCE_TASK_QUERY_KEY,
   TABLE_SCROLL_X,
   viewTypeOptions,
 } from "../../constants";
 import type {
   FlowInstanceItem,
+  SchedulerInstanceActionType,
   SchedulerInstanceViewType,
   TaskInstanceItem,
 } from "../../dto";
@@ -38,7 +42,60 @@ export function SchedulerInstanceListTable({
     setCurrent,
     setPageSize,
   } = useSchedulerInstanceListQuery();
-  const columns = useColumns({ onRefresh: () => void query.refetch() });
+  const queryClient = useQueryClient();
+  const flowActionMutation = useMutation({
+    mutationFn: flowInstanceApi.action,
+    onSuccess: async () => {
+      message.success("操作已提交");
+      await query.refetch();
+    },
+  });
+  const taskActionMutation = useMutation({
+    mutationFn: taskInstanceApi.action,
+    onSuccess: async (_, variables) => {
+      message.success("操作已提交");
+      await Promise.all([
+        query.refetch(),
+        queryClient.invalidateQueries({
+          queryKey: [SCHEDULER_INSTANCE_TASK_QUERY_KEY, variables.flowInstanceId, viewType],
+        }),
+      ]);
+    },
+  });
+
+  const handleFlowAction = (record: FlowInstanceItem, actionType: string) => {
+    const action = record.availableActions?.find((item) => item.actionType === actionType);
+    Modal.confirm({
+      title: `确认${action?.label || "执行操作"}?`,
+      content: record.flowName || record.id,
+      okText: "确认",
+      cancelText: "取消",
+      onOk: () => flowActionMutation.mutateAsync({
+        flowInstanceId: record.id,
+        actionType: actionType as SchedulerInstanceActionType,
+      }),
+    });
+  };
+
+  const handleTaskAction = (flow: FlowInstanceItem, task: TaskInstanceItem, actionType: string) => {
+    const action = task.availableActions?.find((item) => item.actionType === actionType);
+    Modal.confirm({
+      title: `确认${action?.label || "执行操作"}?`,
+      content: task.taskName || task.id,
+      okText: "确认",
+      cancelText: "取消",
+      onOk: () => taskActionMutation.mutateAsync({
+        flowInstanceId: flow.id,
+        taskInstanceId: task.id,
+        actionType: actionType as SchedulerInstanceActionType,
+      }),
+    });
+  };
+
+  const columns = useColumns({
+    onRefresh: () => void query.refetch(),
+    onFlowAction: handleFlowAction,
+  });
   const rows = getRows(query.data);
   const pagination = getPagination(query.data);
 
@@ -82,6 +139,7 @@ export function SchedulerInstanceListTable({
                 viewType={viewType}
                 onOpenDependency={onOpenDependency}
                 onOpenLog={onOpenLog}
+                onTaskAction={handleTaskAction}
               />
             ),
             columnWidth: EXPAND_COLUMN_WIDTH,

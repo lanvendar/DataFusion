@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.manager.scheduler.dto.FlowInstanceTaskQueryDto;
+import com.datafusion.manager.scheduler.dto.SchedulerInstanceActionDto;
 import com.datafusion.manager.scheduler.dto.SchedulerInstanceQueryDto;
 import com.datafusion.manager.scheduler.dto.TaskInstanceDto;
 import com.datafusion.manager.scheduler.dto.TaskInstanceLogDto;
@@ -53,6 +54,14 @@ public interface TaskInstanceService extends IService<TaskInstanceEntity> {
      * @return 任务实例日志
      */
     TaskInstanceLogDto readTaskInstanceLog(TaskInstanceLogQueryDto query);
+
+    /**
+     * 操作任务实例.
+     *
+     * @param action 操作请求
+     * @return 是否提交成功
+     */
+    Boolean actionTaskInstance(SchedulerInstanceActionDto action);
 
     /**
      * 根据实例ID查询任务实例.

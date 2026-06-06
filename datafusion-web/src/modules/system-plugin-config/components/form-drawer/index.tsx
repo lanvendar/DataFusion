@@ -67,7 +67,7 @@ export function PluginConfigForm({
           <Input placeholder="请输入插件名称" />
         </Form.Item>
         <Form.Item name="pluginType" label="插件类型" rules={[{ required: true }]}>
-          <Input placeholder="例如 FLINK、DATA_X" />
+          <Input placeholder="例如 FLINK、DATAX" />
         </Form.Item>
         <Form.Item name="runMode" label="运行模式" rules={[{ required: true }]}>
           <Input placeholder="例如 DEFAULT、YARN、K8S" />
