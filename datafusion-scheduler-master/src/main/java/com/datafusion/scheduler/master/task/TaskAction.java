@@ -26,6 +26,7 @@ import com.datafusion.scheduler.master.task.model.TaskInstance;
 import com.datafusion.scheduler.master.task.model.TaskLink;
 import com.datafusion.scheduler.master.task.storage.TaskStorage;
 import com.datafusion.scheduler.master.trigger.model.TriggerInstance;
+import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.TaskResult;
 import lombok.extern.slf4j.Slf4j;
 
@@ -206,6 +207,78 @@ public class TaskAction implements TaskResultHandler {
             ActorProxy taskActor = createTaskActor(taskIns.getInstanceId(), flowInsId);
             // 第一次发送消息
             taskActor.notify(msg);
+        }
+    }
+
+    /**
+     * 恢复流程下任务实例的 Actor 运行态.
+     *
+     * @param flowInsId 流程实例ID
+     */
+    public void reloadTasks(String flowInsId) {
+        List<TaskInstance> taskInstances = masterStorage.getTaskStorage().getTaskInsIdsByFlowInsId(flowInsId);
+        for (TaskInstance taskInstance : taskInstances) {
+            if (taskInstance == null) {
+                continue;
+            }
+            StatusEnum taskState = taskInstance.getState();
+            if (taskState != null && taskState.isSuccess()) {
+                continue;
+            }
+            try {
+                ActorProxy taskActor = createTaskActor(taskInstance.getInstanceId(), flowInsId);
+                recoverTask(taskActor, taskInstance);
+            } catch (Exception e) {
+                log.warn("恢复任务实例运行态失败,taskInstanceId={}",
+                        taskInstance == null ? null : taskInstance.getInstanceId(), e);
+            }
+        }
+        log.info("恢复任务运行态数量: {}, flowInstanceId={}", taskInstances.size(), flowInsId);
+    }
+
+    private void recoverTask(ActorProxy taskActor, TaskInstance taskInstance) {
+        ActionType actionType = getRecoverAction(taskInstance.getState());
+        if (actionType == null) {
+            return;
+        }
+        TaskMsg msg = TaskMsg.builder()
+                .flowInstanceId(taskInstance.getFlowInstanceId())
+                .taskInstanceId(taskInstance.getInstanceId())
+                .taskId(taskInstance.getTaskId())
+                .flowParamData(getFlowParamData(taskInstance))
+                .actionType(actionType)
+                .isManualAction(false)
+                .build();
+        taskActor.notify(msg);
+    }
+
+    private ParamData getFlowParamData(TaskInstance taskInstance) {
+        FlowInstance flowInstance = masterStorage.getFlowStorage().getInstanceById(taskInstance.getFlowInstanceId());
+        return flowInstance == null ? null : flowInstance.getFlowParam();
+    }
+
+    private ActionType getRecoverAction(StatusEnum state) {
+        if (state == null) {
+            return null;
+        }
+        switch (state) {
+            case INITIALIZING:
+                return ActionType.INIT;
+            case INIT_SUCCESS:
+            case WAIT_DEPENDENT:
+                return ActionType.WAIT;
+            case SUBMITTING:
+                return ActionType.RUN;
+            case RESTARTING:
+                return ActionType.SUBMIT;
+            case STOPPING:
+                return ActionType.STOP;
+            case KILLING:
+                return ActionType.KILL;
+            case ENFORCING_SUCCESS:
+                return ActionType.ENFORCE_SUCCESS;
+            default:
+                return null;
         }
     }
 

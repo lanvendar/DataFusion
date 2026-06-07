@@ -1,14 +1,12 @@
 package com.datafusion.manager.config;
 
 import com.datafusion.scheduler.master.MasterService;
-import com.datafusion.scheduler.master.trigger.model.TriggerInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -39,22 +37,7 @@ public class SchedulerMasterLifecycle implements ApplicationRunner {
             return;
         }
 
-        reloadSchedules();
+        masterService.reloadSchedules();
         masterService.start();
-    }
-
-    private void reloadSchedules() {
-        List<TriggerInfo> triggerInfos = masterService.getMasterStorage()
-                .getTriggerStorage()
-                .getAllScheduledTriggerInfo();
-        long now = System.currentTimeMillis();
-        for (TriggerInfo triggerInfo : triggerInfos) {
-            try {
-                masterService.addSchedule(triggerInfo, now, true);
-            } catch (Exception e) {
-                log.warn("恢复调度失败,payloadId={}", triggerInfo == null ? null : triggerInfo.getPayloadId(), e);
-            }
-        }
-        log.info("恢复调度数量: {}", triggerInfos.size());
     }
 }

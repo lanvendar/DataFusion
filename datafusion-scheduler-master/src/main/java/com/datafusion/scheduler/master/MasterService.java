@@ -27,6 +27,7 @@ import com.datafusion.scheduler.master.trigger.storage.TriggerStorageMem;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.List;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
@@ -211,6 +212,24 @@ public class MasterService {
     private TriggerInstanceHandler initTrigger(SchedulerTrigger schedulerTrigger, Options options) {
         TriggerStorage triggerStorage = this.masterStorage.getTriggerStorage();
         return new TriggerInstanceHandlerWithPolicy(schedulerTrigger, triggerStorage, options);
+    }
+
+    /**
+     * 恢复调度计划和未完成实例运行态.
+     */
+    public void reloadSchedules() {
+        List<TriggerInfo> triggerInfos = masterStorage.getTriggerStorage().getAllScheduledTriggerInfo();
+        long now = System.currentTimeMillis();
+        for (TriggerInfo triggerInfo : triggerInfos) {
+            try {
+                addSchedule(triggerInfo, now, true);
+            } catch (Exception e) {
+                log.warn("恢复调度失败,payloadId={}",
+                        triggerInfo == null ? null : triggerInfo.getPayloadId(), e);
+            }
+        }
+        log.info("恢复调度数量: {}", triggerInfos.size());
+        flowAction.reloadFlows();
     }
 
     /**

@@ -1,6 +1,8 @@
 package com.datafusion.scheduler.master.flow;
 
+import cn.hutool.core.lang.Pair;
 import com.datafusion.scheduler.enums.ActionType;
+import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.master.MasterStorage;
 import com.datafusion.scheduler.master.actor.Actor;
 import com.datafusion.scheduler.master.actor.ActorProxy;
@@ -18,10 +20,13 @@ import com.datafusion.scheduler.master.flow.handler.FlowWaitMsgHandler;
 import com.datafusion.scheduler.master.flow.model.FlowInstance;
 import com.datafusion.scheduler.master.flow.storage.FlowStorage;
 import com.datafusion.scheduler.master.task.TaskAction;
+import com.datafusion.scheduler.master.task.model.TaskInstance;
 import com.datafusion.scheduler.master.trigger.SchedulerTrigger;
 import com.datafusion.scheduler.master.trigger.model.TriggerInstance;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.List;
 
 /**
  * 流程动作处理类.
@@ -144,6 +149,102 @@ public class FlowAction implements SchedulerTrigger {
     @Override
     public void killDelay(String payloadId, long delayTime) {
 
+    }
+
+    /**
+     * 恢复未完成流程实例的 Actor 运行态.
+     */
+    public void reloadFlows() {
+        List<FlowInstance> flowInstances = masterStorage.getFlowStorage().getAvailableInstance(null);
+        for (FlowInstance flowInstance : flowInstances) {
+            if (flowInstance == null) {
+                continue;
+            }
+            StatusEnum flowState = flowInstance.getState();
+            if (flowState != null && flowState.isSuccess()) {
+                continue;
+            }
+            try {
+                reloadFlow(flowInstance);
+            } catch (Exception e) {
+                log.warn("恢复流程实例运行态失败,flowInstanceId={}",
+                        flowInstance == null ? null : flowInstance.getInstanceId(), e);
+            }
+        }
+        log.info("恢复流程运行态数量: {}", flowInstances.size());
+    }
+
+    private void reloadFlow(FlowInstance flowInstance) {
+        if (flowInstance.getState() == StatusEnum.INITIALIZING) {
+            fetchInit(toTriggerInstance(flowInstance));
+            FlowInstance initialized = masterStorage.getFlowStorage().getInstanceById(flowInstance.getInstanceId());
+            if (initialized != null && initialized.getState() != StatusEnum.INITIALIZING) {
+                reloadFlow(initialized);
+            }
+            return;
+        }
+        ActorProxy flowActor = createFlowActor(flowInstance.getInstanceId());
+        restoreTaskState(flowActor, flowInstance.getInstanceId());
+        taskAction.reloadTasks(flowInstance.getInstanceId());
+        recoverFlow(flowActor, flowInstance);
+    }
+
+    private TriggerInstance toTriggerInstance(FlowInstance flowInstance) {
+        TriggerInstance triggerInstance = new TriggerInstance();
+        triggerInstance.setPayloadId(flowInstance.getFlowId());
+        triggerInstance.setVersion(flowInstance.getVersion());
+        triggerInstance.setScheduleTime(flowInstance.getScheduleTime());
+        triggerInstance.setInstanceId(flowInstance.getInstanceId());
+        triggerInstance.setState(flowInstance.getState());
+        return triggerInstance;
+    }
+
+    private void restoreTaskState(ActorProxy flowActor, String flowInstanceId) {
+        List<TaskInstance> taskInstances = masterStorage.getTaskStorage().getTaskInsIdsByFlowInsId(flowInstanceId);
+        for (TaskInstance taskInstance : taskInstances) {
+            if (taskInstance == null || taskInstance.getState() == null) {
+                continue;
+            }
+            FlowMsg msg = FlowMsg.builder()
+                    .flowInstanceId(flowInstanceId)
+                    .actionType(ActionType.RUN)
+                    .isManualAction(false)
+                    .restoreTaskState(true)
+                    .taskState(Pair.of(taskInstance.getInstanceId(), taskInstance.getState()))
+                    .build();
+            flowActor.notify(msg);
+        }
+    }
+
+    private void recoverFlow(ActorProxy flowActor, FlowInstance flowInstance) {
+        ActionType actionType = getRecoverAction(flowInstance.getState());
+        if (actionType == null) {
+            return;
+        }
+        FlowMsg msg = FlowMsg.builder()
+                .flowInstanceId(flowInstance.getInstanceId())
+                .flowId(flowInstance.getFlowId())
+                .version(flowInstance.getVersion())
+                .scheduleTime(flowInstance.getScheduleTime())
+                .actionType(actionType)
+                .isManualAction(false)
+                .build();
+        flowActor.notify(msg);
+    }
+
+    private ActionType getRecoverAction(StatusEnum state) {
+        if (state == null) {
+            return null;
+        }
+        switch (state) {
+            case INIT_SUCCESS:
+            case WAIT_DEPENDENT:
+                return ActionType.WAIT;
+            case STOPPING:
+                return ActionType.STOP;
+            default:
+                return null;
+        }
     }
 
     /**

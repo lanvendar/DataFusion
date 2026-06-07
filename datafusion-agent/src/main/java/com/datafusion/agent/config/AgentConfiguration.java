@@ -20,6 +20,8 @@ import com.datafusion.scheduler.worker.plugin.WorkerTaskOperatorRouter;
 import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStateStore;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
@@ -116,12 +118,26 @@ public class AgentConfiguration {
     }
 
     /**
-     * RestTemplate.
+     * manager 普通 HTTP RestTemplate.
      *
      * @return RestTemplate
      */
-    @Bean
-    public RestTemplate restTemplate() {
+    @Bean("agentManagerRestTemplate")
+    @ConditionalOnProperty(prefix = "spring.cloud.nacos.discovery", name = "enabled", havingValue = "false",
+            matchIfMissing = true)
+    public RestTemplate agentManagerRestTemplate() {
+        return new RestTemplate();
+    }
+
+    /**
+     * manager 负载均衡 RestTemplate.
+     *
+     * @return RestTemplate
+     */
+    @Bean("agentManagerRestTemplate")
+    @LoadBalanced
+    @ConditionalOnProperty(prefix = "spring.cloud.nacos.discovery", name = "enabled", havingValue = "true")
+    public RestTemplate loadBalancedAgentManagerRestTemplate() {
         return new RestTemplate();
     }
 
@@ -133,7 +149,8 @@ public class AgentConfiguration {
      * @return manager client
      */
     @Bean
-    public ManagerClient managerClient(RestTemplate restTemplate, AgentProperties properties) {
+    public ManagerClient managerClient(@Qualifier("agentManagerRestTemplate") RestTemplate restTemplate,
+            AgentProperties properties) {
         return new HttpManagerClient(restTemplate, properties);
     }
 

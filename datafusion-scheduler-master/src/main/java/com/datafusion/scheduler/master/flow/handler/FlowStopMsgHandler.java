@@ -38,8 +38,7 @@ public class FlowStopMsgHandler extends AbstractFlowMsgHandler {
 
     @Override
     public EnumSet<StatusEnum> getPreState() {
-        //不支持自动触发
-        return null;
+        return EnumSet.of(StatusEnum.STOPPING);
     }
 
     @Override
@@ -49,7 +48,12 @@ public class FlowStopMsgHandler extends AbstractFlowMsgHandler {
 
     @Override
     protected void handleAction(FlowMsg msg, ActorSysContext  context) {
-        log.error("不可能发生!!!程序异常!!!");
+        FlowInstance flowIns = getInstanceById(msg.getFlowInstanceId());
+        context.broadcastToChildren(TaskMsg.builder()//
+                .flowInstanceId(flowIns.getInstanceId())//
+                .actionType(ActionType.STOP)//
+                .isManualAction(false)//
+                .build());
     }
 
     @Override

@@ -95,9 +95,10 @@ export function useSchedulerInstanceListQuery() {
     () => toQueryOption(appliedFilter, viewType),
     [appliedFilter, viewType],
   );
+  const queryKey = [SCHEDULER_INSTANCE_FLOW_QUERY_KEY, option, current, pageSize] as const;
 
   const query = useQuery({
-    queryKey: [SCHEDULER_INSTANCE_FLOW_QUERY_KEY, option, current, pageSize],
+    queryKey,
     queryFn: () => flowInstanceApi.page({ current, size: pageSize, option }),
   });
 
@@ -134,6 +135,7 @@ export function useSchedulerInstanceListQuery() {
     setCurrent,
     pageSize,
     setPageSize,
+    queryKey,
     query,
     search,
     reset,

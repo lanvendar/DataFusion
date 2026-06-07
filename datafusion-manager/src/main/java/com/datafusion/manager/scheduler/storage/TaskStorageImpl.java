@@ -1,5 +1,7 @@
 package com.datafusion.manager.scheduler.storage;
 
+import com.datafusion.common.exception.CommonException;
+import com.datafusion.common.exception.ErrorCodeEnum;
 import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.manager.scheduler.po.TaskInfoEntity;
 import com.datafusion.manager.scheduler.po.TaskInstanceEntity;
@@ -7,6 +9,9 @@ import com.datafusion.manager.scheduler.po.TaskLinkEntity;
 import com.datafusion.manager.scheduler.service.TaskInfoService;
 import com.datafusion.manager.scheduler.service.TaskInstanceService;
 import com.datafusion.manager.scheduler.service.TaskLinkService;
+import com.datafusion.manager.system.po.PluginConfigEntity;
+import com.datafusion.manager.system.service.PluginConfigService;
+import com.datafusion.manager.utils.HttpUtils;
 import com.datafusion.manager.utils.ImplUtil;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.master.task.model.TaskInfo;
@@ -21,10 +26,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
 
 /**
  * 任务存储实现, 适配scheduler TaskStorage接口.
@@ -52,6 +57,11 @@ public class TaskStorageImpl implements TaskStorage {
      * 任务编排关系Service.
      */
     private final TaskLinkService taskLinkService;
+
+    /**
+     * 插件配置Service.
+     */
+    private final PluginConfigService pluginConfigService;
 
     // region TaskInfo 方法
 
@@ -129,6 +139,7 @@ public class TaskStorageImpl implements TaskStorage {
         info.setDefinition(entity.getDefinition());
         info.setDepEventIds(ImplUtil.parseCommaSet(entity.getDepEventIds()));
         info.setEventId(ImplUtil.uuidToStr(entity.getEventId()));
+        info.setPluginData(toPluginData(entity));
         info.setIsAble(entity.getEnabled());
         return info;
     }
@@ -154,8 +165,8 @@ public class TaskStorageImpl implements TaskStorage {
         ins.setEventId(ImplUtil.uuidToStr(entity.getEventId()));
         ins.setTaskParam(toParamData(entity.getTaskParam()));
         ins.setTaskData(entity.getTaskData());
-        ins.setTaskResult(JacksonUtils.tryObj2Bean(entity.getWorkerResult(), TaskResult.class));
-        ins.setPluginData(JacksonUtils.tryObj2Bean(entity.getPluginData(), PluginData.class));
+        ins.setTaskResult(toBean(entity.getWorkerResult(), TaskResult.class));
+        ins.setPluginData(toBean(entity.getPluginData(), PluginData.class));
         return ins;
     }
 
@@ -175,10 +186,12 @@ public class TaskStorageImpl implements TaskStorage {
         entity.setNextInstanceId(ImplUtil.joinCommaSet(ins.getNextInstanceIds()));
         entity.setDepEventIds(ImplUtil.joinCommaSet(ins.getDepEventIds()));
         entity.setEventId(ImplUtil.strToUuid(ins.getEventId()));
-        entity.setTaskParam(JacksonUtils.tryObj2JsonNode(ins.getTaskParam()));
+        entity.setTaskParam(toJsonNode(ins.getTaskParam()));
         entity.setTaskData(ins.getTaskData());
-        entity.setWorkerResult(JacksonUtils.tryObj2JsonNode(ins.getTaskResult()));
-        entity.setPluginData(JacksonUtils.tryObj2JsonNode(ins.getPluginData()));
+        entity.setWorkerResult(toJsonNode(ins.getTaskResult()));
+        entity.setPluginData(toJsonNode(ins.getPluginData()));
+        fillTaskDefinitionFields(entity);
+        fillAuditFields(entity);
         return entity;
     }
 
@@ -193,11 +206,69 @@ public class TaskStorageImpl implements TaskStorage {
         return link;
     }
 
+    private PluginData toPluginData(TaskInfoEntity entity) {
+        if (entity.getPluginId() == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300,
+                    "任务未配置执行插件: " + entity.getTaskCode());
+        }
+        PluginConfigEntity pluginConfig = pluginConfigService.getById(entity.getPluginId());
+        if (pluginConfig == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300,
+                    "执行插件不存在: " + entity.getPluginId());
+        }
+        PluginData pluginData = new PluginData();
+        pluginData.setPluginType(pluginConfig.getPluginType());
+        pluginData.setPluginName(pluginConfig.getPluginName());
+        pluginData.setPluginParam(pluginConfig.getEnv());
+        return pluginData;
+    }
+
+    private void fillTaskDefinitionFields(TaskInstanceEntity entity) {
+        if (entity.getTaskId() == null) {
+            return;
+        }
+        TaskInfoEntity taskInfo = taskInfoService.getById(entity.getTaskId());
+        if (taskInfo == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300,
+                    "任务实例关联的任务定义不存在: " + entity.getTaskId());
+        }
+        entity.setFlowId(taskInfo.getFlowId());
+        entity.setTaskCode(taskInfo.getTaskCode());
+    }
+
+    private void fillAuditFields(TaskInstanceEntity entity) {
+        Date now = new Date();
+        if (entity.getCreator() == null) {
+            entity.setCreator(HttpUtils.DEFAULT_USER_NAME);
+        }
+        if (entity.getUpdater() == null) {
+            entity.setUpdater(HttpUtils.DEFAULT_USER_NAME);
+        }
+        if (entity.getCreateTime() == null) {
+            entity.setCreateTime(now);
+        }
+        entity.setUpdateTime(now);
+    }
+
     private ParamData toParamData(JsonNode jsonNode) {
         if (JacksonUtils.isEmpty(jsonNode)) {
             return new ParamData();
         }
         return JacksonUtils.tryObj2Bean(jsonNode, ParamData.class);
+    }
+
+    private JsonNode toJsonNode(Object value) {
+        if (value == null) {
+            return null;
+        }
+        return JacksonUtils.tryObj2JsonNode(value);
+    }
+
+    private <T> T toBean(JsonNode jsonNode, Class<T> targetClass) {
+        if (JacksonUtils.isEmpty(jsonNode)) {
+            return null;
+        }
+        return JacksonUtils.tryObj2Bean(jsonNode, targetClass);
     }
     // endregion
 }

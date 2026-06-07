@@ -59,18 +59,13 @@ public class TaskEnforceSuccessMsgHandler extends AbstractTaskMsgHandler {
         //处理worker结果消息
         TaskInstance taskIns = getTaskInstance(msg.getTaskInstanceId());
         TaskResult acceptState = msg.getTaskResult();
+        if (acceptState == null) {
+            saveEnforceSuccess(taskIns, context);
+            return;
+        }
         if (null != acceptState) {
             if (StatusEnum.ENFORCE_SUCCESS == acceptState.getTaskState()) {
-                taskIns.setState(StatusEnum.ENFORCE_SUCCESS);
-                super.saveTaskInstance(taskIns);
-                FlowMsg flowMsg = FlowMsg.builder()
-                        .flowInstanceId(taskIns.getFlowInstanceId())
-                        //.flowId(taskIns.getFlowId())
-                        .taskState(Pair.of(taskIns.getInstanceId(), StatusEnum.ENFORCE_SUCCESS))
-                        .actionType(ActionType.RUN)
-                        .isManualAction(false)
-                        .build();
-                super.notifyFlowActor(flowMsg, context);
+                saveEnforceSuccess(taskIns, context);
                 return;
             }
         }
@@ -80,29 +75,18 @@ public class TaskEnforceSuccessMsgHandler extends AbstractTaskMsgHandler {
     @Override
     protected void handleManualAction(TaskMsg msg, ActorSysContext context) {
         TaskInstance taskIns = getTaskInstance(msg.getTaskInstanceId());
-        StatusEnum currentState = taskIns.getState();
-        StatusEnum finalState;
-        if (StatusEnum.INIT_FAILURE == currentState || StatusEnum.UNKNOWN == currentState) {
-            finalState = StatusEnum.ENFORCE_SUCCESS;
-        } else {
-            try {
-                finalState = StatusEnum.ENFORCING_SUCCESS;
-                masterTaskOperator.finishTask(taskIns);
-            } catch (Exception e) {
-                //TODO retry?
-                log.error("[{}] - 任务实例无法强制完成.", taskIns.getInstanceId());
-                // 异常则直接从 SUBMIT_FAILURE|RUN_FAILURE|STOP_SUCCESS|STOP_FAILURE|KILLED -> UNKNOWN.
-                finalState = StatusEnum.UNKNOWN;
-            }
-        }
-        taskIns.setState(finalState);
+        saveEnforceSuccess(taskIns, context);
+    }
+
+    private void saveEnforceSuccess(TaskInstance taskIns, ActorSysContext context) {
+        taskIns.setState(StatusEnum.ENFORCE_SUCCESS);
         super.saveTaskInstance(taskIns);
         FlowMsg flowMsg = FlowMsg.builder()
                 .flowInstanceId(taskIns.getFlowInstanceId())
                 //.flowId(taskIns.getFlowId())
-                .taskState(Pair.of(taskIns.getInstanceId(), finalState))
+                .taskState(Pair.of(taskIns.getInstanceId(), StatusEnum.ENFORCE_SUCCESS))
                 .actionType(ActionType.RUN)
-                .isManualAction(true)
+                .isManualAction(false)
                 .build();
         super.notifyFlowActor(flowMsg, context);
     }

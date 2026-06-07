@@ -55,6 +55,11 @@ public class FlowMsg implements ActorMsg {
     private StatusEnum flowTargetState;
 
     /**
+     * 是否仅恢复任务状态缓存.
+     */
+    private boolean restoreTaskState;
+
+    /**
      * 调度动作类型.
      */
     @NotNull(message = "消息动作类型不能为空")

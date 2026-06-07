@@ -12,7 +12,7 @@ datafusion:
       port: ${server.port:8081}
       accept-tasks-before-registered: false
     manager:
-      base-url: ${DATAFUSION_MANAGER_URL:}
+      base-url: ${DATAFUSION_MANAGER_URL:http://datafusion-manager}
       enabled: true
       heartbeat-interval-ms: 15000
     storage:

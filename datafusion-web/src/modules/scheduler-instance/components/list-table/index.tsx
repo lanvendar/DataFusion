@@ -1,4 +1,4 @@
-import { Card, Modal, Segmented, Space, Table, message } from "antd";
+import { App, Card, Segmented, Space, Table } from "antd";
 import type { TablePaginationConfig } from "antd";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { flowInstanceApi, taskInstanceApi } from "../../api";
@@ -11,6 +11,7 @@ import {
 } from "../../constants";
 import type {
   FlowInstanceItem,
+  PageResponse,
   SchedulerInstanceActionType,
   SchedulerInstanceViewType,
   TaskInstanceItem,
@@ -27,10 +28,29 @@ interface SchedulerInstanceListTableProps {
   onOpenLog: (task: TaskInstanceItem) => void;
 }
 
+function replaceFlowInstance(
+  page: PageResponse<FlowInstanceItem> | undefined,
+  flow: FlowInstanceItem,
+) {
+  if (!page) {
+    return page;
+  }
+  const replaceRows = (rows?: FlowInstanceItem[]) => rows?.map((item) => (
+    item.id === flow.id ? { ...item, ...flow } : item
+  ));
+  return {
+    ...page,
+    dataList: replaceRows(page.dataList),
+    records: replaceRows(page.records),
+    list: replaceRows(page.list),
+  };
+}
+
 export function SchedulerInstanceListTable({
   onOpenDependency,
   onOpenLog,
 }: SchedulerInstanceListTableProps) {
+  const { message, modal } = App.useApp();
   const {
     filter,
     setFilter,
@@ -41,6 +61,7 @@ export function SchedulerInstanceListTable({
     reset,
     setCurrent,
     setPageSize,
+    queryKey,
   } = useSchedulerInstanceListQuery();
   const queryClient = useQueryClient();
   const flowActionMutation = useMutation({
@@ -48,6 +69,9 @@ export function SchedulerInstanceListTable({
     onSuccess: async () => {
       message.success("操作已提交");
       await query.refetch();
+    },
+    onError: (error) => {
+      message.error(error instanceof Error ? error.message : "操作提交失败");
     },
   });
   const taskActionMutation = useMutation({
@@ -61,11 +85,30 @@ export function SchedulerInstanceListTable({
         }),
       ]);
     },
+    onError: (error) => {
+      message.error(error instanceof Error ? error.message : "操作提交失败");
+    },
   });
+
+  const refreshFlowInstance = async (record: FlowInstanceItem) => {
+    const [flow] = await Promise.all([
+      flowInstanceApi.detail(record.id),
+      queryClient.fetchQuery({
+        queryKey: [SCHEDULER_INSTANCE_TASK_QUERY_KEY, record.id, viewType],
+        queryFn: () => taskInstanceApi.listByFlowInstance({
+          flowInstanceId: record.id,
+          viewType,
+        }),
+      }),
+    ]);
+    queryClient.setQueryData<PageResponse<FlowInstanceItem>>(queryKey, (page) => (
+      replaceFlowInstance(page, flow)
+    ));
+  };
 
   const handleFlowAction = (record: FlowInstanceItem, actionType: string) => {
     const action = record.availableActions?.find((item) => item.actionType === actionType);
-    Modal.confirm({
+    modal.confirm({
       title: `确认${action?.label || "执行操作"}?`,
       content: record.flowName || record.id,
       okText: "确认",
@@ -79,7 +122,7 @@ export function SchedulerInstanceListTable({
 
   const handleTaskAction = (flow: FlowInstanceItem, task: TaskInstanceItem, actionType: string) => {
     const action = task.availableActions?.find((item) => item.actionType === actionType);
-    Modal.confirm({
+    modal.confirm({
       title: `确认${action?.label || "执行操作"}?`,
       content: task.taskName || task.id,
       okText: "确认",
@@ -93,7 +136,9 @@ export function SchedulerInstanceListTable({
   };
 
   const columns = useColumns({
-    onRefresh: () => void query.refetch(),
+    onRefresh: (record) => void refreshFlowInstance(record).catch((error) => {
+      message.error(error instanceof Error ? error.message : "刷新失败");
+    }),
     onFlowAction: handleFlowAction,
   });
   const rows = getRows(query.data);

@@ -62,6 +62,9 @@ public class TaskActor extends AbstractActor {
         }
 
         TaskMsg taskMsg = (TaskMsg) msg;
+        if (taskMsg.getTaskInstanceId() == null) {
+            taskMsg.setTaskInstanceId(actorId);
+        }
         ActionType actionType = taskMsg.getActionType();
         log.debug("TaskActor[{}] process action: {}", actorId, actionType);
 

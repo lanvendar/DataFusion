@@ -1,6 +1,7 @@
 package com.datafusion.scheduler.master.flow.handler;
 
 import com.datafusion.common.date.DateTimeStamp;
+import com.datafusion.common.exception.CommonException;
 import com.datafusion.scheduler.enums.ActionType;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.enums.VarType;
@@ -68,6 +69,9 @@ public class FlowInitMsgHandler extends AbstractFlowMsgHandler {
         }
         //初始化流程实例
         FlowInfo flowInfo = super.getFlowInfo(msg.getFlowId());
+        if (flowInfo == null) {
+            throw new CommonException("流程定义不存在, flowId=" + msg.getFlowId());
+        }
         FlowInstance newFlowIns = createFlowInstance(msg, flowInfo);
         //流程更新为初始化中
         super.saveFlowInstance(newFlowIns);
@@ -102,6 +106,7 @@ public class FlowInitMsgHandler extends AbstractFlowMsgHandler {
         //设置流程属性到实例
         setField(flowIns::setFlowId, flowInfo::getFlowId, "flowId不能为空");
         setField(flowIns::setFlowName, flowInfo::getFlowName, "flowName不能为空");
+        setField(flowIns::setFlowType, flowInfo::getFlowType, "flowType不能为空");
         //设置流程图
         //flowIns.setFlowDag(info.getFlowDag());
         ParamData flowParamData = copyParamData(flowInfo.getFlowParam());

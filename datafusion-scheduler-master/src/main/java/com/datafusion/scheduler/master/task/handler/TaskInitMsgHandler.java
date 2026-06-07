@@ -99,6 +99,7 @@ public class TaskInitMsgHandler extends AbstractTaskMsgHandler {
         // 合并流程变量至任务变量, 包含业务时间, 变量冲突时优先取任务变量.
         taskIns.setTaskParam(mergeTaskParam(taskInfo.getTaskParam(), msg.getFlowParamData()));
         taskIns.setTaskData(taskInfo.getDefinition());
+        taskIns.setPluginData(taskInfo.getPluginData());
         taskIns.setTaskResult(null);
         return taskIns;
     }

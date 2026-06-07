@@ -143,9 +143,8 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
         try {
             TaskResult response = requestToWorker(SUBMIT_TASK_URL, worker, taskIns);
             // 设置任务实例对应的工作节点ID.
-            TaskResult taskResult = taskIns.getTaskResult();
-            if (taskResult != null) {
-                taskResult.setWorkerId(worker.getId());
+            if (response != null) {
+                response.setWorkerId(worker.getId());
             }
             return response;
         } catch (Exception e) {

@@ -7,9 +7,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.datafusion.common.exception.CommonException;
 import com.datafusion.common.exception.ErrorCodeEnum;
-import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
+import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.manager.scheduler.dao.FlowInfoMapper;
 import com.datafusion.manager.scheduler.dto.DagSaveDto;
 import com.datafusion.manager.scheduler.dto.EdgeDto;
@@ -30,12 +30,14 @@ import com.datafusion.manager.scheduler.po.TaskLinkEntity;
 import com.datafusion.manager.scheduler.service.FlowInfoService;
 import com.datafusion.manager.scheduler.service.TaskInfoService;
 import com.datafusion.manager.scheduler.service.TaskLinkService;
-
 import com.datafusion.manager.utils.HttpUtils;
+import com.datafusion.scheduler.master.MasterService;
+import com.datafusion.scheduler.master.trigger.model.TriggerInfo;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -69,6 +71,11 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
      * 任务编排关系Service.
      */
     private final TaskLinkService taskLinkService;
+
+    /**
+     * master 服务.
+     */
+    private final ObjectProvider<MasterService> masterServiceProvider;
 
     @Override
     public FlowInfoEntity getFlowInfo(UUID flowId) {
@@ -120,7 +127,9 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         entity.setGroupId(dto.getGroupId());
         entity.setDescription(dto.getDescription());
         entity.setFlowType(dto.getFlowType());
-        entity.setFlowParam(JacksonUtils.tryStr2JsonNode(dto.getFlowParam()));
+        if (StringUtils.isNotBlank(dto.getFlowParam())) {
+            entity.setFlowParam(JacksonUtils.tryStr2JsonNode(dto.getFlowParam()));
+        }
         entity.setStartTime(dto.getStartTime());
         entity.setEndTime(dto.getEndTime());
         entity.setDepEventIds(joinDepEventIds(dto.getDepEventIds()));
@@ -162,7 +171,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         if (StringUtils.isNotBlank(dto.getFlowType())) {
             entity.setFlowType(dto.getFlowType());
         }
-        if (dto.getFlowParam() != null) {
+        if (StringUtils.isNotBlank(dto.getFlowParam())) {
             entity.setFlowParam(JacksonUtils.tryStr2JsonNode(dto.getFlowParam()));
         }
         if (dto.getStartTime() != null) {
@@ -373,7 +382,11 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         }
         entity.setUpdater(HttpUtils.getCurrentUserName());
         entity.setUpdateTime(new Date());
-        return updateById(entity);
+        boolean updated = updateById(entity);
+        if (updated && Boolean.TRUE.equals(dto.getEnableSchedule())) {
+            addSchedule(entity.getId());
+        }
+        return updated;
     }
 
     @Override
@@ -389,7 +402,11 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         entity.setPublishState(false);
         entity.setUpdater(HttpUtils.getCurrentUserName());
         entity.setUpdateTime(new Date());
-        return updateById(entity);
+        boolean updated = updateById(entity);
+        if (updated) {
+            stopSchedule(id);
+        }
+        return updated;
     }
 
     @Override
@@ -405,7 +422,11 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         entity.setEnabled(true);
         entity.setUpdater(HttpUtils.getCurrentUserName());
         entity.setUpdateTime(new Date());
-        return updateById(entity);
+        boolean updated = updateById(entity);
+        if (updated) {
+            addSchedule(id);
+        }
+        return updated;
     }
 
     @Override
@@ -418,7 +439,11 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         entity.setEnabled(false);
         entity.setUpdater(HttpUtils.getCurrentUserName());
         entity.setUpdateTime(new Date());
-        return updateById(entity);
+        boolean updated = updateById(entity);
+        if (updated) {
+            stopSchedule(id);
+        }
+        return updated;
     }
 
     // region 私有方法
@@ -546,6 +571,37 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
             return null;
         }
         return Arrays.asList(str.split(","));
+    }
+
+    /**
+     * 将已启用流程加入运行中的 master 调度缓存.
+     *
+     * @param flowId 流程ID
+     */
+    private void addSchedule(UUID flowId) {
+        MasterService masterService = masterServiceProvider.getIfAvailable();
+        if (masterService == null) {
+            return;
+        }
+        TriggerInfo triggerInfo = masterService.getMasterStorage().getTriggerStorage().getTriggerInfo(flowId.toString());
+        if (triggerInfo == null) {
+            log.warn("流程启用后未找到触发器信息, flowId={}", flowId);
+            return;
+        }
+        long baseTime = triggerInfo.getStartTime() > 0 ? triggerInfo.getStartTime() : System.currentTimeMillis();
+        masterService.addSchedule(triggerInfo, baseTime, true);
+    }
+
+    /**
+     * 停止运行中的 master 调度.
+     *
+     * @param flowId 流程ID
+     */
+    private void stopSchedule(UUID flowId) {
+        MasterService masterService = masterServiceProvider.getIfAvailable();
+        if (masterService != null) {
+            masterService.stopSchedule(flowId.toString());
+        }
     }
 
     /**

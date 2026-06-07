@@ -1,14 +1,13 @@
 spring:
-  application:
-    name: datafusion-manager
-  profiles:
-    default: local
   cloud:
     nacos:
       config:
         enabled: false
-        import-check:
-          enabled: false
       discovery:
         enabled: false
         register-enabled: false
+
+datafusion:
+  agent:
+    manager:
+      base-url: ${DATAFUSION_MANAGER_URL:http://127.0.0.1:8080}

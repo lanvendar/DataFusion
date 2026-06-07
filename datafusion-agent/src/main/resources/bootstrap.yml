@@ -1,6 +1,6 @@
 spring:
   application:
-    name: datafusion-manager
+    name: datafusion-agent
   profiles:
     default: local
   cloud:

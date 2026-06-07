@@ -19,7 +19,7 @@ import {
 } from "../../utils";
 
 interface UseColumnsProps {
-  onRefresh: () => void;
+  onRefresh: (record: FlowInstanceItem) => void;
   onFlowAction: (record: FlowInstanceItem, actionType: string) => void;
 }
 
@@ -72,7 +72,7 @@ export function useColumns({ onRefresh, onFlowAction }: UseColumnsProps): Column
       width: ACTION_COLUMN_WIDTH,
       render: (_, record) => (
         <Space className="scheduler-instance-actions" size={[4, 4]} wrap>
-          <Button type="link" icon={<ReloadOutlined />} onClick={onRefresh}>
+          <Button type="link" icon={<ReloadOutlined />} onClick={() => onRefresh(record)}>
             刷新
           </Button>
           {(record.availableActions || []).map((action) => (

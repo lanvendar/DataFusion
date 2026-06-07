@@ -28,6 +28,7 @@ public class TaskMsg implements ActorMsg {
     /**
      * 任务实例ID.
      */
+    @Setter
     @NotNull(message = "任务实例ID不能为空")
     private String taskInstanceId;
 

@@ -95,7 +95,9 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
         entity.setDescription(dto.getDescription());
         entity.setTaskTypeId(dto.getTaskTypeId());
         entity.setTaskType(dto.getTaskType());
-        entity.setTaskParam(JacksonUtils.tryStr2JsonNode(dto.getTaskParam()));
+        if (StringUtils.isNotBlank(dto.getTaskParam())) {
+            entity.setTaskParam(JacksonUtils.tryStr2JsonNode(dto.getTaskParam()));
+        }
         entity.setDefinition(JacksonUtils.tryStr2JsonNode(dto.getDefinition()));
         entity.setPluginId(resolveDefaultPluginId(dto));
         if (dto.getView() != null) {

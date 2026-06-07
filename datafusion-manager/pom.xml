@@ -47,6 +47,12 @@
             <artifactId>datafusion-scheduler-master</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.datafusion</groupId>
+            <artifactId>datafusion-agent</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
         <!-- 数据库依赖 -->
         <dependency>
             <groupId>mysql</groupId>
@@ -191,16 +197,10 @@
                 </dependency>-->
 
         <!-- nacos -->
-        <!--        <dependency>
-                    <groupId>com.alibaba.cloud</groupId>
-                    <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
-                    &lt;!&ndash;<exclusions>
-                        <exclusion>
-                            <groupId>io.prometheus</groupId>
-                            <artifactId>simpleclient</artifactId>
-                        </exclusion>
-                    </exclusions>&ndash;&gt;
-                </dependency>-->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.alibaba.nacos</groupId>

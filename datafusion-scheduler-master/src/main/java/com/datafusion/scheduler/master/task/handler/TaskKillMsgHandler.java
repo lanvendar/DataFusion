@@ -56,8 +56,12 @@ public class TaskKillMsgHandler extends AbstractTaskMsgHandler {
     @Override
     protected void handleAction(TaskMsg msg, ActorSysContext context) {
         TaskInstance taskIns = getTaskInstance(msg.getTaskInstanceId());
+        if (msg.getTaskResult() == null) {
+            handleRecoveryKill(taskIns, context);
+            return;
+        }
         //处理worker结果消息
-        TaskResult acceptState = taskIns.getTaskResult();
+        TaskResult acceptState = msg.getTaskResult();
         if (null != acceptState) {
             if (StatusEnum.KILLED == acceptState.getTaskState()) {
                 taskIns.setState(StatusEnum.KILLED);
@@ -74,6 +78,29 @@ public class TaskKillMsgHandler extends AbstractTaskMsgHandler {
             }
         }
         log.error("不可能发生!!!程序异常!!!");
+    }
+
+    private void handleRecoveryKill(TaskInstance taskIns, ActorSysContext context) {
+        StatusEnum finalState;
+        try {
+            finalState = StatusEnum.KILLING;
+            TaskResult taskResult = super.getMasterTaskOperator().killTask(taskIns);
+            if (taskResult != null && taskResult.getTaskState() == StatusEnum.KILLED) {
+                finalState = StatusEnum.KILLED;
+            }
+        } catch (Exception e) {
+            log.error("[{}] - 任务实例恢复强杀失败.", taskIns.getInstanceId(), e);
+            finalState = StatusEnum.UNKNOWN;
+        }
+        taskIns.setState(finalState);
+        super.saveTaskInstance(taskIns);
+        FlowMsg flowMsg = FlowMsg.builder()
+                .flowInstanceId(taskIns.getFlowInstanceId())
+                .taskState(Pair.of(taskIns.getInstanceId(), finalState))
+                .actionType(ActionType.RUN)
+                .isManualAction(false)
+                .build();
+        super.notifyFlowActor(flowMsg, context);
     }
 
     @Override

@@ -81,6 +81,9 @@ public class FlowActor extends AbstractActor {
         // 若为流程运行动作，则更新任务状态缓存并计算流程状态
         if (flowMsg.getActionType() == ActionType.RUN && flowMsg.getTaskState() != null) {
             StatusEnum flowState = updateTaskState(flowMsg.getTaskState().getKey(), flowMsg.getTaskState().getValue());
+            if (flowMsg.isRestoreTaskState()) {
+                return;
+            }
             flowMsg.setFlowTargetState(flowState);
         }
 

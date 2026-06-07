@@ -5,6 +5,7 @@ import com.datafusion.manager.scheduler.po.FlowInfoEntity;
 import com.datafusion.manager.scheduler.po.FlowInstanceEntity;
 import com.datafusion.manager.scheduler.service.FlowInfoService;
 import com.datafusion.manager.scheduler.service.FlowInstanceService;
+import com.datafusion.manager.utils.HttpUtils;
 import com.datafusion.manager.utils.ImplUtil;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.master.flow.enums.FlowTypeEnum;
@@ -12,6 +13,7 @@ import com.datafusion.scheduler.master.flow.model.FlowInfo;
 import com.datafusion.scheduler.master.flow.model.FlowInstance;
 import com.datafusion.scheduler.master.flow.storage.FlowStorage;
 import com.datafusion.scheduler.model.ParamData;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.Date;
 
 /**
  * 流程存储实现, 适配scheduler FlowStorage接口.
@@ -109,7 +112,7 @@ public class FlowStorageImpl implements FlowStorage {
         info.setFlowName(entity.getFlowName());
         info.setFlowType(entity.getFlowType() != null ? FlowTypeEnum.fromString(entity.getFlowType()) : null);
         info.setVersion(entity.getPublishVersion() != null ? String.valueOf(entity.getPublishVersion()) : null);
-        info.setFlowParam(JacksonUtils.tryObj2Bean(entity.getFlowParam(), ParamData.class));
+        info.setFlowParam(toParamData(entity.getFlowParam()));
         info.setDepEventIds(ImplUtil.parseCommaSet(entity.getDepEventIds()));
         info.setEventId(ImplUtil.uuidToStr(entity.getEventId()));
         return info;
@@ -129,7 +132,7 @@ public class FlowStorageImpl implements FlowStorage {
         ins.setScheduleTime(entity.getScheduleTime());
         ins.setStartTime(entity.getStartTime());
         ins.setEndTime(entity.getEndTime());
-        ins.setFlowParam(JacksonUtils.tryObj2Bean(entity.getFlowParam(), ParamData.class));
+        ins.setFlowParam(toParamData(entity.getFlowParam()));
         ins.setDepEventIds(ImplUtil.parseCommaSet(entity.getDepEventIds()));
         ins.setEventId(ImplUtil.uuidToStr(entity.getEventId()));
         return ins;
@@ -141,6 +144,7 @@ public class FlowStorageImpl implements FlowStorage {
         entity.setFlowId(ImplUtil.strToUuid(ins.getFlowId()));
         entity.setFlowName(ins.getFlowName());
         entity.setFlowType(ins.getFlowType() != null ? ins.getFlowType().getType() : null);
+        fillFlowDefinitionFields(entity);
         entity.setPublishVersion(ins.getVersion() != null ? Long.parseLong(ins.getVersion()) : null);
         entity.setStatus(ins.getState() != null ? ins.getState().getStateType() : null);
         entity.setScheduleTime(ins.getScheduleTime());
@@ -149,7 +153,41 @@ public class FlowStorageImpl implements FlowStorage {
         entity.setFlowParam(JacksonUtils.tryObj2JsonNode(ins.getFlowParam()));
         entity.setDepEventIds(ImplUtil.joinCommaSet(ins.getDepEventIds()));
         entity.setEventId(ImplUtil.strToUuid(ins.getEventId()));
+        fillAuditFields(entity);
         return entity;
+    }
+
+    private void fillFlowDefinitionFields(FlowInstanceEntity entity) {
+        if (entity.getFlowId() == null) {
+            return;
+        }
+        FlowInfoEntity flowInfo = flowInfoService.getById(entity.getFlowId());
+        if (flowInfo == null) {
+            return;
+        }
+        entity.setFlowCode(flowInfo.getFlowCode());
+        entity.setTriggerId(ImplUtil.uuidToStr(flowInfo.getTriggerId()));
+    }
+
+    private void fillAuditFields(FlowInstanceEntity entity) {
+        Date now = new Date();
+        if (entity.getCreator() == null) {
+            entity.setCreator(HttpUtils.DEFAULT_USER_NAME);
+        }
+        if (entity.getUpdater() == null) {
+            entity.setUpdater(HttpUtils.DEFAULT_USER_NAME);
+        }
+        if (entity.getCreateTime() == null) {
+            entity.setCreateTime(now);
+        }
+        entity.setUpdateTime(now);
+    }
+
+    private ParamData toParamData(JsonNode jsonNode) {
+        if (JacksonUtils.isEmpty(jsonNode)) {
+            return new ParamData();
+        }
+        return JacksonUtils.tryObj2Bean(jsonNode, ParamData.class);
     }
     // endregion
 }

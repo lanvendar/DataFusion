@@ -1,0 +1,46 @@
+server:
+  port: 8080
+
+spring:
+  main:
+    allow-circular-references: true
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+      - org.redisson.spring.starter.RedissonAutoConfiguration
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-handlers-package: com.datafusion.common.spring.typehandler
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+oss:
+  enabled: false
+
+skywalking:
+  graphql:
+    url: ${SKYWALKING_GRAPHQL_URL:http://127.0.0.1:12800/graphql}
+
+git:
+  url: ${DATAFUSION_GIT_URL:}
+  branch: ${DATAFUSION_GIT_BRANCH:main}
+  username: ${DATAFUSION_GIT_USERNAME:}
+  password: ${DATAFUSION_GIT_PASSWORD:}
+
+etl:
+  hologres:
+    datasourceId: ${DATAFUSION_ETL_HOLOGRES_DATASOURCE_ID:00000000-0000-0000-0000-000000000001}
+  maxcompute:
+    datasourceId: ${DATAFUSION_ETL_MAXCOMPUTE_DATASOURCE_ID:00000000-0000-0000-0000-000000000001}
+  path:
+    requiredRepoPath: ${DATAFUSION_ETL_REQUIRED_REPO_PATH:}
+    allowed-paths: ${DATAFUSION_ETL_ALLOWED_PATHS:}
+  localRepoBaseDir:
+    linux: ${DATAFUSION_ETL_LOCAL_REPO_BASE_DIR_LINUX:/tmp/datafusion/etl}
+    win: ${DATAFUSION_ETL_LOCAL_REPO_BASE_DIR_WIN:D:/tmp/datafusion/etl}
+  localGitRepoBaseDir:
+    linux: ${DATAFUSION_ETL_LOCAL_GIT_REPO_BASE_DIR_LINUX:/tmp/datafusion/git}
+    win: ${DATAFUSION_ETL_LOCAL_GIT_REPO_BASE_DIR_WIN:D:/tmp/datafusion/git}

@@ -57,8 +57,10 @@
     <select id="listAvailable" resultType="com.datafusion.manager.scheduler.po.FlowInstanceEntity">
         select *
         from scheduler_flow_instance
-        where flow_id = #{flowId}
-          and status not in ('31', '33', '44')
+        where status not in ('31', '33')
+        <if test="flowId != null">
+            and flow_id = #{flowId}
+        </if>
         order by schedule_time desc
     </select>
 

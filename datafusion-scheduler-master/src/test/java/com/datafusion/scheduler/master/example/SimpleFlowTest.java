@@ -160,9 +160,6 @@ class SimpleFlowTest extends StateMachineTestBase {
         TaskInstance stoppedTask = taskStorage.getInstanceById(taskIns.getInstanceId());
         masterService.getTaskAction().taskEnforceSuccess(stoppedTask);
 
-        // 等待到达 ENFORCING_SUCCESS
-        awaitTaskState(taskIns.getInstanceId(), StatusEnum.ENFORCING_SUCCESS);
-        reportTaskResult(taskIns, StatusEnum.ENFORCE_SUCCESS);
         awaitTaskState(taskIns.getInstanceId(), StatusEnum.ENFORCE_SUCCESS);
         log.info("任务满足监测状态[ENFORCE_SUCCESS]: {}", taskIns.getInstanceId());
 

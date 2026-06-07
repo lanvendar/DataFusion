@@ -1,4 +1,4 @@
-import { App, Checkbox, Modal, Space } from "antd";
+import { App, Checkbox, Space } from "antd";
 import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-layout";
@@ -10,7 +10,7 @@ import { PageActionEnum, type FlowFormMode, type FlowItem } from "./dto";
 import { runSequentialActions } from "./utils";
 
 export default function SchedulerFlowPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -38,7 +38,7 @@ export default function SchedulerFlowPage() {
 
   const confirmEnable = useCallback(
     (record: FlowItem) => {
-      Modal.confirm({
+      modal.confirm({
         title: "确认启用调度",
         content: `确认启用流程「${record.flowName}」的调度吗？`,
         onOk: async () => {
@@ -48,12 +48,12 @@ export default function SchedulerFlowPage() {
         },
       });
     },
-    [message, refreshList],
+    [message, modal, refreshList],
   );
 
   const confirmDisable = useCallback(
     (record: FlowItem) => {
-      Modal.confirm({
+      modal.confirm({
         title: "确认停用调度",
         content: `确认停用流程「${record.flowName}」的调度吗？`,
         onOk: async () => {
@@ -63,14 +63,14 @@ export default function SchedulerFlowPage() {
         },
       });
     },
-    [message, refreshList],
+    [message, modal, refreshList],
   );
 
   const confirmPublish = useCallback(
     (record: FlowItem) => {
       let enableSchedule = false;
 
-      Modal.confirm({
+      modal.confirm({
         title: "确认发布流程",
         content: (
           <Space direction="vertical" size={12}>
@@ -87,12 +87,12 @@ export default function SchedulerFlowPage() {
         },
       });
     },
-    [message, refreshList],
+    [message, modal, refreshList],
   );
 
   const confirmUnpublish = useCallback(
     (record: FlowItem) => {
-      Modal.confirm({
+      modal.confirm({
         title: "确认取消发布",
         content: record.enabled
           ? "该流程当前仍在调度中，将先停用调度再取消发布，是否继续？"
@@ -107,7 +107,7 @@ export default function SchedulerFlowPage() {
         },
       });
     },
-    [message, refreshList],
+    [message, modal, refreshList],
   );
 
   const onAction = useCallback(

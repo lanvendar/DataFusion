@@ -45,7 +45,7 @@ public class FlowRunMsgHandler extends AbstractFlowMsgHandler {
     @Override
     public EnumSet<StatusEnum> getPreState() {
         //此处就是流程提交后的全状态.
-        return EnumSet.of(SUBMITTING, RUNNING, STOPPING, STOP_SUCCESS, RUN_SUCCESS, RUN_FAILURE);
+        return EnumSet.of(SUBMITTING, SUBMIT_SUCCESS, RUNNING, STOPPING, STOP_SUCCESS, RUN_SUCCESS, RUN_FAILURE);
     }
 
     @Override

@@ -174,14 +174,14 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     private void configureProcess(TaskRequest request, ProcessBuilder processBuilder) {
-        JsonNode pluginParam = request.getPluginParam();
-        if (pluginParam == null) {
+        JsonNode shellParam = shellParam(request);
+        if (shellParam == null) {
             return;
         }
-        if (pluginParam.hasNonNull("workDir")) {
-            processBuilder.directory(Path.of(pluginParam.get("workDir").asText()).toFile());
+        if (shellParam.hasNonNull("workDir")) {
+            processBuilder.directory(Path.of(shellParam.get("workDir").asText()).toFile());
         }
-        JsonNode envNode = pluginParam.get("env");
+        JsonNode envNode = shellParam.get("env");
         if (envNode != null && envNode.isObject()) {
             for (Map.Entry<String, JsonNode> entry : envNode.properties()) {
                 processBuilder.environment().put(entry.getKey(), entry.getValue().asText());
@@ -190,17 +190,25 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     private List<String> command(TaskRequest request) {
-        JsonNode pluginParam = request.getPluginParam();
-        if (pluginParam == null || !pluginParam.hasNonNull("command")) {
+        JsonNode shellParam = shellParam(request);
+        if (shellParam == null || !shellParam.hasNonNull("command")) {
             throw new IllegalArgumentException("pluginParam.command不能为空");
         }
         List<String> command = new ArrayList<>();
-        command.add(pluginParam.get("command").asText());
-        JsonNode argsNode = pluginParam.get("args");
+        command.add(shellParam.get("command").asText());
+        JsonNode argsNode = shellParam.get("args");
         if (argsNode != null && argsNode.isArray()) {
             argsNode.forEach(arg -> command.add(arg.asText()));
         }
         return command;
+    }
+
+    private JsonNode shellParam(TaskRequest request) {
+        JsonNode pluginParam = request.getPluginParam();
+        if (pluginParam != null && pluginParam.hasNonNull("command")) {
+            return pluginParam;
+        }
+        return request.getTaskData();
     }
 
     private Path logDir(TaskRequest request) {

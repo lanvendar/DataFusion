@@ -42,7 +42,7 @@ public class FlowWaitMsgHandler extends AbstractFlowMsgHandler {
 
     @Override
     public EnumSet<StatusEnum> getPreState() {
-        return EnumSet.of(StatusEnum.INIT_SUCCESS);
+        return EnumSet.of(StatusEnum.INIT_SUCCESS, StatusEnum.WAIT_DEPENDENT);
     }
 
     @Override

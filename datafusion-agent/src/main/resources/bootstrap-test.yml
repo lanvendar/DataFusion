@@ -10,7 +10,6 @@ spring:
         file-extension: yaml
         username: nacos
         password: nacos
-        #        本地debug group 改成 dev
         group: dev
       discovery:
         enabled: true

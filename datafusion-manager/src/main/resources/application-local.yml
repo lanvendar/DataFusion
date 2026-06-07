@@ -1,0 +1,54 @@
+spring:
+  cloud:
+    nacos:
+      config:
+        enabled: false
+      discovery:
+        enabled: false
+        register-enabled: false
+  datasource:
+    url: jdbc:postgresql://localhost:5432/datafusion
+    jdbc-url: jdbc:postgresql://localhost:5432/datafusion
+    driver-class-name: org.postgresql.Driver
+    driverClassName: org.postgresql.Driver
+    username: postgres
+    password: 123456
+    hikari:
+      pool-name: datafusion-manager-local
+      minimum-idle: 1
+      maximum-pool-size: 5
+      connection-timeout: 30000
+      validation-timeout: 5000
+  redis:
+    host: 172.26.185.208
+    port: 6379
+    password: NIWe08wtVHN1YpCfuPER7IFd3FeVbtcR
+    timeout: 3000
+
+datafusion:
+  datasource:
+    data-source-infos:
+      - id: 00000000-0000-0000-0000-000000000001
+        database-type: postgres
+        host: localhost
+        port: 5432
+        schema-name: public
+        database-name: postgres
+        database-encode: UTF-8
+        jdbc-url: jdbc:postgresql://localhost:5432/datafusion
+        driver-class: org.postgresql.Driver
+        username: postgres
+        password: 123456
+  resource:
+    sync:
+      organization: local
+      business-domain: local
+      env: local
+      service-type: spring
+      service-en-name: datafusion-manager
+      service-en-name-u-n: datafusion-manager
+      request-type: POST
+      database-type: postgres
+      datasource-name: local-postgres
+      database-name: postgres
+      schema-name: public
