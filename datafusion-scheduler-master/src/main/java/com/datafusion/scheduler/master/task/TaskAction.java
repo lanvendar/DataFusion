@@ -262,8 +262,6 @@ public class TaskAction implements TaskResultHandler {
             return null;
         }
         switch (state) {
-            case INITIALIZING:
-                return ActionType.INIT;
             case INIT_SUCCESS:
             case WAIT_DEPENDENT:
                 return ActionType.WAIT;

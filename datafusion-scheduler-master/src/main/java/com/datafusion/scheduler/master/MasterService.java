@@ -9,6 +9,7 @@ import com.datafusion.scheduler.master.event.GlobalEventOperator;
 import com.datafusion.scheduler.master.event.storage.CachedEventStorage;
 import com.datafusion.scheduler.master.event.storage.EventStorageMem;
 import com.datafusion.scheduler.master.flow.FlowAction;
+import com.datafusion.scheduler.master.flow.model.FlowInstance;
 import com.datafusion.scheduler.master.flow.storage.CachedFlowStorage;
 import com.datafusion.scheduler.master.flow.storage.FlowStorageMem;
 import com.datafusion.scheduler.master.task.TaskAction;
@@ -28,6 +29,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
@@ -218,11 +220,25 @@ public class MasterService {
      * 恢复调度计划和未完成实例运行态.
      */
     public void reloadSchedules() {
+        Map<String, Long> cleanedScheduleTimes = flowAction.cleanInitializationInstances();
         List<TriggerInfo> triggerInfos = masterStorage.getTriggerStorage().getAllScheduledTriggerInfo();
         long now = System.currentTimeMillis();
         for (TriggerInfo triggerInfo : triggerInfos) {
             try {
-                addSchedule(triggerInfo, now, true);
+                Long cleanedScheduleTime = getCleanedScheduleTime(triggerInfo, cleanedScheduleTimes);
+                if (cleanedScheduleTime != null) {
+                    // 初始化阶段实例已被清理, 使用最小 scheduleTime 且 included=true 重建同一批次.
+                    addSchedule(triggerInfo, cleanedScheduleTime, true);
+                } else {
+                    Long lastScheduleTime = getLastScheduleTime(triggerInfo);
+                    if (lastScheduleTime != null) {
+                        // 没有初始化阶段实例被清理时, 从实时表最新实例之后继续, 避免重复生成已有批次.
+                        addSchedule(triggerInfo, lastScheduleTime, false);
+                    } else {
+                        // 没有任何实时实例时, 按当前时间恢复; TriggerInfo 内部会兜底 startTime.
+                        addSchedule(triggerInfo, now, true);
+                    }
+                }
             } catch (Exception e) {
                 log.warn("恢复调度失败,payloadId={}",
                         triggerInfo == null ? null : triggerInfo.getPayloadId(), e);
@@ -230,6 +246,30 @@ public class MasterService {
         }
         log.info("恢复调度数量: {}", triggerInfos.size());
         flowAction.reloadFlows();
+    }
+
+    private Long getCleanedScheduleTime(TriggerInfo triggerInfo, Map<String, Long> cleanedScheduleTimes) {
+        if (triggerInfo == null || cleanedScheduleTimes == null || cleanedScheduleTimes.isEmpty()) {
+            return null;
+        }
+        String key = FlowAction.buildCleanedScheduleKey(triggerInfo.getPayloadId(), triggerInfo.getVersion());
+        Long scheduleTime = cleanedScheduleTimes.get(key);
+        if (scheduleTime == null || scheduleTime <= 0) {
+            return null;
+        }
+        return scheduleTime;
+    }
+
+    private Long getLastScheduleTime(TriggerInfo triggerInfo) {
+        if (triggerInfo == null) {
+            return null;
+        }
+        FlowInstance lastInstance = masterStorage.getFlowStorage()
+                .getLastInstance(triggerInfo.getPayloadId(), triggerInfo.getVersion());
+        if (lastInstance == null || lastInstance.getScheduleTime() == null || lastInstance.getScheduleTime() <= 0) {
+            return null;
+        }
+        return lastInstance.getScheduleTime();
     }
 
     /**

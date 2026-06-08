@@ -12,8 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -30,15 +29,13 @@ public class SchedulerInstanceArchiveServiceImpl implements SchedulerInstanceArc
     /**
      * 默认归档批次大小.
      */
-    private static final int DEFAULT_BATCH_SIZE = 200;
+    private static final int DEFAULT_BATCH_SIZE = 1000;
 
     /**
      * 成功状态存储值.
      */
-    private static final List<String> SUCCESS_STATUS_VALUES = List.of(
-            StatusEnum.RUN_SUCCESS.getStateType(),
-            StatusEnum.ENFORCE_SUCCESS.getStateType()
-    );
+    private static final List<String> SUCCESS_STATUS_VALUES = Arrays.stream(StatusEnum.values()) //
+            .filter(StatusEnum::isSuccess).map(StatusEnum::getStateType).toList();
 
     /**
      * 流程实例Mapper.
