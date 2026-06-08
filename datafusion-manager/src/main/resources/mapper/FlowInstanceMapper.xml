@@ -82,12 +82,22 @@
 
     <select id="listArchiveCandidates" resultType="com.datafusion.manager.scheduler.po.FlowInstanceEntity">
         select *
-        from scheduler_flow_instance
-        where status in
-        <foreach collection="statuses" item="status" open="(" separator="," close=")">
-            #{status}
-        </foreach>
-        order by update_time asc
+        from (
+            select
+                fi.*,
+                row_number() over (
+                    partition by fi.flow_id, fi.publish_version
+                    order by fi.schedule_time desc
+                ) as rn
+            from scheduler_flow_instance fi
+            where fi.schedule_time is not null
+        ) archive_candidate
+        where archive_candidate.rn &gt; 1
+          and archive_candidate.status in
+          <foreach collection="statuses" item="status" open="(" separator="," close=")">
+              #{status}
+          </foreach>
+        order by archive_candidate.update_time asc
         limit #{limit}
     </select>
 

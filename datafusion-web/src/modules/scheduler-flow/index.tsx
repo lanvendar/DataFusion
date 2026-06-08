@@ -7,7 +7,6 @@ import { FlowDetail, FlowForm, FlowListTable } from "./components";
 import { DagEditor } from "./dag-editor";
 import { SCHEDULER_FLOW_QUERY_KEY } from "./constants";
 import { PageActionEnum, type FlowFormMode, type FlowItem } from "./dto";
-import { runSequentialActions } from "./utils";
 
 export default function SchedulerFlowPage() {
   const { message, modal } = App.useApp();
@@ -37,33 +36,29 @@ export default function SchedulerFlowPage() {
   }, []);
 
   const confirmEnable = useCallback(
-    (record: FlowItem) => {
-      modal.confirm({
-        title: "确认开始调度",
-        content: `确认开始流程「${record.flowName}」的调度吗？`,
-        onOk: async () => {
-          await flowApi.enable(record.id);
-          message.success("开始调度成功");
-          refreshList();
-        },
-      });
+    async (record: FlowItem) => {
+      try {
+        await flowApi.enable(record.id);
+        message.success("开始调度成功");
+        refreshList();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "开始调度失败");
+      }
     },
-    [message, modal, refreshList],
+    [message, refreshList],
   );
 
   const confirmDisable = useCallback(
-    (record: FlowItem) => {
-      modal.confirm({
-        title: "确认取消调度",
-        content: `确认取消流程「${record.flowName}」的调度吗？`,
-        onOk: async () => {
-          await flowApi.disable(record.id);
-          message.success("取消调度成功");
-          refreshList();
-        },
-      });
+    async (record: FlowItem) => {
+      try {
+        await flowApi.disable(record.id);
+        message.success("取消调度成功");
+        refreshList();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "取消调度失败");
+      }
     },
-    [message, modal, refreshList],
+    [message, refreshList],
   );
 
   const confirmPublish = useCallback(
@@ -91,23 +86,16 @@ export default function SchedulerFlowPage() {
   );
 
   const confirmUnpublish = useCallback(
-    (record: FlowItem) => {
-      modal.confirm({
-        title: "确认取消发布",
-        content: record.enabled
-          ? "该流程当前仍在调度中，将先取消调度再取消发布，是否继续？"
-          : `确认取消发布流程「${record.flowName}」吗？`,
-        onOk: async () => {
-          await runSequentialActions([
-            ...(record.enabled ? [() => flowApi.disable(record.id)] : []),
-            () => flowApi.unpublish(record.id),
-          ]);
-          message.success(record.enabled ? "已取消调度并取消发布" : "取消发布成功");
-          refreshList();
-        },
-      });
+    async (record: FlowItem) => {
+      try {
+        await flowApi.unpublish(record.id);
+        message.success("取消发布成功");
+        refreshList();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "取消发布失败");
+      }
     },
-    [message, modal, refreshList],
+    [message, refreshList],
   );
 
   const onAction = useCallback(
@@ -147,7 +135,7 @@ export default function SchedulerFlowPage() {
           if (record?.id) confirmPublish(record);
           break;
         case PageActionEnum.UNPUBLISH:
-          if (record?.id) confirmUnpublish(record);
+          if (record?.id) void confirmUnpublish(record);
           break;
         case PageActionEnum.ENABLE:
           if (record?.id) {
@@ -155,11 +143,11 @@ export default function SchedulerFlowPage() {
               message.warning("流程未发布，无法开始调度");
               return;
             }
-            confirmEnable(record);
+            void confirmEnable(record);
           }
           break;
         case PageActionEnum.DISABLE:
-          if (record?.id) confirmDisable(record);
+          if (record?.id) void confirmDisable(record);
           break;
         default:
           break;

@@ -65,6 +65,12 @@ public class CachedTriggerStorage implements TriggerStorage {
     }
 
     @Override
+    public void invalidateTriggerInfo(String payloadId) {
+        triggerInfoCache.invalidate(payloadId);
+        triggerStorage.invalidateTriggerInfo(payloadId);
+    }
+
+    @Override
     public void saveTriggerInfo(TriggerInfo triggerInfo) {
         //只用作更改是否调度
         triggerInfoCache.asMap().compute(triggerInfo.getPayloadId(), (k, v) -> triggerInfo);

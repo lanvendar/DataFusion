@@ -579,6 +579,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         if (masterService == null) {
             return;
         }
+        masterService.getMasterStorage().invalidateTriggerInfo(flowId.toString());
         TriggerInfo triggerInfo = masterService.getMasterStorage().getTriggerStorage().getTriggerInfo(flowId.toString());
         if (triggerInfo == null) {
             log.warn("流程启用后未找到触发器信息, flowId={}", flowId);

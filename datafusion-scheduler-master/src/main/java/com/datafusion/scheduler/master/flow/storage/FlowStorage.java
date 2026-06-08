@@ -25,6 +25,14 @@ public interface FlowStorage {
     FlowInfo getFlowInfo(String flowId);
 
     /**
+     * 失效流程信息缓存.
+     *
+     * @param flowId 流程ID
+     */
+    default void invalidateFlowInfo(String flowId) {
+    }
+
+    /**
      * 根据所有已发布流程调度信息.
      *
      * @return 已发布流程调度信息

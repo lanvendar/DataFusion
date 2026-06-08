@@ -67,6 +67,12 @@ public class CachedFlowStorage implements FlowStorage {
     }
 
     @Override
+    public void invalidateFlowInfo(String flowId) {
+        this.flowInfoCache.invalidate(flowId);
+        this.flowStorage.invalidateFlowInfo(flowId);
+    }
+
+    @Override
     public List<FlowInfo> getAllFlowInfo() {
         List<FlowInfo> flowInfos = this.flowStorage.getAllFlowInfo();
         if (CollectionUtil.isNotEmpty(flowInfos)) {

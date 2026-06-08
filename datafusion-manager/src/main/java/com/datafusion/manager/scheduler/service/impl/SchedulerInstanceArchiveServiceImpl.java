@@ -5,7 +5,6 @@ import com.datafusion.manager.scheduler.dao.FlowInstanceMapper;
 import com.datafusion.manager.scheduler.dao.TaskInstanceHisMapper;
 import com.datafusion.manager.scheduler.dao.TaskInstanceMapper;
 import com.datafusion.manager.scheduler.po.FlowInstanceEntity;
-import com.datafusion.manager.scheduler.po.TaskInstanceEntity;
 import com.datafusion.manager.scheduler.service.SchedulerInstanceArchiveService;
 import com.datafusion.scheduler.enums.StatusEnum;
 import lombok.RequiredArgsConstructor;
@@ -65,28 +64,24 @@ public class SchedulerInstanceArchiveServiceImpl implements SchedulerInstanceArc
     @Transactional(rollbackFor = Exception.class)
     public int archiveSuccessInstances(int batchSize) {
         int limit = batchSize > 0 ? batchSize : DEFAULT_BATCH_SIZE;
-        return archiveFlowInstances(limit) + archiveTaskInstances(limit);
-    }
-
-    private int archiveFlowInstances(int limit) {
         List<FlowInstanceEntity> instances = flowInstanceMapper.listArchiveCandidates(SUCCESS_STATUS_VALUES, limit);
         if (CollectionUtils.isEmpty(instances)) {
             return 0;
         }
 
         List<UUID> ids = instances.stream().map(FlowInstanceEntity::getId).collect(Collectors.toList());
+        int archivedTasks = archiveTaskInstances(ids);
         flowInstanceHisMapper.insertIgnoreBatch(ids);
-        return flowInstanceMapper.removeByInstanceIds(ids);
+        int archivedFlows = flowInstanceMapper.removeByInstanceIds(ids);
+        return archivedFlows + archivedTasks;
     }
 
-    private int archiveTaskInstances(int limit) {
-        List<TaskInstanceEntity> instances = taskInstanceMapper.listArchiveCandidates(SUCCESS_STATUS_VALUES, limit);
-        if (CollectionUtils.isEmpty(instances)) {
+    private int archiveTaskInstances(List<UUID> flowInstanceIds) {
+        if (CollectionUtils.isEmpty(flowInstanceIds)) {
             return 0;
         }
 
-        List<UUID> ids = instances.stream().map(TaskInstanceEntity::getId).collect(Collectors.toList());
-        taskInstanceHisMapper.insertIgnoreBatch(ids);
-        return taskInstanceMapper.removeByInstanceIds(ids);
+        taskInstanceHisMapper.insertIgnoreBatchByFlowInstanceIds(flowInstanceIds);
+        return taskInstanceMapper.removeByFlowInstanceIds(flowInstanceIds);
     }
 }

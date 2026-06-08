@@ -71,20 +71,18 @@ public interface TaskInstanceMapper extends BaseMapper<TaskInstanceEntity> {
     int removeByFlowInsId(@Param("flowInstanceId") UUID flowInstanceId);
 
     /**
-     * 查询待归档的成功任务实例.
-     *
-     * @param statuses 成功状态集合
-     * @param limit    查询数量
-     * @return 任务实例列表
-     */
-    List<TaskInstanceEntity> listArchiveCandidates(@Param("statuses") List<String> statuses,
-                                                   @Param("limit") int limit);
-
-    /**
      * 批量删除任务实例.
      *
      * @param instanceIds 实例ID列表
      * @return 影响行数
      */
     int removeByInstanceIds(@Param("instanceIds") List<UUID> instanceIds);
+
+    /**
+     * 按流程实例ID批量删除任务实例.
+     *
+     * @param flowInstanceIds 流程实例ID列表
+     * @return 影响行数
+     */
+    int removeByFlowInstanceIds(@Param("flowInstanceIds") List<UUID> flowInstanceIds);
 }

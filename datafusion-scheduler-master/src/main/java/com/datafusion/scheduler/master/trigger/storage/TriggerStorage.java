@@ -29,6 +29,14 @@ public interface TriggerStorage {
     TriggerInfo getTriggerInfo(String payloadId);
 
     /**
+     * 失效调度策略信息缓存.
+     *
+     * @param payloadId 调度载体id
+     */
+    default void invalidateTriggerInfo(String payloadId) {
+    }
+
+    /**
      * 保存调度策略信息.
      *
      * @param triggerInfo 调度策略信息

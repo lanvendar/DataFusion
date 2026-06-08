@@ -73,22 +73,19 @@
         where flow_instance_id = #{flowInstanceId}
     </delete>
 
-    <select id="listArchiveCandidates" resultType="com.datafusion.manager.scheduler.po.TaskInstanceEntity">
-        select *
-        from scheduler_task_instance
-        where status in
-        <foreach collection="statuses" item="status" open="(" separator="," close=")">
-            #{status}
-        </foreach>
-        order by update_time asc
-        limit #{limit}
-    </select>
-
     <delete id="removeByInstanceIds">
         delete from scheduler_task_instance
         where id in
         <foreach collection="instanceIds" item="instanceId" open="(" separator="," close=")">
             #{instanceId}
+        </foreach>
+    </delete>
+
+    <delete id="removeByFlowInstanceIds">
+        delete from scheduler_task_instance
+        where flow_instance_id in
+        <foreach collection="flowInstanceIds" item="flowInstanceId" open="(" separator="," close=")">
+            #{flowInstanceId}
         </foreach>
     </delete>
 

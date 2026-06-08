@@ -1,4 +1,5 @@
 import { Button, Descriptions, Drawer, Empty, Space, Spin, Tag } from "antd";
+import dayjs from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { flowApi } from "../../api";
 import {
@@ -18,6 +19,11 @@ interface FlowDetailProps {
 
 function renderBooleanTag(value?: boolean, enabledText = "是", disabledText = "否") {
   return <Tag color={value ? "green" : "default"}>{value ? enabledText : disabledText}</Tag>;
+}
+
+function formatScheduleTime(value?: number | string) {
+  if (!value) return EMPTY_PLACEHOLDER;
+  return dayjs(Number(value)).format("YYYY-MM-DD HH:mm:ss");
 }
 
 export function FlowDetail({ open, flowId, onClose }: FlowDetailProps) {
@@ -95,10 +101,10 @@ export function FlowDetail({ open, flowId, onClose }: FlowDetailProps) {
                 {detailData.groupId || EMPTY_PLACEHOLDER}
               </Descriptions.Item>
               <Descriptions.Item label="调度开始时间">
-                {detailData.startTime || EMPTY_PLACEHOLDER}
+                {formatScheduleTime(detailData.startTime)}
               </Descriptions.Item>
               <Descriptions.Item label="调度结束时间">
-                {detailData.endTime || EMPTY_PLACEHOLDER}
+                {formatScheduleTime(detailData.endTime)}
               </Descriptions.Item>
               <Descriptions.Item label="依赖事件" span={2}>
                 {depEventIdsText}

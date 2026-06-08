@@ -121,4 +121,68 @@
         on conflict (id) do nothing
     </insert>
 
+    <insert id="insertIgnoreBatchByFlowInstanceIds">
+        insert into scheduler_task_instance_his (
+            id,
+            flow_id,
+            flow_instance_id,
+            task_id,
+            task_type,
+            task_name,
+            task_code,
+            description,
+            task_param,
+            task_data,
+            plugin_data,
+            "view",
+            dep_event_ids,
+            event_id,
+            status,
+            start_time,
+            end_time,
+            cost_time,
+            last_instance_id,
+            next_instance_id,
+            worker_id,
+            worker_result,
+            creator,
+            updater,
+            create_time,
+            update_time
+        )
+        select
+            id,
+            flow_id,
+            flow_instance_id,
+            task_id,
+            task_type,
+            task_name,
+            task_code,
+            description,
+            task_param,
+            task_data,
+            plugin_data,
+            "view",
+            dep_event_ids,
+            event_id,
+            status,
+            start_time,
+            end_time,
+            cost_time,
+            last_instance_id,
+            next_instance_id,
+            worker_id,
+            worker_result,
+            creator,
+            updater,
+            create_time,
+            update_time
+        from scheduler_task_instance
+        where flow_instance_id in
+        <foreach collection="flowInstanceIds" item="flowInstanceId" open="(" separator="," close=")">
+            #{flowInstanceId}
+        </foreach>
+        on conflict (id) do nothing
+    </insert>
+
 </mapper>

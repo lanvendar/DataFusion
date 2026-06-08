@@ -53,4 +53,12 @@ public interface TaskInstanceHisMapper extends BaseMapper<TaskInstanceHisEntity>
      * @return 影响行数
      */
     int insertIgnoreBatch(@Param("instanceIds") List<UUID> instanceIds);
+
+    /**
+     * 按流程实例ID从实时表批量复制到历史任务实例.
+     *
+     * @param flowInstanceIds 流程实例ID列表
+     * @return 影响行数
+     */
+    int insertIgnoreBatchByFlowInstanceIds(@Param("flowInstanceIds") List<UUID> flowInstanceIds);
 }

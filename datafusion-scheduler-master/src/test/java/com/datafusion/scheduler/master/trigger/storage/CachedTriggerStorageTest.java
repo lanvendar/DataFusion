@@ -16,6 +16,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 /**
@@ -53,6 +54,24 @@ class CachedTriggerStorageTest {
         when(delegateStorage.getTriggerInfo("not-exist")).thenReturn(null);
         TriggerInfo result = cachedStorage.getTriggerInfo("not-exist");
         assertNull(result);
+    }
+
+    @Test
+    void testInvalidateTriggerInfoReloadsDelegate() {
+        TriggerInfo oldInfo = createTriggerInfo("flow-001");
+        oldInfo.setVersion("v1");
+        TriggerInfo newInfo = createTriggerInfo("flow-001");
+        newInfo.setVersion("v2");
+        when(delegateStorage.getTriggerInfo("flow-001")).thenReturn(oldInfo, newInfo);
+
+        TriggerInfo first = cachedStorage.getTriggerInfo("flow-001");
+        assertEquals("v1", first.getVersion());
+
+        cachedStorage.invalidateTriggerInfo("flow-001");
+
+        TriggerInfo second = cachedStorage.getTriggerInfo("flow-001");
+        assertEquals("v2", second.getVersion());
+        verify(delegateStorage, times(2)).getTriggerInfo("flow-001");
     }
 
     @Test

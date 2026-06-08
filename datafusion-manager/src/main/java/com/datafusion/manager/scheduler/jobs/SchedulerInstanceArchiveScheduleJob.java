@@ -39,7 +39,7 @@ public class SchedulerInstanceArchiveScheduleJob {
     /**
      * 归档成功实例.
      */
-    @Scheduled(cron = "${datafusion.scheduler.instance.archive.cron:* 0/5 * * * ?}")
+    @Scheduled(cron = "${datafusion.scheduler.instance.archive.cron:0 0/10 * * * ?}")
     public void archiveSuccessInstances() {
         if (!enabled) {
             return;
