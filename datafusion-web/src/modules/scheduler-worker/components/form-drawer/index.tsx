@@ -55,8 +55,8 @@ export function WorkerRegistryForm({
       }
     >
       <Form form={form} layout="vertical">
-        <Form.Item name="workerCode" label="worker 编码" rules={[{ required: true }]}>
-          <Input placeholder="请输入 worker 编码" />
+        <Form.Item name="workerCode" label="节点编码" rules={[{ required: true }]}>
+          <Input placeholder="请输入节点编码" />
         </Form.Item>
         <Form.Item name="hostName" label="主机名称" rules={[{ required: true }]}>
           <Input placeholder="请输入主机名称" />

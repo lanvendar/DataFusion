@@ -23,7 +23,7 @@ export function useWorkerRegistrySubmit({
   const [form] = Form.useForm<WorkerRegistrySaveReq>();
   const { message } = App.useApp();
 
-  const title = useMemo(() => (mode === "edit" ? "编辑 Worker" : "新增 Worker"), [mode]);
+  const title = useMemo(() => (mode === "edit" ? "编辑执行节点" : "新增执行节点"), [mode]);
 
   const submit = async () => {
     const values = await form.validateFields();

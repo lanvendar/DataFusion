@@ -13,6 +13,7 @@ import com.datafusion.manager.scheduler.dto.TriggerInfoDto;
 import com.datafusion.manager.scheduler.dto.TriggerInfoQueryDto;
 import com.datafusion.manager.scheduler.dto.TriggerInfoSaveDto;
 import com.datafusion.manager.scheduler.dto.TriggerInfoUpdateDto;
+import com.datafusion.manager.scheduler.po.FlowInfoEntity;
 import com.datafusion.manager.scheduler.po.TriggerInfoEntity;
 import com.datafusion.manager.scheduler.service.FlowInfoService;
 import com.datafusion.manager.scheduler.service.TriggerInfoService;
@@ -109,6 +110,7 @@ public class TriggerInfoServiceImpl extends ServiceImpl<TriggerInfoMapper, Trigg
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "触发器不存在");
         }
 
+        checkNotLockedByPublishedFlow(dto.getId());
         checkNameUnique(dto.getName(), dto.getId());
 
         // 合并非空字段
@@ -146,6 +148,24 @@ public class TriggerInfoServiceImpl extends ServiceImpl<TriggerInfoMapper, Trigg
     }
 
     // region 私有方法
+
+    /**
+     * 校验触发器未被已发布或调度中的流程引用.
+     *
+     * @param triggerId 触发器ID
+     */
+    private void checkNotLockedByPublishedFlow(UUID triggerId) {
+        LambdaQueryWrapper<FlowInfoEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(FlowInfoEntity::getTriggerId, triggerId)
+                .and(condition -> condition
+                        .eq(FlowInfoEntity::getPublishState, true)
+                        .or()
+                        .eq(FlowInfoEntity::getEnabled, true));
+        if (flowInfoService.count(wrapper) > 0) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300,
+                    "触发器已被已发布或调度中的流程引用, 请先取消发布或取消调度后再修改");
+        }
+    }
 
     /**
      * 构建查询条件.

@@ -170,25 +170,25 @@ public class FlowController {
     }
 
     /**
-     * 启用调度.
+     * 开始调度.
      *
      * @param id 流程ID
      * @return 是否成功
      */
     @PostMapping("/enable/{id}")
-    @Operation(summary = "启用调度")
+    @Operation(summary = "开始调度")
     public Result<Boolean> enable(@PathVariable UUID id) {
         return Result.success(flowInfoService.enable(id));
     }
 
     /**
-     * 停用调度.
+     * 取消调度.
      *
      * @param id 流程ID
      * @return 是否成功
      */
     @PostMapping("/disable/{id}")
-    @Operation(summary = "停用调度")
+    @Operation(summary = "取消调度")
     public Result<Boolean> disable(@PathVariable UUID id) {
         return Result.success(flowInfoService.disable(id));
     }

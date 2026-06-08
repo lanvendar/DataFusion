@@ -25,8 +25,8 @@ public class FlowPublishDto {
     private UUID id;
 
     /**
-     * 是否同时启用调度, 默认false.
+     * 是否同时开始调度, 默认false.
      */
-    @Schema(name = "enableSchedule", description = "是否同时启用调度, 默认false")
+    @Schema(name = "enableSchedule", description = "是否同时开始调度, 默认false")
     private Boolean enableSchedule;
 }

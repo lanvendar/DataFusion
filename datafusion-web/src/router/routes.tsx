@@ -211,7 +211,7 @@ export const routeGroups: AppRouteGroup[] = [
       },
       {
         path: "scheduler-worker",
-        label: "Worker 管理",
+        label: "执行节点管理",
         icon: ClusterOutlined,
         component: SchedulerWorkerPage,
       },

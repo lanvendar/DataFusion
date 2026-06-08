@@ -397,16 +397,12 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         }
 
         if (Boolean.TRUE.equals(entity.getEnabled())) {
-            entity.setEnabled(false);
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程调度中, 请先取消调度后再取消发布");
         }
         entity.setPublishState(false);
         entity.setUpdater(HttpUtils.getCurrentUserName());
         entity.setUpdateTime(new Date());
-        boolean updated = updateById(entity);
-        if (updated) {
-            stopSchedule(id);
-        }
-        return updated;
+        return updateById(entity);
     }
 
     @Override
@@ -416,7 +412,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程不存在");
         }
         if (!Boolean.TRUE.equals(entity.getPublishState())) {
-            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程未发布, 无法启用调度");
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程未发布, 无法开始调度");
         }
 
         entity.setEnabled(true);

@@ -58,9 +58,9 @@ export default function SchedulerWorkerPage() {
   return (
     <Space direction="vertical" size={16} className="page-stack">
       <PageHeader
-        breadcrumb={[{ label: "调度中心" }, { label: "Worker 管理" }]}
-        title="Worker 管理"
-        description="查看和维护调度 worker 注册状态、心跳时间、插件能力和运行元信息。"
+        breadcrumb={[{ label: "调度中心" }, { label: "执行节点管理" }]}
+        title="执行节点管理"
+        description="查看和维护调度执行节点注册状态、心跳时间、插件能力和运行元信息。"
       />
 
       <WorkerRegistryListTable loading={deleteMutation.isPending} onAction={onAction} />

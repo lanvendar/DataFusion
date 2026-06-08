@@ -39,11 +39,11 @@ export default function SchedulerFlowPage() {
   const confirmEnable = useCallback(
     (record: FlowItem) => {
       modal.confirm({
-        title: "确认启用调度",
-        content: `确认启用流程「${record.flowName}」的调度吗？`,
+        title: "确认开始调度",
+        content: `确认开始流程「${record.flowName}」的调度吗？`,
         onOk: async () => {
           await flowApi.enable(record.id);
-          message.success("启用成功");
+          message.success("开始调度成功");
           refreshList();
         },
       });
@@ -54,11 +54,11 @@ export default function SchedulerFlowPage() {
   const confirmDisable = useCallback(
     (record: FlowItem) => {
       modal.confirm({
-        title: "确认停用调度",
-        content: `确认停用流程「${record.flowName}」的调度吗？`,
+        title: "确认取消调度",
+        content: `确认取消流程「${record.flowName}」的调度吗？`,
         onOk: async () => {
           await flowApi.disable(record.id);
-          message.success("停用成功");
+          message.success("取消调度成功");
           refreshList();
         },
       });
@@ -76,13 +76,13 @@ export default function SchedulerFlowPage() {
           <Space direction="vertical" size={12}>
             <span>{`确认发布流程「${record.flowName}」吗？`}</span>
             <Checkbox onChange={(event) => { enableSchedule = event.target.checked; }}>
-              同时启用调度
+              同时开始调度
             </Checkbox>
           </Space>
         ),
         onOk: async () => {
           await flowApi.publish({ id: record.id, enableSchedule });
-          message.success(enableSchedule ? "发布并启用成功" : "发布成功");
+          message.success(enableSchedule ? "发布并开始调度成功" : "发布成功");
           refreshList();
         },
       });
@@ -95,14 +95,14 @@ export default function SchedulerFlowPage() {
       modal.confirm({
         title: "确认取消发布",
         content: record.enabled
-          ? "该流程当前仍在调度中，将先停用调度再取消发布，是否继续？"
+          ? "该流程当前仍在调度中，将先取消调度再取消发布，是否继续？"
           : `确认取消发布流程「${record.flowName}」吗？`,
         onOk: async () => {
           await runSequentialActions([
             ...(record.enabled ? [() => flowApi.disable(record.id)] : []),
             () => flowApi.unpublish(record.id),
           ]);
-          message.success(record.enabled ? "已停用调度并取消发布" : "取消发布成功");
+          message.success(record.enabled ? "已取消调度并取消发布" : "取消发布成功");
           refreshList();
         },
       });
@@ -152,7 +152,7 @@ export default function SchedulerFlowPage() {
         case PageActionEnum.ENABLE:
           if (record?.id) {
             if (!record.publishState) {
-              message.warning("流程未发布，无法启用调度");
+              message.warning("流程未发布，无法开始调度");
               return;
             }
             confirmEnable(record);

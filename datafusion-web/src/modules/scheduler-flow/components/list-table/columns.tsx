@@ -102,11 +102,11 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<FlowItem>
             )}
             {enabled ? (
               <Button type="link" icon={<PauseCircleOutlined />} onClick={() => onAction(PageActionEnum.DISABLE, record)}>
-                停用
+                取消调度
               </Button>
             ) : (
               <Button type="link" icon={<PlayCircleOutlined />} disabled={!published} onClick={() => onAction(PageActionEnum.ENABLE, record)}>
-                启用
+                开始调度
               </Button>
             )}
             <Popconfirm

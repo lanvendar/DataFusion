@@ -34,7 +34,7 @@ function renderPlugins(value?: string) {
 
 export function useColumns({ onAction }: UseColumnsProps): ColumnsType<WorkerRegistryItem> {
   return [
-    { title: "worker 编码", dataIndex: "workerCode", key: "workerCode", width: 180, ellipsis: true },
+    { title: "节点编码", dataIndex: "workerCode", key: "workerCode", width: 180, ellipsis: true },
     { title: "主机名称", dataIndex: "hostName", key: "hostName", width: 160, ellipsis: true },
     { title: "IP 地址", dataIndex: "host", key: "host", width: 150, ellipsis: true },
     { title: "端口", dataIndex: "port", key: "port", width: 90 },
@@ -55,7 +55,7 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<WorkerReg
           <Button type="link" icon={<EditOutlined />} onClick={() => onAction(PageActionEnum.EDIT, record)}>
             编辑
           </Button>
-          <Popconfirm title="确认删除该 worker 吗？" onConfirm={() => onAction(PageActionEnum.DELETE, record)}>
+          <Popconfirm title="确认删除该执行节点吗？" onConfirm={() => onAction(PageActionEnum.DELETE, record)}>
             <Button type="link" danger icon={<DeleteOutlined />}>
               删除
             </Button>

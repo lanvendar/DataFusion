@@ -120,7 +120,7 @@ public interface FlowInfoService extends IService<FlowInfoEntity> {
     boolean unpublish(UUID id);
 
     /**
-     * 启用调度.
+     * 开始调度.
      *
      * @param id 流程ID
      * @return 是否成功
@@ -128,7 +128,7 @@ public interface FlowInfoService extends IService<FlowInfoEntity> {
     boolean enable(UUID id);
 
     /**
-     * 停用调度.
+     * 取消调度.
      *
      * @param id 流程ID
      * @return 是否成功

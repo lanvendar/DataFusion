@@ -17,7 +17,7 @@ export function WorkerRegistryFilters({
     <Space wrap>
       <Input
         allowClear
-        placeholder="worker 编码"
+        placeholder="节点编码"
         value={value.workerCode}
         onChange={(event) => onChange({ ...value, workerCode: event.target.value })}
         onPressEnter={onSearch}
