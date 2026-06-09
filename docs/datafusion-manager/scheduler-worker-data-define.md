@@ -94,13 +94,13 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 
 | DTO | 类型 | 使用场景 | 字段 | 字段类型 | 校验/查询方式 | 说明 |
 |-----|------|----------|------|----------|---------------|------|
-| `WorkerRegistryQueryDto` | `Query` | 分页和列表查询 | `workerCode` | `String` | `like` | worker 编码 |
+| `WorkerRegistryQueryDto` | `Query` | 分页和列表查询 | `workerCode` | `String` | `like` | 节点编码 |
 | `WorkerRegistryQueryDto` | `Query` | 分页和列表查询 | `hostName` | `String` | `like` | 主机名称 |
 | `WorkerRegistryQueryDto` | `Query` | 分页和列表查询 | `host` | `String` | `like` | IP 地址 |
 | `WorkerRegistryQueryDto` | `Query` | 分页和列表查询 | `status` | `Integer` | `eq` | worker 状态 |
 | `WorkerRegistryQueryDto` | `Query` | 分页和列表查询 | `zone` | `String` | `eq` | 区域/分组 |
 | `WorkerRegistryQueryDto` | `Query` | 分页和列表查询 | `isActive` | `Integer` | `eq` | 是否有效 |
-| `WorkerRegistrySaveDto` | `Request` | 新增 worker | `workerCode` | `String` | `@NotBlank` | worker 编码 |
+| `WorkerRegistrySaveDto` | `Request` | 新增 worker | `workerCode` | `String` | `@NotBlank` | 节点编码 |
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `hostName` | `String` | `@NotBlank` | 主机名称 |
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `host` | `String` | `@NotBlank` | IP 地址 |
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `port` | `Integer` | `@NotNull`，大于 0 | 端口 |
@@ -110,7 +110,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `isActive` | `Integer` | 可空，默认 `1` | 是否有效 |
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `remark` | `String` | 可空 | 资源说明 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `id` | `UUID` | `@NotNull` | worker 注册记录 ID |
-| `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `workerCode` | `String` | 非空时合并并校验唯一 | worker 编码 |
+| `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `workerCode` | `String` | 非空时合并并校验唯一 | 节点编码 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `hostName` | `String` | 非空时合并 | 主机名称 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `host` | `String` | 非空时合并并校验 `host + port` 唯一 | IP 地址 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `port` | `Integer` | 非空时合并并校验 `host + port` 唯一 | 端口 |
@@ -120,7 +120,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `isActive` | `Integer` | 非空时合并 | 是否有效 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `remark` | `String` | 非 `null` 时合并 | 资源说明 |
 | `WorkerRegistryDto` | `Response` | 查询响应 | `id` | `UUID` | 无 | 主键 |
-| `WorkerRegistryDto` | `Response` | 查询响应 | `workerCode` | `String` | 无 | worker 编码 |
+| `WorkerRegistryDto` | `Response` | 查询响应 | `workerCode` | `String` | 无 | 节点编码 |
 | `WorkerRegistryDto` | `Response` | 查询响应 | `hostName` | `String` | 无 | 主机名称 |
 | `WorkerRegistryDto` | `Response` | 查询响应 | `host` | `String` | 无 | IP 地址 |
 | `WorkerRegistryDto` | `Response` | 查询响应 | `port` | `Integer` | 无 | 端口 |
