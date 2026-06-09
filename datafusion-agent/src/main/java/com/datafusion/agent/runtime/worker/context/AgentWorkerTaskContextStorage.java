@@ -5,6 +5,7 @@ import com.datafusion.scheduler.worker.context.RunningTaskContext;
 import com.datafusion.scheduler.worker.context.WorkerTaskContextStorage;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStateStore;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -92,6 +93,7 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
                 .pluginType(context.getPluginType())
                 .runMode(resolveRunMode(context))
                 .appId(context.getAppId())
+                .logPath(context.getLogPath())
                 .status(context.getTaskState())
                 .taskData(context.getTaskData())
                 .pluginParam(context.getPluginParam())
@@ -117,11 +119,22 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
             if (state.getAppId() == null) {
                 state.setAppId(existing.getAppId());
             }
+            if (state.getLogPath() == null) {
+                state.setLogPath(existing.getLogPath());
+            }
             if (state.getWorkId() == null) {
                 state.setWorkId(existing.getWorkId());
             }
             if (state.getExitCode() == null) {
                 state.setExitCode(existing.getExitCode());
+            }
+            if (state.getPluginParam() == null) {
+                state.setPluginParam(existing.getPluginParam());
+            } else if (existing.getPluginParam() != null && existing.getPluginParam().isObject()
+                    && state.getPluginParam().isObject() && existing.getPluginParam().hasNonNull("_runtime")
+                    && !state.getPluginParam().hasNonNull("_runtime")) {
+                ((com.fasterxml.jackson.databind.node.ObjectNode) state.getPluginParam())
+                        .set("_runtime", existing.getPluginParam().get("_runtime"));
             }
         });
     }
@@ -138,15 +151,20 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
                 + safeText(state.getPluginType()) + '|'
                 + safeText(state.getRunMode()) + '|'
                 + safeText(state.getAppId()) + '|'
+                + safeText(state.getLogPath()) + '|'
                 + safeText(state.getWorkId()) + '|'
                 + (state.getStatus() == null ? "" : state.getStatus().name()) + '|'
-                + safeText(state.getResult()) + '|'
+                + jsonText(state.getResult()) + '|'
                 + String.valueOf(state.getTaskData()) + '|'
                 + String.valueOf(state.getPluginParam());
     }
 
     private String safeText(String value) {
         return value == null ? "" : value;
+    }
+
+    private String jsonText(JsonNode value) {
+        return value == null ? "" : value.toString();
     }
 
     private RunningTaskContext toContext(WorkerTaskExecutionState state) {
@@ -156,6 +174,7 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
         context.setPluginType(state.getPluginType());
         context.setRunMode(state.getRunMode());
         context.setAppId(state.getAppId());
+        context.setLogPath(state.getLogPath());
         context.setTaskState(state.getStatus());
         context.setTaskData(state.getTaskData());
         context.setPluginParam(state.getPluginParam());

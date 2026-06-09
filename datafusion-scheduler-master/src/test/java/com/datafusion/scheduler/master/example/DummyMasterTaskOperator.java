@@ -1,5 +1,6 @@
 package com.datafusion.scheduler.master.example;
 
+import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.exception.SchedulerException;
@@ -52,7 +53,7 @@ public class DummyMasterTaskOperator implements MasterTaskOperator {
                 .workerId("dummyWorkerId")
                 .appId("dummyAppId")
                 .submitMode(SubmitModeEnum.SYNC)
-                .result("dummyResult")
+                .result(JacksonUtils.createObjectNode().put("message", "dummyResult"))
                 .build();
     }
 }

@@ -46,6 +46,11 @@ public class WorkerTaskExecutionState {
     private String appId;
 
     /**
+     * 任务日志文件路径.
+     */
+    private String logPath;
+
+    /**
      * 工作节点ID.
      */
     private String workId;
@@ -73,5 +78,5 @@ public class WorkerTaskExecutionState {
     /**
      * 执行结果说明.
      */
-    private String result;
+    private JsonNode result;
 }

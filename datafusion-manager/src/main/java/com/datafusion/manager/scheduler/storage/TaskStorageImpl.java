@@ -22,6 +22,8 @@ import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.PluginData;
 import com.datafusion.scheduler.model.TaskResult;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -42,6 +44,11 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class TaskStorageImpl implements TaskStorage {
+
+    /**
+     * ObjectMapper.
+     */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
      * 任务信息Service.
@@ -219,8 +226,20 @@ public class TaskStorageImpl implements TaskStorage {
         PluginData pluginData = new PluginData();
         pluginData.setPluginType(pluginConfig.getPluginType());
         pluginData.setPluginName(pluginConfig.getPluginName());
-        pluginData.setPluginParam(pluginConfig.getEnv());
+        pluginData.setPluginParam(pluginParam(pluginConfig));
         return pluginData;
+    }
+
+    private JsonNode pluginParam(PluginConfigEntity pluginConfig) {
+        ObjectNode param;
+        JsonNode env = pluginConfig.getEnv();
+        if (env != null && env.isObject()) {
+            param = env.deepCopy();
+        } else {
+            param = OBJECT_MAPPER.createObjectNode();
+        }
+        param.put("runMode", pluginConfig.getRunMode());
+        return param;
     }
 
     private void fillTaskDefinitionFields(TaskInstanceEntity entity) {

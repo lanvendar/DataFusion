@@ -88,7 +88,7 @@ public class RunningTaskContext {
     /**
      * 执行结果说明.
      */
-    private String result;
+    private JsonNode result;
 
     /**
      * 创建时间.

@@ -258,14 +258,16 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
         if (result != null && ErrorCodeEnum.SUCCESS.getCode().equals(result.getCode())) {
             response = result.getData();
             if (response == null) {
-                response = TaskResult.builder().result("worker响应数据为空").build();
+                response = TaskResult.builder().result(JacksonUtils.createObjectNode()
+                        .put("message", "worker响应数据为空")).build();
             }
         } else {
             String errorMsg = result == null ? "worker响应为空或解析失败" : result.getErrorMsg();
             Object code = result == null ? null : result.getCode();
             log.warn("[{}] - 发送请求给工作节点失败,错误码:{}, 错误信息:{}",
                     taskIns.getInstanceId(), code, errorMsg);
-            response = TaskResult.builder().result(errorMsg).build();
+            response = TaskResult.builder().result(JacksonUtils.createObjectNode()
+                    .put("message", errorMsg)).build();
         }
         return response;
     }

@@ -10,7 +10,7 @@
 
 - `datafusion-scheduler-worker` 定义通用 SPI 和中性模型。
 - `datafusion-agent` 实现 worker SPI，并对接 manager、本地文件、后续 Redis、Kubernetes、Yarn 等运行时系统。
-- `datafusion-agent` 不依赖具体业务插件模块；业务插件以 jar、Pod + jar、Yarn application jar、脚本或镜像等 artifact 形式运行。
+- `datafusion-agent` 不依赖具体业务插件模块；业务插件以 jar、Pod + jar、Yarn application jar、脚本或镜像等 artifact 形式运行。DataX LOCAL / K8S 运行模式的独立设计见 [datax-run-mode-design.md](./datax-run-mode-design.md)。
 
 ## 2. 目标类目录
 
@@ -54,7 +54,7 @@ com.datafusion.agent.runtime.worker.reporter
 
 ```text
 读取 AgentProperties
-    -> 初始化线程池
+    -> 初始化 taskPool / reportPool
     -> 装配 WorkerTaskService / WorkerTaskOperatorRouter / WorkerTaskContextStorage
     -> 加载 PluginTaskExecutor 和 PluginRunModeStateMapping
     -> 恢复未清理 WorkerTaskExecutionState 的上报计划
@@ -109,7 +109,32 @@ TaskRequest(taskData, pluginParam)
 
 `deployMode` 是插件内部部署语义，例如 Flink/Spark 的 standalone、session、application；不等同于 agent 的 `runMode`。
 
-## 6. 状态上报计划
+插件通信契约：
+
+- 每个插件必须在对应 `*-data-define.md` 中明确 `TaskRequest.taskData`、`TaskRequest.pluginParam` 和 `TaskResult.result` 的 JSON 结构。
+- `TaskResult.logPath` 只表示 agent 管理的本地日志入口；插件自己的三方日志 URI、K8S/Yarn/Flink UI、对象存储日志地址放入 `TaskResult.result.pluginLogUri`。
+- `TaskResult.result` 是 `JsonNode` 结构，通用字段为 `message`、`pluginType`、`runMode`、`pluginLogUri`、`agentLogPath`、`exitCode`、`detail`。
+- 插件参数来自 `pluginParam` 和 `taskData`，不从 `application.yml` 读取第三方运行参数。
+
+运行模板边界：
+
+- 插件运行模式统一采用 YAML 静态模板 + `pluginParam/taskData` 渲染参数 + typed `ExecutionSpec` 的结构，详见 [plugin-run-mode-template-design.md](./plugin-run-mode-template-design.md)。
+- LOCAL 运行模式渲染为 `LocalProcessSpec`，Runner 只消费命令、工作目录、环境变量和日志重定向。
+- K8S / YARN / Flink / Spark 等声明式外部资源运行模式渲染为对应 manifest 或 application spec。
+- 模板负责静态结构和显式占位符；参数校验、默认值和任务级覆盖由插件 `ParamResolver` 完成。
+
+## 6. 线程池模型
+
+Agent 只暴露两类业务线程池配置：
+
+| 线程池 | Bean | 配置前缀 | 职责 |
+|--------|------|----------|------|
+| 任务池 | `agentTaskPool` | `datafusion.agent.task-pool` | RPC 任务控制、插件提交执行、进程 watcher 等任务相关工作 |
+| 上报池 | `agentReportPool` | `datafusion.agent.report-pool` | 任务结果上报到 manager |
+
+心跳调度器和状态刷新调度器是内部 single scheduler，只负责定时触发，不作为独立业务线程池暴露配置。心跳任务直接在心跳调度器内执行；任务状态刷新触发后通过 `reportPool` 上报。同步提交会占用 `taskPool` 较久，异步提交只占用到提交动作入队完成。
+
+## 7. 状态上报计划
 
 任务提交成功后，agent 写入 `WorkerTaskExecutionState`，并通过状态上报计划持续同步状态。
 
@@ -132,7 +157,7 @@ WorkerTaskExecutionStateStore.listRecords
 - 查询暂时不可用时保持原状态；连续 `UNKNOWN` 达到阈值后可推进为 `UNKNOWN`。
 - `finishTask` 是 manager 收到最终状态后的本地资源清理入口。
 
-## 7. 本地文件约定
+## 8. 本地文件约定
 
 日志根目录：
 
@@ -156,7 +181,9 @@ appId:{appId}|workId:{workId}|status:{StatusEnum.name}
 
 `{taskInstanceId}.state` 使用 JSON 写入 `WorkerTaskExecutionState`。`LOCAL` Shell 任务允许 `appId=pid`；最终成功/失败由 watcher 或包装脚本写入 `exitCode` 和最终 `StatusEnum`，不通过 pid 消失推断成功或失败。
 
-## 8. 第一版边界
+`logPath` 是 agent 本地日志入口，路径由 `modules` 和 `storage.logsDir` 组合。三方日志不进入 `logPath`，只放在插件结果 JSON 中。
+
+## 9. 第一版边界
 
 第一版实现：
 
@@ -173,11 +200,11 @@ appId:{appId}|workId:{workId}|status:{StatusEnum.name}
 - Nacos discovery 具体实现。
 - 真实插件目录扫描。
 - Redis 状态存储。
-- K8S / YARN 真实提交器和状态映射。
+- K8S / YARN 通用真实提交器和状态映射。DataX K8S 模式按 [datax-run-mode-design.md](./datax-run-mode-design.md) 单独推进。
 - 结果上报持久化队列。
 - 本地进程句柄恢复或第三方任务干预。
 
-## 9. 验证
+## 10. 验证
 
 ```powershell
 mvn -DskipTests compile -pl datafusion-agent -am

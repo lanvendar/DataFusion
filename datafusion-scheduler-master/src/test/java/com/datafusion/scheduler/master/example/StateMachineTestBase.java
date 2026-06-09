@@ -1,5 +1,6 @@
 package com.datafusion.scheduler.master.example;
 
+import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.common.options.Options;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.enums.SubmitModeEnum;
@@ -105,7 +106,7 @@ abstract class StateMachineTestBase {
                 .workerId("test-worker")
                 .appId("test-app")
                 .submitMode(SubmitModeEnum.SYNC)
-                .result("test")
+                .result(JacksonUtils.createObjectNode().put("message", "test"))
                 .build();
         masterService.getTaskAction().asyncHandle(result);
     }

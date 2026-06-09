@@ -1,0 +1,9 @@
+kind: "LocalProcessSpec"
+workDir: "{{workDir}}"
+command:
+{{command}}
+env:
+{{env}}
+stdout: "{{stdout}}"
+stderr: "{{stderr}}"
+pluginLogUri: "{{pluginLogUri}}"

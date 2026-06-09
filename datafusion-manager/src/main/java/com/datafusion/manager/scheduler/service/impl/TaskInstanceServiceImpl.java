@@ -289,7 +289,11 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
             return null;
         }
         if (workerResult.hasNonNull("result")) {
-            return workerResult.get("result").asText();
+            JsonNode result = workerResult.get("result");
+            if (result.hasNonNull("message")) {
+                return result.get("message").asText();
+            }
+            return result.isTextual() ? result.asText() : result.toString();
         }
         if (workerResult.hasNonNull("appId")) {
             return "appId: " + workerResult.get("appId").asText();

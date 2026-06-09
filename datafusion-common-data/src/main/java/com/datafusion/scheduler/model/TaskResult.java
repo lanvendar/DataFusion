@@ -2,6 +2,7 @@ package com.datafusion.scheduler.model;
 
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.enums.SubmitModeEnum;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -74,6 +75,6 @@ public class TaskResult {
     /**
      * 执行节点返回结果.
      */
-    private String result;
+    private JsonNode result;
     //endregion
 }

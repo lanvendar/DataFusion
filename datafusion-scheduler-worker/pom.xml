@@ -25,6 +25,11 @@
         </dependency>
         <dependency>
             <groupId>com.datafusion</groupId>
+            <artifactId>datafusion-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.datafusion</groupId>
             <artifactId>datafusion-plugin-api</artifactId>
             <version>${project.version}</version>
         </dependency>

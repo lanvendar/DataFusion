@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{secretName}}
+  namespace: {{namespace}}
+  labels:
+{{labels}}
+type: Opaque
+data:
+  job.json: {{jobJsonBase64}}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{jobName}}
+  namespace: {{namespace}}
+  labels:
+{{labels}}
+  annotations:
+{{annotations}}
+spec:
+  backoffLimit: {{backoffLimit}}
+{{ttlSecondsAfterFinishedBlock}}{{activeDeadlineSecondsBlock}}  template:
+    metadata:
+      labels:
+{{podLabels}}
+      annotations:
+{{podAnnotations}}
+    spec:
+      restartPolicy: Never
+{{serviceAccountNameBlock}}{{nodeSelectorBlock}}      containers:
+        - name: "datax"
+          image: {{image}}
+          imagePullPolicy: {{imagePullPolicy}}
+          env:
+{{env}}
+{{resourcesBlock}}          volumeMounts:
+            - name: "datax-job"
+              mountPath: "/datafusion/job"
+              readOnly: true
+      volumes:
+        - name: "datax-job"
+          secret:
+            secretName: {{secretName}}

@@ -38,9 +38,9 @@ public class AgentExecutorRpcProvider {
     private final WorkerTaskOperator workerTaskOperator;
 
     /**
-     * 任务控制线程池.
+     * 任务线程池.
      */
-    private final ThreadPoolExecutor taskControlPool;
+    private final ThreadPoolExecutor taskPool;
 
     /**
      * agent 运行状态.
@@ -56,15 +56,15 @@ public class AgentExecutorRpcProvider {
      * 构造函数.
      *
      * @param workerTaskOperator worker 任务操作入口
-     * @param taskControlPool    任务控制线程池
+     * @param taskPool           任务线程池
      * @param runtimeState       agent 运行状态
      * @param properties         agent 配置
      */
     public AgentExecutorRpcProvider(WorkerTaskOperator workerTaskOperator,
-                                    @Qualifier("agentTaskControlPool") ThreadPoolExecutor taskControlPool, AgentRuntimeState runtimeState,
-                                    AgentProperties properties) {
+            @Qualifier("agentTaskPool") ThreadPoolExecutor taskPool, AgentRuntimeState runtimeState,
+            AgentProperties properties) {
         this.workerTaskOperator = workerTaskOperator;
-        this.taskControlPool = taskControlPool;
+        this.taskPool = taskPool;
         this.runtimeState = runtimeState;
         this.properties = properties;
     }
@@ -118,11 +118,11 @@ public class AgentExecutorRpcProvider {
             return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "agent未注册到manager,暂不可调度");
         }
         try {
-            Future<TaskResult> future = taskControlPool.submit(action);
+            Future<TaskResult> future = taskPool.submit(action);
             return Result.success(future.get());
         } catch (RejectedExecutionException e) {
-            log.warn("任务控制线程池已满", e);
-            return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "agent任务控制线程池已满");
+            log.warn("任务线程池已满", e);
+            return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "agent任务线程池已满");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "agent任务控制请求被中断");

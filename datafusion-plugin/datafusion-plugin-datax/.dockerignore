@@ -1,0 +1,11 @@
+.DS_Store
+**/.DS_Store
+target/
+**/target/
+.idea/
+.vscode/
+
+# K8S Job mode mounts job JSON as a Secret. Do not send local jobs with credentials
+# to the Docker build context.
+src/main/resources/job/
+src/main/resources/plugin-datax-commands.md

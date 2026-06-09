@@ -43,25 +43,14 @@ import java.util.concurrent.ThreadPoolExecutor;
 public class AgentConfiguration {
 
     /**
-     * 任务控制线程池.
-     *
-     * @param properties agent 配置
-     * @return 任务控制线程池
-     */
-    @Bean(name = "agentTaskControlPool", destroyMethod = "shutdown")
-    public ThreadPoolExecutor agentTaskControlPool(AgentProperties properties) {
-        return buildThreadPool("agent-task-control", properties.getTaskControlPool());
-    }
-
-    /**
      * 任务运行线程池.
      *
      * @param properties agent 配置
      * @return 任务运行线程池
      */
-    @Bean(name = "agentTaskRunPool", destroyMethod = "shutdown")
-    public ThreadPoolExecutor agentTaskRunPool(AgentProperties properties) {
-        return buildThreadPool("agent-task-run", properties.getTaskRunPool());
+    @Bean(name = "agentTaskPool", destroyMethod = "shutdown")
+    public ThreadPoolExecutor agentTaskPool(AgentProperties properties) {
+        return buildThreadPool("agent-task", properties.getTaskPool());
     }
 
     /**
@@ -70,20 +59,9 @@ public class AgentConfiguration {
      * @param properties agent 配置
      * @return 结果上报线程池
      */
-    @Bean(name = "agentResultReportPool", destroyMethod = "shutdown")
-    public ThreadPoolExecutor agentResultReportPool(AgentProperties properties) {
-        return buildThreadPool("agent-result-report", properties.getResultReportPool());
-    }
-
-    /**
-     * 心跳线程池.
-     *
-     * @param properties agent 配置
-     * @return 心跳线程池
-     */
-    @Bean(name = "agentHeartbeatPool", destroyMethod = "shutdown")
-    public ThreadPoolExecutor agentHeartbeatPool(AgentProperties properties) {
-        return buildThreadPool("agent-heartbeat", properties.getHeartbeatPool());
+    @Bean(name = "agentReportPool", destroyMethod = "shutdown")
+    public ThreadPoolExecutor agentReportPool(AgentProperties properties) {
+        return buildThreadPool("agent-report", properties.getReportPool());
     }
 
     /**
@@ -104,17 +82,6 @@ public class AgentConfiguration {
     @Bean(name = "agentStateRefreshScheduler", destroyMethod = "shutdown")
     public ScheduledExecutorService agentStateRefreshScheduler() {
         return Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("agent-state-refresh-scheduler"));
-    }
-
-    /**
-     * 恢复线程池.
-     *
-     * @param properties agent 配置
-     * @return 恢复线程池
-     */
-    @Bean(name = "agentRecoveryPool", destroyMethod = "shutdown")
-    public ThreadPoolExecutor agentRecoveryPool(AgentProperties properties) {
-        return buildThreadPool("agent-recovery", properties.getRecoveryPool());
     }
 
     /**
@@ -220,7 +187,7 @@ public class AgentConfiguration {
      */
     @Bean
     public TaskResultReporter taskResultReporter(ManagerClient managerClient,
-            @Qualifier("agentResultReportPool") ThreadPoolExecutor reportPool) {
+            @Qualifier("agentReportPool") ThreadPoolExecutor reportPool) {
         return new ManagerTaskResultReporter(managerClient, reportPool);
     }
 
@@ -249,13 +216,13 @@ public class AgentConfiguration {
      * @param router        插件路由
      * @param contextStore  上下文存储
      * @param reporter      结果上报器
-     * @param taskRunPool   任务运行线程池
+     * @param taskPool      任务运行线程池
      * @return worker 任务操作入口
      */
     @Bean
     public WorkerTaskOperator workerTaskOperator(WorkerTaskOperatorRouter router, WorkerTaskContextStorage contextStore,
-            TaskResultReporter reporter, @Qualifier("agentTaskRunPool") ThreadPoolExecutor taskRunPool) {
-        return new WorkerTaskService(router, contextStore, reporter, taskRunPool, SubmitModeEnum.SYNC);
+            TaskResultReporter reporter, @Qualifier("agentTaskPool") ThreadPoolExecutor taskPool) {
+        return new WorkerTaskService(router, contextStore, reporter, taskPool, SubmitModeEnum.SYNC);
     }
 
     private ThreadPoolExecutor buildThreadPool(String poolName, AgentProperties.ThreadPoolConfig config) {

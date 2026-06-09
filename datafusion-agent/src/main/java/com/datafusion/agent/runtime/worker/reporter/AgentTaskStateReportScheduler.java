@@ -169,6 +169,7 @@ public class AgentTaskStateReportScheduler {
                 .flowInstanceId(state.getFlowInstanceId())
                 .taskState(state.getStatus())
                 .appId(state.getAppId())
+                .logPath(state.getLogPath())
                 .submitMode(SubmitModeEnum.ASYNC)
                 .result(state.getResult())
                 .build();

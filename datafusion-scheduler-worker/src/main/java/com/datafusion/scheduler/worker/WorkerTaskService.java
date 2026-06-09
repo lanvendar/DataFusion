@@ -1,5 +1,6 @@
 package com.datafusion.scheduler.worker;
 
+import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.model.TaskRequest;
@@ -11,6 +12,8 @@ import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import com.datafusion.scheduler.worker.plugin.WorkerTaskOperatorRouter;
 import com.datafusion.scheduler.worker.reporter.NoopTaskResultReporter;
 import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -251,7 +254,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
             result.setTaskState(state);
         }
         if (result.getResult() == null) {
-            result.setResult("重复请求返回当前任务上下文");
+            result.setResult(messageResult("重复请求返回当前任务上下文"));
         }
         return result;
     }
@@ -342,7 +345,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
                 .taskState(state)
                 .appId(request.getAppId())
                 .submitMode(request.getSubmitMode())
-                .result(message)
+                .result(messageResult(message))
                 .build();
     }
 
@@ -356,6 +359,15 @@ public class WorkerTaskService implements WorkerTaskOperator {
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private JsonNode messageResult(String message) {
+        if (message == null) {
+            return null;
+        }
+        ObjectNode result = JacksonUtils.createObjectNode();
+        result.put("message", message);
+        return result;
     }
 
     private static ExecutorService createDefaultAsyncExecutor() {

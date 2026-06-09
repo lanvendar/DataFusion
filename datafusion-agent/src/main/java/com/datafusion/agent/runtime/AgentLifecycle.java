@@ -16,7 +16,6 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -51,11 +50,6 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
     private final WorkerTaskOperatorRouter router;
 
     /**
-     * 心跳线程池.
-     */
-    private final ThreadPoolExecutor heartbeatPool;
-
-    /**
      * 心跳调度器.
      */
     private final ScheduledExecutorService heartbeatScheduler;
@@ -72,19 +66,16 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
      * @param managerClient manager client
      * @param runtimeState  agent 运行状态
      * @param router        插件路由
-     * @param heartbeatPool 心跳线程池
      * @param heartbeatScheduler 心跳调度器
      * @param taskStateReportScheduler 任务状态上报计划
      */
     public AgentLifecycle(AgentProperties properties, ManagerClient managerClient, AgentRuntimeState runtimeState,
-            WorkerTaskOperatorRouter router, @Qualifier("agentHeartbeatPool") ThreadPoolExecutor heartbeatPool,
-            @Qualifier("agentHeartbeatScheduler") ScheduledExecutorService heartbeatScheduler,
+            WorkerTaskOperatorRouter router, @Qualifier("agentHeartbeatScheduler") ScheduledExecutorService heartbeatScheduler,
             AgentTaskStateReportScheduler taskStateReportScheduler) {
         this.properties = properties;
         this.managerClient = managerClient;
         this.runtimeState = runtimeState;
         this.router = router;
-        this.heartbeatPool = heartbeatPool;
         this.heartbeatScheduler = heartbeatScheduler;
         this.taskStateReportScheduler = taskStateReportScheduler;
     }
@@ -94,8 +85,7 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         initWorker();
         taskStateReportScheduler.start();
         long interval = Math.max(properties.getManager().getHeartbeatIntervalMs(), 1000L);
-        heartbeatScheduler.scheduleWithFixedDelay(() -> heartbeatPool.execute(this::registerOrHeartbeat),
-                0L, interval, TimeUnit.MILLISECONDS);
+        heartbeatScheduler.scheduleWithFixedDelay(this::registerOrHeartbeat, 0L, interval, TimeUnit.MILLISECONDS);
     }
 
     @Override

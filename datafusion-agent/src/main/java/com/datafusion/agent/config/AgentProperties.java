@@ -40,29 +40,19 @@ public class AgentProperties {
     private StateRefresh stateRefresh = new StateRefresh();
 
     /**
-     * 任务控制线程池配置.
+     * Kubernetes 配置.
      */
-    private ThreadPoolConfig taskControlPool = new ThreadPoolConfig(4, 8, 256, 60);
+    private Kubernetes kubernetes = new Kubernetes();
 
     /**
      * 任务运行线程池配置.
      */
-    private ThreadPoolConfig taskRunPool = new ThreadPoolConfig(8, 16, 512, 60);
+    private ThreadPoolConfig taskPool = new ThreadPoolConfig(8, 16, 512, 60);
 
     /**
      * 结果上报线程池配置.
      */
-    private ThreadPoolConfig resultReportPool = new ThreadPoolConfig(2, 4, 512, 60);
-
-    /**
-     * 心跳线程池配置.
-     */
-    private ThreadPoolConfig heartbeatPool = new ThreadPoolConfig(1, 2, 128, 60);
-
-    /**
-     * 恢复线程池配置.
-     */
-    private ThreadPoolConfig recoveryPool = new ThreadPoolConfig(1, 2, 128, 60);
+    private ThreadPoolConfig reportPool = new ThreadPoolConfig(2, 4, 512, 60);
 
     /**
      * worker 配置.
@@ -150,6 +140,33 @@ public class AgentProperties {
          * 推进 UNKNOWN 的连续查询失败阈值.
          */
         private int unknownThreshold = 3;
+    }
+
+    /**
+     * Kubernetes 配置.
+     */
+    @Data
+    public static class Kubernetes {
+
+        /**
+         * Kubernetes API 地址.
+         */
+        private String apiServer;
+
+        /**
+         * Bearer token.
+         */
+        private String token;
+
+        /**
+         * token 文件.
+         */
+        private String tokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token";
+
+        /**
+         * CA 证书文件.
+         */
+        private String caCertFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt";
     }
 
     /**
