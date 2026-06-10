@@ -1,0 +1,346 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `ds`,`fiscal_year`,`fiscal_month`,`year_month`,`factory_code`,`factory_desc`,`company_code`,`company_desc`,`material_code`,`material_desc`,`mat_basic_unit`,`measure_unit`,`evaluation_type`,`evaluation_class`,`special_stock_flag`,`begin_stock_num`,`begin_stock_amt`,`product_store_num`,`product_store_amt`,`purchase_store_num`,`purchase_store_amt`,`material_store_num`,`material_store_amt`,`inventory_profit_num`,`inventory_profit_amt`,`other_store_num`,`other_store_amt`,`total_store_num`,`total_store_amt`,`stock_adj_amt`,`production_outbound_num`,`production_outbound_amt`,`sales_outbound_num`,`sales_outbound_amt`,`sample_outbound_num`,`sample_outbound_amt`,`project_outbound_num`,`project_outbound_amt`,`costcenter_outbound_num`,`costcenter_outbound_amt`,`material_outbound_num`,`material_outbound_amt`,`inventory_loss_num`,`inventory_loss_amt`,`other_outbound_num`,`other_outbound_amt`,`total_outbound_num`,`total_outbound_amt`,`ytd_stock_num`,`ytd_stock_amt`,`inappropriate_diff_amt`,`etl_time`,`modify_time`,`modifier`,`_id`,`day_pt` FROM `shjc_ods_wh_zfir00189_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_wh_zfir00189",
+            "tableComment": "ODS06_收发存报表（增量日分区）",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id,day_pt",
+            "partitionKey": "day_pt",
+            "column": [
+              {
+                "name": "ds",
+                "type": "VARCHAR(24)",
+                "comment": "分区字段"
+              },
+              {
+                "name": "fiscal_year",
+                "type": "VARCHAR(20)",
+                "comment": "年度"
+              },
+              {
+                "name": "fiscal_month",
+                "type": "VARCHAR(20)",
+                "comment": "月份"
+              },
+              {
+                "name": "year_month",
+                "type": "VARCHAR(200)",
+                "comment": "月份/年"
+              },
+              {
+                "name": "factory_code",
+                "type": "VARCHAR(20)",
+                "comment": "工厂编码"
+              },
+              {
+                "name": "factory_desc",
+                "type": "VARCHAR(200)",
+                "comment": "工厂描述"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(200)",
+                "comment": "公司代码"
+              },
+              {
+                "name": "company_desc",
+                "type": "VARCHAR(200)",
+                "comment": "公司描述"
+              },
+              {
+                "name": "material_code",
+                "type": "VARCHAR(40)",
+                "comment": "物料编码"
+              },
+              {
+                "name": "material_desc",
+                "type": "VARCHAR(200)",
+                "comment": "物料描述"
+              },
+              {
+                "name": "mat_basic_unit",
+                "type": "VARCHAR(200)",
+                "comment": "物料单位"
+              },
+              {
+                "name": "measure_unit",
+                "type": "VARCHAR(200)",
+                "comment": "计量单位"
+              },
+              {
+                "name": "evaluation_type",
+                "type": "VARCHAR(200)",
+                "comment": "评估类型"
+              },
+              {
+                "name": "evaluation_class",
+                "type": "VARCHAR(200)",
+                "comment": "评估类"
+              },
+              {
+                "name": "special_stock_flag",
+                "type": "VARCHAR(200)",
+                "comment": "特殊库存标识"
+              },
+              {
+                "name": "begin_stock_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "期初数量"
+              },
+              {
+                "name": "begin_stock_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "期初金额"
+              },
+              {
+                "name": "product_store_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "产品入库数量"
+              },
+              {
+                "name": "product_store_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "产品入库金额"
+              },
+              {
+                "name": "purchase_store_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "采购入库数量"
+              },
+              {
+                "name": "purchase_store_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "采购入库金额"
+              },
+              {
+                "name": "material_store_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "移料入库数量"
+              },
+              {
+                "name": "material_store_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "移料入库金额"
+              },
+              {
+                "name": "inventory_profit_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "盘盈量"
+              },
+              {
+                "name": "inventory_profit_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "盘盈金额"
+              },
+              {
+                "name": "other_store_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "其他入库数量"
+              },
+              {
+                "name": "other_store_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "其他入库金额"
+              },
+              {
+                "name": "total_store_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "入库合计数量"
+              },
+              {
+                "name": "total_store_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "入库合计金额"
+              },
+              {
+                "name": "stock_adj_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "库存金额调整"
+              },
+              {
+                "name": "production_outbound_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "生产出库数量"
+              },
+              {
+                "name": "production_outbound_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "生产出库金额"
+              },
+              {
+                "name": "sales_outbound_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "销售出库数量"
+              },
+              {
+                "name": "sales_outbound_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "销售出库金额"
+              },
+              {
+                "name": "sample_outbound_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "样品出库数量"
+              },
+              {
+                "name": "sample_outbound_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "样品出库金额"
+              },
+              {
+                "name": "project_outbound_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "项目出库数量"
+              },
+              {
+                "name": "project_outbound_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "项目出库金额"
+              },
+              {
+                "name": "costcenter_outbound_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "成本中心出库数量"
+              },
+              {
+                "name": "costcenter_outbound_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "成本中心出库金额"
+              },
+              {
+                "name": "material_outbound_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "移料出库数量"
+              },
+              {
+                "name": "material_outbound_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "移料出库金额"
+              },
+              {
+                "name": "inventory_loss_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "盘亏量"
+              },
+              {
+                "name": "inventory_loss_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "盘亏金额"
+              },
+              {
+                "name": "other_outbound_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "其他出库数量"
+              },
+              {
+                "name": "other_outbound_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "其他出库金额"
+              },
+              {
+                "name": "total_outbound_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "出库合计数量"
+              },
+              {
+                "name": "total_outbound_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "出库合计金额"
+              },
+              {
+                "name": "ytd_stock_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "期末数量"
+              },
+              {
+                "name": "ytd_stock_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "期末金额"
+              },
+              {
+                "name": "inappropriate_diff_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "未分配差异"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modify_time",
+                "type": "VARCHAR(200)",
+                "comment": "更新时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(200)",
+                "comment": "更新人"
+              },
+              {
+                "name": "_id",
+                "type": "INT",
+                "comment": "技术主键"
+              },
+              {
+                "name": "day_pt",
+                "type": "DATE",
+                "comment": "分区键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

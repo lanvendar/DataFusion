@@ -1,0 +1,271 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `ds`,`year_month`,`company_code`,`company_name`,`work_center_code`,`work_center_desc`,`index_code`,`index_desc`,`valid_product_yield`,`refining_yield`,`refining_processing`,`refining_product_rate`,`oil_input_num`,`oil_output_num`,`oil_storage_loss_rate`,`csa_fee`,`load_yield`,`design_capacity`,`load_rate`,`yield_yield`,`yield_processing`,`yield_rate`,`energy_yield`,`energy_processing`,`energy_rate`,`yield`,`loss_yield`,`loss_processing`,`loss_rate`,`consumption_yield`,`consumption_processing`,`unit_consumption`,`csa_consumption_yield`,`csa_consumption_processing`,`unit_csa_consumption`,`etl_time`,`modify_time`,`modifier`,`parent_index_code`,`parent_index_desc`,`_id` FROM `shjc_ods_prd_work_center_cm_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_prd_work_center_cm",
+            "tableComment": "ODS17_装置指标装置指标",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "ds",
+                "type": "VARCHAR(100)",
+                "comment": "分区字段"
+              },
+              {
+                "name": "year_month",
+                "type": "VARCHAR(100)",
+                "comment": "自然年月"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(100)",
+                "comment": "公司编码"
+              },
+              {
+                "name": "company_name",
+                "type": "VARCHAR(100)",
+                "comment": "公司名称"
+              },
+              {
+                "name": "work_center_code",
+                "type": "VARCHAR(100)",
+                "comment": "工作中心"
+              },
+              {
+                "name": "work_center_desc",
+                "type": "VARCHAR(100)",
+                "comment": "工作中心描述"
+              },
+              {
+                "name": "index_code",
+                "type": "VARCHAR(100)",
+                "comment": "装置指标编码"
+              },
+              {
+                "name": "index_desc",
+                "type": "VARCHAR(100)",
+                "comment": "装置指标描述"
+              },
+              {
+                "name": "valid_product_yield",
+                "type": "DECIMAL(17,6)",
+                "comment": "有效产品产量"
+              },
+              {
+                "name": "refining_yield",
+                "type": "DECIMAL(17,6)",
+                "comment": "炼化综合商品率-产量"
+              },
+              {
+                "name": "refining_processing",
+                "type": "DECIMAL(17,6)",
+                "comment": "炼化综合商品率-加工量"
+              },
+              {
+                "name": "refining_product_rate",
+                "type": "DECIMAL(17,6)",
+                "comment": "炼化综合商品率(%)"
+              },
+              {
+                "name": "oil_input_num",
+                "type": "DECIMAL(17,6)",
+                "comment": "原油进料量"
+              },
+              {
+                "name": "oil_output_num",
+                "type": "DECIMAL(17,6)",
+                "comment": "原油出料量"
+              },
+              {
+                "name": "oil_storage_loss_rate",
+                "type": "DECIMAL(17,6)",
+                "comment": "原油储存损耗率(%)"
+              },
+              {
+                "name": "csa_fee",
+                "type": "DECIMAL(17,6)",
+                "comment": "三剂费用"
+              },
+              {
+                "name": "load_yield",
+                "type": "DECIMAL(17,6)",
+                "comment": "装置负荷-装置产量"
+              },
+              {
+                "name": "design_capacity",
+                "type": "DECIMAL(17,6)",
+                "comment": "装置设计产能"
+              },
+              {
+                "name": "load_rate",
+                "type": "DECIMAL(17,6)",
+                "comment": "装置负荷"
+              },
+              {
+                "name": "yield_yield",
+                "type": "DECIMAL(17,6)",
+                "comment": "装置收率-装置产量"
+              },
+              {
+                "name": "yield_processing",
+                "type": "DECIMAL(17,6)",
+                "comment": "装置收率-装置加工量"
+              },
+              {
+                "name": "yield_rate",
+                "type": "DECIMAL(17,6)",
+                "comment": "装置收率(%)"
+              },
+              {
+                "name": "energy_yield",
+                "type": "DECIMAL(17,6)",
+                "comment": "能耗-产量"
+              },
+              {
+                "name": "energy_processing",
+                "type": "DECIMAL(17,6)",
+                "comment": "能耗-能源耗用量（标煤折算后）"
+              },
+              {
+                "name": "energy_rate",
+                "type": "DECIMAL(17,6)",
+                "comment": "能耗（订单）"
+              },
+              {
+                "name": "yield",
+                "type": "DECIMAL(17,6)",
+                "comment": "产出量"
+              },
+              {
+                "name": "loss_yield",
+                "type": "DECIMAL(17,6)",
+                "comment": "装置加工损失率-产出量"
+              },
+              {
+                "name": "loss_processing",
+                "type": "DECIMAL(17,6)",
+                "comment": "装置加工损失率-加工量"
+              },
+              {
+                "name": "loss_rate",
+                "type": "DECIMAL(17,6)",
+                "comment": "装置加工损失率(%)"
+              },
+              {
+                "name": "consumption_yield",
+                "type": "DECIMAL(17,6)",
+                "comment": "装置原料单耗-产量"
+              },
+              {
+                "name": "consumption_processing",
+                "type": "DECIMAL(17,6)",
+                "comment": "装置原料单耗-耗用量"
+              },
+              {
+                "name": "unit_consumption",
+                "type": "DECIMAL(17,6)",
+                "comment": "装置原料单耗"
+              },
+              {
+                "name": "csa_consumption_yield",
+                "type": "DECIMAL(17,6)",
+                "comment": "三剂单耗-产量"
+              },
+              {
+                "name": "csa_consumption_processing",
+                "type": "DECIMAL(17,6)",
+                "comment": "三剂单耗-耗用量"
+              },
+              {
+                "name": "unit_csa_consumption",
+                "type": "DECIMAL(17,6)",
+                "comment": "三剂单耗"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(100)",
+                "comment": "修改人"
+              },
+              {
+                "name": "parent_index_code",
+                "type": "VARCHAR(100)",
+                "comment": "装置父级指标编码"
+              },
+              {
+                "name": "parent_index_desc",
+                "type": "VARCHAR(100)",
+                "comment": "装置父级指标描述"
+              },
+              {
+                "name": "_id",
+                "type": "INT",
+                "comment": "技术主键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

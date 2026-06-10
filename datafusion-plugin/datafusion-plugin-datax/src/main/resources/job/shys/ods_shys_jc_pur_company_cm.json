@@ -1,0 +1,336 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `ds`,`year_month`,`company_code`,`company_name`,`num_meoh`,`price_meoh`,`amt_meoh`,`transport_fee_meoh`,`transport_fee_meoh_per_unit`,`storage_fee_meoh`,`storage_fee_meoh_per_unit`,`handling_fee_meoh`,`handling_fee_meoh_per_unit`,`num_ethane`,`price_ethane`,`pur_inv_amt_cm_ethane`,`transport_fee_ethane`,`transport_fee_ethane_per_unit`,`storage_fee_ethane`,`storage_fee_ethane_per_unit`,`handling_fee_ethane`,`handling_fee_ethane_per_unit`,`num_propane`,`price_propane`,`amt_propane`,`transport_fee_propane`,`transport_fee_propane_per_unit`,`storage_fee_propane`,`storage_fee_propane_per_unit`,`handling_fee_propane`,`handling_fee_propane_per_unit`,`num_acetate`,`price_acetate`,`amt_cm_acetate`,`transport_fee_acetate`,`transport_fee_acetate_per_unit`,`storage_fee_acetate`,`storage_fee_acetate_per_unit`,`handling_fee_acetate`,`handling_fee_acetate_per_unit`,`num_ammonia`,`price_ammonia`,`amt_ammonia`,`transport_fee_ammonia`,`transport_fee_ammonia_per_unit`,`storage_fee_ammonia`,`storage_fee_ammonia_per_unit`,`handling_fee_ammonia`,`handling_fee_ammonia_per_unit`,`num_coal`,`amt_coal`,`etl_time`,`modify_time`,`modifier` FROM `shjc_ods_pur_company_cm_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_pur_company_cm",
+            "tableComment": "ODS04_采购及采购费用分析汇总ADS表",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "year_month,company_code",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "ds",
+                "type": "VARCHAR(24)",
+                "comment": "分区字段"
+              },
+              {
+                "name": "year_month",
+                "type": "VARCHAR(200)",
+                "comment": "日历年月"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(200)",
+                "comment": "公司编码"
+              },
+              {
+                "name": "company_name",
+                "type": "VARCHAR(200)",
+                "comment": "公司名称"
+              },
+              {
+                "name": "num_meoh",
+                "type": "DECIMAL(24,8)",
+                "comment": "甲醇采购量"
+              },
+              {
+                "name": "price_meoh",
+                "type": "DECIMAL(24,8)",
+                "comment": "甲醇采购单价(元)"
+              },
+              {
+                "name": "amt_meoh",
+                "type": "DECIMAL(24,8)",
+                "comment": "甲醇采购金额(元)"
+              },
+              {
+                "name": "transport_fee_meoh",
+                "type": "DECIMAL(24,8)",
+                "comment": "甲醇采购运费(元)"
+              },
+              {
+                "name": "transport_fee_meoh_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位甲醇采购运费(元)"
+              },
+              {
+                "name": "storage_fee_meoh",
+                "type": "DECIMAL(24,8)",
+                "comment": "甲醇采购仓储费(元)"
+              },
+              {
+                "name": "storage_fee_meoh_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位甲醇采购仓储费(元)"
+              },
+              {
+                "name": "handling_fee_meoh",
+                "type": "DECIMAL(24,8)",
+                "comment": "甲醇采购装卸费(元)"
+              },
+              {
+                "name": "handling_fee_meoh_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位甲醇采购装卸费(元)"
+              },
+              {
+                "name": "num_ethane",
+                "type": "DECIMAL(24,8)",
+                "comment": "乙烷采购量"
+              },
+              {
+                "name": "price_ethane",
+                "type": "DECIMAL(24,8)",
+                "comment": "乙烷采购单价(元)"
+              },
+              {
+                "name": "pur_inv_amt_cm_ethane",
+                "type": "DECIMAL(24,8)",
+                "comment": "乙烷采购金额(元)"
+              },
+              {
+                "name": "transport_fee_ethane",
+                "type": "DECIMAL(24,8)",
+                "comment": "乙烷采购运费(元)"
+              },
+              {
+                "name": "transport_fee_ethane_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位乙烷采购运费(元)"
+              },
+              {
+                "name": "storage_fee_ethane",
+                "type": "DECIMAL(24,8)",
+                "comment": "乙烷采购仓储费(元)"
+              },
+              {
+                "name": "storage_fee_ethane_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位乙烷采购仓储费(元)"
+              },
+              {
+                "name": "handling_fee_ethane",
+                "type": "DECIMAL(24,8)",
+                "comment": "乙烷采购装卸费(元)"
+              },
+              {
+                "name": "handling_fee_ethane_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位乙烷采购装卸费(元)"
+              },
+              {
+                "name": "num_propane",
+                "type": "DECIMAL(24,8)",
+                "comment": "丙烷采购量"
+              },
+              {
+                "name": "price_propane",
+                "type": "DECIMAL(24,8)",
+                "comment": "丙烷采购单价(元)"
+              },
+              {
+                "name": "amt_propane",
+                "type": "DECIMAL(24,8)",
+                "comment": "丙烷采购金额(元)"
+              },
+              {
+                "name": "transport_fee_propane",
+                "type": "DECIMAL(24,8)",
+                "comment": "丙烷采购运费(元)"
+              },
+              {
+                "name": "transport_fee_propane_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位丙烷采购运费(元)"
+              },
+              {
+                "name": "storage_fee_propane",
+                "type": "DECIMAL(24,8)",
+                "comment": "丙烷采购仓储费(元)"
+              },
+              {
+                "name": "storage_fee_propane_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位丙烷采购仓储费(元)"
+              },
+              {
+                "name": "handling_fee_propane",
+                "type": "DECIMAL(24,8)",
+                "comment": "丙烷采购装卸费(元)"
+              },
+              {
+                "name": "handling_fee_propane_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位丙烷采购装卸费(元)"
+              },
+              {
+                "name": "num_acetate",
+                "type": "DECIMAL(24,8)",
+                "comment": "醋酸采购量"
+              },
+              {
+                "name": "price_acetate",
+                "type": "DECIMAL(24,8)",
+                "comment": "醋酸采购单价(元)"
+              },
+              {
+                "name": "amt_cm_acetate",
+                "type": "DECIMAL(24,8)",
+                "comment": "醋酸采购金额(元)"
+              },
+              {
+                "name": "transport_fee_acetate",
+                "type": "DECIMAL(24,8)",
+                "comment": "醋酸采购运费(元)"
+              },
+              {
+                "name": "transport_fee_acetate_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位醋酸采购运费(元)"
+              },
+              {
+                "name": "storage_fee_acetate",
+                "type": "DECIMAL(24,8)",
+                "comment": "醋酸采购仓储费(元)"
+              },
+              {
+                "name": "storage_fee_acetate_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位醋酸采购仓储费(元)"
+              },
+              {
+                "name": "handling_fee_acetate",
+                "type": "DECIMAL(24,8)",
+                "comment": "醋酸采购装卸费(元)"
+              },
+              {
+                "name": "handling_fee_acetate_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位醋酸采购装卸费(元)"
+              },
+              {
+                "name": "num_ammonia",
+                "type": "DECIMAL(24,8)",
+                "comment": "液氨采购量"
+              },
+              {
+                "name": "price_ammonia",
+                "type": "DECIMAL(24,8)",
+                "comment": "液氨采购单价(元)"
+              },
+              {
+                "name": "amt_ammonia",
+                "type": "DECIMAL(24,8)",
+                "comment": "液氨采购金额(元)"
+              },
+              {
+                "name": "transport_fee_ammonia",
+                "type": "DECIMAL(24,8)",
+                "comment": "液氨采购运费(元)"
+              },
+              {
+                "name": "transport_fee_ammonia_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位液氨采购运费(元)"
+              },
+              {
+                "name": "storage_fee_ammonia",
+                "type": "DECIMAL(24,8)",
+                "comment": "液氨采购仓储费(元)"
+              },
+              {
+                "name": "storage_fee_ammonia_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位液氨采购仓储费(元)"
+              },
+              {
+                "name": "handling_fee_ammonia",
+                "type": "DECIMAL(24,8)",
+                "comment": "液氨采购装卸费(元)"
+              },
+              {
+                "name": "handling_fee_ammonia_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位液氨采购装卸费(元)"
+              },
+              {
+                "name": "num_coal",
+                "type": "DECIMAL(24,8)",
+                "comment": "煤炭采购量"
+              },
+              {
+                "name": "amt_coal",
+                "type": "DECIMAL(24,8)",
+                "comment": "煤炭采购金额(元)"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(200)",
+                "comment": "修改人"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

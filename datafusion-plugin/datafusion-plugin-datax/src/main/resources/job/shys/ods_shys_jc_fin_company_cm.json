@@ -1,0 +1,366 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `ds`,`year_month`,`company_code`,`company_name`,`fin_period_fee`,`fin_revenue`,`fin_period_fee_ratio`,`fin_sales_fee_ratio`,`fin_admin_fee`,`fin_admin_fee_ratio`,`fin_sales_fee`,`fin_financial_fee`,`fin_total_cost_and_fee`,`fin_total_cost_and_fee_ratio`,`fin_rd_fee`,`fin_rd_fee_ratio`,`fin_total_profit`,`fin_operating_cost`,`fin_gross_operating_profit`,`fin_gross_operating_profit_ratio`,`fin_net_profit`,`fin_amortization_ytd`,`fin_amortization_periodic`,`fin_depreciation_ytd`,`fin_depreciation_periodic`,`fin_interest`,`fin_ebitda`,`fin_ebitda_ratio`,`fin_inventory`,`fin_receivable`,`fin_receivable_and_inventory_occupy`,`fin_sales_cost`,`fin_inventory_avg`,`fin_inventory_turnover`,`fin_receivable_avg`,`fin_receivable_turnover`,`fin_net_cash_from_operating`,`fin_net_cash_from_operating_ratio`,`fin_cash_outflow_for_capital`,`fin_cash_outflow_for_shareholding`,`fin_cash_outflow_for_interest`,`fin_cash_flow_adequancy_ratio`,`fin_current_assets`,`fin_current_liabilities`,`fin_current_ratio`,`fin_interest_coverage_ratio`,`fin_ebitda_coverage_ratio`,`fin_total_liabilities`,`fin_total_assets`,`fin_assets_liabilities_ratio`,`fin_consumption_tax`,`fin_vat_payable`,`fin_income_tax`,`fin_taxes_and_surcharges`,`fin_total_tax`,`etl_time`,`modify_time`,`modifier`,`fin_unproductive_fee`,`_id` FROM `shjc_ods_fin_company_cm_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_fin_company_cm",
+            "tableComment": "财务费用、利润、税金、资金和负债分析汇总ADS表",
+            "loadMode": "OVERWRITE_TABLE",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "ds",
+                "type": "VARCHAR(24)",
+                "comment": "分区字段"
+              },
+              {
+                "name": "year_month",
+                "type": "VARCHAR(200)",
+                "comment": "自然年月"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(200)",
+                "comment": "公司编码"
+              },
+              {
+                "name": "company_name",
+                "type": "VARCHAR(200)",
+                "comment": "公司名称"
+              },
+              {
+                "name": "fin_period_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "期间费用"
+              },
+              {
+                "name": "fin_revenue",
+                "type": "DECIMAL(24,8)",
+                "comment": "营业收入"
+              },
+              {
+                "name": "fin_period_fee_ratio",
+                "type": "DECIMAL(24,8)",
+                "comment": "期间费用率(%)"
+              },
+              {
+                "name": "fin_sales_fee_ratio",
+                "type": "DECIMAL(24,8)",
+                "comment": "销售费用率(%)"
+              },
+              {
+                "name": "fin_admin_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "管理费用"
+              },
+              {
+                "name": "fin_admin_fee_ratio",
+                "type": "DECIMAL(24,8)",
+                "comment": "管理费用率(%)"
+              },
+              {
+                "name": "fin_sales_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "销售费用"
+              },
+              {
+                "name": "fin_financial_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "财务费用"
+              },
+              {
+                "name": "fin_total_cost_and_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "成本费用总额"
+              },
+              {
+                "name": "fin_total_cost_and_fee_ratio",
+                "type": "DECIMAL(24,8)",
+                "comment": "成本费用率(%)"
+              },
+              {
+                "name": "fin_rd_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "研发投入"
+              },
+              {
+                "name": "fin_rd_fee_ratio",
+                "type": "DECIMAL(24,8)",
+                "comment": "研发费用率(%)"
+              },
+              {
+                "name": "fin_total_profit",
+                "type": "DECIMAL(24,8)",
+                "comment": "利润总额"
+              },
+              {
+                "name": "fin_operating_cost",
+                "type": "DECIMAL(24,8)",
+                "comment": "营业成本"
+              },
+              {
+                "name": "fin_gross_operating_profit",
+                "type": "DECIMAL(24,8)",
+                "comment": "营业毛利"
+              },
+              {
+                "name": "fin_gross_operating_profit_ratio",
+                "type": "DECIMAL(24,8)",
+                "comment": "营业毛利率(%)"
+              },
+              {
+                "name": "fin_net_profit",
+                "type": "DECIMAL(24,8)",
+                "comment": "净利润"
+              },
+              {
+                "name": "fin_amortization_ytd",
+                "type": "DECIMAL(24,8)",
+                "comment": "累计摊销费用"
+              },
+              {
+                "name": "fin_amortization_periodic",
+                "type": "DECIMAL(24,8)",
+                "comment": "当期摊销费用"
+              },
+              {
+                "name": "fin_depreciation_ytd",
+                "type": "DECIMAL(24,8)",
+                "comment": "累计折旧费用"
+              },
+              {
+                "name": "fin_depreciation_periodic",
+                "type": "DECIMAL(24,8)",
+                "comment": "当期折旧费用"
+              },
+              {
+                "name": "fin_interest",
+                "type": "DECIMAL(24,8)",
+                "comment": "利息支出总额"
+              },
+              {
+                "name": "fin_ebitda",
+                "type": "DECIMAL(24,8)",
+                "comment": "息税折旧摊销前利润(EBITDA)"
+              },
+              {
+                "name": "fin_ebitda_ratio",
+                "type": "DECIMAL(24,8)",
+                "comment": "息税折旧摊销前利润率(%)"
+              },
+              {
+                "name": "fin_inventory",
+                "type": "DECIMAL(24,8)",
+                "comment": "存货"
+              },
+              {
+                "name": "fin_receivable",
+                "type": "DECIMAL(24,8)",
+                "comment": "应收账款"
+              },
+              {
+                "name": "fin_receivable_and_inventory_occupy",
+                "type": "DECIMAL(24,8)",
+                "comment": "两金占用"
+              },
+              {
+                "name": "fin_sales_cost",
+                "type": "DECIMAL(24,8)",
+                "comment": "主营业务成本"
+              },
+              {
+                "name": "fin_inventory_avg",
+                "type": "DECIMAL(24,8)",
+                "comment": "平均存货"
+              },
+              {
+                "name": "fin_inventory_turnover",
+                "type": "DECIMAL(24,8)",
+                "comment": "存货周转率（次）"
+              },
+              {
+                "name": "fin_receivable_avg",
+                "type": "DECIMAL(24,8)",
+                "comment": "平均应收账款"
+              },
+              {
+                "name": "fin_receivable_turnover",
+                "type": "DECIMAL(24,8)",
+                "comment": "应收账款周转率（次）"
+              },
+              {
+                "name": "fin_net_cash_from_operating",
+                "type": "DECIMAL(24,8)",
+                "comment": "经营活动现金流量净额"
+              },
+              {
+                "name": "fin_net_cash_from_operating_ratio",
+                "type": "DECIMAL(24,8)",
+                "comment": "营业现金比率(%)"
+              },
+              {
+                "name": "fin_cash_outflow_for_capital",
+                "type": "DECIMAL(24,8)",
+                "comment": "资本性投资现金流出"
+              },
+              {
+                "name": "fin_cash_outflow_for_shareholding",
+                "type": "DECIMAL(24,8)",
+                "comment": "股权投资现金流出"
+              },
+              {
+                "name": "fin_cash_outflow_for_interest",
+                "type": "DECIMAL(24,8)",
+                "comment": "利息支出现金流出"
+              },
+              {
+                "name": "fin_cash_flow_adequancy_ratio",
+                "type": "DECIMAL(24,8)",
+                "comment": "现金满足投资比率"
+              },
+              {
+                "name": "fin_current_assets",
+                "type": "DECIMAL(24,8)",
+                "comment": "流动资产总额"
+              },
+              {
+                "name": "fin_current_liabilities",
+                "type": "DECIMAL(24,8)",
+                "comment": "流动负债总额"
+              },
+              {
+                "name": "fin_current_ratio",
+                "type": "DECIMAL(24,8)",
+                "comment": "流动比率"
+              },
+              {
+                "name": "fin_interest_coverage_ratio",
+                "type": "DECIMAL(24,8)",
+                "comment": "利息保障倍数"
+              },
+              {
+                "name": "fin_ebitda_coverage_ratio",
+                "type": "DECIMAL(24,8)",
+                "comment": "EBITDA保障倍数"
+              },
+              {
+                "name": "fin_total_liabilities",
+                "type": "DECIMAL(24,8)",
+                "comment": "负债总额"
+              },
+              {
+                "name": "fin_total_assets",
+                "type": "DECIMAL(24,8)",
+                "comment": "资产总额"
+              },
+              {
+                "name": "fin_assets_liabilities_ratio",
+                "type": "DECIMAL(24,8)",
+                "comment": "资产负债率(%)"
+              },
+              {
+                "name": "fin_consumption_tax",
+                "type": "DECIMAL(24,8)",
+                "comment": "消费税"
+              },
+              {
+                "name": "fin_vat_payable",
+                "type": "DECIMAL(24,8)",
+                "comment": "应交增值税"
+              },
+              {
+                "name": "fin_income_tax",
+                "type": "DECIMAL(24,8)",
+                "comment": "企业所得税"
+              },
+              {
+                "name": "fin_taxes_and_surcharges",
+                "type": "DECIMAL(24,8)",
+                "comment": "税金及附加"
+              },
+              {
+                "name": "fin_total_tax",
+                "type": "DECIMAL(24,8)",
+                "comment": "税费总额"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(200)",
+                "comment": "修改人"
+              },
+              {
+                "name": "fin_unproductive_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "非生产性费用"
+              },
+              {
+                "name": "_id",
+                "type": "BIGINT",
+                "comment": "自增主键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,321 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `_id`,`ds`,`invoice_no`,`invc_posting_date`,`voucher_no`,`invoice_type_code`,`invoice_type_desc`,`item_no`,`item_unit`,`so_no`,`so_item_no`,`gr_no`,`gr_item_no`,`mat_acc_grp_code`,`mat_acc_grp_desc`,`profit_center_code`,`profit_center_desc`,`mat_grp_code`,`mat_grp_desc`,`prd_grp_code`,`prd_grp_desc`,`factory_code`,`factory_desc`,`store_location_code`,`reject_reason_code`,`reject_reason_desc`,`currency`,`acct_vouch_exc_rate`,`invoce_item_qty`,`unit_price`,`net_amt`,`tax_amt`,`fiscal_year`,`fiscal_month`,`company_code`,`company_desc`,`customer_code`,`customer_desc`,`home_or_abroad`,`trading_direction`,`customer_country`,`material_code`,`material_desc`,`etl_time`,`modify_time`,`modifier`,`calendar_year_month`,`trading_partner_code`,`cny_net_amt`,`cny_tax_amt`,`day_pt` FROM `shjc_ods_mkt_so_invoice_dtl_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_mkt_so_invoice_dtl",
+            "tableComment": "销售发票明细ADS表(日变化表)（增量日分区）",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id,day_pt",
+            "partitionKey": "day_pt",
+            "column": [
+              {
+                "name": "_id",
+                "type": "BIGINT",
+                "comment": "自增主键"
+              },
+              {
+                "name": "ds",
+                "type": "VARCHAR(24)",
+                "comment": "分区字段"
+              },
+              {
+                "name": "invoice_no",
+                "type": "VARCHAR(100)",
+                "comment": "发票号"
+              },
+              {
+                "name": "invc_posting_date",
+                "type": "DATETIME",
+                "comment": "发票过账日期"
+              },
+              {
+                "name": "voucher_no",
+                "type": "VARCHAR(200)",
+                "comment": "会计凭证编号"
+              },
+              {
+                "name": "invoice_type_code",
+                "type": "VARCHAR(200)",
+                "comment": "发票类型编码"
+              },
+              {
+                "name": "invoice_type_desc",
+                "type": "VARCHAR(200)",
+                "comment": "发票类型描述"
+              },
+              {
+                "name": "item_no",
+                "type": "VARCHAR(20)",
+                "comment": "发票明细行号"
+              },
+              {
+                "name": "item_unit",
+                "type": "VARCHAR(200)",
+                "comment": "计量单位"
+              },
+              {
+                "name": "so_no",
+                "type": "VARCHAR(200)",
+                "comment": "销售凭证"
+              },
+              {
+                "name": "so_item_no",
+                "type": "VARCHAR(200)",
+                "comment": "销售凭证项目"
+              },
+              {
+                "name": "gr_no",
+                "type": "VARCHAR(200)",
+                "comment": "交货凭证"
+              },
+              {
+                "name": "gr_item_no",
+                "type": "VARCHAR(200)",
+                "comment": "交货凭证项目"
+              },
+              {
+                "name": "mat_acc_grp_code",
+                "type": "VARCHAR(200)",
+                "comment": "物料科目分配组"
+              },
+              {
+                "name": "mat_acc_grp_desc",
+                "type": "VARCHAR(200)",
+                "comment": "物料科目分配组描述"
+              },
+              {
+                "name": "profit_center_code",
+                "type": "VARCHAR(200)",
+                "comment": "利润中心编码"
+              },
+              {
+                "name": "profit_center_desc",
+                "type": "VARCHAR(200)",
+                "comment": "利润中心描述"
+              },
+              {
+                "name": "mat_grp_code",
+                "type": "VARCHAR(200)",
+                "comment": "物料组编码"
+              },
+              {
+                "name": "mat_grp_desc",
+                "type": "VARCHAR(200)",
+                "comment": "物料组名称"
+              },
+              {
+                "name": "prd_grp_code",
+                "type": "VARCHAR(200)",
+                "comment": "产品组编码"
+              },
+              {
+                "name": "prd_grp_desc",
+                "type": "VARCHAR(200)",
+                "comment": "产品组名称"
+              },
+              {
+                "name": "factory_code",
+                "type": "VARCHAR(200)",
+                "comment": "工厂编码"
+              },
+              {
+                "name": "factory_desc",
+                "type": "VARCHAR(200)",
+                "comment": "工厂名称"
+              },
+              {
+                "name": "store_location_code",
+                "type": "VARCHAR(200)",
+                "comment": "存储地点"
+              },
+              {
+                "name": "reject_reason_code",
+                "type": "VARCHAR(200)",
+                "comment": "拒绝原因"
+              },
+              {
+                "name": "reject_reason_desc",
+                "type": "VARCHAR(200)",
+                "comment": "拒绝原因描述"
+              },
+              {
+                "name": "currency",
+                "type": "VARCHAR(200)",
+                "comment": "币种"
+              },
+              {
+                "name": "acct_vouch_exc_rate",
+                "type": "DECIMAL(24,8)",
+                "comment": "会计核算汇率"
+              },
+              {
+                "name": "invoce_item_qty",
+                "type": "DECIMAL(24,8)",
+                "comment": "开票数量"
+              },
+              {
+                "name": "unit_price",
+                "type": "DECIMAL(24,8)",
+                "comment": "含税单价"
+              },
+              {
+                "name": "net_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "开票净值"
+              },
+              {
+                "name": "tax_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "开票税额"
+              },
+              {
+                "name": "fiscal_year",
+                "type": "VARCHAR(200)",
+                "comment": "会计年度"
+              },
+              {
+                "name": "fiscal_month",
+                "type": "VARCHAR(200)",
+                "comment": "会计月份"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(200)",
+                "comment": "公司编码"
+              },
+              {
+                "name": "company_desc",
+                "type": "VARCHAR(200)",
+                "comment": "公司描述"
+              },
+              {
+                "name": "customer_code",
+                "type": "VARCHAR(200)",
+                "comment": "客户编码"
+              },
+              {
+                "name": "customer_desc",
+                "type": "VARCHAR(200)",
+                "comment": "客户描述"
+              },
+              {
+                "name": "home_or_abroad",
+                "type": "VARCHAR(200)",
+                "comment": "内外盘"
+              },
+              {
+                "name": "trading_direction",
+                "type": "VARCHAR(200)",
+                "comment": "交易方向"
+              },
+              {
+                "name": "customer_country",
+                "type": "VARCHAR(200)",
+                "comment": "国家"
+              },
+              {
+                "name": "material_code",
+                "type": "VARCHAR(200)",
+                "comment": "物料编码"
+              },
+              {
+                "name": "material_desc",
+                "type": "VARCHAR(200)",
+                "comment": "物料描述"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(200)",
+                "comment": "修改人"
+              },
+              {
+                "name": "calendar_year_month",
+                "type": "VARCHAR(200)",
+                "comment": "日历年月"
+              },
+              {
+                "name": "trading_partner_code",
+                "type": "VARCHAR(200)",
+                "comment": "贸易伙伴编码"
+              },
+              {
+                "name": "cny_net_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "人民币开票净值"
+              },
+              {
+                "name": "cny_tax_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "人民币开票税额"
+              },
+              {
+                "name": "day_pt",
+                "type": "DATE",
+                "comment": "分区键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

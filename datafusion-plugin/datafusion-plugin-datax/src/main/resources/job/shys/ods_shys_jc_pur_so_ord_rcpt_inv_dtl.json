@@ -1,0 +1,361 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `fiscal_year`,`fiscal_month`,`fiscal_year_month`,`factory_code`,`factory_name`,`company_code`,`company_desc`,`home_or_abroad`,`trading_direction`,`supplier_code`,`supplier_desc`,`trading_parter_code`,`trading_partner_company_code`,`material_code`,`material_desc`,`item_unit`,`acct_voucher_no`,`acct_voucher_source`,`voucher_type`,`voucher_type_desc`,`voucher_head_text`,`item_no`,`account_code`,`account_desc`,`negative_posting_flag`,`voucher_date`,`post_date`,`expense_type_qty`,`item_qty`,`exc_rate`,`orig_currency`,`item_original_amount`,`item_original_tax_amount`,`local_currency`,`local_amt`,`local_tax_amt`,`cny_currency`,`cny_amt`,`cny_tax_amt`,`dc_flag`,`dc_flag_desc`,`oil_currency`,`oil_qty`,`oil_amt`,`item_tax_code`,`item_tax_rate`,`oil_p_contract`,`etl_time`,`expense_type`,`acct_voucher_source_code`,`modify_time`,`modifier`,`bgt_pd_mat_type_code`,`bgt_pd_mat_type_desc`,`bgt_prog_mat_type_code`,`bgt_prog_mat_type_desc`,`work_center_code`,`_id`,`day_pt` FROM `shjc_ods_pur_so_ord_rcpt_inv_dtl_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_pur_so_ord_rcpt_inv_dtl",
+            "tableComment": "ODS04_采购收货入库（增量日分区）",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id,day_pt",
+            "partitionKey": "day_pt",
+            "column": [
+              {
+                "name": "fiscal_year",
+                "type": "VARCHAR(100)",
+                "comment": "年度"
+              },
+              {
+                "name": "fiscal_month",
+                "type": "VARCHAR(100)",
+                "comment": "月份"
+              },
+              {
+                "name": "fiscal_year_month",
+                "type": "VARCHAR(100)",
+                "comment": "年月"
+              },
+              {
+                "name": "factory_code",
+                "type": "VARCHAR(100)",
+                "comment": "工厂编码"
+              },
+              {
+                "name": "factory_name",
+                "type": "VARCHAR(100)",
+                "comment": "工厂描述"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(100)",
+                "comment": "公司代码"
+              },
+              {
+                "name": "company_desc",
+                "type": "VARCHAR(100)",
+                "comment": "公司描述"
+              },
+              {
+                "name": "home_or_abroad",
+                "type": "VARCHAR(100)",
+                "comment": "内外盘"
+              },
+              {
+                "name": "trading_direction",
+                "type": "VARCHAR(100)",
+                "comment": "交易方向"
+              },
+              {
+                "name": "supplier_code",
+                "type": "VARCHAR(100)",
+                "comment": "供应商编码"
+              },
+              {
+                "name": "supplier_desc",
+                "type": "VARCHAR(100)",
+                "comment": "供应商名称"
+              },
+              {
+                "name": "trading_parter_code",
+                "type": "VARCHAR(100)",
+                "comment": "贸易伙伴"
+              },
+              {
+                "name": "trading_partner_company_code",
+                "type": "VARCHAR(100)",
+                "comment": "贸易伙伴公司"
+              },
+              {
+                "name": "material_code",
+                "type": "VARCHAR(100)",
+                "comment": "物料编码"
+              },
+              {
+                "name": "material_desc",
+                "type": "VARCHAR(100)",
+                "comment": "物料描述"
+              },
+              {
+                "name": "item_unit",
+                "type": "VARCHAR(100)",
+                "comment": "物料单位"
+              },
+              {
+                "name": "acct_voucher_no",
+                "type": "VARCHAR(100)",
+                "comment": "凭证编号"
+              },
+              {
+                "name": "acct_voucher_source",
+                "type": "VARCHAR(100)",
+                "comment": "凭证分类来源"
+              },
+              {
+                "name": "voucher_type",
+                "type": "VARCHAR(100)",
+                "comment": "凭证类型"
+              },
+              {
+                "name": "voucher_type_desc",
+                "type": "VARCHAR(100)",
+                "comment": "凭证类型描述"
+              },
+              {
+                "name": "voucher_head_text",
+                "type": "VARCHAR(100)",
+                "comment": "凭证抬头文本"
+              },
+              {
+                "name": "item_no",
+                "type": "VARCHAR(100)",
+                "comment": "行项目"
+              },
+              {
+                "name": "account_code",
+                "type": "VARCHAR(100)",
+                "comment": "总账科目"
+              },
+              {
+                "name": "account_desc",
+                "type": "VARCHAR(100)",
+                "comment": "总账科目名称"
+              },
+              {
+                "name": "negative_posting_flag",
+                "type": "VARCHAR(100)",
+                "comment": "反记账"
+              },
+              {
+                "name": "voucher_date",
+                "type": "DATETIME",
+                "comment": "凭证日期"
+              },
+              {
+                "name": "post_date",
+                "type": "DATETIME",
+                "comment": "过账日期"
+              },
+              {
+                "name": "expense_type_qty",
+                "type": "VARCHAR(100)",
+                "comment": "费用类型对应数量"
+              },
+              {
+                "name": "item_qty",
+                "type": "DECIMAL(24,8)",
+                "comment": "收货入库数量"
+              },
+              {
+                "name": "exc_rate",
+                "type": "DECIMAL(24,8)",
+                "comment": "汇率"
+              },
+              {
+                "name": "orig_currency",
+                "type": "VARCHAR(100)",
+                "comment": "原币币种"
+              },
+              {
+                "name": "item_original_amount",
+                "type": "DECIMAL(24,8)",
+                "comment": "原币金额"
+              },
+              {
+                "name": "item_original_tax_amount",
+                "type": "DECIMAL(24,8)",
+                "comment": "原币税额"
+              },
+              {
+                "name": "local_currency",
+                "type": "VARCHAR(100)",
+                "comment": "本币币种"
+              },
+              {
+                "name": "local_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "本币金额"
+              },
+              {
+                "name": "local_tax_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "本币税额"
+              },
+              {
+                "name": "cny_currency",
+                "type": "VARCHAR(100)",
+                "comment": "人民币币种"
+              },
+              {
+                "name": "cny_amt",
+                "type": "VARCHAR(100)",
+                "comment": "人民币金额"
+              },
+              {
+                "name": "cny_tax_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "人民币税额"
+              },
+              {
+                "name": "dc_flag",
+                "type": "VARCHAR(100)",
+                "comment": "借/贷标识"
+              },
+              {
+                "name": "dc_flag_desc",
+                "type": "VARCHAR(100)",
+                "comment": "借/贷标识描述"
+              },
+              {
+                "name": "oil_currency",
+                "type": "VARCHAR(100)",
+                "comment": "原油币种（美元）"
+              },
+              {
+                "name": "oil_qty",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油数量（桶）"
+              },
+              {
+                "name": "oil_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油金额（美元）"
+              },
+              {
+                "name": "item_tax_code",
+                "type": "VARCHAR(100)",
+                "comment": "税码"
+              },
+              {
+                "name": "item_tax_rate",
+                "type": "DECIMAL(24,8)",
+                "comment": "税率"
+              },
+              {
+                "name": "oil_p_contract",
+                "type": "VARCHAR(100)",
+                "comment": "采购原油合同号"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "expense_type",
+                "type": "VARCHAR(100)",
+                "comment": "费用类型"
+              },
+              {
+                "name": "acct_voucher_source_code",
+                "type": "VARCHAR(100)",
+                "comment": "凭证分类来源代码"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(100)",
+                "comment": "修改人"
+              },
+              {
+                "name": "bgt_pd_mat_type_code",
+                "type": "VARCHAR(100)",
+                "comment": "物料预算采购分类编码"
+              },
+              {
+                "name": "bgt_pd_mat_type_desc",
+                "type": "VARCHAR(100)",
+                "comment": "物料预算采购分类描述"
+              },
+              {
+                "name": "bgt_prog_mat_type_code",
+                "type": "VARCHAR(100)",
+                "comment": "物料预算编制物料分类编码"
+              },
+              {
+                "name": "bgt_prog_mat_type_desc",
+                "type": "VARCHAR(100)",
+                "comment": "物料预算编制物料分类描述"
+              },
+              {
+                "name": "work_center_code",
+                "type": "VARCHAR(100)",
+                "comment": "工作中心编码"
+              },
+              {
+                "name": "_id",
+                "type": "INT",
+                "comment": "技术主键"
+              },
+              {
+                "name": "day_pt",
+                "type": "DATE",
+                "comment": "分区键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

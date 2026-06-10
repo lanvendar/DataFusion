@@ -1,0 +1,151 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `work_center_code`,`work_center_desc`,`company_code`,`factory_code`,`factory_desc`,`work_center_type_code`,`work_center_type_desc`,`standard_value_code`,`standard_value_desc`,`valid_from`,`valid_to`,`cost_control_scope`,`cost_center_code`,`cost_center_desc`,`del_flag`,`etl_time`,`_id` FROM `shjc_ods_dim_work_center_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_dim_work_center",
+            "tableComment": "装置主数据",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "work_center_code",
+                "type": "VARCHAR(200)",
+                "comment": "工作中心编码"
+              },
+              {
+                "name": "work_center_desc",
+                "type": "VARCHAR(200)",
+                "comment": "工作中心描述"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(200)",
+                "comment": "公司编码"
+              },
+              {
+                "name": "factory_code",
+                "type": "VARCHAR(200)",
+                "comment": "工厂编码"
+              },
+              {
+                "name": "factory_desc",
+                "type": "VARCHAR(200)",
+                "comment": "工厂描述"
+              },
+              {
+                "name": "work_center_type_code",
+                "type": "VARCHAR(200)",
+                "comment": "工作中心类别编码"
+              },
+              {
+                "name": "work_center_type_desc",
+                "type": "VARCHAR(200)",
+                "comment": "工作中心类别描述"
+              },
+              {
+                "name": "standard_value_code",
+                "type": "VARCHAR(200)",
+                "comment": "标准值码"
+              },
+              {
+                "name": "standard_value_desc",
+                "type": "VARCHAR(200)",
+                "comment": "标准值码描述"
+              },
+              {
+                "name": "valid_from",
+                "type": "VARCHAR(200)",
+                "comment": "开始日期"
+              },
+              {
+                "name": "valid_to",
+                "type": "VARCHAR(200)",
+                "comment": "结束日期"
+              },
+              {
+                "name": "cost_control_scope",
+                "type": "VARCHAR(200)",
+                "comment": "成本控制范围"
+              },
+              {
+                "name": "cost_center_code",
+                "type": "VARCHAR(200)",
+                "comment": "成本中心编码"
+              },
+              {
+                "name": "cost_center_desc",
+                "type": "VARCHAR(200)",
+                "comment": "成本中心描述"
+              },
+              {
+                "name": "del_flag",
+                "type": "VARCHAR(200)",
+                "comment": "删除标记"
+              },
+              {
+                "name": "etl_time",
+                "type": "VARCHAR(200)",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "_id",
+                "type": "INT",
+                "comment": "技术主键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

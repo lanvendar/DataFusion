@@ -1,0 +1,326 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `fiscal_year`,`fiscal_month`,`year_month`,`factory_code`,`factory_desc`,`company_code`,`company_desc`,`customer_code`,`customer_desc`,`trading_partner_code`,`material_code`,`material_desc`,`order_type_code`,`order_type_desc`,`unit`,`delivery_qty`,`pod_adj_qty`,`mt_sales_qty`,`currency`,`sales_invoice`,`sales_order_no`,`contract_no`,`contract_type`,`price_type`,`sap_contract_no`,`delivery_no`,`operating_income_local_currency`,`operating_income`,`income_voucher_no`,`income_account_code`,`refer_voucher_no`,`sales_tax`,`operating_costs`,`gross_profit`,`income_account_desc`,`profit_costcenter`,`transport_mode_desc`,`sales_area`,`transport_expense`,`gross_profit_rate`,`costs_account_code`,`costs_account_desc`,`transport_mode_code`,`sales_contract`,`specification`,`posting_time`,`etl_time`,`_id`,`trading_partner_company_code`,`modify_time`,`modifier`,`day_pt` FROM `shjc_ods_mkt_zlhfir00060_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_mkt_zlhfir00060",
+            "tableComment": "ODS03_获利分析表（增量日分区）",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id,day_pt",
+            "partitionKey": "day_pt",
+            "column": [
+              {
+                "name": "fiscal_year",
+                "type": "VARCHAR(100)",
+                "comment": "年度"
+              },
+              {
+                "name": "fiscal_month",
+                "type": "VARCHAR(100)",
+                "comment": "月份"
+              },
+              {
+                "name": "year_month",
+                "type": "VARCHAR(100)",
+                "comment": "月份/年"
+              },
+              {
+                "name": "factory_code",
+                "type": "VARCHAR(100)",
+                "comment": "工厂编码"
+              },
+              {
+                "name": "factory_desc",
+                "type": "VARCHAR(100)",
+                "comment": "工厂名称"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(100)",
+                "comment": "公司代码"
+              },
+              {
+                "name": "company_desc",
+                "type": "VARCHAR(100)",
+                "comment": "公司名称"
+              },
+              {
+                "name": "customer_code",
+                "type": "VARCHAR(100)",
+                "comment": "客户编号"
+              },
+              {
+                "name": "customer_desc",
+                "type": "VARCHAR(100)",
+                "comment": "客户名称"
+              },
+              {
+                "name": "trading_partner_code",
+                "type": "VARCHAR(100)",
+                "comment": "贸易伙伴"
+              },
+              {
+                "name": "material_code",
+                "type": "VARCHAR(100)",
+                "comment": "物料编码"
+              },
+              {
+                "name": "material_desc",
+                "type": "VARCHAR(100)",
+                "comment": "物料名称"
+              },
+              {
+                "name": "order_type_code",
+                "type": "VARCHAR(100)",
+                "comment": "订单类型编码"
+              },
+              {
+                "name": "order_type_desc",
+                "type": "VARCHAR(100)",
+                "comment": "订单类型描述"
+              },
+              {
+                "name": "unit",
+                "type": "VARCHAR(100)",
+                "comment": "单位"
+              },
+              {
+                "name": "delivery_qty",
+                "type": "DECIMAL(24,8)",
+                "comment": "交货数量"
+              },
+              {
+                "name": "pod_adj_qty",
+                "type": "DECIMAL(24,8)",
+                "comment": "POD调整数量"
+              },
+              {
+                "name": "mt_sales_qty",
+                "type": "DECIMAL(24,8)",
+                "comment": "销量(MT)"
+              },
+              {
+                "name": "currency",
+                "type": "VARCHAR(100)",
+                "comment": "币别"
+              },
+              {
+                "name": "sales_invoice",
+                "type": "VARCHAR(100)",
+                "comment": "销售发票"
+              },
+              {
+                "name": "sales_order_no",
+                "type": "VARCHAR(100)",
+                "comment": "销售订单号"
+              },
+              {
+                "name": "contract_no",
+                "type": "VARCHAR(100)",
+                "comment": "参考合同号"
+              },
+              {
+                "name": "contract_type",
+                "type": "VARCHAR(100)",
+                "comment": "合同类型"
+              },
+              {
+                "name": "price_type",
+                "type": "VARCHAR(100)",
+                "comment": "价格类型"
+              },
+              {
+                "name": "sap_contract_no",
+                "type": "VARCHAR(100)",
+                "comment": "SAP 合同号"
+              },
+              {
+                "name": "delivery_no",
+                "type": "VARCHAR(100)",
+                "comment": "交货单号"
+              },
+              {
+                "name": "operating_income_local_currency",
+                "type": "DECIMAL(24,8)",
+                "comment": "营业收入本币合计"
+              },
+              {
+                "name": "operating_income",
+                "type": "DECIMAL(24,8)",
+                "comment": "营业收入合计"
+              },
+              {
+                "name": "income_voucher_no",
+                "type": "VARCHAR(100)",
+                "comment": "营业收入会计凭证"
+              },
+              {
+                "name": "income_account_code",
+                "type": "VARCHAR(100)",
+                "comment": "营业收入科目"
+              },
+              {
+                "name": "refer_voucher_no",
+                "type": "VARCHAR(100)",
+                "comment": "关联收入凭证"
+              },
+              {
+                "name": "sales_tax",
+                "type": "DECIMAL(24,8)",
+                "comment": "销项税"
+              },
+              {
+                "name": "operating_costs",
+                "type": "DECIMAL(24,8)",
+                "comment": "营业成本合计"
+              },
+              {
+                "name": "gross_profit",
+                "type": "DECIMAL(24,8)",
+                "comment": "毛利合计"
+              },
+              {
+                "name": "income_account_desc",
+                "type": "VARCHAR(100)",
+                "comment": "营业收入科目描述"
+              },
+              {
+                "name": "profit_costcenter",
+                "type": "VARCHAR(100)",
+                "comment": "利润中心"
+              },
+              {
+                "name": "transport_mode_desc",
+                "type": "VARCHAR(100)",
+                "comment": "运输方式"
+              },
+              {
+                "name": "sales_area",
+                "type": "VARCHAR(100)",
+                "comment": "销售区域"
+              },
+              {
+                "name": "transport_expense",
+                "type": "DECIMAL(24,8)",
+                "comment": "运输费用合计"
+              },
+              {
+                "name": "gross_profit_rate",
+                "type": "DECIMAL(24,8)",
+                "comment": "毛利率"
+              },
+              {
+                "name": "costs_account_code",
+                "type": "VARCHAR(100)",
+                "comment": "营业成本科目"
+              },
+              {
+                "name": "costs_account_desc",
+                "type": "VARCHAR(100)",
+                "comment": "营业成本会计凭证"
+              },
+              {
+                "name": "transport_mode_code",
+                "type": "VARCHAR(100)",
+                "comment": "运输方式"
+              },
+              {
+                "name": "sales_contract",
+                "type": "VARCHAR(100)",
+                "comment": "销售合同"
+              },
+              {
+                "name": "specification",
+                "type": "VARCHAR(100)",
+                "comment": "规格"
+              },
+              {
+                "name": "posting_time",
+                "type": "DATETIME",
+                "comment": "收入凭证过账日期"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "ETL时间"
+              },
+              {
+                "name": "_id",
+                "type": "INT",
+                "comment": "技术主键"
+              },
+              {
+                "name": "trading_partner_company_code",
+                "type": "VARCHAR(100)",
+                "comment": "贸易伙伴公司编码"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(100)",
+                "comment": "修改人"
+              },
+              {
+                "name": "day_pt",
+                "type": "DATE",
+                "comment": "分区键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

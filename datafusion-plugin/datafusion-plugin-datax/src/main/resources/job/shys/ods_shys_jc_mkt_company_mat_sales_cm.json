@@ -1,0 +1,176 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `_id`,`ds`,`year_month`,`company_code`,`company_name`,`production_marketing_rate`,`export_num`,`sales_num`,`income`,`income_roi`,`advert_fee`,`consult_fee`,`meeting_fee`,`transport_fee`,`transport_fee_per_unit`,`storage_fee`,`storage_fee_per_unit`,`handling_fee`,`handling_fee_per_unit`,`etl_time`,`modify_time`,`modifier` FROM `shjc_ods_mkt_company_mat_sales_cm_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_mkt_company_mat_sales_cm",
+            "tableComment": "销售及销售费用分析汇总ADS表",
+            "loadMode": "OVERWRITE_TABLE",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "_id",
+                "type": "BIGINT",
+                "comment": "自增主键"
+              },
+              {
+                "name": "ds",
+                "type": "VARCHAR(24)",
+                "comment": "分区字段"
+              },
+              {
+                "name": "year_month",
+                "type": "VARCHAR(200)",
+                "comment": "自然年月"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(200)",
+                "comment": "公司编码"
+              },
+              {
+                "name": "company_name",
+                "type": "VARCHAR(200)",
+                "comment": "公司名称"
+              },
+              {
+                "name": "production_marketing_rate",
+                "type": "DECIMAL(24,8)",
+                "comment": "产销率"
+              },
+              {
+                "name": "export_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "出口量"
+              },
+              {
+                "name": "sales_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "销量"
+              },
+              {
+                "name": "income",
+                "type": "DECIMAL(24,8)",
+                "comment": "销售收入"
+              },
+              {
+                "name": "income_roi",
+                "type": "DECIMAL(24,8)",
+                "comment": "销售收入增长率(%)"
+              },
+              {
+                "name": "advert_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "广告宣传费"
+              },
+              {
+                "name": "consult_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "咨询费"
+              },
+              {
+                "name": "meeting_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "会务费"
+              },
+              {
+                "name": "transport_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "运输费"
+              },
+              {
+                "name": "transport_fee_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位运输费"
+              },
+              {
+                "name": "storage_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "仓储费"
+              },
+              {
+                "name": "storage_fee_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位仓储费"
+              },
+              {
+                "name": "handling_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "装卸费"
+              },
+              {
+                "name": "handling_fee_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位装卸费"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(200)",
+                "comment": "修改人"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

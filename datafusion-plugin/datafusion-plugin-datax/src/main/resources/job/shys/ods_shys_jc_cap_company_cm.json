@@ -1,0 +1,176 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `_id`,`ds`,`year_month`,`company_code`,`company_name`,`beginning_total_assets`,`ytd_total_assets`,`avg_total_assets`,`main_income`,`asset_turnover_ratio`,`beginning_total_equity`,`ytd_total_equity`,`avg_total_equity`,`ytd_net_profit`,`roe`,`ytd_total_profit`,`ytd_interest`,`ebit`,`roa`,`etl_time`,`modify_time`,`modifier` FROM `shjc_ods_cap_company_cm_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_cap_company_cm",
+            "tableComment": "资本分析汇总ADS表",
+            "loadMode": "OVERWRITE_TABLE",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "_id",
+                "type": "BIGINT",
+                "comment": "自增主键"
+              },
+              {
+                "name": "ds",
+                "type": "VARCHAR(24)",
+                "comment": "分区字段"
+              },
+              {
+                "name": "year_month",
+                "type": "VARCHAR(200)",
+                "comment": "自然年月"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(200)",
+                "comment": "公司编码"
+              },
+              {
+                "name": "company_name",
+                "type": "VARCHAR(200)",
+                "comment": "公司名称"
+              },
+              {
+                "name": "beginning_total_assets",
+                "type": "DECIMAL(24,8)",
+                "comment": "期初资产总额"
+              },
+              {
+                "name": "ytd_total_assets",
+                "type": "DECIMAL(24,8)",
+                "comment": "期末资产总额"
+              },
+              {
+                "name": "avg_total_assets",
+                "type": "DECIMAL(24,8)",
+                "comment": "平均资产总额"
+              },
+              {
+                "name": "main_income",
+                "type": "DECIMAL(24,8)",
+                "comment": "累计主营业务收入"
+              },
+              {
+                "name": "asset_turnover_ratio",
+                "type": "DECIMAL(24,8)",
+                "comment": "资产周转率(%)"
+              },
+              {
+                "name": "beginning_total_equity",
+                "type": "DECIMAL(24,8)",
+                "comment": "期初所有者权益"
+              },
+              {
+                "name": "ytd_total_equity",
+                "type": "DECIMAL(24,8)",
+                "comment": "期末所有者权益"
+              },
+              {
+                "name": "avg_total_equity",
+                "type": "DECIMAL(24,8)",
+                "comment": "平均所有者权益"
+              },
+              {
+                "name": "ytd_net_profit",
+                "type": "DECIMAL(24,8)",
+                "comment": "累计净利润"
+              },
+              {
+                "name": "roe",
+                "type": "DECIMAL(24,8)",
+                "comment": "净资产收益率(ROE)(%)"
+              },
+              {
+                "name": "ytd_total_profit",
+                "type": "DECIMAL(24,8)",
+                "comment": "累计利润总额"
+              },
+              {
+                "name": "ytd_interest",
+                "type": "DECIMAL(24,8)",
+                "comment": "累计利息支出总额"
+              },
+              {
+                "name": "ebit",
+                "type": "DECIMAL(24,8)",
+                "comment": "息税前利润(EBIT)"
+              },
+              {
+                "name": "roa",
+                "type": "DECIMAL(24,8)",
+                "comment": "资产报酬率(ROA)(%)"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(200)",
+                "comment": "修改人"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

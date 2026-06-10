@@ -1,0 +1,266 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `company_code`,`company_desc`,`work_center_code`,`work_center_desc`,`material_code`,`material_desc`,`routing_type`,`product_version`,`product_version_desc`,`d_group`,`counter`,`valid_start_date`,`control`,`routing_short_txt`,`routing_desc`,`unit`,`basic_qty`,`valid_end_date`,`activity_type1`,`std_unit1`,`std_value1`,`activity_type2`,`std_unit2`,`std_value2`,`activity_type3`,`std_unit3`,`std_value3`,`activity_type4`,`std_unit4`,`std_value4`,`etl_time`,`modify_time`,`modifier`,`activity_type5`,`std_unit5`,`std_value5`,`activity_type6`,`std_unit6`,`std_value6`,`_id` FROM `shjc_ods_prd_route_rpt_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_prd_route_rpt",
+            "tableComment": "工艺路线报表ADS表",
+            "loadMode": "OVERWRITE_TABLE",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "company_code",
+                "type": "VARCHAR(20)",
+                "comment": "公司代码"
+              },
+              {
+                "name": "company_desc",
+                "type": "VARCHAR(50)",
+                "comment": "公司描述"
+              },
+              {
+                "name": "work_center_code",
+                "type": "VARCHAR(50)",
+                "comment": "工作中心编码"
+              },
+              {
+                "name": "work_center_desc",
+                "type": "VARCHAR(200)",
+                "comment": "工作中心名称"
+              },
+              {
+                "name": "material_code",
+                "type": "VARCHAR(50)",
+                "comment": "物料编码"
+              },
+              {
+                "name": "material_desc",
+                "type": "VARCHAR(200)",
+                "comment": "物料名称"
+              },
+              {
+                "name": "routing_type",
+                "type": "VARCHAR(20)",
+                "comment": "类型"
+              },
+              {
+                "name": "product_version",
+                "type": "VARCHAR(100)",
+                "comment": "生产版本"
+              },
+              {
+                "name": "product_version_desc",
+                "type": "VARCHAR(200)",
+                "comment": "生产版本描述"
+              },
+              {
+                "name": "d_group",
+                "type": "VARCHAR(200)",
+                "comment": "组"
+              },
+              {
+                "name": "counter",
+                "type": "VARCHAR(20)",
+                "comment": "计数器"
+              },
+              {
+                "name": "valid_start_date",
+                "type": "DATETIME",
+                "comment": "有效起始日期"
+              },
+              {
+                "name": "control",
+                "type": "VARCHAR(100)",
+                "comment": "控制"
+              },
+              {
+                "name": "routing_short_txt",
+                "type": "VARCHAR(200)",
+                "comment": "工序短文本"
+              },
+              {
+                "name": "routing_desc",
+                "type": "VARCHAR(200)",
+                "comment": "工艺路线描述"
+              },
+              {
+                "name": "unit",
+                "type": "VARCHAR(200)",
+                "comment": "单位"
+              },
+              {
+                "name": "basic_qty",
+                "type": "VARCHAR(200)",
+                "comment": "基本数量"
+              },
+              {
+                "name": "valid_end_date",
+                "type": "DATETIME",
+                "comment": "有效截止日期"
+              },
+              {
+                "name": "activity_type1",
+                "type": "VARCHAR(200)",
+                "comment": "活动类型1"
+              },
+              {
+                "name": "std_unit1",
+                "type": "VARCHAR(200)",
+                "comment": "标准值计量单位"
+              },
+              {
+                "name": "std_value1",
+                "type": "DECIMAL(24,8)",
+                "comment": "标准值"
+              },
+              {
+                "name": "activity_type2",
+                "type": "VARCHAR(200)",
+                "comment": "活动类型2"
+              },
+              {
+                "name": "std_unit2",
+                "type": "VARCHAR(200)",
+                "comment": "标准值计量单位"
+              },
+              {
+                "name": "std_value2",
+                "type": "DECIMAL(24,8)",
+                "comment": "标准值"
+              },
+              {
+                "name": "activity_type3",
+                "type": "VARCHAR(200)",
+                "comment": "活动类型3"
+              },
+              {
+                "name": "std_unit3",
+                "type": "VARCHAR(200)",
+                "comment": "标准值计量单位"
+              },
+              {
+                "name": "std_value3",
+                "type": "DECIMAL(24,8)",
+                "comment": "标准值"
+              },
+              {
+                "name": "activity_type4",
+                "type": "VARCHAR(200)",
+                "comment": "活动类型4"
+              },
+              {
+                "name": "std_unit4",
+                "type": "VARCHAR(200)",
+                "comment": "标准值计量单位"
+              },
+              {
+                "name": "std_value4",
+                "type": "DECIMAL(24,8)",
+                "comment": "标准值"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(100)",
+                "comment": "修改人"
+              },
+              {
+                "name": "activity_type5",
+                "type": "VARCHAR(200)",
+                "comment": "活动类型5"
+              },
+              {
+                "name": "std_unit5",
+                "type": "VARCHAR(200)",
+                "comment": "标准值计量单位"
+              },
+              {
+                "name": "std_value5",
+                "type": "DECIMAL(24,8)",
+                "comment": "标准值"
+              },
+              {
+                "name": "activity_type6",
+                "type": "VARCHAR(200)",
+                "comment": "活动类型6"
+              },
+              {
+                "name": "std_unit6",
+                "type": "VARCHAR(200)",
+                "comment": "标准值计量单位"
+              },
+              {
+                "name": "std_value6",
+                "type": "DECIMAL(24,8)",
+                "comment": "标准值"
+              },
+              {
+                "name": "_id",
+                "type": "BIGINT",
+                "comment": "自增主键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

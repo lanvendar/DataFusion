@@ -1,0 +1,141 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `_id`,`ds`,`fiscal_year`,`fiscal_month`,`year_month`,`company_code`,`company_desc`,`material_code`,`material_desc`,`sales_type_code`,`sales_type_desc`,`etl_time`,`modify_time`,`modifier`,`day_pt` FROM `shjc_ods_mkt_mat_sales_type_cfg_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_mkt_mat_sales_type_cfg",
+            "tableComment": "ODS18_物料销售类型配置表（增量日分区）",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id,day_pt",
+            "partitionKey": "day_pt",
+            "column": [
+              {
+                "name": "_id",
+                "type": "BIGINT",
+                "comment": "自增主键"
+              },
+              {
+                "name": "ds",
+                "type": "VARCHAR(24)",
+                "comment": "分区字段"
+              },
+              {
+                "name": "fiscal_year",
+                "type": "VARCHAR(20)",
+                "comment": "年度"
+              },
+              {
+                "name": "fiscal_month",
+                "type": "VARCHAR(20)",
+                "comment": "月份"
+              },
+              {
+                "name": "year_month",
+                "type": "VARCHAR(200)",
+                "comment": "日历年月"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(20)",
+                "comment": "公司代码"
+              },
+              {
+                "name": "company_desc",
+                "type": "VARCHAR(200)",
+                "comment": "公司描述"
+              },
+              {
+                "name": "material_code",
+                "type": "VARCHAR(40)",
+                "comment": "物料编码"
+              },
+              {
+                "name": "material_desc",
+                "type": "VARCHAR(200)",
+                "comment": "物料名称"
+              },
+              {
+                "name": "sales_type_code",
+                "type": "VARCHAR(20)",
+                "comment": "销售类型编码"
+              },
+              {
+                "name": "sales_type_desc",
+                "type": "VARCHAR(200)",
+                "comment": "销售类型名称"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(200)",
+                "comment": "修改人"
+              },
+              {
+                "name": "day_pt",
+                "type": "DATE",
+                "comment": "分区键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

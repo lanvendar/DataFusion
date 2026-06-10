@@ -1,0 +1,221 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `ds`,`fiscal_year`,`fiscal_month`,`year_month`,`cost_control_field`,`company_code`,`company_desc`,`cost_bill_no`,`create_date`,`posting_date`,`item_no`,`cost_center_code`,`cost_center_desc`,`initial_object`,`source_name`,`cost_element_code`,`cost_element_desc`,`amount`,`currency`,`seg_text`,`source_code`,`source_desc`,`create_time`,`creator`,`update_time`,`updator`,`etl_time`,`modify_time`,`modifier`,`_id`,`day_pt` FROM `shjc_ods_fin_cost_element_item_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_fin_cost_element_item",
+            "tableComment": "ODS20_次级成本要素明细表（增量日分区）",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id,day_pt",
+            "partitionKey": "day_pt",
+            "column": [
+              {
+                "name": "ds",
+                "type": "DATETIME",
+                "comment": "分区字段"
+              },
+              {
+                "name": "fiscal_year",
+                "type": "VARCHAR(200)",
+                "comment": "年度"
+              },
+              {
+                "name": "fiscal_month",
+                "type": "VARCHAR(200)",
+                "comment": "月份"
+              },
+              {
+                "name": "year_month",
+                "type": "VARCHAR(200)",
+                "comment": "月份/年"
+              },
+              {
+                "name": "cost_control_field",
+                "type": "VARCHAR(200)",
+                "comment": "成本控制域"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(200)",
+                "comment": "公司ID"
+              },
+              {
+                "name": "company_desc",
+                "type": "VARCHAR(200)",
+                "comment": "公司名称"
+              },
+              {
+                "name": "cost_bill_no",
+                "type": "VARCHAR(200)",
+                "comment": "凭证编号"
+              },
+              {
+                "name": "create_date",
+                "type": "DATETIME",
+                "comment": "凭证日期"
+              },
+              {
+                "name": "posting_date",
+                "type": "DATETIME",
+                "comment": "过账日期"
+              },
+              {
+                "name": "item_no",
+                "type": "VARCHAR(200)",
+                "comment": "行项目"
+              },
+              {
+                "name": "cost_center_code",
+                "type": "VARCHAR(200)",
+                "comment": "成本中心编码"
+              },
+              {
+                "name": "cost_center_desc",
+                "type": "VARCHAR(200)",
+                "comment": "成本中心描述"
+              },
+              {
+                "name": "initial_object",
+                "type": "VARCHAR(200)",
+                "comment": "初始对象"
+              },
+              {
+                "name": "source_name",
+                "type": "VARCHAR(200)",
+                "comment": "源对象名"
+              },
+              {
+                "name": "cost_element_code",
+                "type": "VARCHAR(200)",
+                "comment": "成本要素"
+              },
+              {
+                "name": "cost_element_desc",
+                "type": "VARCHAR(200)",
+                "comment": "成本要素描述"
+              },
+              {
+                "name": "amount",
+                "type": "DECIMAL(24,8)",
+                "comment": "报表货币值"
+              },
+              {
+                "name": "currency",
+                "type": "VARCHAR(200)",
+                "comment": "币种"
+              },
+              {
+                "name": "seg_text",
+                "type": "VARCHAR(200)",
+                "comment": "短文本"
+              },
+              {
+                "name": "source_code",
+                "type": "VARCHAR(200)",
+                "comment": "分摊来源ID"
+              },
+              {
+                "name": "source_desc",
+                "type": "VARCHAR(200)",
+                "comment": "分摊来源描述"
+              },
+              {
+                "name": "create_time",
+                "type": "DATETIME",
+                "comment": "创建时间"
+              },
+              {
+                "name": "creator",
+                "type": "VARCHAR(200)",
+                "comment": "创建人"
+              },
+              {
+                "name": "update_time",
+                "type": "DATETIME",
+                "comment": "更新时间"
+              },
+              {
+                "name": "updator",
+                "type": "VARCHAR(200)",
+                "comment": "更新人"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(200)",
+                "comment": "修改人"
+              },
+              {
+                "name": "_id",
+                "type": "INT",
+                "comment": "技术主键"
+              },
+              {
+                "name": "day_pt",
+                "type": "DATE",
+                "comment": "分区键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

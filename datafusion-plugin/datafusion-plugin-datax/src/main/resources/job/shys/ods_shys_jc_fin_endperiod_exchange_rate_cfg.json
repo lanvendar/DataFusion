@@ -1,0 +1,146 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `currency_type`,`currency_from`,`currency_to`,`rate_month`,`end_exc_rate`,`ratio_form`,`ratio_to`,`create_time`,`creator`,`update_time`,`updator`,`ds`,`etl_time`,`modifier`,`modify_time`,`_id` FROM `shjc_ods_fin_endperiod_exchange_rate_cfg_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_fin_endperiod_exchange_rate_cfg",
+            "tableComment": "期末汇率配置表",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "currency_type,currency_from,currency_to,rate_month,_id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "currency_type",
+                "type": "VARCHAR(100)",
+                "comment": "汇率类型"
+              },
+              {
+                "name": "currency_from",
+                "type": "VARCHAR(100)",
+                "comment": "从货币"
+              },
+              {
+                "name": "currency_to",
+                "type": "VARCHAR(100)",
+                "comment": "到货币"
+              },
+              {
+                "name": "rate_month",
+                "type": "VARCHAR(100)",
+                "comment": "汇率日期"
+              },
+              {
+                "name": "end_exc_rate",
+                "type": "DECIMAL(24,8)",
+                "comment": "汇率"
+              },
+              {
+                "name": "ratio_form",
+                "type": "DECIMAL(24,8)",
+                "comment": "比率（从）"
+              },
+              {
+                "name": "ratio_to",
+                "type": "DECIMAL(24,8)",
+                "comment": "比率（到）"
+              },
+              {
+                "name": "create_time",
+                "type": "DATETIME",
+                "comment": "创建时间"
+              },
+              {
+                "name": "creator",
+                "type": "VARCHAR(100)",
+                "comment": "创建人"
+              },
+              {
+                "name": "update_time",
+                "type": "DATETIME",
+                "comment": "更新时间"
+              },
+              {
+                "name": "updator",
+                "type": "VARCHAR(100)",
+                "comment": "更新人"
+              },
+              {
+                "name": "ds",
+                "type": "DATETIME",
+                "comment": "分区字段"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(100)",
+                "comment": "集成应用更新人"
+              },
+              {
+                "name": "modify_time",
+                "type": "VARCHAR(100)",
+                "comment": "集成应用更新时间"
+              },
+              {
+                "name": "_id",
+                "type": "INT",
+                "comment": "技术主键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

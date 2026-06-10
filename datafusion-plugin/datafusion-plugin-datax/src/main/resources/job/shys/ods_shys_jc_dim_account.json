@@ -1,0 +1,126 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `gl_accounts_code`,`gl_accounts_desc`,`gl_acc_type_code`,`gl_acc_type_desc`,`accounts_group_code`,`accounts_group_desc`,`del_flag`,`crt_frozen`,`posting_frez`,`accounts_table`,`etl_time`,`_id` FROM `shjc_ods_dim_account_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_dim_account",
+            "tableComment": "科目主数据",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "gl_accounts_code",
+                "type": "VARCHAR(200)",
+                "comment": "总账科目编码"
+              },
+              {
+                "name": "gl_accounts_desc",
+                "type": "VARCHAR(200)",
+                "comment": "总账科目描述"
+              },
+              {
+                "name": "gl_acc_type_code",
+                "type": "VARCHAR(200)",
+                "comment": "总账科目类型编码"
+              },
+              {
+                "name": "gl_acc_type_desc",
+                "type": "VARCHAR(200)",
+                "comment": "总账科目类型描述"
+              },
+              {
+                "name": "accounts_group_code",
+                "type": "VARCHAR(200)",
+                "comment": "科目组编码"
+              },
+              {
+                "name": "accounts_group_desc",
+                "type": "VARCHAR(200)",
+                "comment": "科目组描述"
+              },
+              {
+                "name": "del_flag",
+                "type": "VARCHAR(200)",
+                "comment": "删除标记"
+              },
+              {
+                "name": "crt_frozen",
+                "type": "VARCHAR(200)",
+                "comment": "冻结建立"
+              },
+              {
+                "name": "posting_frez",
+                "type": "VARCHAR(200)",
+                "comment": "过账冻结"
+              },
+              {
+                "name": "accounts_table",
+                "type": "VARCHAR(200)",
+                "comment": "科目表"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "_id",
+                "type": "INT",
+                "comment": "技术主键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

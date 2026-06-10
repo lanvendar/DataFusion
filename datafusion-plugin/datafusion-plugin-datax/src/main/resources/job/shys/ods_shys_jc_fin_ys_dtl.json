@@ -1,0 +1,181 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `ds`,`fiscal_year`,`fiscal_month`,`year_month`,`company_code`,`company_desc`,`account_code`,`account_desc`,`begining_bfr_elim`,`periodic_bfr_elim`,`ytd_bfr_elim`,`begining_elim`,`periodic_elim`,`ytd_elim`,`begining_aft_elim`,`periodic_aft_elim`,`ytd_aft_elim`,`etl_time`,`modify_time`,`modifier`,`source_table_name`,`source_table_decs`,`_id` FROM `shjc_ods_fin_ys_dtl_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_fin_ys_dtl",
+            "tableComment": "ODS01_财务资产负债表、利润表、直接法现金流量表和间接法现金流量表明细ADS表",
+            "loadMode": "OVERWRITE_TABLE",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "ds",
+                "type": "VARCHAR(24)",
+                "comment": "分区字段"
+              },
+              {
+                "name": "fiscal_year",
+                "type": "VARCHAR(20)",
+                "comment": "年度"
+              },
+              {
+                "name": "fiscal_month",
+                "type": "VARCHAR(20)",
+                "comment": "月份"
+              },
+              {
+                "name": "year_month",
+                "type": "VARCHAR(200)",
+                "comment": "月份/年"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(200)",
+                "comment": "公司编码"
+              },
+              {
+                "name": "company_desc",
+                "type": "VARCHAR(200)",
+                "comment": "公司描述"
+              },
+              {
+                "name": "account_code",
+                "type": "VARCHAR(20)",
+                "comment": "科目编码"
+              },
+              {
+                "name": "account_desc",
+                "type": "VARCHAR(200)",
+                "comment": "科目描述"
+              },
+              {
+                "name": "begining_bfr_elim",
+                "type": "DECIMAL(24,8)",
+                "comment": "期初-抵消前"
+              },
+              {
+                "name": "periodic_bfr_elim",
+                "type": "DECIMAL(24,8)",
+                "comment": "当期/变动-抵消前"
+              },
+              {
+                "name": "ytd_bfr_elim",
+                "type": "DECIMAL(24,8)",
+                "comment": "期末-抵消前"
+              },
+              {
+                "name": "begining_elim",
+                "type": "DECIMAL(24,8)",
+                "comment": "期初-抵消数"
+              },
+              {
+                "name": "periodic_elim",
+                "type": "DECIMAL(24,8)",
+                "comment": "当期-抵消数"
+              },
+              {
+                "name": "ytd_elim",
+                "type": "DECIMAL(24,8)",
+                "comment": "期末-抵消数"
+              },
+              {
+                "name": "begining_aft_elim",
+                "type": "DECIMAL(24,8)",
+                "comment": "期初-抵消后"
+              },
+              {
+                "name": "periodic_aft_elim",
+                "type": "DECIMAL(24,8)",
+                "comment": "当期/变动-抵消后"
+              },
+              {
+                "name": "ytd_aft_elim",
+                "type": "DECIMAL(24,8)",
+                "comment": "期末-抵消后"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(200)",
+                "comment": "修改人"
+              },
+              {
+                "name": "source_table_name",
+                "type": "VARCHAR(200)",
+                "comment": "来源表名称"
+              },
+              {
+                "name": "source_table_decs",
+                "type": "VARCHAR(200)",
+                "comment": "来源表描述"
+              },
+              {
+                "name": "_id",
+                "type": "BIGINT",
+                "comment": "自增主键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

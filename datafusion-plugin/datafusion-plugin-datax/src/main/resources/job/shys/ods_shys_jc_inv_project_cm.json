@@ -1,0 +1,146 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `_id`,`ds`,`year_month`,`company_code`,`company_name`,`project_code`,`project_desc`,`project_type_code`,`project_type_desc`,`proj_invest_amt`,`proj_invest_amt_xj`,`proj_invest_amt_j1`,`proj_invest_amt_j2`,`etl_time`,`modify_time`,`modifier` FROM `shjc_ods_inv_project_cm_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_inv_project_cm",
+            "tableComment": "投资分析汇总ADS表",
+            "loadMode": "OVERWRITE_TABLE",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "_id",
+                "type": "BIGINT",
+                "comment": "自增主键"
+              },
+              {
+                "name": "ds",
+                "type": "VARCHAR(24)",
+                "comment": "分区字段"
+              },
+              {
+                "name": "year_month",
+                "type": "VARCHAR(200)",
+                "comment": "自然年月"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(200)",
+                "comment": "公司编码"
+              },
+              {
+                "name": "company_name",
+                "type": "VARCHAR(200)",
+                "comment": "公司名称"
+              },
+              {
+                "name": "project_code",
+                "type": "VARCHAR(200)",
+                "comment": "项目编码"
+              },
+              {
+                "name": "project_desc",
+                "type": "VARCHAR(200)",
+                "comment": "项目描述"
+              },
+              {
+                "name": "project_type_code",
+                "type": "VARCHAR(200)",
+                "comment": "项目类别编码"
+              },
+              {
+                "name": "project_type_desc",
+                "type": "VARCHAR(200)",
+                "comment": "项目类别描述"
+              },
+              {
+                "name": "proj_invest_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "项目投资额"
+              },
+              {
+                "name": "proj_invest_amt_xj",
+                "type": "DECIMAL(24,8)",
+                "comment": "基建投资额"
+              },
+              {
+                "name": "proj_invest_amt_j1",
+                "type": "DECIMAL(24,8)",
+                "comment": "一类技改投资额"
+              },
+              {
+                "name": "proj_invest_amt_j2",
+                "type": "DECIMAL(24,8)",
+                "comment": "二类技改投资额"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(200)",
+                "comment": "修改人"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

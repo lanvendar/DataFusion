@@ -1,0 +1,226 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `_id`,`ds`,`year_month`,`company_code`,`company_name`,`oil_pur_num_no_sgp`,`oil_pur_num_sgp`,`oil_pur_num`,`oil_pur_price`,`oil_pur_amt_no_sgp`,`oil_pur_diff_amt_no_sgp`,`oil_pur_amt_sgp`,`oil_pur_amt`,`oil_pur_fee_sh`,`oil_pur_fee_sgp`,`oil_pur_fee`,`oil_pur_fee_per_unit`,`oil_pur_transport_fee_sh`,`oil_pur_transport_fee_sgp`,`oil_pur_transport_fee`,`oil_pur_transport_fee_per_unit`,`oil_pur_storage_fee_sh`,`oil_pur_storage_fee_sgp`,`oil_pur_storage_fee`,`oil_pur_storage_fee_per_unit`,`oil_pur_handling_fee_sh`,`oil_pur_handling_fee_sgp`,`oil_pur_handling_fee`,`oil_pur_handling_fee_per_unit`,`etl_time`,`modify_time`,`modifier` FROM `shjc_ods_pur_oil_company_cm_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_pur_oil_company_cm",
+            "tableComment": "原油采购及采购费用分析汇总ADS表",
+            "loadMode": "OVERWRITE_TABLE",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "_id",
+                "type": "BIGINT",
+                "comment": "自增主键"
+              },
+              {
+                "name": "ds",
+                "type": "VARCHAR(24)",
+                "comment": "分区字段"
+              },
+              {
+                "name": "year_month",
+                "type": "VARCHAR(200)",
+                "comment": "自然年月"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(200)",
+                "comment": "公司编码"
+              },
+              {
+                "name": "company_name",
+                "type": "VARCHAR(200)",
+                "comment": "公司名称"
+              },
+              {
+                "name": "oil_pur_num_no_sgp",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购量（非新加坡）"
+              },
+              {
+                "name": "oil_pur_num_sgp",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购量（新加坡）"
+              },
+              {
+                "name": "oil_pur_num",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购量"
+              },
+              {
+                "name": "oil_pur_price",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购单价(元)"
+              },
+              {
+                "name": "oil_pur_amt_no_sgp",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购金额(非新加坡收货)"
+              },
+              {
+                "name": "oil_pur_diff_amt_no_sgp",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购金额(非新加坡发票差异)"
+              },
+              {
+                "name": "oil_pur_amt_sgp",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购金额(新加坡)"
+              },
+              {
+                "name": "oil_pur_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购金额(元)"
+              },
+              {
+                "name": "oil_pur_fee_sh",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购费用(盛虹采购)"
+              },
+              {
+                "name": "oil_pur_fee_sgp",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购费用(新加坡从外采购)"
+              },
+              {
+                "name": "oil_pur_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购费用(元)"
+              },
+              {
+                "name": "oil_pur_fee_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位原油采购费用(元)"
+              },
+              {
+                "name": "oil_pur_transport_fee_sh",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购运费(盛虹采购)"
+              },
+              {
+                "name": "oil_pur_transport_fee_sgp",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购运费(新加坡从外采购)"
+              },
+              {
+                "name": "oil_pur_transport_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购运费(元)"
+              },
+              {
+                "name": "oil_pur_transport_fee_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位原油采购运费(元)"
+              },
+              {
+                "name": "oil_pur_storage_fee_sh",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购仓储费(盛虹采购)"
+              },
+              {
+                "name": "oil_pur_storage_fee_sgp",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购仓储费(新加坡从外采购)"
+              },
+              {
+                "name": "oil_pur_storage_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购仓储费(元)"
+              },
+              {
+                "name": "oil_pur_storage_fee_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位原油采购仓储费(元)"
+              },
+              {
+                "name": "oil_pur_handling_fee_sh",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购装卸费(盛虹采购)"
+              },
+              {
+                "name": "oil_pur_handling_fee_sgp",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购装卸费(新加坡从外采购)"
+              },
+              {
+                "name": "oil_pur_handling_fee",
+                "type": "DECIMAL(24,8)",
+                "comment": "原油采购装卸费(元)"
+              },
+              {
+                "name": "oil_pur_handling_fee_per_unit",
+                "type": "DECIMAL(24,8)",
+                "comment": "单位原油采购装卸费(元)"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(200)",
+                "comment": "修改人"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

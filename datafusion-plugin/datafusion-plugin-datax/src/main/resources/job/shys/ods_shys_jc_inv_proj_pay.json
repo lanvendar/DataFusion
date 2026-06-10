@@ -1,0 +1,221 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `_id`,`ds`,`fiscal_year`,`fiscal_month`,`company_code`,`company_desc`,`contract_id`,`contract_desc`,`contract_amt`,`currency`,`supplier_code`,`supplier_desc`,`project_code`,`project_desc`,`wbs_code`,`wbs_desc`,`payable_amt`,`pay_amt`,`pay_time`,`pay_no`,`wbs_level`,`wbs1_code`,`wbs2_code`,`wbs3_code`,`etl_time`,`modifier`,`modify_time`,`project_type_code`,`project_type_desc`,`trans_project_code`,`trans_project_desc` FROM `shjc_ods_inv_proj_pay_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_inv_proj_pay",
+            "tableComment": "ODS12_项目付款统计表",
+            "loadMode": "OVERWRITE_TABLE",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "_id",
+                "type": "BIGINT",
+                "comment": "自增主键"
+              },
+              {
+                "name": "ds",
+                "type": "DATETIME",
+                "comment": "分区字段"
+              },
+              {
+                "name": "fiscal_year",
+                "type": "VARCHAR(200)",
+                "comment": "年度"
+              },
+              {
+                "name": "fiscal_month",
+                "type": "VARCHAR(200)",
+                "comment": "月份"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(200)",
+                "comment": "公司代码"
+              },
+              {
+                "name": "company_desc",
+                "type": "VARCHAR(200)",
+                "comment": "公司代码描述"
+              },
+              {
+                "name": "contract_id",
+                "type": "VARCHAR(200)",
+                "comment": "合同编号"
+              },
+              {
+                "name": "contract_desc",
+                "type": "VARCHAR(2000)",
+                "comment": "合同名称"
+              },
+              {
+                "name": "contract_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "合同金额"
+              },
+              {
+                "name": "currency",
+                "type": "VARCHAR(200)",
+                "comment": "币种"
+              },
+              {
+                "name": "supplier_code",
+                "type": "VARCHAR(200)",
+                "comment": "供应商代码"
+              },
+              {
+                "name": "supplier_desc",
+                "type": "VARCHAR(200)",
+                "comment": "供应商描述"
+              },
+              {
+                "name": "project_code",
+                "type": "VARCHAR(200)",
+                "comment": "项目编号"
+              },
+              {
+                "name": "project_desc",
+                "type": "VARCHAR(2000)",
+                "comment": "项目描述"
+              },
+              {
+                "name": "wbs_code",
+                "type": "VARCHAR(2000)",
+                "comment": "WBS编号"
+              },
+              {
+                "name": "wbs_desc",
+                "type": "VARCHAR(2000)",
+                "comment": "WBS描述"
+              },
+              {
+                "name": "payable_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "应付金额"
+              },
+              {
+                "name": "pay_amt",
+                "type": "DECIMAL(24,8)",
+                "comment": "付款金额"
+              },
+              {
+                "name": "pay_time",
+                "type": "DATETIME",
+                "comment": "付款时间"
+              },
+              {
+                "name": "pay_no",
+                "type": "VARCHAR(200)",
+                "comment": "付款单号"
+              },
+              {
+                "name": "wbs_level",
+                "type": "VARCHAR(200)",
+                "comment": "WBS层级"
+              },
+              {
+                "name": "wbs1_code",
+                "type": "VARCHAR(200)",
+                "comment": "所属1级WBS编码"
+              },
+              {
+                "name": "wbs2_code",
+                "type": "VARCHAR(200)",
+                "comment": "所属2级WBS编码"
+              },
+              {
+                "name": "wbs3_code",
+                "type": "VARCHAR(200)",
+                "comment": "所属3级WBS编码"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(200)",
+                "comment": "更新人"
+              },
+              {
+                "name": "modify_time",
+                "type": "VARCHAR(200)",
+                "comment": "更新时间"
+              },
+              {
+                "name": "project_type_code",
+                "type": "VARCHAR(100)",
+                "comment": "项目类型编码"
+              },
+              {
+                "name": "project_type_desc",
+                "type": "VARCHAR(100)",
+                "comment": "项目类型描述"
+              },
+              {
+                "name": "trans_project_code",
+                "type": "VARCHAR(100)",
+                "comment": "项目编码"
+              },
+              {
+                "name": "trans_project_desc",
+                "type": "VARCHAR(100)",
+                "comment": "项目描述"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

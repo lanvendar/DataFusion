@@ -1,0 +1,166 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `_id`,`ds`,`fiscal_year`,`fiscal_month`,`company_code`,`company_desc`,`cost_center_code`,`cost_center_desc`,`asset_type_code`,`asset_type_desc`,`local_curreny`,`local_depre_amt_dec`,`group_curreny`,`group_depre_amt_dec`,`etl_time`,`modify_time`,`modifier`,`depre_year`,`depre_month`,`day_pt` FROM `shjc_ods_cap_asset_depre_sim_rpt_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_cap_asset_depre_sim_rpt",
+            "tableComment": "ODS08_资产模拟折旧数据统计ADS表（增量日分区）",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id,day_pt",
+            "partitionKey": "day_pt",
+            "column": [
+              {
+                "name": "_id",
+                "type": "BIGINT",
+                "comment": "自增主键"
+              },
+              {
+                "name": "ds",
+                "type": "VARCHAR(24)",
+                "comment": "分区字段"
+              },
+              {
+                "name": "fiscal_year",
+                "type": "VARCHAR(200)",
+                "comment": "年度"
+              },
+              {
+                "name": "fiscal_month",
+                "type": "VARCHAR(200)",
+                "comment": "月份"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(200)",
+                "comment": "公司代码"
+              },
+              {
+                "name": "company_desc",
+                "type": "VARCHAR(200)",
+                "comment": "公司描述"
+              },
+              {
+                "name": "cost_center_code",
+                "type": "VARCHAR(200)",
+                "comment": "成本中心"
+              },
+              {
+                "name": "cost_center_desc",
+                "type": "VARCHAR(200)",
+                "comment": "成本中心描述"
+              },
+              {
+                "name": "asset_type_code",
+                "type": "VARCHAR(200)",
+                "comment": "资产类型"
+              },
+              {
+                "name": "asset_type_desc",
+                "type": "VARCHAR(200)",
+                "comment": "资产类型描述"
+              },
+              {
+                "name": "local_curreny",
+                "type": "VARCHAR(200)",
+                "comment": "公司代码货币"
+              },
+              {
+                "name": "local_depre_amt_dec",
+                "type": "DECIMAL(24,8)",
+                "comment": "公司代码货币金额"
+              },
+              {
+                "name": "group_curreny",
+                "type": "VARCHAR(200)",
+                "comment": "全球货币"
+              },
+              {
+                "name": "group_depre_amt_dec",
+                "type": "DECIMAL(24,8)",
+                "comment": "全球货币金额"
+              },
+              {
+                "name": "etl_time",
+                "type": "DATETIME",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "modify_time",
+                "type": "DATETIME",
+                "comment": "修改时间"
+              },
+              {
+                "name": "modifier",
+                "type": "VARCHAR(200)",
+                "comment": "修改人"
+              },
+              {
+                "name": "depre_year",
+                "type": "VARCHAR(200)",
+                "comment": "折旧年"
+              },
+              {
+                "name": "depre_month",
+                "type": "VARCHAR(200)",
+                "comment": "折旧月"
+              },
+              {
+                "name": "day_pt",
+                "type": "DATE",
+                "comment": "分区键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

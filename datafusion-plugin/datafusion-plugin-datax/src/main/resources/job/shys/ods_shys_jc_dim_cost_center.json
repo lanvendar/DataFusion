@@ -1,0 +1,146 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "sh_ai_user",
+            "password": "hff0ueXocR9q7UiV",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                ],
+                "querySql": [
+                  "SELECT `cost_center_code`,`cost_center_desc`,`parent_code`,`company_code`,`company_desc`,`control_scope`,`function_scope_code`,`function_scope_desc`,`cc_type_code`,`cc_type_desc`,`business_scope`,`currency`,`profit_center_code`,`frez_flag`,`etl_time`,`_id` FROM `shjc_ods_dim_cost_center_jc`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_dev",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shys_jc_dim_cost_center",
+            "tableComment": "成本中心主数据",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "_id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "cost_center_code",
+                "type": "VARCHAR(200)",
+                "comment": "成本中心ID"
+              },
+              {
+                "name": "cost_center_desc",
+                "type": "VARCHAR(200)",
+                "comment": "成本中心名称"
+              },
+              {
+                "name": "parent_code",
+                "type": "VARCHAR(200)",
+                "comment": "父项ID"
+              },
+              {
+                "name": "company_code",
+                "type": "VARCHAR(200)",
+                "comment": "公司ID"
+              },
+              {
+                "name": "company_desc",
+                "type": "VARCHAR(200)",
+                "comment": "公司代码名称"
+              },
+              {
+                "name": "control_scope",
+                "type": "VARCHAR(200)",
+                "comment": "控制范围"
+              },
+              {
+                "name": "function_scope_code",
+                "type": "VARCHAR(200)",
+                "comment": "功能范围"
+              },
+              {
+                "name": "function_scope_desc",
+                "type": "VARCHAR(200)",
+                "comment": "功能范围名称"
+              },
+              {
+                "name": "cc_type_code",
+                "type": "VARCHAR(200)",
+                "comment": "成本中心类型编码"
+              },
+              {
+                "name": "cc_type_desc",
+                "type": "VARCHAR(200)",
+                "comment": "成本中心类型描述"
+              },
+              {
+                "name": "business_scope",
+                "type": "VARCHAR(200)",
+                "comment": "业务范围"
+              },
+              {
+                "name": "currency",
+                "type": "VARCHAR(200)",
+                "comment": "货币"
+              },
+              {
+                "name": "profit_center_code",
+                "type": "VARCHAR(200)",
+                "comment": "利润中心编码"
+              },
+              {
+                "name": "frez_flag",
+                "type": "VARCHAR(200)",
+                "comment": "冻结标识"
+              },
+              {
+                "name": "etl_time",
+                "type": "VARCHAR(200)",
+                "comment": "数据ETL时间"
+              },
+              {
+                "name": "_id",
+                "type": "INT",
+                "comment": "技术主键"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
