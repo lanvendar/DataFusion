@@ -5,7 +5,7 @@ set -Eeuo pipefail
 usage() {
   echo "Usage: $0 <resources-root-dir> <job-json-file-name> <log-root-dir>"
   echo "Example:"
-  echo "  $0 /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources ods_shys_gb_account_td.json /tmp/datax-logs"
+  echo "  $0 /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources shys/ods_shys_gb_account_td.json /tmp/datax-logs"
   echo "Environment:"
   echo "  DATAX_LOG_LEVEL=INFO|WARN|ERROR       default: INFO"
   echo "  DATAX_LOG_MAX_SIZE=<size>             default: 100MB, controlled by logback"
@@ -21,22 +21,16 @@ resources_root="${1%/}"
 job_name="$2"
 log_root="${3%/}"
 
-if [[ "$job_name" == */* ]]; then
-  echo "Error: job-json-file-name must be a file name, not a path: $job_name" >&2
-  exit 64
-fi
-
 if [[ "$job_name" != *.json ]]; then
   echo "Error: job-json-file-name must end with .json: $job_name" >&2
   exit 64
 fi
 
 datax_home="${resources_root}/datax"
-job_file="${resources_root}/job/${job_name}"
+job_root="${resources_root}/job"
 datax_jar="${datax_home}/lib/datax-bundle-0.0.1.jar"
 run_date="$(date +%Y%m%d)"
 log_dir="${log_root}/${run_date}"
-log_file="${log_dir}/${job_name}.log"
 datax_log_level="${DATAX_LOG_LEVEL:-INFO}"
 datax_log_max_size="${DATAX_LOG_MAX_SIZE:-100MB}"
 datax_log_max_index="${DATAX_LOG_MAX_INDEX:-100}"
@@ -56,10 +50,40 @@ if [[ ! -f "$datax_jar" ]]; then
   exit 66
 fi
 
+if [[ "$job_name" == /* ]]; then
+  job_file="$job_name"
+elif [[ "$job_name" == */* ]]; then
+  job_file="${job_root}/${job_name}"
+else
+  direct_job_file="${job_root}/${job_name}"
+  if [[ -f "$direct_job_file" ]]; then
+    job_file="$direct_job_file"
+  else
+    job_matches=()
+    while IFS= read -r matched_job_file; do
+      job_matches+=("$matched_job_file")
+    done < <(find "$job_root" -type f -name "$job_name" | sort)
+
+    if [[ ${#job_matches[@]} -eq 1 ]]; then
+      job_file="${job_matches[0]}"
+    elif [[ ${#job_matches[@]} -eq 0 ]]; then
+      echo "Error: job file does not exist under ${job_root}: ${job_name}" >&2
+      exit 66
+    else
+      echo "Error: job file name is ambiguous under ${job_root}: ${job_name}" >&2
+      printf '  %s\n' "${job_matches[@]}" >&2
+      exit 66
+    fi
+  fi
+fi
+
 if [[ ! -f "$job_file" ]]; then
   echo "Error: job file does not exist: $job_file" >&2
   exit 66
 fi
+
+job_file_name="$(basename "$job_file")"
+log_file="${log_dir}/${job_file_name}.log"
 
 if [[ ! "$datax_log_level" =~ ^(INFO|WARN|ERROR)$ ]]; then
   echo "Error: DATAX_LOG_LEVEL must be INFO, WARN, or ERROR: $datax_log_level" >&2
