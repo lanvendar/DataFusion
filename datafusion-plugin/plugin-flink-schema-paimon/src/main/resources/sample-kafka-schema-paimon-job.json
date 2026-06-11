@@ -1,0 +1,76 @@
+{
+  "job": {
+    "id": "kafka_schema_paimon_demo",
+    "name": "Kafka Schema Paimon Demo",
+    "description": "Consume Kafka schema/data messages and write multiple Paimon tables.",
+    "version": "1.0.0"
+  },
+  "source": {
+    "type": "KAFKA",
+    "bootstrapServers": "kafka-1:9092,kafka-2:9092",
+    "topics": [
+      "ods-schema-data"
+    ],
+    "groupId": "datafusion-plugin-flink-schema-paimon",
+    "startingOffsets": "group-offsets",
+    "properties": {}
+  },
+  "runtime": {
+    "parallelism": 2,
+    "deploymentMode": "LOCAL",
+    "executionMode": "STREAMING",
+    "checkpointMode": "EXACTLY_ONCE",
+    "checkpointIntervalMs": 60000,
+    "checkpointTimeoutMs": 600000,
+    "maxConcurrentCheckpoints": 1,
+    "checkpointStorage": "file:///tmp/flink-checkpoints/kafka-schema-paimon",
+    "stateBackend": "HASHMAP",
+    "restartStrategy": "FIXED_DELAY",
+    "restartAttempts": 3,
+    "restartDelayMs": 10000,
+    "failurePolicy": "FAIL_FAST"
+  },
+  "sink": {
+    "loadMode": "UPSERT",
+    "connectType": "S3",
+    "unmatchedTablePolicy": "SKIP",
+    "includeKafkaMetadataFields": false,
+    "catalogOptions": {
+      "warehouse": "s3://data-lake-warehouse/paimon",
+      "metastore": "filesystem",
+      "catalogType": "filesystem",
+      "endpoint": "http://s3.example.com",
+      "s3.endpoint": "http://s3.example.com",
+      "s3.access-key": "${env:PAIMON_S3_ACCESS_KEY}",
+      "s3.secret-key": "${env:PAIMON_S3_SECRET_KEY}",
+      "s3.path.style.access": "true",
+      "s3.ssl.enabled": "false",
+      "fs.s3a.fast.upload.buffer": "array"
+    },
+    "tables": [
+      {
+        "enabled": true,
+        "database": "dw_dev",
+        "tableName": "ods_spider_bkccpr_central_parity_rate",
+        "options": {
+          "bucket": "2",
+          "write-buffer-size": "128mb"
+        }
+      },
+      {
+        "enabled": true,
+        "database": "dw_dev",
+        "tableName": "ods_spider_bkccpr_central_parity_rate_daily_summary",
+        "loadMode": "APPEND",
+        "options": {
+          "bucket": "1"
+        }
+      }
+    ],
+    "write": {
+      "batchSize": 1000,
+      "flushIntervalMs": 5000,
+      "maxOpenWriters": 256
+    }
+  }
+}
