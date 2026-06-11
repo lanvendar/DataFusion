@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql.bigdata.svc:3306/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `_id`,`ds`,`fiscal_year`,`fiscal_month`,`company_code`,`company_desc`,`cost_center_code`,`cost_center_desc`,`asset_type_code`,`asset_type_desc`,`local_curreny`,`local_depre_amt_dec`,`group_curreny`,`group_depre_amt_dec`,`etl_time`,`modify_time`,`modifier`,`depre_year`,`depre_month`,`day_pt` FROM `shjc_ods_cap_asset_depre_sim_rpt_jc`"
@@ -34,7 +34,7 @@
             "options": {
               "warehouse": "s3a://data-lake-warehouse/paimon",
               "catalogType": "filesystem",
-              "database": "dw_dev",
+              "database": "dw_prod",
               "endpoint": "http://sz-s3.indusmind.me",
               "region": "us-east-1",
               "accessKey": "DNFY3F8DZ102RKOAXIMJ",

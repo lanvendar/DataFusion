@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql.bigdata.svc:3306/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `_id`,`ds`,`year_month`,`company_code`,`company_name`,`oil_pur_num_no_sgp`,`oil_pur_num_sgp`,`oil_pur_num`,`oil_pur_price`,`oil_pur_amt_no_sgp`,`oil_pur_diff_amt_no_sgp`,`oil_pur_amt_sgp`,`oil_pur_amt`,`oil_pur_fee_sh`,`oil_pur_fee_sgp`,`oil_pur_fee`,`oil_pur_fee_per_unit`,`oil_pur_transport_fee_sh`,`oil_pur_transport_fee_sgp`,`oil_pur_transport_fee`,`oil_pur_transport_fee_per_unit`,`oil_pur_storage_fee_sh`,`oil_pur_storage_fee_sgp`,`oil_pur_storage_fee`,`oil_pur_storage_fee_per_unit`,`oil_pur_handling_fee_sh`,`oil_pur_handling_fee_sgp`,`oil_pur_handling_fee`,`oil_pur_handling_fee_per_unit`,`etl_time`,`modify_time`,`modifier` FROM `shjc_ods_pur_oil_company_cm_jc`"
@@ -34,7 +34,7 @@
             "options": {
               "warehouse": "s3a://data-lake-warehouse/paimon",
               "catalogType": "filesystem",
-              "database": "dw_dev",
+              "database": "dw_prod",
               "endpoint": "http://sz-s3.indusmind.me",
               "region": "us-east-1",
               "accessKey": "DNFY3F8DZ102RKOAXIMJ",

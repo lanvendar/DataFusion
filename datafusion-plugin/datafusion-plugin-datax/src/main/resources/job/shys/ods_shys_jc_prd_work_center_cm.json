@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql.bigdata.svc:3306/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `ds`,`year_month`,`company_code`,`company_name`,`work_center_code`,`work_center_desc`,`index_code`,`index_desc`,`valid_product_yield`,`refining_yield`,`refining_processing`,`refining_product_rate`,`oil_input_num`,`oil_output_num`,`oil_storage_loss_rate`,`csa_fee`,`load_yield`,`design_capacity`,`load_rate`,`yield_yield`,`yield_processing`,`yield_rate`,`energy_yield`,`energy_processing`,`energy_rate`,`yield`,`loss_yield`,`loss_processing`,`loss_rate`,`consumption_yield`,`consumption_processing`,`unit_consumption`,`csa_consumption_yield`,`csa_consumption_processing`,`unit_csa_consumption`,`etl_time`,`modify_time`,`modifier`,`parent_index_code`,`parent_index_desc`,`_id` FROM `shjc_ods_prd_work_center_cm_jc`"
@@ -34,7 +34,7 @@
             "options": {
               "warehouse": "s3a://data-lake-warehouse/paimon",
               "catalogType": "filesystem",
-              "database": "dw_dev",
+              "database": "dw_prod",
               "endpoint": "http://sz-s3.indusmind.me",
               "region": "us-east-1",
               "accessKey": "DNFY3F8DZ102RKOAXIMJ",

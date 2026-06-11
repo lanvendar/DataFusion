@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql.bigdata.svc:3306/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `_id`,`ds`,`fiscal_year`,`fiscal_month`,`company_code`,`company_desc`,`contract_id`,`contract_desc`,`contract_amt`,`currency`,`supplier_code`,`supplier_desc`,`project_code`,`project_desc`,`wbs_code`,`wbs_desc`,`payable_amt`,`pay_amt`,`pay_time`,`pay_no`,`wbs_level`,`wbs1_code`,`wbs2_code`,`wbs3_code`,`etl_time`,`modifier`,`modify_time`,`project_type_code`,`project_type_desc`,`trans_project_code`,`trans_project_desc` FROM `shjc_ods_inv_proj_pay_jc`"
@@ -34,7 +34,7 @@
             "options": {
               "warehouse": "s3a://data-lake-warehouse/paimon",
               "catalogType": "filesystem",
-              "database": "dw_dev",
+              "database": "dw_prod",
               "endpoint": "http://sz-s3.indusmind.me",
               "region": "us-east-1",
               "accessKey": "DNFY3F8DZ102RKOAXIMJ",

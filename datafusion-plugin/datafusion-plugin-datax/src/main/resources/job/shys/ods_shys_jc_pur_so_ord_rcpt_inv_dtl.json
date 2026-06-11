@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql.bigdata.svc:3306/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `fiscal_year`,`fiscal_month`,`fiscal_year_month`,`factory_code`,`factory_name`,`company_code`,`company_desc`,`home_or_abroad`,`trading_direction`,`supplier_code`,`supplier_desc`,`trading_parter_code`,`trading_partner_company_code`,`material_code`,`material_desc`,`item_unit`,`acct_voucher_no`,`acct_voucher_source`,`voucher_type`,`voucher_type_desc`,`voucher_head_text`,`item_no`,`account_code`,`account_desc`,`negative_posting_flag`,`voucher_date`,`post_date`,`expense_type_qty`,`item_qty`,`exc_rate`,`orig_currency`,`item_original_amount`,`item_original_tax_amount`,`local_currency`,`local_amt`,`local_tax_amt`,`cny_currency`,`cny_amt`,`cny_tax_amt`,`dc_flag`,`dc_flag_desc`,`oil_currency`,`oil_qty`,`oil_amt`,`item_tax_code`,`item_tax_rate`,`oil_p_contract`,`etl_time`,`expense_type`,`acct_voucher_source_code`,`modify_time`,`modifier`,`bgt_pd_mat_type_code`,`bgt_pd_mat_type_desc`,`bgt_prog_mat_type_code`,`bgt_prog_mat_type_desc`,`work_center_code`,`_id`,`day_pt` FROM `shjc_ods_pur_so_ord_rcpt_inv_dtl_jc`"
@@ -34,7 +34,7 @@
             "options": {
               "warehouse": "s3a://data-lake-warehouse/paimon",
               "catalogType": "filesystem",
-              "database": "dw_dev",
+              "database": "dw_prod",
               "endpoint": "http://sz-s3.indusmind.me",
               "region": "us-east-1",
               "accessKey": "DNFY3F8DZ102RKOAXIMJ",

@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://sz-db-dev.indusmind.me:21002/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql.bigdata.svc:3306/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `id`,`parent_id`,`parent_name`,`name`,`aggweight`,`is_base`,`sharedmember`,`level` AS tree_level,`sort_col`,`baseCount` AS base_count,`description_zh_cn`,`description_en`,`description_de`,`description_ar`,`description_es`,`description_fr`,`description_ru`,`description_zh_tw`,`description_ja`,`description_he`,`is_active`,`datatype`,`dataLength` AS data_length,`dataPrecision` AS data_precision,`accounttype`,`flowtype`,`inputOnParentNode` AS input_on_parent_node,`calculationFormulaList` AS calculation_formula_list,`dataTypeInfo` AS data_type_info,`p0`,`p1`,`p2`,`p3`,`p4`,`p5`,`p6`,`p7`,`p8`,`p9`,`p10`,`p11`,`p12`,`p13`,`p14`,`p15`,`p16`,`p17`,`p18`,`p19`,`ud1`,`ud2`,`ud3`,`ud4`,`ud5`,`ud6`,`ud7`,`ud8`,`ud9`,`ud10`,`description_pt` FROM `shys_account_td_gb`"
@@ -34,7 +34,7 @@
             "options": {
               "warehouse": "s3a://data-lake-warehouse/paimon",
               "catalogType": "filesystem",
-              "database": "dw_dev",
+              "database": "dw_prod",
               "endpoint": "http://sz-s3.indusmind.me",
               "region": "us-east-1",
               "accessKey": "DNFY3F8DZ102RKOAXIMJ",
