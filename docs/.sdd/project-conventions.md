@@ -21,9 +21,11 @@ DataFusion 是 Java/Maven 多模块数据集成平台，覆盖元数据管理、
 | `datafusion-scheduler-master` | 调度 master 框架层 | 仅作为 jar 提供调度核心能力 |
 | `datafusion-scheduler-worker` | 调度 worker 框架层 | 仅作为 jar 提供 worker 侧契约和复用组件 |
 | `datafusion-agent` | worker 运行时应用层 | Spring Boot 启动、注册、插件加载、任务执行与日志记录 |
-| `datafusion-plugin` | 插件父模块 | 当前包含 `datafusion-plugin-api` 等插件能力 |
+| `datafusion-plugin` | 插件父模块 | 当前包含 `datafusion-plugin-api` 等公共插件能力，以及业务定制插件 |
 
 框架层不得反向依赖运行时应用层；运行时应用层可以依赖并装配框架层。
+
+`datafusion-plugin` 下以 `datafusion-plugin-*` 命名的模块才按项目公共插件模块理解；没有 `datafusion-plugin` 前缀的 Maven 模块是业务定制模块插件，不作为跨业务公共模块沉淀。
 
 ## 3. SDD 文档约定
 
