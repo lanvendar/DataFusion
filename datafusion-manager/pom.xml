@@ -186,6 +186,20 @@
             <artifactId>poi-ooxml</artifactId>
         </dependency>
 
+        <!-- 日志框架 -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-core</artifactId>
+        </dependency>
+
         <!-- API 文档与注解处理 -->
         <dependency>
             <groupId>com.github.xiaoymin</groupId>

@@ -42,6 +42,12 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- 日志框架 -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
         <!-- API 文档与注解处理 -->
         <dependency>
             <groupId>io.swagger.core.v3</groupId>

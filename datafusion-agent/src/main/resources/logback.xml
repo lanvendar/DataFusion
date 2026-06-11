@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration scan="true" scanPeriod="60 seconds" debug="false">
-    <property name="APP_NAME" value="datafusion-manager"/>
-    <property name="LOG_PATH" value="${LOG_PATH:-/datafusion/manager/logs}"/>
+    <property name="APP_NAME" value="datafusion-agent"/>
+    <property name="LOG_PATH" value="${LOG_PATH:-/datafusion/agent/logs}"/>
     <property name="LOG_PATTERN"
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [%method,%line] [%X{flowInsId}][%X{taskInsId}] - %msg%n"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [%method,%line] [%X{workerId}][%X{taskInsId}] - %msg%n"/>
 
     <!-- 控制台日志 -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
@@ -47,6 +47,7 @@
 
     <logger name="org.springframework" level="WARN"/>
     <logger name="com.alibaba.nacos.client.config.impl" level="WARN"/>
+    <logger name="io.fabric8.kubernetes.client" level="WARN"/>
     <logger name="com.datafusion" level="INFO"/>
 
     <root level="INFO">
