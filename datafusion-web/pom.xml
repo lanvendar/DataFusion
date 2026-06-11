@@ -12,7 +12,7 @@
     <name>DataFusion : web</name>
     <build>
         <plugins>
-            <!-- 前端 Maven 插件：自动构建 React -->
+            <!-- Maven 插件 -->
             <plugin>
                 <groupId>com.github.eirslett</groupId>
                 <artifactId>frontend-maven-plugin</artifactId>

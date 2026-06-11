@@ -18,6 +18,7 @@
     </properties>
 
     <dependencies>
+        <!-- DataFusion 内部模块 -->
         <dependency>
             <groupId>com.datafusion</groupId>
             <artifactId>datafusion-common-data</artifactId>
@@ -30,6 +31,8 @@
             <groupId>com.datafusion</groupId>
             <artifactId>datafusion-plugin-api</artifactId>
         </dependency>
+
+        <!-- API 文档与注解处理 -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
