@@ -22,7 +22,6 @@
         <dependency>
             <groupId>com.datafusion</groupId>
             <artifactId>datafusion-common</artifactId>
-            <version>${project.version}</version>
         </dependency>
 
         <!-- mybatis-plus -->
@@ -49,7 +48,6 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <version>${postgre.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

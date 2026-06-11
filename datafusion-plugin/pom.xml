@@ -15,6 +15,7 @@
     <modules>
         <module>datafusion-plugin-api</module>
         <module>datafusion-plugin-datax</module>
+        <module>plugin-flink-schema-paimon</module>
     </modules>
 
     <properties>
@@ -25,7 +26,6 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>3.8.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

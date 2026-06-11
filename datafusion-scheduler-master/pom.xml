@@ -22,12 +22,10 @@
         <dependency>
             <groupId>com.datafusion</groupId>
             <artifactId>datafusion-common-data</artifactId>
-            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>com.datafusion</groupId>
             <artifactId>datafusion-common</artifactId>
-            <version>${project.version}</version>
         </dependency>
 
         <!-- hutool 工具包 -->
@@ -124,7 +122,6 @@
         <dependency>
             <groupId>org.awaitility</groupId>
             <artifactId>awaitility</artifactId>
-            <version>4.2.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

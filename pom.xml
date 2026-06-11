@@ -30,173 +30,171 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
+        <!-- 项目内部版本 -->
         <project.version>1.0.0</project.version>
-        <!-- 计算引擎 spark 版本 -->
-        <spark.version>3.5.2</spark.version>
-        <scala.binary.version>2.12</scala.binary.version>
-        <!-- 计算引擎 flink 版本 -->
-        <flink.version>1.17.2</flink.version>
-        <flinkcdc.version>3.2.1</flinkcdc.version>
-        <!-- apache Calcite 版本 -->
+
+        <!-- 计算引擎：Spark -->
+        <spark.version>4.0.2</spark.version>
+        <spark.scala.binary.version>2.13</spark.scala.binary.version>
+
+        <!-- 计算引擎：Flink 核心与 Connector -->
+        <flink.version>2.2.0</flink.version>
+        <flink.scala.binary.version>2.12</flink.scala.binary.version>
+        <flink.hive.connector.version>3.0.0-1.20</flink.hive.connector.version>
+        <flink.cassandra.connector.version>3.2.0-1.19</flink.cassandra.connector.version>
+        <flink.jdbc.connector.version>3.3.0-1.20</flink.jdbc.connector.version>
+        <flink.kafka.connector.version>5.0.0-2.2</flink.kafka.connector.version>
+        <flinkcdc.version>3.6.0-2.2</flinkcdc.version>
+        <starrocks.flink.connector.version>1.2.14_flink-1.20</starrocks.flink.connector.version>
+
+        <!-- 存储格式引擎 -->
+        <paimon.version>1.4.1</paimon.version>
+        <hadoop.version>3.3.4</hadoop.version>
+
+        <!-- SQL 解析与方言处理 -->
         <calcite.version>1.37.0</calcite.version>
-        <!-- hutool 工具包 版本 -->
-        <hutool.version>5.8.38</hutool.version>
-        <!-- spring 系列版本 -->
+
+        <!-- Spring / Web / 微服务框架 -->
         <spring.boot.version>2.6.13</spring.boot.version>
         <spring.cloud.version>2021.0.5</spring.cloud.version>
         <spring.cloud.alibaba.version>2021.0.6.2</spring.cloud.alibaba.version>
-        <!-- mybatis-plus 3.5.3.2 -->
         <mybatis-plus.version>3.5.3.2</mybatis-plus.version>
-        <!-- 日志门面 slf4j 版本 -->
-        <slf4j.version>1.7.36</slf4j.version>
-        <!-- 日志 logback 版本 -->
-        <logback.version>1.2.13</logback.version>
-        <!--  单元测试 JUnit5 版本 -->
-        <junit.version>5.12.2</junit.version>
-        <!--  单元测试 Mockito 5.12.2 -->
-        <mockito.version>4.11.0</mockito.version>
-        <skip.checkStyle>true</skip.checkStyle>
-        <odps.version>0.52.1-public</odps.version>
-        <jackson.version>2.15.2</jackson.version>
-        <lang3.version>3.7</lang3.version>
-        <collections4.version>4.4</collections4.version>
+
+        <!-- 数据库驱动与连接池 -->
         <mysql.version>8.0.33</mysql.version>
         <postgre.version>42.2.20</postgre.version>
-        <jna.version>4.1.0</jna.version>
         <com.dm.version>8.1.3.140</com.dm.version>
+        <druid.version>1.2.27</druid.version>
+        <hikaricp.version>6.2.1</hikaricp.version>
+        <cassandra.driver.version>3.11.0</cassandra.driver.version>
+
+        <!-- 中间件/基础设施客户端 -->
         <redisson.version>3.17.7</redisson.version>
         <fabric8.version>5.12.2</fabric8.version>
-        <!-- 阿里云 OSS Java SDK -->
+        <nacos.client.version>1.4.6</nacos.client.version>
+        <codahale.metrics.version>3.0.2</codahale.metrics.version>
+
+        <!-- 云服务/数据平台集成 -->
         <aliyun.oss.sdk.version>3.17.4</aliyun.oss.sdk.version>
+        <odps.version>0.52.1-public</odps.version>
+        <odps.jdbc.version>3.8.8</odps.jdbc.version>
+        <jgit.version>6.8.0.202311291450-r</jgit.version>
+
+        <!-- 通用工具包 -->
+        <hutool.version>5.8.38</hutool.version>
+        <lang3.version>3.7</lang3.version>
+        <collections4.version>4.4</collections4.version>
+        <commons.csv.version>1.9.0</commons.csv.version>
+        <jna.version>4.1.0</jna.version>
+        <enjoy.version>5.2.5</enjoy.version>
+        <guava.version>32.1.3-jre</guava.version>
+        <auto-service.version>1.1.1</auto-service.version>
+        <jmespath.version>0.5.1</jmespath.version>
+
+        <!-- 序列化与配置解析 -->
+        <jackson.version>2.15.2</jackson.version>
+        <snakeyaml.version>1.29</snakeyaml.version>
+
+        <!-- 文档/数据文件处理 -->
+        <opencsv.version>5.6</opencsv.version>
+        <poi.version>4.1.2</poi.version>
+
+        <!-- 日志框架 -->
+        <slf4j.version>1.7.36</slf4j.version>
+        <logback.version>1.2.13</logback.version>
+
+        <!-- API 文档与注解处理 -->
+        <knife4j.version>4.5.0</knife4j.version>
+        <swagger.annotations.version>2.2.22</swagger.annotations.version>
+        <lombok.version>1.18.38</lombok.version>
+
+        <!-- 字节码增强 -->
+        <bytebuddy.version>1.14.12</bytebuddy.version>
+
+        <!-- 单元测试 -->
+        <junit.version>5.12.2</junit.version>
+        <junit4.version>4.13.2</junit4.version>
+        <mockito.version>4.11.0</mockito.version>
+        <awaitility.version>4.2.0</awaitility.version>
+
+        <!-- 代码质量开关 -->
+        <skip.checkStyle>true</skip.checkStyle>
+
+        <!-- Maven 插件 -->
+        <versions.maven.plugin.version>2.10.0</versions.maven.plugin.version>
+        <maven.resources.plugin.version>3.2.0</maven.resources.plugin.version>
+        <maven.compiler.plugin.version>3.15.0</maven.compiler.plugin.version>
+        <frontend.maven.plugin.version>2.0.0</frontend.maven.plugin.version>
+        <maven.surefire.plugin.version>3.2.5</maven.surefire.plugin.version>
+        <maven.shade.plugin.version>3.6.0</maven.shade.plugin.version>
     </properties>
 
     <!-- jar包版本管理 -->
     <dependencyManagement>
         <dependencies>
-            <!-- hutool 工具包 -->
+            <!-- DataFusion 内部模块 -->
             <dependency>
-                <groupId>cn.hutool</groupId>
-                <artifactId>hutool-core</artifactId>
-                <version>${hutool.version}</version>
-            </dependency>
-            <!-- HikariCP 数据库连接池 -->
-            <dependency>
-                <groupId>com.zaxxer</groupId>
-                <artifactId>HikariCP</artifactId>
-                <version>6.2.1</version>
-            </dependency>
-            <!-- cassandra3.11.11 版本驱动-->
-            <dependency>
-                <groupId>com.datastax.cassandra</groupId>
-                <artifactId>cassandra-driver-core</artifactId>
-                <version>3.11.0</version>
+                <groupId>com.datafusion</groupId>
+                <artifactId>datafusion-common-data</artifactId>
+                <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.datastax.cassandra</groupId>
-                <artifactId>cassandra-driver-mapping</artifactId>
-                <version>3.11.0</version>
+                <groupId>com.datafusion</groupId>
+                <artifactId>datafusion-common</artifactId>
+                <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.codahale.metrics</groupId>
-                <artifactId>metrics-core</artifactId>
-                <version>3.0.2</version>
-            </dependency>
-            <!-- enjoy 模板引擎 -->
-            <dependency>
-                <groupId>com.jfinal</groupId>
-                <artifactId>enjoy</artifactId>
-                <version>5.2.5</version>
-            </dependency>
-            <!-- google guava 工具包 -->
-            <dependency>
-                <groupId>com.google.guava</groupId>
-                <artifactId>guava</artifactId>
-                <version>32.1.3-jre</version>
-            </dependency>
-            <!-- google SPI 工具包 -->
-            <dependency>
-                <groupId>com.google.auto.service</groupId>
-                <artifactId>auto-service</artifactId>
-                <version>1.1.1</version>
-            </dependency>
-            <!-- jackson  -->
-            <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-databind</artifactId>
-                <!--<version>2.18.4</version> 冲突 -->
-                <version>${jackson.version}</version>
+                <groupId>com.datafusion</groupId>
+                <artifactId>datafusion-common-spring</artifactId>
+                <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-core</artifactId>
-                <!--<version>2.18.4</version> 冲突 -->
-                <version>${jackson.version}</version>
+                <groupId>com.datafusion</groupId>
+                <artifactId>datafusion-datasource</artifactId>
+                <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.fasterxml.jackson.datatype</groupId>
-                <artifactId>jackson-datatype-jsr310</artifactId>
-                <version>${jackson.version}</version>
+                <groupId>com.datafusion</groupId>
+                <artifactId>datafusion-scheduler-master</artifactId>
+                <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-annotations</artifactId>
-                <version>${jackson.version}</version>
+                <groupId>com.datafusion</groupId>
+                <artifactId>datafusion-scheduler-worker</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.datafusion</groupId>
+                <artifactId>datafusion-agent</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.datafusion</groupId>
+                <artifactId>datafusion-plugin-api</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
-            <!-- apache Calcite -->
-            <!-- Calcite 核心模块 -->
-            <dependency>
-                <groupId>org.apache.calcite</groupId>
-                <artifactId>calcite-core</artifactId>
-                <version>${calcite.version}</version>
-            </dependency>
-            <!-- SQL 方言解析 -->
-            <dependency>
-                <groupId>org.apache.calcite</groupId>
-                <artifactId>calcite-babel</artifactId>
-                <version>${calcite.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.calcite</groupId>
-                <artifactId>calcite-linq4j</artifactId>
-                <version>${calcite.version}</version>
-            </dependency>
-
-            <!-- MYSQL -->
-            <dependency>
-                <groupId>mysql</groupId>
-                <artifactId>mysql-connector-java</artifactId>
-                <version>${mysql.version}</version>
-            </dependency>
-            <!-- Calcite 的底层集合库，通常 calcite-core 会传递依赖它，但显式声明更清晰 -->
-            <dependency>
-                <groupId>org.apache.calcite</groupId>
-                <artifactId>calcite-linq4j</artifactId>
-                <version>${calcite.version}</version>
-            </dependency>
-
-            <!-- 计算引擎 spark -->
+            <!-- 计算引擎：Spark -->
             <dependency>
                 <groupId>org.apache.spark</groupId>
-                <artifactId>spark-core_${scala.binary.version}</artifactId>
+                <artifactId>spark-core_${spark.scala.binary.version}</artifactId>
                 <version>${spark.version}</version>
                 <scope>provided</scope>
             </dependency>
             <dependency>
                 <groupId>org.apache.spark</groupId>
-                <artifactId>spark-sql_${scala.binary.version}</artifactId>
+                <artifactId>spark-sql_${spark.scala.binary.version}</artifactId>
                 <version>${spark.version}</version>
                 <scope>provided</scope>
             </dependency>
             <dependency>
                 <groupId>org.apache.spark</groupId>
-                <artifactId>spark-hive_${scala.binary.version}</artifactId>
+                <artifactId>spark-hive_${spark.scala.binary.version}</artifactId>
                 <version>${spark.version}</version>
                 <scope>provided</scope>
             </dependency>
 
-            <!-- flink-connector -->
+            <!-- 计算引擎：Flink 核心与 Connector -->
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-json</artifactId>
@@ -204,44 +202,44 @@
             </dependency>
             <dependency>
                 <groupId>org.apache.flink</groupId>
-                <artifactId>flink-connector-hive_2.12</artifactId>
-                <version>${flink.version}</version>
+                <artifactId>flink-connector-hive_${flink.scala.binary.version}</artifactId>
+                <version>${flink.hive.connector.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.flink</groupId>
-                <artifactId>flink-connector-cassandra_2.12</artifactId>
-                <version>3.1.0-1.17</version>
+                <artifactId>flink-connector-cassandra_${flink.scala.binary.version}</artifactId>
+                <version>${flink.cassandra.connector.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-connector-jdbc</artifactId>
-                <version>3.1.2-1.17</version>
+                <version>${flink.jdbc.connector.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-connector-kafka</artifactId>
-                <version>${flink.version}</version>
+                <version>${flink.kafka.connector.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.starrocks</groupId>
                 <artifactId>flink-connector-starrocks</artifactId>
-                <version>1.2.13_flink-1.17</version>
+                <version>${starrocks.flink.connector.version}</version>
             </dependency>
-
-            <!--Flink cdc -->
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-sql-connector-postgres-cdc</artifactId>
                 <version>${flinkcdc.version}</version>
             </dependency>
-
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-sql-connector-mysql-cdc</artifactId>
                 <version>${flinkcdc.version}</version>
             </dependency>
-
-            <!-- flink 运行依赖-->
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-runtime</artifactId>
+                <version>${flink.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-streaming-java</artifactId>
@@ -249,7 +247,7 @@
             </dependency>
             <dependency>
                 <groupId>org.apache.flink</groupId>
-                <artifactId>flink-table-planner_2.12</artifactId>
+                <artifactId>flink-table-planner_${flink.scala.binary.version}</artifactId>
                 <version>${flink.version}</version>
             </dependency>
             <dependency>
@@ -267,15 +265,11 @@
                 <artifactId>flink-statebackend-rocksdb</artifactId>
                 <version>${flink.version}</version>
             </dependency>
-
-            <!-- flink metrics监控接口 -->
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-metrics-dropwizard</artifactId>
                 <version>${flink.version}</version>
             </dependency>
-
-            <!-- flink本地启动依赖 -->
             <dependency>
                 <groupId>org.apache.flink</groupId>
                 <artifactId>flink-clients</artifactId>
@@ -314,41 +308,46 @@
                 <version>${flink.version}</version>
             </dependency>
 
-            <!--  odps -->
+            <!-- 存储/表格式引擎 -->
             <dependency>
-                <groupId>com.aliyun.odps</groupId>
-                <artifactId>odps-sdk-core</artifactId>
-                <version>${odps.version}</version>
+                <groupId>org.apache.paimon</groupId>
+                <artifactId>paimon-bundle</artifactId>
+                <version>${paimon.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.aliyun.odps</groupId>
-                <artifactId>odps-sdk-commons</artifactId>
-                <version>${odps.version}</version>
-                <scope>compile</scope>
+                <groupId>org.apache.paimon</groupId>
+                <artifactId>paimon-s3</artifactId>
+                <version>${paimon.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.aliyun.oss</groupId>
-                <artifactId>aliyun-sdk-oss</artifactId>
-                <version>${aliyun.oss.sdk.version}</version>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-client-api</artifactId>
+                <version>${hadoop.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.fabric8</groupId>
-                <artifactId>kubernetes-client</artifactId>
-                <version>${fabric8.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.commons</groupId>
-                <artifactId>commons-lang3</artifactId>
-                <version>${lang3.version}</version>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-client-runtime</artifactId>
+                <version>${hadoop.version}</version>
             </dependency>
 
+            <!-- SQL 解析与方言处理 -->
             <dependency>
-                <groupId>org.apache.commons</groupId>
-                <artifactId>commons-collections4</artifactId>
-                <version>${collections4.version}</version>
+                <groupId>org.apache.calcite</groupId>
+                <artifactId>calcite-core</artifactId>
+                <version>${calcite.version}</version>
             </dependency>
-            <!-- spring 相关依赖,可以根据spring-boot的版本查找spring-cloud的版本-->
-            <!-- https://sca.aliyun.com/docs/2021/overview/version-explain/?spm=7145af80.d7db5bb.0.0.822810c4o52R58 -->
+            <dependency>
+                <groupId>org.apache.calcite</groupId>
+                <artifactId>calcite-babel</artifactId>
+                <version>${calcite.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.calcite</groupId>
+                <artifactId>calcite-linq4j</artifactId>
+                <version>${calcite.version}</version>
+            </dependency>
+
+            <!-- Spring / Web / 微服务框架 -->
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
@@ -370,13 +369,6 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- knife4j -->
-            <dependency>
-                <groupId>com.github.xiaoymin</groupId>
-                <artifactId>knife4j-openapi3-spring-boot-starter</artifactId>
-                <version>4.5.0</version>
-            </dependency>
-            <!-- mybatis-plus -->
             <dependency>
                 <groupId>com.baomidou</groupId>
                 <artifactId>mybatis-plus-boot-starter</artifactId>
@@ -388,13 +380,191 @@
                 <version>${mybatis-plus.version}</version>
                 <scope>test</scope>
             </dependency>
-            <!-- 日志门面 slf4j -->
+
+            <!-- 数据库驱动与连接池 -->
+            <dependency>
+                <groupId>com.zaxxer</groupId>
+                <artifactId>HikariCP</artifactId>
+                <version>${hikaricp.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>mysql</groupId>
+                <artifactId>mysql-connector-java</artifactId>
+                <version>${mysql.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${postgre.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.dameng</groupId>
+                <artifactId>DmJdbcDriver18</artifactId>
+                <version>${com.dm.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>druid</artifactId>
+                <version>${druid.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.datastax.cassandra</groupId>
+                <artifactId>cassandra-driver-core</artifactId>
+                <version>${cassandra.driver.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.datastax.cassandra</groupId>
+                <artifactId>cassandra-driver-mapping</artifactId>
+                <version>${cassandra.driver.version}</version>
+            </dependency>
+
+            <!-- 中间件/基础设施客户端 -->
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson-spring-boot-starter</artifactId>
+                <version>${redisson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.fabric8</groupId>
+                <artifactId>kubernetes-client</artifactId>
+                <version>${fabric8.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.nacos</groupId>
+                <artifactId>nacos-client</artifactId>
+                <version>${nacos.client.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.codahale.metrics</groupId>
+                <artifactId>metrics-core</artifactId>
+                <version>${codahale.metrics.version}</version>
+            </dependency>
+
+            <!-- 云服务/数据平台集成 -->
+            <dependency>
+                <groupId>com.aliyun.oss</groupId>
+                <artifactId>aliyun-sdk-oss</artifactId>
+                <version>${aliyun.oss.sdk.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.aliyun.odps</groupId>
+                <artifactId>odps-jdbc</artifactId>
+                <version>${odps.jdbc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.aliyun.odps</groupId>
+                <artifactId>odps-sdk-core</artifactId>
+                <version>${odps.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.aliyun.odps</groupId>
+                <artifactId>odps-sdk-commons</artifactId>
+                <version>${odps.version}</version>
+                <scope>compile</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.jgit</groupId>
+                <artifactId>org.eclipse.jgit</artifactId>
+                <version>${jgit.version}</version>
+            </dependency>
+
+            <!-- 通用工具包 -->
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-core</artifactId>
+                <version>${hutool.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${lang3.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-collections4</artifactId>
+                <version>${collections4.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-csv</artifactId>
+                <version>${commons.csv.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.java.dev.jna</groupId>
+                <artifactId>jna</artifactId>
+                <version>${jna.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.jfinal</groupId>
+                <artifactId>enjoy</artifactId>
+                <version>${enjoy.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.auto.service</groupId>
+                <artifactId>auto-service</artifactId>
+                <version>${auto-service.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.burt</groupId>
+                <artifactId>jmespath-core</artifactId>
+                <version>${jmespath.version}</version>
+            </dependency>
+
+            <!-- 序列化与配置解析 -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-jsr310</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.yaml</groupId>
+                <artifactId>snakeyaml</artifactId>
+                <version>${snakeyaml.version}</version>
+            </dependency>
+
+            <!-- 文档/数据文件处理 -->
+            <dependency>
+                <groupId>com.opencsv</groupId>
+                <artifactId>opencsv</artifactId>
+                <version>${opencsv.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+
+            <!-- 日志框架 -->
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
                 <version>${slf4j.version}</version>
             </dependency>
-            <!-- 日志 logback -->
             <dependency>
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-classic</artifactId>
@@ -406,21 +576,49 @@
                 <version>${logback.version}</version>
             </dependency>
 
-            <!-- lombok 工具包 -->
+            <!-- API 文档与注解处理 -->
+            <dependency>
+                <groupId>com.github.xiaoymin</groupId>
+                <artifactId>knife4j-openapi3-spring-boot-starter</artifactId>
+                <version>${knife4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.swagger.core.v3</groupId>
+                <artifactId>swagger-annotations</artifactId>
+                <version>${swagger.annotations.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.projectlombok</groupId>
                 <artifactId>lombok</artifactId>
-                <version>1.18.38</version>
+                <version>${lombok.version}</version>
                 <scope>provided</scope>
             </dependency>
 
-            <!-- 单元测试 JUnit5 -->
+            <!-- 字节码增强 -->
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy</artifactId>
+                <version>${bytebuddy.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy-agent</artifactId>
+                <version>${bytebuddy.version}</version>
+            </dependency>
+
+            <!-- 单元测试 -->
             <dependency>
                 <groupId>org.junit</groupId>
                 <artifactId>junit-bom</artifactId>
                 <version>${junit.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>${junit4.version}</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>org.mockito</groupId>
@@ -432,46 +630,16 @@
                 <artifactId>mockito-junit-jupiter</artifactId>
                 <version>${mockito.version}</version>
             </dependency>
-            <!-- jmespath 驱动-->
             <dependency>
-                <groupId>io.burt</groupId>
-                <artifactId>jmespath-core</artifactId>
-                <version>0.5.1</version>
-            </dependency>
-            <!-- jna c++ 库驱动 -->
-            <dependency>
-                <groupId>net.java.dev.jna</groupId>
-                <artifactId>jna</artifactId>
-                <version>${jna.version}</version>
-            </dependency>
-            <!-- opencsv -->
-            <dependency>
-                <groupId>com.opencsv</groupId>
-                <artifactId>opencsv</artifactId>
-                <version>5.6</version>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-inline</artifactId>
+                <version>${mockito.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.swagger.core.v3</groupId>
-                <artifactId>swagger-annotations</artifactId>
-                <version>2.2.22</version>
-            </dependency>
-
-            <!--xls(03)-->
-            <dependency>
-                <groupId>org.apache.poi</groupId>
-                <artifactId>poi</artifactId>
-                <version>4.1.2</version>
-            </dependency>
-            <!--xlsx(07)-->
-            <dependency>
-                <groupId>org.apache.poi</groupId>
-                <artifactId>poi-ooxml</artifactId>
-                <version>4.1.2</version>
-            </dependency>
-            <dependency>
-                <groupId>org.redisson</groupId>
-                <artifactId>redisson-spring-boot-starter</artifactId>
-                <version>${redisson.version}</version>
+                <groupId>org.awaitility</groupId>
+                <artifactId>awaitility</artifactId>
+                <version>${awaitility.version}</version>
+                <scope>test</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -486,25 +654,25 @@
                     <configuration>
                         <generateBackupPoms>false</generateBackupPoms>
                     </configuration>
-                    <version>2.10.0</version>
+                    <version>${versions.maven.plugin.version}</version>
                 </plugin>
                 <!-- maven资源插件 -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-resources-plugin</artifactId>
-                    <version>3.2.0</version>
+                    <version>${maven.resources.plugin.version}</version>
                 </plugin>
                 <!-- Java 编译插件 -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.15.0</version>
+                    <version>${maven.compiler.plugin.version}</version>
                     <configuration>
                         <annotationProcessorPaths>
                             <path>
                                 <groupId>org.projectlombok</groupId>
                                 <artifactId>lombok</artifactId>
-                                <version>1.18.38</version>
+                                <version>${lombok.version}</version>
                             </path>
                         </annotationProcessorPaths>
                     </configuration>
@@ -513,13 +681,25 @@
                 <plugin>
                     <groupId>com.github.eirslett</groupId>
                     <artifactId>frontend-maven-plugin</artifactId>
-                    <version>2.0.0</version>
+                    <version>${frontend.maven.plugin.version}</version>
                 </plugin>
                 <!-- JUnit5 测试插件 -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.2.5</version>
+                    <version>${maven.surefire.plugin.version}</version>
+                </plugin>
+                <!-- Shade 打包插件 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>${maven.shade.plugin.version}</version>
+                </plugin>
+                <!-- Spring Boot 打包插件 -->
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring.boot.version}</version>
                 </plugin>
             </plugins>
         </pluginManagement>

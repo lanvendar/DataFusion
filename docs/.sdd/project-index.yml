@@ -47,6 +47,14 @@ modules:
     verify:
       - mvn -DskipTests compile -pl datafusion-plugin -am
 
+  plugin-flink-schema-paimon:
+    feature_docs_root: docs/datafusion-plugin/plugin-flink-schema-paimon
+    source_roots:
+      - datafusion-plugin/plugin-flink-schema-paimon/src/main/java
+      - datafusion-plugin/plugin-flink-schema-paimon/src/main/resources
+    verify:
+      - mvn -DskipTests compile -pl datafusion-plugin/plugin-flink-schema-paimon -am
+
 docs:
   feature_root: docs
   language: zh-CN
