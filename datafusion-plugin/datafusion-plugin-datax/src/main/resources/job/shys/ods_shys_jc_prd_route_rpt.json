@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql.bigdata.svc:3306/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `company_code`,`company_desc`,`work_center_code`,`work_center_desc`,`material_code`,`material_desc`,`routing_type`,`product_version`,`product_version_desc`,`d_group`,`counter`,`valid_start_date`,`control`,`routing_short_txt`,`routing_desc`,`unit`,`basic_qty`,`valid_end_date`,`activity_type1`,`std_unit1`,`std_value1`,`activity_type2`,`std_unit2`,`std_value2`,`activity_type3`,`std_unit3`,`std_value3`,`activity_type4`,`std_unit4`,`std_value4`,`etl_time`,`modify_time`,`modifier`,`activity_type5`,`std_unit5`,`std_value5`,`activity_type6`,`std_unit6`,`std_value6`,`_id` FROM `shjc_ods_prd_route_rpt_jc`"

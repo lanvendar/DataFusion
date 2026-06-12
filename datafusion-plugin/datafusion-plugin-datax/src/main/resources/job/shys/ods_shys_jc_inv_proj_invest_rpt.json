@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql.bigdata.svc:3306/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `ds`,`fiscal_year`,`fiscal_month`,`company_code`,`company_desc`,`wbs_code`,`wbs_desc`,`currency`,`posting_amt`,`wbs_level`,`wbs1_code`,`wbs2_code`,`wbs3_code`,`etl_time`,`modify_time`,`modifier`,`project_type_code`,`project_type_desc`,`project_code`,`project_desc`,`_id` FROM `shjc_ods_inv_proj_invest_rpt_jc`"

@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql.bigdata.svc:3306/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `_id`,`ds`,`year_month`,`company_code`,`company_name`,`production_marketing_rate`,`export_num`,`sales_num`,`income`,`income_roi`,`advert_fee`,`consult_fee`,`meeting_fee`,`transport_fee`,`transport_fee_per_unit`,`storage_fee`,`storage_fee_per_unit`,`handling_fee`,`handling_fee_per_unit`,`etl_time`,`modify_time`,`modifier` FROM `shjc_ods_mkt_company_mat_sales_cm_jc`"

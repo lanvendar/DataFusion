@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql.bigdata.svc:3306/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `id`,`parent_id`,`parent_name`,`name`,`aggweight`,`is_base`,`sharedmember`,`level` AS tree_level,`sort_col`,`baseCount` AS base_count,`description_zh_cn`,`description_en`,`description_de`,`description_ar`,`description_es`,`description_fr`,`description_ru`,`description_zh_tw`,`description_ja`,`description_he`,`is_active`,`p0`,`p1`,`p2`,`p3`,`p4`,`p5`,`p6`,`p7`,`p8`,`p9`,`p10`,`p11`,`p12`,`p13`,`p14`,`p15`,`p16`,`p17`,`p18`,`p19`,`description_pt` FROM `shys_producttype_td_gb`"

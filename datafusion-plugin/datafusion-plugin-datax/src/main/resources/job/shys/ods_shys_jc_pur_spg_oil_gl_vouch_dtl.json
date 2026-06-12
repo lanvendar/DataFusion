@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql.bigdata.svc:3306/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `fiscal_year`,`fiscal_month`,`year_month`,`factory_code`,`factory_name`,`company_code`,`company_desc`,`cost_center_code`,`cost_center_desc`,`customer_code`,`customer_desc`,`supplier_code`,`supplier_desc`,`trading_partner_code`,`material_code`,`material_desc`,`mat_basic_unit`,`acct_voucher_no`,`voucher_type`,`voucher_type_desc`,`voucher_head_text`,`item_no`,`account_code`,`account_desc`,`negative_posting_flag`,`voucher_date`,`post_date`,`exc_rate`,`orig_currency`,`orig_amt`,`orig_tax_amt`,`local_currency`,`local_amt`,`local_tax_amt`,`cny_currency`,`cny_amt`,`cny_tax_amt`,`inv_status`,`dc_flag`,`dc_flag_desc`,`qty`,`tax_code`,`tax_rate`,`oil_p_contract`,`expense_type`,`functional_scope`,`sg_so_no`,`sg_po_no`,`sg_supplier_code`,`sg_qty`,`sg_pricing_period`,`sg_pe_price`,`etl_time`,`modify_time`,`modifier`,`ds`,`sg_oil_type`,`_id` FROM `shjc_ods_pur_spg_oil_gl_vouch_dtl_jc`"

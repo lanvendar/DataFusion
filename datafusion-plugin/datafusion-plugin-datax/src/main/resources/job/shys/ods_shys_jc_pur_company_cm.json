@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql.bigdata.svc:3306/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `ds`,`year_month`,`company_code`,`company_name`,`num_meoh`,`price_meoh`,`amt_meoh`,`transport_fee_meoh`,`transport_fee_meoh_per_unit`,`storage_fee_meoh`,`storage_fee_meoh_per_unit`,`handling_fee_meoh`,`handling_fee_meoh_per_unit`,`num_ethane`,`price_ethane`,`pur_inv_amt_cm_ethane`,`transport_fee_ethane`,`transport_fee_ethane_per_unit`,`storage_fee_ethane`,`storage_fee_ethane_per_unit`,`handling_fee_ethane`,`handling_fee_ethane_per_unit`,`num_propane`,`price_propane`,`amt_propane`,`transport_fee_propane`,`transport_fee_propane_per_unit`,`storage_fee_propane`,`storage_fee_propane_per_unit`,`handling_fee_propane`,`handling_fee_propane_per_unit`,`num_acetate`,`price_acetate`,`amt_cm_acetate`,`transport_fee_acetate`,`transport_fee_acetate_per_unit`,`storage_fee_acetate`,`storage_fee_acetate_per_unit`,`handling_fee_acetate`,`handling_fee_acetate_per_unit`,`num_ammonia`,`price_ammonia`,`amt_ammonia`,`transport_fee_ammonia`,`transport_fee_ammonia_per_unit`,`storage_fee_ammonia`,`storage_fee_ammonia_per_unit`,`handling_fee_ammonia`,`handling_fee_ammonia_per_unit`,`num_coal`,`amt_coal`,`etl_time`,`modify_time`,`modifier` FROM `shjc_ods_pur_company_cm_jc`"
