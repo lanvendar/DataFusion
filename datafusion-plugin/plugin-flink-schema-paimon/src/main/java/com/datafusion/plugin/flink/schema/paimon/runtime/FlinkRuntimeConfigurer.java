@@ -12,7 +12,6 @@ import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestartStrategyOptions;
 import org.apache.flink.configuration.StateBackendOptions;
-import org.apache.flink.runtime.state.hashmap.HashMapStateBackend;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.slf4j.Logger;
@@ -76,7 +75,7 @@ public class FlinkRuntimeConfigurer {
             configuration.set(StateBackendOptions.STATE_BACKEND, "rocksdb");
             return;
         }
-        configuration.set(StateBackendOptions.STATE_BACKEND, HashMapStateBackend.class.getName());
+        configuration.set(StateBackendOptions.STATE_BACKEND, "hashmap");
     }
 
     private void configureRestartStrategy(Configuration configuration, RuntimeConfig runtime) {

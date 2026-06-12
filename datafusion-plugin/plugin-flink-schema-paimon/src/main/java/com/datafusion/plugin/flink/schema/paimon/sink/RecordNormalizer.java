@@ -1,9 +1,10 @@
 package com.datafusion.plugin.flink.schema.paimon.sink;
 
-import com.datafusion.plugin.flink.schema.paimon.core.FlinkSchemaPaimonException;
 import com.datafusion.plugin.flink.schema.paimon.message.ColumnConfig;
 import com.datafusion.plugin.flink.schema.paimon.resolve.ResolvedTableConfig;
 import com.datafusion.plugin.flink.schema.paimon.util.TextUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,6 +23,11 @@ import java.util.Map;
  */
 public final class RecordNormalizer {
 
+    /**
+     * 日志对象.
+     */
+    private static final Logger LOGGER = LoggerFactory.getLogger(RecordNormalizer.class);
+
     private RecordNormalizer() {
     }
 
@@ -34,13 +40,16 @@ public final class RecordNormalizer {
      */
     public static List<Map<String, Object>> normalize(List<Map<String, Object>> records, ResolvedTableConfig tableConfig) {
         List<Map<String, Object>> normalized = new ArrayList<>();
-        for (Map<String, Object> record : records) {
-            normalized.add(normalizeRecord(record, tableConfig));
+        for (int i = 0; i < records.size(); i++) {
+            Map<String, Object> normalizedRecord = normalizeRecord(records.get(i), tableConfig, i);
+            if (normalizedRecord != null) {
+                normalized.add(normalizedRecord);
+            }
         }
         return normalized;
     }
 
-    private static Map<String, Object> normalizeRecord(Map<String, Object> record, ResolvedTableConfig tableConfig) {
+    private static Map<String, Object> normalizeRecord(Map<String, Object> record, ResolvedTableConfig tableConfig, int recordIndex) {
         Map<String, Object> normalized = new LinkedHashMap<>();
         for (ColumnConfig column : tableConfig.columns) {
             Object value = record == null ? null : record.get(column.name);
@@ -51,7 +60,9 @@ public final class RecordNormalizer {
                 value = formatValue(column, String.valueOf(value));
             }
             if (isEmpty(value) && Boolean.FALSE.equals(column.nullable)) {
-                throw new FlinkSchemaPaimonException(tableConfig.identifier() + " required column is empty: " + column.name);
+                LOGGER.warn("Skip Paimon record because required column is empty, identifier={}, column={}, recordIndex={}",
+                        tableConfig.identifier(), column.name, recordIndex);
+                return null;
             }
             normalized.put(column.name, value);
         }

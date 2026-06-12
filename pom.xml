@@ -44,6 +44,7 @@
         <flink.cassandra.connector.version>3.2.0-1.19</flink.cassandra.connector.version>
         <flink.jdbc.connector.version>3.3.0-1.20</flink.jdbc.connector.version>
         <flink.kafka.connector.version>5.0.0-2.2</flink.kafka.connector.version>
+        <kafka.clients.version>4.2.0</kafka.clients.version>
         <flinkcdc.version>3.6.0-2.2</flinkcdc.version>
         <starrocks.flink.connector.version>1.2.14_flink-1.20</starrocks.flink.connector.version>
 
@@ -220,6 +221,12 @@
                 <artifactId>flink-connector-kafka</artifactId>
                 <version>${flink.kafka.connector.version}</version>
             </dependency>
+            <!-- Override Spring Boot BOM's Kafka client version for Flink Kafka connector compatibility. -->
+            <dependency>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka-clients</artifactId>
+                <version>${kafka.clients.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.starrocks</groupId>
                 <artifactId>flink-connector-starrocks</artifactId>
@@ -327,6 +334,11 @@
             <dependency>
                 <groupId>org.apache.hadoop</groupId>
                 <artifactId>hadoop-client-runtime</artifactId>
+                <version>${hadoop.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-aws</artifactId>
                 <version>${hadoop.version}</version>
             </dependency>
 

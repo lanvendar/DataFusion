@@ -18,10 +18,10 @@
 |----------|--------|---------|--------|----------------|-------|
 | 启动作业 | 本地 `job.json` 或启动参数指向的配置文件 | `ConfigLoader` -> `ConfigValidator` | Flink 作业运行时 | `FlinkSchemaPaimonJobConfig` | 启动前完成配置校验 |
 | 消费 Kafka 消息 | Kafka topic | Flink `KafkaSource<String>` | `MessageParser` | 原始 JSON -> `KafkaEnvelope` | 一条消息可包含一张表的多条数据 |
-| 解析目标表 | `KafkaEnvelope`、`sink.tables[]` 与插件默认 sink 配置 | `SchemaResolver` | `ResolvedTableConfig` | `database + tableName + schema + options` | 按 Kafka 消息 `schema.table.name` 查找同名 `sink.tables[].tableName`，表结构仍来自 Kafka 消息 schema |
-| 单消息生成写入计划 | `KafkaEnvelope.data` | `WritePlanBuilder` | `ResolvedTableWritePlan` | 表配置 + 记录列表 | 一条消息按 `schema.table.name` 写入一张 Paimon 表 |
+| 解析目标表 | `KafkaEnvelope`、`sink.tables[]` 与插件默认 sink 配置 | `TableResolver` | `ResolvedTableConfig` | `database + tableName + schema + options` | 按 Kafka 消息 `schema.table.name` 查找同名 `sink.tables[].tableName`，未匹配时跳过并记录 WARN，表结构仍来自 Kafka 消息 schema |
+| 单消息生成写入计划 | `KafkaEnvelope.data` | `TableResolver` | `ResolvedTableWritePlan` | 表配置 + 记录列表 | 一条消息按 `schema.table.name` 写入一张 Paimon 表 |
 | 初始化或复用 writer | `ResolvedTableConfig` | `TableWriterRegistry` | `PaimonTableWriter` | 按 `database.table` 缓存 | 减少重复建表与 schema 校验开销 |
-| 批量写入 | `RecordPayload` 列表 | `RecordNormalizer` -> `PaimonTableWriter` | Paimon | `GenericRow` / `CommitMessage` | 支持 APPEND 或 UPSERT |
+| 批量写入 | `RecordPayload` 列表 | `RecordNormalizer` -> `PaimonTableWriter` | Paimon | `GenericRow` / `CommitMessage` | 支持 APPEND 或 UPSERT；单条记录必输字段为空时只跳过当前记录并记录 WARN |
 | 容错恢复 | Flink checkpoint state | Flink runtime | Kafka offsets + 内存态恢复 | `runtime` 配置 | V1 以 Flink checkpoint + Paimon commit 为基础，`UPSERT` 场景通过主键提升重放幂等性 |
 
 ## 3. job.json Contract
@@ -52,8 +52,7 @@
 | `runtime.checkpointMode` | No | Flink checkpoint 模式，支持 `EXACTLY_ONCE`、`AT_LEAST_ONCE` |
 | `runtime.stateBackend` | No | Flink state backend，支持 `HASHMAP`、`ROCKSDB` |
 | `runtime.restartStrategy` | No | Flink 重启策略，支持 `NO_RESTART`、`FIXED_DELAY`、`FAILURE_RATE` |
-| `sink.catalogOptions` | Yes | Paimon catalog 和对象存储连接参数 |
-| `sink.unmatchedTablePolicy` | No | 默认 `SKIP`；Kafka 消息表名未配置时跳过并记录日志/指标 |
+| `sink.options` | Yes | 全局 Paimon options，包含 catalog 连接参数和默认表 options |
 | `sink.includeKafkaMetadataFields` | No | 默认 `false`；开启后所有表补充 `_kafka_topic`、`_kafka_partition`、`_kafka_offset` |
 | `sink.tables` | Yes | 目标 Paimon 库表数组，数组长度就是本 job 可写入表数量 |
 
@@ -90,18 +89,21 @@
   "sink": {
     "loadMode": "UPSERT",
     "connectType": "S3",
-    "unmatchedTablePolicy": "SKIP",
     "includeKafkaMetadataFields": false,
-    "catalogOptions": {
+    "options": {
       "warehouse": "s3://data-lake-warehouse/paimon",
-      "metastore": "filesystem",
       "catalogType": "filesystem",
-      "endpoint": "http://s3.example.com",
+      "database": "dw_prod",
       "s3.endpoint": "http://s3.example.com",
+      "s3.endpoint.region": "us-east-1",
       "s3.access-key": "${env:PAIMON_S3_ACCESS_KEY}",
       "s3.secret-key": "${env:PAIMON_S3_SECRET_KEY}",
       "s3.path.style.access": "true",
-      "s3.ssl.enabled": "false"
+      "s3.connection.ssl.enabled": "false",
+      "s3.fast.upload.buffer": "array",
+      "bucket": "2",
+      "write-buffer-size": "128mb",
+      "file.format": "parquet"
     },
     "tables": [
       {
@@ -109,8 +111,7 @@
         "database": "dw_dev",
         "tableName": "ods_spider_bkccpr_central_parity_rate",
         "options": {
-          "bucket": "2",
-          "write-buffer-size": "128mb"
+          "bucket": "4"
         }
       }
     ],
@@ -128,7 +129,7 @@
 | Scenario | How to run | Notes |
 |----------|------------|-------|
 | 同一批表压力变大 | 增加 topic partition，并启动更多使用同一 `source.groupId` 的插件实例 | Kafka 按 partition 分摊消息 |
-| 不同表集合需要拆分压力 | 生产端将 N 张表写入 topic A，M 张表写入 topic B；消费端分别启动订阅 topic A/topic B 的 job，并配置对应 `sink.tables[]` | 未配置表默认按 `unmatchedTablePolicy=SKIP` 过滤 |
+| 不同表集合需要拆分压力 | 生产端将 N 张表写入 topic A，M 张表写入 topic B；消费端分别启动订阅 topic A/topic B 的 job，并配置对应 `sink.tables[]` | 未配置表固定跳过并记录 WARN |
 | topic 中混入未配置表 | 消费端不做复杂路由，按 `sink.tables[]` 白名单过滤 | 默认跳过并记录 WARN/指标 |
 
 ## 4. File Changes
@@ -183,14 +184,15 @@
 |----------|------|----------------|
 | Kafka 消息缺失 `schema.table.name` | `job.json` 不提供额外表名解析规则，无法回退 | 抛配置/数据异常 |
 | Kafka 消息缺失 `schema.columns` | `job.json` 不维护字段结构，无法回退 | 抛配置/数据异常 |
-| Kafka 消息表名未配置 | 默认 `sink.unmatchedTablePolicy=SKIP`，直接过滤该条消息，不写 Paimon | 记录 WARN 日志和 skipped 计数；配置为 `FAIL` 时抛异常 |
+| Kafka 消息表名未配置 | 直接过滤该条消息，不写 Paimon | 记录 WARN 日志和 skipped 计数；不提供配置开关 |
 | 多表配置 | 必须配置非空 `sink.tables[]`，每个启用表必须有 `database` 和 `tableName` | 启动校验失败 |
 | 新增目标表 | 只追加一个 `sink.tables[]` 元素，表结构仍由 Kafka 消息中的 `schema` 决定 | 不需要修改 Java 代码 |
 | 同一批次消息写入多张表 | 先按目标表分组，再逐表写入 | 每张表独立 writer 和 commit |
 | 目标表已存在但字段不兼容 | 字段缺失、类型不一致、主键不一致、分区不一致直接失败；字段或表 comment 不一致只 WARN 一次 | 抛异常并停止作业，避免脏写 |
 | 多实例分摊 | 仅通过 Kafka topic、partition 和 consumer group 分摊，不在插件内做表 hash 归属 | 降低误配置风险 |
-| 按表集合拆分压力 | 生产端将不同表集合写入不同 topic，消费端分别订阅并配置对应 `sink.tables[]` | 未匹配表按 `unmatchedTablePolicy` 处理 |
-| 消息包含多条 `data` | 同一消息内所有记录共享 Kafka 消息中的 `schema` | 若记录缺列则按默认值与 nullable 规则处理 |
+| 按表集合拆分压力 | 生产端将不同表集合写入不同 topic，消费端分别订阅并配置对应 `sink.tables[]` | 未匹配表固定跳过并记录 WARN |
+| 消息包含多条 `data` | 同一消息内所有记录共享 Kafka 消息中的 `schema` | 若记录缺列则按默认值与 nullable 规则处理；必输字段无默认值时只跳过当前记录 |
+| 必输字段为空 | `ColumnConfig.nullable=false` 且归一化后为空，并且没有 `defaultValue` | 只跳过当前 `data[]` 记录并记录 WARN，不影响同一消息中的其他记录；若整个批次被过滤为空则不提交 |
 | `UPSERT` 写入 | Kafka 消息 `schema.table.primaryKeys` 必须非空 | 运行期遇到不合法消息直接 fail |
 | `APPEND` 写入 | 可以没有主键 | 允许动态表追加 |
 | 自动建表 | 只由 Kafka 消息 `schema.table.createIfNotExists` 决定 | `true` 时允许自动建表；`false` 时要求表预先存在 |
@@ -226,7 +228,7 @@
 |--------------------|--------|-------|
 | Kafka | Flink `KafkaSource` + consumer group | 使用 topic/partition/consumer group 分摊消费压力；按表集合拆 topic 由生产端配合完成 |
 | Paimon | Catalog API + Table Write API | 负责建库建表、schema 校验、批量写入与 commit |
-| S3 / 对象存储 | 通过 Paimon catalog options 注入 | 复用现有 `warehouse`、`endpoint`、`s3.access-key` 等配置 |
+| S3 / 对象存储 | 通过 Paimon options 注入 | 推荐 `warehouse=s3://...` 配合 `s3.*`，例如 `s3.endpoint`、`s3.access-key`、`s3.secret-key` |
 | Flink Runtime | checkpoint、state backend、operator parallelism | 大表多写入和失败恢复依赖 Flink 运行时 |
 
 ## 8. Security and Context
@@ -252,7 +254,8 @@
 - Manual check:
   1. 使用你提供的 Kafka 样例消息验证单表 UPSERT 建表与写入
   2. 使用两种不同表名消息验证单实例多表写入
-  3. 使用未配置表名消息验证 `unmatchedTablePolicy=SKIP` 时跳过且记录计数
+  3. 使用未配置表名消息验证默认跳过、记录 WARN 和 skipped 计数
   4. 开启 `includeKafkaMetadataFields`，验证所有表补充 `_kafka_topic`、`_kafka_partition`、`_kafka_offset`
   5. 启动两个实例并设置相同 `groupId`，验证按 Kafka 分区分摊且不丢表
   6. 将不同表集合写入不同 topic，验证消费端订阅对应 topic 且未配置表被跳过
+  7. 在同一 Kafka 消息的 `data[]` 中混入必输字段为空的记录，验证只跳过该记录且其他记录继续写入

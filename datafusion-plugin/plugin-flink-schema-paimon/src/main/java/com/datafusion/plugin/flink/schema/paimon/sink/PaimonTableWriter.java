@@ -120,6 +120,9 @@ public class PaimonTableWriter implements AutoCloseable {
             return;
         }
         List<Map<String, Object>> normalizedRecords = RecordNormalizer.normalize(records, tableConfig);
+        if (normalizedRecords.isEmpty()) {
+            return;
+        }
         long start = System.currentTimeMillis();
         LOGGER.info("Paimon write started, identifier={}, records={}", identifier, normalizedRecords.size());
         try (BatchTableWrite write = table.newBatchWriteBuilder().newWrite();
@@ -186,7 +189,7 @@ public class PaimonTableWriter implements AutoCloseable {
         if (tableConfig.table.primaryKeys != null && !tableConfig.table.primaryKeys.isEmpty()) {
             builder.primaryKey(tableConfig.table.primaryKeys);
         }
-        builder.options(tableConfig.options);
+        builder.options(tableOptions());
         return builder.build();
     }
 
@@ -217,13 +220,32 @@ public class PaimonTableWriter implements AutoCloseable {
 
     private void validateTableOptions(Table existing) {
         Map<String, String> actual = existing.options();
-        for (Map.Entry<String, String> entry : tableConfig.options.entrySet()) {
+        for (Map.Entry<String, String> entry : tableOptions().entrySet()) {
             String actualValue = actual.get(entry.getKey());
             if (!Objects.equals(entry.getValue(), actualValue)) {
                 throw new FlinkSchemaPaimonException("Paimon table option mismatch: " + entry.getKey()
                         + ", expected=" + entry.getValue() + ", actual=" + actualValue);
             }
         }
+    }
+
+    private Map<String, String> tableOptions() {
+        Map<String, String> options = new LinkedHashMap<>(tableConfig.options);
+        options.keySet().removeIf(this::isConnectionOption);
+        return options;
+    }
+
+    private boolean isConnectionOption(String key) {
+        String normalized = key.toLowerCase(Locale.ROOT);
+        return "warehouse".equals(normalized)
+                || "metastore".equals(normalized)
+                || "catalogtype".equals(normalized)
+                || "type".equals(normalized)
+                || "database".equals(normalized)
+                || "endpoint".equals(normalized)
+                || normalized.startsWith("s3.")
+                || normalized.startsWith("fs.s3a.")
+                || normalized.startsWith("hadoop.fs.s3a.");
     }
 
     private void warnCommentMismatch(String objectName, String expected, String actual) {

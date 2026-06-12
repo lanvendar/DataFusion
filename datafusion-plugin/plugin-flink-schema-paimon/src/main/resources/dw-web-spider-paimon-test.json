@@ -1,19 +1,24 @@
 {
   "job": {
-    "id": "kafka_schema_paimon_demo",
-    "name": "Kafka Schema Paimon Demo",
-    "description": "Consume Kafka schema/data messages and write multiple Paimon tables.",
+    "id": "dw-web-spider-paimon-test",
+    "name": "dw-web-spider-paimon-test",
+    "description": "Consume Kafka schema/data messages from dw-web-spider-paimon-test and write configured Paimon tables.",
     "version": "1.0.0"
   },
   "source": {
     "type": "KAFKA",
-    "bootstrapServers": "kafka-1:9092,kafka-2:9092",
+    "bootstrapServers": "sz-kafka.indusmind.me:9094",
     "topics": [
-      "ods-schema-data"
+      "dw-web-spider-paimon-test"
     ],
-    "groupId": "datafusion-plugin-flink-schema-paimon",
+    "groupId": "dw-web-spider111",
     "startingOffsets": "group-offsets",
-    "properties": {}
+    "properties": {
+      "client.id": "sh-web-spider",
+      "security.protocol": "SASL_SSL",
+      "sasl.mechanism": "SCRAM-SHA-512",
+      "sasl.jaas.config": "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"dw-web-spider\" password=\"msh9s4DmH2PwKt9WYtnA3AMLkIjlKGkA\";"
+    }
   },
   "runtime": {
     "parallelism": 2,
@@ -23,25 +28,25 @@
     "checkpointIntervalMs": 60000,
     "checkpointTimeoutMs": 600000,
     "maxConcurrentCheckpoints": 1,
-    "checkpointStorage": "file:///tmp/flink-checkpoints/kafka-schema-paimon",
+    "checkpointStorage": "file:///tmp/flink-checkpoints/dw-web-spider-paimon-test",
     "stateBackend": "HASHMAP",
     "restartStrategy": "FIXED_DELAY",
     "restartAttempts": 3,
     "restartDelayMs": 10000,
     "failurePolicy": "FAIL_FAST"
   },
-    "sink": {
+  "sink": {
     "loadMode": "UPSERT",
     "connectType": "S3",
     "includeKafkaMetadataFields": false,
     "options": {
       "warehouse": "s3://data-lake-warehouse/paimon",
       "catalogType": "filesystem",
-      "database": "dw_prod",
-      "s3.endpoint": "http://s3.example.com",
+      "database": "dw_dev",
+      "s3.endpoint": "http://sz-s3.indusmind.me",
       "s3.endpoint.region": "us-east-1",
-      "s3.access-key": "${env:PAIMON_S3_ACCESS_KEY}",
-      "s3.secret-key": "${env:PAIMON_S3_SECRET_KEY}",
+      "s3.access-key": "DNFY3F8DZ102RKOAXIMJ",
+      "s3.secret-key": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
       "s3.path.style.access": "true",
       "s3.connection.ssl.enabled": "false",
       "s3.fast.upload.buffer": "array",
@@ -53,18 +58,16 @@
       {
         "enabled": true,
         "database": "dw_dev",
-        "tableName": "ods_spider_bkccpr_central_parity_rate",
-        "options": {
-          "bucket": "4"
-        }
+        "tableName": "ods_spider_bkccpr_central_parity_rate"
       },
       {
         "enabled": true,
         "database": "dw_dev",
-        "tableName": "ods_spider_bkccpr_central_parity_rate_daily_summary",
-        "loadMode": "APPEND",
+        "tableName": "ods_spider_oilchem_price_market",
         "options": {
-          "bucket": "1"
+          "bucket": "4",
+          "write-buffer-size": "128mb",
+          "file.format": "parquet"
         }
       }
     ],

@@ -13,10 +13,10 @@ import com.datafusion.plugin.flink.schema.paimon.core.enums.FailurePolicy;
 import com.datafusion.plugin.flink.schema.paimon.core.enums.LoadMode;
 import com.datafusion.plugin.flink.schema.paimon.core.enums.RestartStrategyType;
 import com.datafusion.plugin.flink.schema.paimon.core.enums.StateBackendType;
-import com.datafusion.plugin.flink.schema.paimon.core.enums.UnmatchedTablePolicy;
 import com.datafusion.plugin.flink.schema.paimon.util.TextUtils;
 
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -94,12 +94,12 @@ public class ConfigValidator {
             throw new FlinkSchemaPaimonException("sink is required");
         }
         LoadMode.parse(sink.loadMode, LoadMode.APPEND);
-        UnmatchedTablePolicy.parse(sink.unmatchedTablePolicy);
-        if (sink.catalogOptions == null || sink.catalogOptions.isEmpty()) {
-            throw new FlinkSchemaPaimonException("sink.catalogOptions is required");
+        Map<String, String> options = sink.options == null || sink.options.isEmpty() ? sink.catalogOptions : sink.options;
+        if (options == null || options.isEmpty()) {
+            throw new FlinkSchemaPaimonException("sink.options is required");
         }
-        if (TextUtils.isBlank(sink.catalogOptions.get("warehouse"))) {
-            throw new FlinkSchemaPaimonException("sink.catalogOptions.warehouse is required");
+        if (TextUtils.isBlank(options.get("warehouse"))) {
+            throw new FlinkSchemaPaimonException("sink.options.warehouse is required");
         }
         if (sink.tables == null || sink.tables.isEmpty()) {
             throw new FlinkSchemaPaimonException("sink.tables is required");

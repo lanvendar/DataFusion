@@ -4,7 +4,6 @@ import com.datafusion.plugin.flink.schema.paimon.config.FlinkSchemaPaimonJobConf
 import com.datafusion.plugin.flink.schema.paimon.config.FlinkSchemaPaimonJobConfig.PaimonTableSinkConfig;
 import com.datafusion.plugin.flink.schema.paimon.core.FlinkSchemaPaimonException;
 import com.datafusion.plugin.flink.schema.paimon.core.enums.LoadMode;
-import com.datafusion.plugin.flink.schema.paimon.core.enums.UnmatchedTablePolicy;
 import com.datafusion.plugin.flink.schema.paimon.message.ColumnConfig;
 import com.datafusion.plugin.flink.schema.paimon.message.KafkaEnvelope;
 import com.datafusion.plugin.flink.schema.paimon.message.TableConfig;
@@ -125,10 +124,6 @@ public class TableResolver {
     }
 
     private Optional<ResolvedTableWritePlan> handleUnmatched(String tableName, KafkaRecord record) {
-        UnmatchedTablePolicy policy = UnmatchedTablePolicy.parse(sink.unmatchedTablePolicy);
-        if (policy == UnmatchedTablePolicy.FAIL) {
-            throw new FlinkSchemaPaimonException("Kafka table is not configured in sink.tables: " + tableName);
-        }
         long skipped = skippedCount.incrementAndGet();
         LOGGER.warn("Skip unmatched Kafka table, tableName={}, topic={}, partition={}, offset={}, skippedCount={}",
                 tableName, record.topic, record.partition, record.offset, skipped);
@@ -148,7 +143,10 @@ public class TableResolver {
             config.columns.add(kafkaPartitionColumn());
             config.columns.add(kafkaOffsetColumn());
         }
-        config.options = tableSink.options == null ? new LinkedHashMap<>() : new LinkedHashMap<>(tableSink.options);
+        config.options = new LinkedHashMap<>(sink.globalOptions());
+        if (tableSink.options != null) {
+            config.options.putAll(tableSink.options);
+        }
         return config;
     }
 

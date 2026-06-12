@@ -97,7 +97,7 @@ public class TableWriterRegistry implements AutoCloseable {
             return existing;
         }
         evictIfNecessary();
-        PaimonTableWriter writer = new PaimonTableWriter(sink.catalogOptions, tableConfig);
+        PaimonTableWriter writer = new PaimonTableWriter(sink.globalOptions(), tableConfig);
         writer.open();
         TableWriterHandle handle = new TableWriterHandle(writer);
         writers.put(identifier, handle);

@@ -214,11 +214,6 @@ public class FlinkSchemaPaimonJobConfig implements Serializable {
         public String connectType = "S3";
 
         /**
-         * 未匹配表处理策略.
-         */
-        public String unmatchedTablePolicy = "SKIP";
-
-        /**
          * 是否补充 Kafka 元数据字段.
          */
         public Boolean includeKafkaMetadataFields = false;
@@ -229,6 +224,11 @@ public class FlinkSchemaPaimonJobConfig implements Serializable {
         public Map<String, String> catalogOptions = new LinkedHashMap<>();
 
         /**
+         * 全局 Paimon options.
+         */
+        public Map<String, String> options = new LinkedHashMap<>();
+
+        /**
          * 目标表白名单.
          */
         public List<PaimonTableSinkConfig> tables = new ArrayList<>();
@@ -237,6 +237,18 @@ public class FlinkSchemaPaimonJobConfig implements Serializable {
          * 写入控制配置.
          */
         public WriteConfig write = new WriteConfig();
+
+        /**
+         * 获取全局 Paimon options.
+         *
+         * @return 全局 Paimon options
+         */
+        public Map<String, String> globalOptions() {
+            if (options != null && !options.isEmpty()) {
+                return options;
+            }
+            return catalogOptions;
+        }
     }
 
     /**

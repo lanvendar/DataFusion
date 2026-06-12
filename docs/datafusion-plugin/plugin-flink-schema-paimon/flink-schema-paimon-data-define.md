@@ -44,7 +44,8 @@
 | `FlinkSchemaPaimonJobConfig` | 插件启动加载整份任务配置 | `source` | `KafkaSourceConfig` | 启动时加载，运行期只读 | Kafka 消费配置 |
 | `FlinkSchemaPaimonJobConfig` | 插件启动加载整份任务配置 | `runtime` | `RuntimeConfig` | 启动时加载，运行期只读 | Flink checkpoint、并发与容错配置 |
 | `FlinkSchemaPaimonJobConfig` | 插件启动加载整份任务配置 | `sink` | `PaimonSinkGroupConfig` | 启动时加载，运行期只读 | Paimon catalog 默认配置与写入控制 |
-| `PaimonSinkGroupConfig` | 配置任意数量目标表 | `tables` | `List<PaimonTableSinkConfig>` | 启动时加载，运行期只读 | 多表写入目标和写入参数的主要配置入口，不重复 Kafka 中的 schema 结构 |
+| `PaimonSinkGroupConfig` | 配置任意数量目标表 | `options` | `Map<String, String>` | 启动时加载，运行期只读 | 全局 Paimon options，包含 catalog 连接参数和默认表 options |
+| `PaimonSinkGroupConfig` | 配置任意数量目标表 | `tables` | `List<PaimonTableSinkConfig>` | 启动时加载，运行期只读 | 多表写入目标和局部 options 的主要配置入口，不重复 Kafka 中的 schema 结构 |
 | `KafkaEnvelope` | 反序列化 Kafka 消息 | `schema` | `MessageSchema` | 每条消息临时存在 | 对应样例中的 `schema` 节点 |
 | `KafkaEnvelope` | 反序列化 Kafka 消息 | `data` | `List<Map<String, Object>>` | 每条消息临时存在 | 对应样例中的 `data` 数组 |
 | `KafkaEnvelope` | 反序列化 Kafka 消息 | `meta` | `MessageMeta` | 每条消息临时存在 | 可选的路由、来源和追踪元信息 |
@@ -53,7 +54,7 @@
 | `ResolvedTableWritePlan` | 单条消息解析并路由后生成写入计划 | `records` | `List<RecordPayload>` | 每批次临时存在 | 当前消息需要写入目标表的记录 |
 | `ResolvedTableConfig` | 统一后的落表结构 | `table` | `TableConfig` | 运行期缓存，可复用 | 来自 Kafka 消息 `schema.table`，可用 `tables[].database/tableName` 指定写入库表名 |
 | `ResolvedTableConfig` | 统一后的落表结构 | `columns` | `List<ColumnConfig>` | 运行期缓存，可复用 | 来自 Kafka 消息 `schema.columns` |
-| `ResolvedTableConfig` | 统一后的落表结构 | `options` | `Map<String, String>` | 运行期缓存，可复用 | 表级 options，只来自 `job.json` 的 `sink.tables[].options` |
+| `ResolvedTableConfig` | 统一后的落表结构 | `options` | `Map<String, String>` | 运行期缓存，可复用 | 全局 `sink.options` 与局部 `sink.tables[].options` 合并后的表 options，局部同名 key 覆盖全局 |
 | `TableWriterRegistry` | 按表缓存 Paimon writer | `writers` | `Map<String, TableWriterHandle>` | 作业运行期存在 | 减少重复创建表与 writer 的开销 |
 
 #### 2.4.1 `FlinkSchemaPaimonJobConfig`
@@ -98,8 +99,7 @@
 |-------|------------|----------|---------|-------|
 | `loadMode` | `String` | No | `APPEND` | `APPEND` 或 `UPSERT` |
 | `connectType` | `String` | No | `S3` | 与现有 API 插件保持一致 |
-| `catalogOptions` | `Map<String, String>` | Yes | 无 | `warehouse`、`endpoint`、S3 参数等 Paimon catalog 连接参数 |
-| `unmatchedTablePolicy` | `String` | No | `SKIP` | Kafka 消息表名没有匹配到 `tables[]` 时的处理策略 |
+| `options` | `Map<String, String>` | Yes | 空 map | 全局 Paimon options，包含 `warehouse`、`catalogType`、S3 参数、默认表 options 等 |
 | `includeKafkaMetadataFields` | `Boolean` | No | `false` | 是否为所有表补充 Kafka 元数据字段 |
 | `tables` | `List<PaimonTableSinkConfig>` | Yes | 无 | 配置任意数量目标库表 |
 | `write` | `WriteConfig` | No | 默认对象 | 批量写控制 |
@@ -135,8 +135,8 @@
 | `length` | `Integer` | Conditional | 无 | `VARCHAR` 可配置 |
 | `precision` | `Integer` | Conditional | `18` | `DECIMAL` 可配置 |
 | `scale` | `Integer` | Conditional | `4` | `DECIMAL` 可配置 |
-| `nullable` | `Boolean` | No | `true` | 是否允许空值 |
-| `defaultValue` | `Object` | No | 无 | 空值时默认值 |
+| `nullable` | `Boolean` | No | `true` | 是否允许空值；为 `false` 且无默认值时，空值记录会被跳过并记录 WARN |
+| `defaultValue` | `Object` | No | 无 | 空值时默认值；存在默认值时优先填充默认值，不跳过记录 |
 | `comment` | `String` | No | 无 | 字段注释 |
 | `format` | `String` | No | 无 | 日期时间格式，支持 `source->target` |
 
@@ -176,7 +176,7 @@
 | `MessageSchema` | Kafka 消息 | Inbound | `table` | `TableConfig` | 反序列化并校验 | 与现有 Paimon sink table 结构一致 |
 | `MessageSchema` | Kafka 消息 | Inbound | `columns` | `List<ColumnConfig>` | 反序列化并校验 | 与现有 Paimon sink column 结构一致 |
 | `MessageMeta` | Kafka 消息 | Inbound | `eventTime` | `String` | 转换为 Flink 事件时间字段 | 可选 |
-| `PaimonSinkGroupConfig` | Paimon Catalog | Outbound | `catalogOptions` | `Map<String, String>` | 复用现有 `sink.options` 语义 | 包含 `warehouse`、`endpoint`、S3 参数等 |
+| `PaimonSinkGroupConfig` | Paimon Catalog | Outbound | `options` | `Map<String, String>` | 原样透传给 Paimon catalog，并与表级 options 合并 | 包含 `warehouse`、`catalogType`、S3 参数和默认表 options 等 |
 | `PaimonSinkGroupConfig` | Paimon Catalog | Outbound | `tables` | `List<PaimonTableSinkConfig>` | 逐表转换为 Paimon 写入目标 | 任意增减目标库表只修改数组元素 |
 | `PaimonSinkGroupConfig` | Paimon Catalog | Outbound | `write` | `WriteConfig` | 控制 flush/batch/并发 | 可与 API 插件命名保持一致 |
 
@@ -184,7 +184,6 @@
 
 | Field / enum | Owner object | Values | Storage type | Display label | Conversion rule | Notes |
 |--------------|--------------|--------|--------------|---------------|-----------------|-------|
-| `UnmatchedTablePolicy` | `PaimonSinkGroupConfig` | `SKIP`, `FAIL` | `String` | 跳过 / 失败 | 启动时解析枚举 | 默认 `SKIP`，用于过滤未配置目标表的数据 |
 | `DeploymentMode` | `RuntimeConfig` | `LOCAL`, `STANDALONE`, `YARN`, `KUBERNETES` | `String` | 本地 / Standalone / Yarn / Kubernetes | 启动时解析枚举 | 控制作业部署方式 |
 | `ExecutionMode` | `RuntimeConfig` | `STREAMING`, `BATCH` | `String` | 流 / 批 | 启动时解析枚举 | 默认流处理 |
 | `CheckpointMode` | `RuntimeConfig` | `EXACTLY_ONCE`, `AT_LEAST_ONCE` | `String` | 精确一次 / 至少一次 | 启动时解析枚举 | 控制 Flink checkpoint 语义 |
@@ -217,9 +216,9 @@
 | Direction | Conversion rule | Special handling |
 |-----------|-----------------|------------------|
 | Kafka JSON -> `KafkaEnvelope` | 使用 Jackson 反序列化消息体 | 非法 JSON 进入脏数据处理或失败策略 |
-| `KafkaEnvelope` + `sink.tables[]` -> `ResolvedTableConfig` | 按 Kafka 消息 `schema.table.name` 查找同名 `tables[].tableName`，使用 `tables[].database/tableName/options/loadMode` 决定写入目标 | 未匹配时按 `sink.unmatchedTablePolicy` 处理；表结构仍来自 Kafka 消息中的 `schema.table` 与 `schema.columns` |
+| `KafkaEnvelope` + `sink.tables[]` -> `ResolvedTableConfig` | 按 Kafka 消息 `schema.table.name` 查找同名 `tables[].tableName`，使用 `tables[].database/tableName/options/loadMode` 决定写入目标 | 未匹配时固定跳过并记录 WARN；表结构仍来自 Kafka 消息中的 `schema.table` 与 `schema.columns` |
 | `KafkaEnvelope.schema` -> `ResolvedTableConfig` | 复用消息中的 `schema.table` / `schema.columns` 字段语义 | `tables[].database/tableName` 只改变写入目标库表名，不改变字段、主键、分区和注释 |
-| `KafkaEnvelope.data[]` -> `RecordPayload` | 每条记录按 `columns` 顺序、默认值、格式规则归一化 | 复用 `SinkRecordNormalizer` 的日期格式和非空校验思路 |
+| `KafkaEnvelope.data[]` -> `RecordPayload` | 每条记录按 `columns` 顺序、默认值、格式规则归一化 | 必输字段为空且无默认值时只跳过当前记录并记录 WARN，不影响同一 `data[]` 的其他记录 |
 | `ResolvedTableConfig` -> Paimon `Schema` | 将 `VARCHAR/DECIMAL/DATE/TIMESTAMP` 等转换为 Paimon 类型 | `sink.includeKafkaMetadataFields=true` 时为所有表补充 `_kafka_topic`、`_kafka_partition`、`_kafka_offset` |
 
 ## 5. Reused Structures
@@ -229,4 +228,4 @@
 | `ApiExtractJobConfig.TableConfig` 语义 | `datafusion-plugin/datafusion-plugin-api/src/main/java/com/datafusion/plugin/api/config/ApiExtractJobConfig.java` | 复用字段命名与校验语义，必要时抽公共类或在新插件复制同构结构 | 保持 `name/comment/createIfNotExists/primaryKeys/partitionKeys` 一致 |
 | `ApiExtractJobConfig.ColumnConfig` 语义 | `datafusion-plugin/datafusion-plugin-api/src/main/java/com/datafusion/plugin/api/config/ApiExtractJobConfig.java` | 复用字段命名与类型映射语义 | 保持 `type/length/precision/scale/nullable/comment/format/defaultValue` 一致 |
 | `PaimonSinkWriter` 类型映射规则 | `datafusion-plugin/datafusion-plugin-api/src/main/java/com/datafusion/plugin/api/sink/paimon/PaimonSinkWriter.java` | 复用或提炼公共工具 | 避免新插件和 API 插件的 Paimon 字段行为不一致 |
-| `SinkRecordNormalizer` 归一化规则 | `datafusion-plugin/datafusion-plugin-api/src/main/java/com/datafusion/plugin/api/sink/SinkRecordNormalizer.java` | 复用或提炼公共工具 | 统一默认值、非空和 format 行为 |
+| `SinkRecordNormalizer` 归一化规则 | `datafusion-plugin/datafusion-plugin-api/src/main/java/com/datafusion/plugin/api/sink/SinkRecordNormalizer.java` | 参考默认值和 format 行为 | 本插件对非空字段采用行级跳过策略：只过滤当前异常记录并记录 WARN |

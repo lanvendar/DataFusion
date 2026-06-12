@@ -32,11 +32,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TableResolverTest {
 
     /**
-     * 未配置表在 SKIP 策略下应跳过.
+     * 未配置表应默认跳过.
      */
     @Test
     void shouldSkipUnmatchedTableByDefault() {
-        TableResolver resolver = new TableResolver(sink("configured_table", "SKIP", false, "APPEND"));
+        TableResolver resolver = new TableResolver(sink("configured_table", false, "APPEND"));
 
         Optional<ResolvedTableWritePlan> plan = resolver.resolve(envelope("other_table", List.of("id")), record());
 
@@ -45,21 +45,11 @@ class TableResolverTest {
     }
 
     /**
-     * 未配置表在 FAIL 策略下应失败.
-     */
-    @Test
-    void shouldFailUnmatchedTableWhenPolicyIsFail() {
-        TableResolver resolver = new TableResolver(sink("configured_table", "FAIL", false, "APPEND"));
-
-        assertThrows(FlinkSchemaPaimonException.class, () -> resolver.resolve(envelope("other_table", List.of("id")), record()));
-    }
-
-    /**
      * UPSERT 写入必须携带主键.
      */
     @Test
     void shouldFailUpsertWithoutPrimaryKeys() {
-        TableResolver resolver = new TableResolver(sink("configured_table", "SKIP", false, "UPSERT"));
+        TableResolver resolver = new TableResolver(sink("configured_table", false, "UPSERT"));
 
         assertThrows(FlinkSchemaPaimonException.class, () -> resolver.resolve(envelope("configured_table", List.of()), record()));
     }
@@ -69,7 +59,7 @@ class TableResolverTest {
      */
     @Test
     void shouldAppendKafkaMetadataFields() {
-        TableResolver resolver = new TableResolver(sink("configured_table", "SKIP", true, "UPSERT"));
+        TableResolver resolver = new TableResolver(sink("configured_table", true, "UPSERT"));
 
         ResolvedTableWritePlan plan = resolver.resolve(envelope("configured_table", List.of("id")), record()).orElseThrow();
 
@@ -79,12 +69,26 @@ class TableResolverTest {
         assertTrue(plan.records.get(0).containsKey(TableResolver.KAFKA_OFFSET_FIELD));
     }
 
-    private PaimonSinkGroupConfig sink(String tableName, String unmatchedPolicy, boolean includeKafkaMetadata, String loadMode) {
+    /**
+     * 表级 options 应覆盖全局 options.
+     */
+    @Test
+    void shouldMergeTableOptionsOverGlobalOptions() {
+        TableResolver resolver = new TableResolver(sink("configured_table", false, "APPEND"));
+
+        ResolvedTableWritePlan plan = resolver.resolve(envelope("configured_table", List.of("id")), record()).orElseThrow();
+
+        assertEquals("1", plan.tableConfig.options.get("bucket"));
+        assertEquals("parquet", plan.tableConfig.options.get("file.format"));
+    }
+
+    private PaimonSinkGroupConfig sink(String tableName, boolean includeKafkaMetadata, String loadMode) {
         PaimonSinkGroupConfig sink = new PaimonSinkGroupConfig();
         sink.loadMode = loadMode;
-        sink.unmatchedTablePolicy = unmatchedPolicy;
         sink.includeKafkaMetadataFields = includeKafkaMetadata;
-        sink.catalogOptions.put("warehouse", "file:///tmp/paimon");
+        sink.options.put("warehouse", "file:///tmp/paimon");
+        sink.options.put("bucket", "2");
+        sink.options.put("file.format", "parquet");
         PaimonTableSinkConfig table = new PaimonTableSinkConfig();
         table.database = "dw_dev";
         table.tableName = tableName;
