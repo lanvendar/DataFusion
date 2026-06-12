@@ -54,6 +54,8 @@
 | `runtime.restartStrategy` | No | Flink 重启策略，支持 `NO_RESTART`、`FIXED_DELAY`、`FAILURE_RATE` |
 | `sink.options` | Yes | 全局 Paimon options，包含 catalog 连接参数和默认表 options |
 | `sink.includeKafkaMetadataFields` | No | 默认 `false`；开启后所有表补充 `_kafka_topic`、`_kafka_partition`、`_kafka_offset` |
+| `sink.schemaMismatchPolicy` | No | 默认 `SKIP`；已有 Paimon 表与 Kafka schema 主键、分区键、字段类型、字段缺失或表 options 不一致时跳过或失败 |
+| `sink.recordErrorPolicy` | No | 默认 `SKIP`；单条记录必输字段为空、format 失败或类型转换失败时跳过或失败 |
 | `sink.tables` | Yes | 目标 Paimon 库表数组，数组长度就是本 job 可写入表数量 |
 
 最小多表配置骨架：
@@ -90,6 +92,8 @@
     "loadMode": "UPSERT",
     "connectType": "S3",
     "includeKafkaMetadataFields": false,
+    "schemaMismatchPolicy": "SKIP",
+    "recordErrorPolicy": "SKIP",
     "options": {
       "warehouse": "s3://data-lake-warehouse/paimon",
       "catalogType": "filesystem",
@@ -188,11 +192,12 @@
 | 多表配置 | 必须配置非空 `sink.tables[]`，每个启用表必须有 `database` 和 `tableName` | 启动校验失败 |
 | 新增目标表 | 只追加一个 `sink.tables[]` 元素，表结构仍由 Kafka 消息中的 `schema` 决定 | 不需要修改 Java 代码 |
 | 同一批次消息写入多张表 | 先按目标表分组，再逐表写入 | 每张表独立 writer 和 commit |
-| 目标表已存在但字段不兼容 | 字段缺失、类型不一致、主键不一致、分区不一致直接失败；字段或表 comment 不一致只 WARN 一次 | 抛异常并停止作业，避免脏写 |
+| 目标表已存在但字段不兼容 | 字段缺失、类型不一致、主键不一致、分区不一致、表 options 不一致由 `sink.schemaMismatchPolicy` 控制；字段或表 comment 不一致只 WARN 一次 | `SKIP` 时跳过当前表写入并缓存不兼容状态；`FAIL` 时抛异常并停止作业 |
 | 多实例分摊 | 仅通过 Kafka topic、partition 和 consumer group 分摊，不在插件内做表 hash 归属 | 降低误配置风险 |
 | 按表集合拆分压力 | 生产端将不同表集合写入不同 topic，消费端分别订阅并配置对应 `sink.tables[]` | 未匹配表固定跳过并记录 WARN |
 | 消息包含多条 `data` | 同一消息内所有记录共享 Kafka 消息中的 `schema` | 若记录缺列则按默认值与 nullable 规则处理；必输字段无默认值时只跳过当前记录 |
-| 必输字段为空 | `ColumnConfig.nullable=false` 且归一化后为空，并且没有 `defaultValue` | 只跳过当前 `data[]` 记录并记录 WARN，不影响同一消息中的其他记录；若整个批次被过滤为空则不提交 |
+| 必输字段为空 | `ColumnConfig.nullable=false` 且归一化后为空，并且没有 `defaultValue` | 由 `sink.recordErrorPolicy` 控制；`SKIP` 时只跳过当前 `data[]` 记录并记录 WARN，`FAIL` 时抛异常 |
+| 字段 format 或类型转换失败 | 日期格式化、数字、Decimal、日期时间等转换失败 | 由 `sink.recordErrorPolicy` 控制；`SKIP` 时只跳过当前记录，`FAIL` 时抛异常 |
 | `UPSERT` 写入 | Kafka 消息 `schema.table.primaryKeys` 必须非空 | 运行期遇到不合法消息直接 fail |
 | `APPEND` 写入 | 可以没有主键 | 允许动态表追加 |
 | 自动建表 | 只由 Kafka 消息 `schema.table.createIfNotExists` 决定 | `true` 时允许自动建表；`false` 时要求表预先存在 |
@@ -202,7 +207,7 @@
 
 - Needs transaction: 由 `runtime.checkpointMode` 控制，默认 `EXACTLY_ONCE`
 - Transactional method: `PaimonTableWriter.writeBatch`
-- Rollback condition: 单表批次写入异常、schema 校验失败、commit 失败时当前 checkpoint 不提交；`AT_LEAST_ONCE` 模式允许失败重放，`UPSERT` 依赖主键幂等降低重复影响
+- Rollback condition: 单表批次写入异常、`schemaMismatchPolicy=FAIL` 的 schema 校验失败、commit 失败时当前 checkpoint 不提交；`AT_LEAST_ONCE` 模式允许失败重放，`UPSERT` 依赖主键幂等降低重复影响
 
 ### 5.5 Mapper / DAO / SQL
 

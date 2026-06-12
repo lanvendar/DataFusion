@@ -31,6 +31,21 @@ public class ResolvedTableWritePlan implements Serializable {
     public List<Map<String, Object>> records = new ArrayList<>();
 
     /**
+     * Kafka topic.
+     */
+    public String topic;
+
+    /**
+     * Kafka partition.
+     */
+    public Integer partition;
+
+    /**
+     * Kafka offset.
+     */
+    public Long offset;
+
+    /**
      * 创建记录副本.
      *
      * @param record 原始记录

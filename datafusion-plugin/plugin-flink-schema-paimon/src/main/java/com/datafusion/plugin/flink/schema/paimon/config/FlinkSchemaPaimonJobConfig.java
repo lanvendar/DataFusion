@@ -187,10 +187,6 @@ public class FlinkSchemaPaimonJobConfig implements Serializable {
          */
         public Long restartDelayMs = 10000L;
 
-        /**
-         * 失败处理策略.
-         */
-        public String failurePolicy = "FAIL_FAST";
     }
 
     /**
@@ -217,6 +213,16 @@ public class FlinkSchemaPaimonJobConfig implements Serializable {
          * 是否补充 Kafka 元数据字段.
          */
         public Boolean includeKafkaMetadataFields = false;
+
+        /**
+         * 表结构不匹配处理策略.
+         */
+        public String schemaMismatchPolicy = "SKIP";
+
+        /**
+         * 单条记录错误处理策略.
+         */
+        public String recordErrorPolicy = "SKIP";
 
         /**
          * Paimon catalog 配置.

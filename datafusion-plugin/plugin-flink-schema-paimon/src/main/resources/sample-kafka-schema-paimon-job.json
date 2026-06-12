@@ -27,13 +27,14 @@
     "stateBackend": "HASHMAP",
     "restartStrategy": "FIXED_DELAY",
     "restartAttempts": 3,
-    "restartDelayMs": 10000,
-    "failurePolicy": "FAIL_FAST"
+    "restartDelayMs": 10000
   },
     "sink": {
     "loadMode": "UPSERT",
     "connectType": "S3",
     "includeKafkaMetadataFields": false,
+    "schemaMismatchPolicy": "SKIP",
+    "recordErrorPolicy": "SKIP",
     "options": {
       "warehouse": "s3://data-lake-warehouse/paimon",
       "catalogType": "filesystem",

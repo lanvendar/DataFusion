@@ -1,5 +1,7 @@
 package com.datafusion.plugin.flink.schema.paimon.sink;
 
+import com.datafusion.plugin.flink.schema.paimon.core.FlinkSchemaPaimonException;
+import com.datafusion.plugin.flink.schema.paimon.core.enums.RecordErrorPolicy;
 import com.datafusion.plugin.flink.schema.paimon.message.ColumnConfig;
 import com.datafusion.plugin.flink.schema.paimon.resolve.ResolvedTableConfig;
 import com.datafusion.plugin.flink.schema.paimon.util.TextUtils;
@@ -36,12 +38,14 @@ public final class RecordNormalizer {
      *
      * @param records 原始记录
      * @param tableConfig 目标表配置
+     * @param recordErrorPolicy 单条记录错误处理策略
      * @return 归一化记录
      */
-    public static List<Map<String, Object>> normalize(List<Map<String, Object>> records, ResolvedTableConfig tableConfig) {
+    public static List<Map<String, Object>> normalize(List<Map<String, Object>> records, ResolvedTableConfig tableConfig,
+            RecordErrorPolicy recordErrorPolicy) {
         List<Map<String, Object>> normalized = new ArrayList<>();
         for (int i = 0; i < records.size(); i++) {
-            Map<String, Object> normalizedRecord = normalizeRecord(records.get(i), tableConfig, i);
+            Map<String, Object> normalizedRecord = normalizeRecord(records.get(i), tableConfig, i, recordErrorPolicy);
             if (normalizedRecord != null) {
                 normalized.add(normalizedRecord);
             }
@@ -49,24 +53,44 @@ public final class RecordNormalizer {
         return normalized;
     }
 
-    private static Map<String, Object> normalizeRecord(Map<String, Object> record, ResolvedTableConfig tableConfig, int recordIndex) {
+    private static Map<String, Object> normalizeRecord(Map<String, Object> record, ResolvedTableConfig tableConfig, int recordIndex,
+            RecordErrorPolicy recordErrorPolicy) {
         Map<String, Object> normalized = new LinkedHashMap<>();
         for (ColumnConfig column : tableConfig.columns) {
-            Object value = record == null ? null : record.get(column.name);
-            if (isEmpty(value) && column.defaultValue != null) {
-                value = column.defaultValue;
-            }
-            if (!isEmpty(value) && !TextUtils.isBlank(column.format)) {
-                value = formatValue(column, String.valueOf(value));
+            Object value;
+            try {
+                value = normalizeValue(record, column);
+            } catch (RuntimeException e) {
+                return handleRecordError(tableConfig, column.name, recordIndex, recordErrorPolicy, e);
             }
             if (isEmpty(value) && Boolean.FALSE.equals(column.nullable)) {
-                LOGGER.warn("Skip Paimon record because required column is empty, identifier={}, column={}, recordIndex={}",
-                        tableConfig.identifier(), column.name, recordIndex);
-                return null;
+                return handleRecordError(tableConfig, column.name, recordIndex, recordErrorPolicy,
+                        new FlinkSchemaPaimonException("Required column is empty"));
             }
             normalized.put(column.name, value);
         }
         return normalized;
+    }
+
+    private static Object normalizeValue(Map<String, Object> record, ColumnConfig column) {
+        Object value = record == null ? null : record.get(column.name);
+        if (isEmpty(value) && column.defaultValue != null) {
+            value = column.defaultValue;
+        }
+        if (!isEmpty(value) && !TextUtils.isBlank(column.format)) {
+            value = formatValue(column, String.valueOf(value));
+        }
+        return value;
+    }
+
+    private static Map<String, Object> handleRecordError(ResolvedTableConfig tableConfig, String columnName, int recordIndex,
+            RecordErrorPolicy recordErrorPolicy, RuntimeException e) {
+        if (recordErrorPolicy == RecordErrorPolicy.FAIL) {
+            throw e;
+        }
+        LOGGER.warn("Skip Paimon record because record error, identifier={}, column={}, recordIndex={}, reason={}",
+                tableConfig.identifier(), columnName, recordIndex, e.getMessage());
+        return null;
     }
 
     private static Object formatValue(ColumnConfig column, String value) {

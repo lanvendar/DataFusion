@@ -1,5 +1,7 @@
 package com.datafusion.plugin.flink.schema.paimon.sink;
 
+import com.datafusion.plugin.flink.schema.paimon.core.FlinkSchemaPaimonException;
+import com.datafusion.plugin.flink.schema.paimon.core.enums.RecordErrorPolicy;
 import com.datafusion.plugin.flink.schema.paimon.message.ColumnConfig;
 import com.datafusion.plugin.flink.schema.paimon.resolve.ResolvedTableConfig;
 
@@ -10,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Paimon 记录归一化测试.
@@ -26,7 +29,8 @@ class RecordNormalizerTest {
     @Test
     void shouldSkipOnlyRecordWithEmptyRequiredColumn() {
         ResolvedTableConfig tableConfig = tableConfig();
-        List<Map<String, Object>> normalized = RecordNormalizer.normalize(List.of(record(" ", "bad"), record("2", "good")), tableConfig);
+        List<Map<String, Object>> normalized = RecordNormalizer.normalize(List.of(record(" ", "bad"), record("2", "good")), tableConfig,
+                RecordErrorPolicy.SKIP);
 
         assertEquals(1, normalized.size());
         assertEquals("2", normalized.get(0).get("id"));
@@ -41,10 +45,21 @@ class RecordNormalizerTest {
         ResolvedTableConfig tableConfig = tableConfig();
         tableConfig.columns.get(0).defaultValue = "0";
 
-        List<Map<String, Object>> normalized = RecordNormalizer.normalize(List.of(record(null, "defaulted")), tableConfig);
+        List<Map<String, Object>> normalized = RecordNormalizer.normalize(List.of(record(null, "defaulted")), tableConfig, RecordErrorPolicy.SKIP);
 
         assertEquals(1, normalized.size());
         assertEquals("0", normalized.get(0).get("id"));
+    }
+
+    /**
+     * 配置失败策略时必输字段为空应抛出异常.
+     */
+    @Test
+    void shouldFailWhenRequiredColumnEmptyAndPolicyIsFail() {
+        ResolvedTableConfig tableConfig = tableConfig();
+
+        assertThrows(FlinkSchemaPaimonException.class,
+                () -> RecordNormalizer.normalize(List.of(record(null, "bad")), tableConfig, RecordErrorPolicy.FAIL));
     }
 
     private ResolvedTableConfig tableConfig() {

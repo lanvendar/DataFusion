@@ -9,9 +9,10 @@ import com.datafusion.plugin.flink.schema.paimon.core.FlinkSchemaPaimonException
 import com.datafusion.plugin.flink.schema.paimon.core.enums.CheckpointMode;
 import com.datafusion.plugin.flink.schema.paimon.core.enums.DeploymentMode;
 import com.datafusion.plugin.flink.schema.paimon.core.enums.ExecutionMode;
-import com.datafusion.plugin.flink.schema.paimon.core.enums.FailurePolicy;
 import com.datafusion.plugin.flink.schema.paimon.core.enums.LoadMode;
+import com.datafusion.plugin.flink.schema.paimon.core.enums.RecordErrorPolicy;
 import com.datafusion.plugin.flink.schema.paimon.core.enums.RestartStrategyType;
+import com.datafusion.plugin.flink.schema.paimon.core.enums.SchemaMismatchPolicy;
 import com.datafusion.plugin.flink.schema.paimon.core.enums.StateBackendType;
 import com.datafusion.plugin.flink.schema.paimon.util.TextUtils;
 
@@ -80,7 +81,6 @@ public class ConfigValidator {
         CheckpointMode.parse(runtime.checkpointMode);
         StateBackendType.parse(runtime.stateBackend);
         RestartStrategyType.parse(runtime.restartStrategy);
-        FailurePolicy.parse(runtime.failurePolicy);
         if (runtime.parallelism != null && runtime.parallelism <= 0) {
             throw new FlinkSchemaPaimonException("runtime.parallelism must be greater than 0");
         }
@@ -94,6 +94,8 @@ public class ConfigValidator {
             throw new FlinkSchemaPaimonException("sink is required");
         }
         LoadMode.parse(sink.loadMode, LoadMode.APPEND);
+        SchemaMismatchPolicy.parse(sink.schemaMismatchPolicy);
+        RecordErrorPolicy.parse(sink.recordErrorPolicy);
         Map<String, String> options = sink.options == null || sink.options.isEmpty() ? sink.catalogOptions : sink.options;
         if (options == null || options.isEmpty()) {
             throw new FlinkSchemaPaimonException("sink.options is required");

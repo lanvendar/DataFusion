@@ -91,7 +91,6 @@
 | `restartStrategy` | `String` | No | `FIXED_DELAY` | Flink restart strategy |
 | `restartAttempts` | `Integer` | No | `3` | 重启次数 |
 | `restartDelayMs` | `Long` | No | `10000` | 重启间隔 |
-| `failurePolicy` | `String` | No | `FAIL_FAST` | 消息解析或写入失败策略 |
 
 #### 2.4.4 `PaimonSinkGroupConfig`
 
@@ -101,6 +100,8 @@
 | `connectType` | `String` | No | `S3` | 与现有 API 插件保持一致 |
 | `options` | `Map<String, String>` | Yes | 空 map | 全局 Paimon options，包含 `warehouse`、`catalogType`、S3 参数、默认表 options 等 |
 | `includeKafkaMetadataFields` | `Boolean` | No | `false` | 是否为所有表补充 Kafka 元数据字段 |
+| `schemaMismatchPolicy` | `String` | No | `SKIP` | 表结构不匹配处理策略，支持 `SKIP`、`FAIL` |
+| `recordErrorPolicy` | `String` | No | `SKIP` | 单条记录错误处理策略，支持 `SKIP`、`FAIL` |
 | `tables` | `List<PaimonTableSinkConfig>` | Yes | 无 | 配置任意数量目标库表 |
 | `write` | `WriteConfig` | No | 默认对象 | 批量写控制 |
 

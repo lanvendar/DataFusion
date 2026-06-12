@@ -96,6 +96,9 @@ public class TableResolver {
         ResolvedTableWritePlan plan = new ResolvedTableWritePlan();
         plan.tableConfig = tableConfig;
         plan.records = buildRecords(envelope, record);
+        plan.topic = record.topic;
+        plan.partition = record.partition;
+        plan.offset = record.offset;
         return Optional.of(plan);
     }
 

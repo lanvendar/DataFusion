@@ -1,6 +1,8 @@
 package com.datafusion.plugin.flink.schema.paimon.sink;
 
 import com.datafusion.plugin.flink.schema.paimon.core.FlinkSchemaPaimonException;
+import com.datafusion.plugin.flink.schema.paimon.core.PaimonSchemaMismatchException;
+import com.datafusion.plugin.flink.schema.paimon.core.enums.RecordErrorPolicy;
 import com.datafusion.plugin.flink.schema.paimon.message.ColumnConfig;
 import com.datafusion.plugin.flink.schema.paimon.resolve.ResolvedTableConfig;
 import com.datafusion.plugin.flink.schema.paimon.util.TextUtils;
@@ -64,6 +66,11 @@ public class PaimonTableWriter implements AutoCloseable {
     private final ResolvedTableConfig tableConfig;
 
     /**
+     * 单条记录错误处理策略.
+     */
+    private final RecordErrorPolicy recordErrorPolicy;
+
+    /**
      * Paimon catalog.
      */
     private Catalog catalog;
@@ -88,10 +95,12 @@ public class PaimonTableWriter implements AutoCloseable {
      *
      * @param catalogOptions catalog 配置
      * @param tableConfig 目标表配置
+     * @param recordErrorPolicy 单条记录错误处理策略
      */
-    public PaimonTableWriter(Map<String, String> catalogOptions, ResolvedTableConfig tableConfig) {
+    public PaimonTableWriter(Map<String, String> catalogOptions, ResolvedTableConfig tableConfig, RecordErrorPolicy recordErrorPolicy) {
         this.catalogOptions = new LinkedHashMap<>(catalogOptions);
         this.tableConfig = tableConfig;
+        this.recordErrorPolicy = recordErrorPolicy;
     }
 
     /**
@@ -105,6 +114,8 @@ public class PaimonTableWriter implements AutoCloseable {
             table = getOrCreateTable(identifier);
             rowType = table.rowType();
             LOGGER.info("Paimon table writer opened, identifier={}, fields={}", identifier, rowType.getFieldCount());
+        } catch (PaimonSchemaMismatchException e) {
+            throw e;
         } catch (Exception e) {
             throw new FlinkSchemaPaimonException("Failed to open Paimon table writer: " + tableConfig.identifier(), e);
         }
@@ -119,7 +130,7 @@ public class PaimonTableWriter implements AutoCloseable {
         if (records == null || records.isEmpty()) {
             return;
         }
-        List<Map<String, Object>> normalizedRecords = RecordNormalizer.normalize(records, tableConfig);
+        List<Map<String, Object>> normalizedRecords = RecordNormalizer.normalize(records, tableConfig, recordErrorPolicy);
         if (normalizedRecords.isEmpty()) {
             return;
         }
@@ -127,13 +138,22 @@ public class PaimonTableWriter implements AutoCloseable {
         LOGGER.info("Paimon write started, identifier={}, records={}", identifier, normalizedRecords.size());
         try (BatchTableWrite write = table.newBatchWriteBuilder().newWrite();
                 BatchTableCommit commit = table.newBatchWriteBuilder().newCommit()) {
-            for (Map<String, Object> record : normalizedRecords) {
-                writeRecord(write, toRow(record));
+            int written = 0;
+            for (int i = 0; i < normalizedRecords.size(); i++) {
+                InternalRow row = toRow(normalizedRecords.get(i), i);
+                if (row != null) {
+                    writeRecord(write, row);
+                    written++;
+                }
+            }
+            if (written == 0) {
+                LOGGER.warn("Skip Paimon commit because all records are invalid, identifier={}", identifier);
+                return;
             }
             List<CommitMessage> messages = write.prepareCommit();
             commit.commit(messages);
             LOGGER.info("Paimon write finished, identifier={}, records={}, commitMessages={}, elapsedMs={}",
-                    identifier, normalizedRecords.size(), messages.size(), System.currentTimeMillis() - start);
+                    identifier, written, messages.size(), System.currentTimeMillis() - start);
         } catch (Exception e) {
             throw new FlinkSchemaPaimonException("Failed to write Paimon records: " + tableConfig.identifier(), e);
         }
@@ -199,20 +219,20 @@ public class PaimonTableWriter implements AutoCloseable {
         for (ColumnConfig configured : tableConfig.columns) {
             DataField actual = fields.get(configured.name.toLowerCase(Locale.ROOT));
             if (actual == null) {
-                throw new FlinkSchemaPaimonException("Paimon table lacks configured field: " + configured.name);
+                throw new PaimonSchemaMismatchException("Paimon table lacks configured field: " + configured.name);
             }
             DataType expected = paimonType(configured);
             if (!actual.type().equalsIgnoreNullable(expected)) {
-                throw new FlinkSchemaPaimonException("Paimon field type mismatch: " + configured.name
+                throw new PaimonSchemaMismatchException("Paimon field type mismatch: " + configured.name
                         + ", expected=" + expected.asSQLString() + ", actual=" + actual.type().asSQLString());
             }
             warnCommentMismatch(configured.name, configured.comment, actual.description());
         }
         if (!Objects.equals(existing.primaryKeys(), safeList(tableConfig.table.primaryKeys))) {
-            throw new FlinkSchemaPaimonException("Paimon primary keys mismatch: " + tableConfig.identifier());
+            throw new PaimonSchemaMismatchException("Paimon primary keys not match json schema: " + tableConfig.identifier());
         }
         if (!Objects.equals(existing.partitionKeys(), safeList(tableConfig.table.partitionKeys))) {
-            throw new FlinkSchemaPaimonException("Paimon partition keys mismatch: " + tableConfig.identifier());
+            throw new PaimonSchemaMismatchException("Paimon partition keys not match json schema: " + tableConfig.identifier());
         }
         validateTableOptions(existing);
         warnCommentMismatch(tableConfig.identifier(), tableConfig.table.comment, existing.comment().orElse(null));
@@ -223,7 +243,7 @@ public class PaimonTableWriter implements AutoCloseable {
         for (Map.Entry<String, String> entry : tableOptions().entrySet()) {
             String actualValue = actual.get(entry.getKey());
             if (!Objects.equals(entry.getValue(), actualValue)) {
-                throw new FlinkSchemaPaimonException("Paimon table option mismatch: " + entry.getKey()
+                throw new PaimonSchemaMismatchException("Paimon table option mismatch: " + entry.getKey()
                         + ", expected=" + entry.getValue() + ", actual=" + actualValue);
             }
         }
@@ -254,13 +274,22 @@ public class PaimonTableWriter implements AutoCloseable {
         }
     }
 
-    private GenericRow toRow(Map<String, Object> record) {
+    private GenericRow toRow(Map<String, Object> record, int recordIndex) {
         GenericRow row = new GenericRow(rowType.getFieldCount());
-        for (int i = 0; i < rowType.getFieldCount(); i++) {
-            DataField field = rowType.getField(i);
-            row.setField(i, convertValue(record.get(field.name()), field.type()));
+        try {
+            for (int i = 0; i < rowType.getFieldCount(); i++) {
+                DataField field = rowType.getField(i);
+                row.setField(i, convertValue(record.get(field.name()), field.type()));
+            }
+            return row;
+        } catch (RuntimeException e) {
+            if (recordErrorPolicy == RecordErrorPolicy.FAIL) {
+                throw e;
+            }
+            LOGGER.warn("Skip Paimon record because value conversion failed, identifier={}, recordIndex={}, reason={}",
+                    tableConfig.identifier(), recordIndex, e.getMessage());
+            return null;
         }
-        return row;
     }
 
     private void writeRecord(BatchTableWrite write, InternalRow row) throws Exception {
