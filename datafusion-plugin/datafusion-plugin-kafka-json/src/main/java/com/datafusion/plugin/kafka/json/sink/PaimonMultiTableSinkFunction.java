@@ -87,17 +87,19 @@ public class PaimonMultiTableSinkFunction extends RichSinkFunction<KafkaRecord> 
      */
     @Override
     public void invoke(KafkaRecord value, SinkFunction.Context context) {
+        Optional<ResolvedTableWritePlan> plan;
         try {
             JsonNode message = JacksonUtils.str2JsonNode(value.value);
-            Optional<ResolvedTableWritePlan> plan = resolver.resolve(message, value);
-            plan.ifPresent(registry::write);
+            plan = resolver.resolve(message, value);
         } catch (Exception e) {
             if (RecordErrorPolicy.parse(sink.recordErrorPolicy) == RecordErrorPolicy.FAIL) {
-                throw new KafkaJsonPaimonException("Failed to parse Kafka JSON message", e);
+                throw new KafkaJsonPaimonException("Failed to parse or resolve Kafka JSON message", e);
             }
-            LOGGER.warn("Skip Kafka JSON message because parsing failed, topic={}, partition={}, offset={}, reason={}",
+            LOGGER.warn("Skip Kafka JSON message because parsing or resolving failed, topic={}, partition={}, offset={}, reason={}",
                     value.topic, value.partition, value.offset, e.getMessage());
+            return;
         }
+        plan.ifPresent(registry::write);
     }
 
     /**

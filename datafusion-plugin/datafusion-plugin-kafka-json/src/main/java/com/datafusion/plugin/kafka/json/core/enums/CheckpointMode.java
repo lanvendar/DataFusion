@@ -29,7 +29,7 @@ public enum CheckpointMode {
      * @return checkpoint 模式
      */
     public static CheckpointMode parse(String value) {
-        String text = TextUtils.upper(value, EXACTLY_ONCE.name());
+        String text = TextUtils.upper(value, AT_LEAST_ONCE.name());
         try {
             return CheckpointMode.valueOf(text);
         } catch (IllegalArgumentException e) {

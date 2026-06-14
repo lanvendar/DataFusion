@@ -24,12 +24,12 @@ public class JmesPathEvaluator implements Serializable {
     /**
      * JCF 运行时.
      */
-    private final transient JcfRuntime runtime = new JcfRuntime();
+    private transient JcfRuntime runtime;
 
     /**
      * 编译缓存.
      */
-    private final transient Map<String, Expression<Object>> cache = new ConcurrentHashMap<>();
+    private transient Map<String, Expression<Object>> cache;
 
     /**
      * 执行表达式.
@@ -42,6 +42,20 @@ public class JmesPathEvaluator implements Serializable {
         if (expression == null || expression.trim().isEmpty()) {
             return null;
         }
-        return cache.computeIfAbsent(expression, runtime::compile).search(input);
+        return cache().computeIfAbsent(expression, runtime()::compile).search(input);
+    }
+
+    private JcfRuntime runtime() {
+        if (runtime == null) {
+            runtime = new JcfRuntime();
+        }
+        return runtime;
+    }
+
+    private Map<String, Expression<Object>> cache() {
+        if (cache == null) {
+            cache = new ConcurrentHashMap<>();
+        }
+        return cache;
     }
 }

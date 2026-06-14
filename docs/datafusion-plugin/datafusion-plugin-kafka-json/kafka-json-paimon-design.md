@@ -22,7 +22,7 @@
 | 解析记录数组 | Kafka `JsonNode` + `columnsMapping` | `ExpressionEvaluator` | record nodes | `Array<Object>` | `columnsMapping.path` 是消息级 JMESPath，结果支持对象数组或单层对象，单层对象自动包装为一条记录 |
 | 解析目标表结构 | Kafka `JsonNode` + `PaimonTableConfig` | `TableResolver` | `ResolvedTableConfig` | database/tableName/table metadata/columns/options | 表结构以 job.json 为准，Kafka 仅提供可选动态取值 |
 | 解析单条记录 | record `JsonNode` + `columns[]` | `RecordMapper` | `Map<String, Object>` | 写入记录 | 每列按 `columns[].value` 取值和兜底 |
-| 生成代理主键 | mapped record + `PrimaryKeyConfig` | `PrimaryKeyResolver` | mapped record | `_id_` 或配置字段名 | `PROXY` 模式自动补充代理主键列 |
+| 生成代理主键 | mapped record + `PrimaryKeyConfig` | `PrimaryKeyResolver` | mapped record | `_id_` | `PROXY` 模式自动补充固定代理主键列 |
 | 初始化或复用 writer | `ResolvedTableConfig` | `PaimonWriterRegistry` | `PaimonTableWriter` | 按 `database.table` 缓存 | 启动预加载真实 Paimon schema，运行期校验当前目标结构 |
 | 批量写入 | mapped records | `RecordNormalizer` -> `PaimonTableWriter` | Paimon | `GenericRow` / `CommitMessage` | 单条错误按 `recordErrorPolicy` 处理 |
 | 容错恢复 | Flink checkpoint state | Flink runtime | Kafka offsets + Paimon commit | runtime 配置 | `UPSERT` 结合主键提升重放幂等性 |
@@ -78,7 +78,7 @@ OilChem 样例配置骨架：
     "parallelism": 2,
     "deploymentMode": "LOCAL",
     "executionMode": "STREAMING",
-    "checkpointMode": "EXACTLY_ONCE",
+    "checkpointMode": "AT_LEAST_ONCE",
     "checkpointIntervalMs": 60000,
     "checkpointTimeoutMs": 600000,
     "maxConcurrentCheckpoints": 1,
@@ -124,7 +124,6 @@ OilChem 样例配置骨架：
         "partitionKeys": ["day_pt"],
         "primaryKey": {
           "mode": "PROXY",
-          "field": "_id_",
           "algorithm": "SHA-256",
           "defaultValue": [
             "day_pt",
@@ -289,16 +288,16 @@ OilChem 样例配置骨架：
 | 必输字段为空 | `nullable=false` 且表达式最终值为空 | 按 `recordErrorPolicy` 处理 |
 | `UPSERT` 未配置主键 | `loadMode=UPSERT` 时必须有 `primaryKey` | 配置校验失败 |
 | 普通主键 | `primaryKey.mode=FIELDS` 时从 `primaryKey.path/defaultValue` 得到主键列表 | 主键字段必须存在于 `columns[]` |
-| 代理主键 | `primaryKey.mode=PROXY` 时自动补充 `field` 字段；真实 Paimon 主键只有代理主键字段和分区字段 | `primaryKey.path/defaultValue` 得到的源字段必须能从输出记录中取到；生成值为空或转换失败按 `recordErrorPolicy` 处理 |
+| 代理主键 | `primaryKey.mode=PROXY` 时自动补充固定 `_id_` 字段；真实 Paimon 主键只有 `_id_` 和分区字段 | `primaryKey.path/defaultValue` 得到的源字段用于生成代理键；字段值允许为空字符串参与拼接 |
 | Paimon 表不存在 | `createIfNotExists=true` 时自动建表 | `false` 时抛异常 |
 | Paimon 表已存在且不兼容 | 比较字段缺失、类型、主键、分区和表 options | 按 `schemaMismatchPolicy` 处理；comment 不一致只 WARN；日志包含 topic、partition、offset、tableName、reason |
 | Kafka 元数据字段 | `includeKafkaMetadataFields=true` 时自动补 `_kafka_topic`、`_kafka_partition`、`_kafka_offset` | 关闭时不写入 |
 
 ### 5.4 Transaction Boundary
 
-- Needs transaction: 由 Flink checkpoint 与 Paimon commit 语义控制，默认 `EXACTLY_ONCE`。
-- Transactional method: `PaimonTableWriter.writeBatch`。
-- Rollback condition: 单表批次写入异常、Paimon commit 失败、`schemaMismatchPolicy=FAIL` 的 schema 校验失败时当前 checkpoint 不提交。
+- Consistency boundary: 当前自定义 `RichSinkFunction` 在 checkpoint 时 flush Paimon batch，默认使用 `AT_LEAST_ONCE`。
+- Replay behavior: `UPSERT` + 主键或代理主键可以提升失败重放时的幂等性；`APPEND` 表在 Paimon commit 成功但 Kafka offset checkpoint 未完成时可能重复写入。
+- Failure behavior: 单表批次写入异常、Paimon commit 失败、`schemaMismatchPolicy=FAIL` 的 schema 校验失败会让当前 Flink task 失败并触发重启策略。
 
 ### 5.5 Mapper / DAO / SQL
 

@@ -147,7 +147,7 @@ public class KafkaJsonPaimonJobConfig implements Serializable {
         /**
          * checkpoint 模式.
          */
-        public String checkpointMode = "EXACTLY_ONCE";
+        public String checkpointMode = "AT_LEAST_ONCE";
 
         /**
          * checkpoint 间隔.
@@ -410,11 +410,6 @@ public class KafkaJsonPaimonJobConfig implements Serializable {
          * 主键模式.
          */
         public String mode;
-
-        /**
-         * 代理主键字段.
-         */
-        public String field = "_id_";
 
         /**
          * 代理主键算法.

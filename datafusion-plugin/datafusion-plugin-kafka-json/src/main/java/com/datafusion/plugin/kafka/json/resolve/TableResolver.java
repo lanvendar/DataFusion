@@ -7,6 +7,7 @@ import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTa
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PrimaryKeyConfig;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
 import com.datafusion.plugin.kafka.json.core.enums.LoadMode;
+import com.datafusion.plugin.kafka.json.core.enums.PrimaryKeyMode;
 import com.datafusion.plugin.kafka.json.core.enums.ProxyPrimaryKeyType;
 import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
 import com.datafusion.plugin.kafka.json.expression.ExpressionEvaluator;
@@ -152,10 +153,11 @@ public class TableResolver {
                 "sink.tables[].tableComment"));
         Object createIfNotExists = evaluate(messageObject, ExpressionSpecNormalizer.constant(table.createIfNotExists, JsonType.BOOLEAN),
                 "sink.tables[].createIfNotExists");
-        config.createIfNotExists = createIfNotExists == null || Boolean.parseBoolean(String.valueOf(createIfNotExists));
+        config.createIfNotExists = createIfNotExists == null || Boolean.TRUE.equals(createIfNotExists);
         config.partitionKeys = stringList(evaluate(messageObject, ExpressionSpecNormalizer.constant(table.partitionKeys, JsonType.ARRAY),
                 "sink.tables[].partitionKeys"), "sink.tables[].partitionKeys");
         config.columns = copyColumns(table.columns);
+        config.primaryKeyMode = table.primaryKey == null ? null : PrimaryKeyMode.parse(table.primaryKey.mode);
         config.primaryKeys = resolvePrimaryKeys(messageObject, table.primaryKey, config);
         config.options = new LinkedHashMap<>(sink.globalOptions());
         if (table.options != null) {
@@ -243,17 +245,17 @@ public class TableResolver {
         if (primaryKey == null) {
             return new ArrayList<>();
         }
-        String mode = TextUtils.upper(primaryKey.mode, null);
+        PrimaryKeyMode mode = PrimaryKeyMode.parse(primaryKey.mode);
         List<String> fields = stringList(evaluate(messageObject, primaryKeySpec(primaryKey), "sink.tables[].primaryKey"),
                 "sink.tables[].primaryKey");
-        if ("PROXY".equals(mode)) {
-            appendProxyColumn(config, primaryKey);
+        if (mode == PrimaryKeyMode.PROXY) {
+            appendProxyColumn(config, ProxyPrimaryKeyType.parse(primaryKey.algorithm));
             List<String> primaryKeys = new ArrayList<>();
-            primaryKeys.add(primaryKeyField(primaryKey));
+            primaryKeys.add(ProxyPrimaryKeyGenerator.FIELD_NAME);
             primaryKeys.addAll(config.partitionKeys);
             return primaryKeys;
         }
-        if ("FIELDS".equals(mode)) {
+        if (mode == PrimaryKeyMode.FIELDS) {
             return fields;
         }
         throw new KafkaJsonPaimonException("Unsupported primaryKey.mode: " + primaryKey.mode);
@@ -268,17 +270,17 @@ public class TableResolver {
     }
 
     private void appendProxyPrimaryKey(Map<String, Object> target, Map<String, Object> source, PrimaryKeyConfig primaryKey) {
-        if (primaryKey == null || !"PROXY".equals(TextUtils.upper(primaryKey.mode, null))) {
+        if (primaryKey == null || PrimaryKeyMode.parse(primaryKey.mode) != PrimaryKeyMode.PROXY) {
             return;
         }
         List<String> fields = stringList(evaluate(source, primaryKeySpec(primaryKey), "sink.tables[].primaryKey"),
                 "sink.tables[].primaryKey");
         ProxyPrimaryKeyType type = ProxyPrimaryKeyType.parse(primaryKey.algorithm);
-        target.put(primaryKeyField(primaryKey), ProxyPrimaryKeyGenerator.generate(target, fields, type));
+        target.put(ProxyPrimaryKeyGenerator.FIELD_NAME, ProxyPrimaryKeyGenerator.generate(target, fields, type));
     }
 
-    private void appendProxyColumn(ResolvedTableConfig config, PrimaryKeyConfig primaryKey) {
-        String fieldName = primaryKeyField(primaryKey);
+    private void appendProxyColumn(ResolvedTableConfig config, ProxyPrimaryKeyType type) {
+        String fieldName = ProxyPrimaryKeyGenerator.FIELD_NAME;
         boolean exists = config.columns.stream().anyMatch(column -> fieldName.equals(column.name));
         if (exists) {
             return;
@@ -286,7 +288,7 @@ public class TableResolver {
         ColumnConfig column = new ColumnConfig();
         column.name = fieldName;
         column.dataType = "VARCHAR";
-        column.length = proxyPrimaryKeyLength(ProxyPrimaryKeyType.parse(primaryKey.algorithm));
+        column.length = proxyPrimaryKeyLength(type);
         column.nullable = false;
         column.comment = "代理主键";
         config.columns.add(0, column);
@@ -330,7 +332,10 @@ public class TableResolver {
     }
 
     private void validateLoadMode(ResolvedTableConfig config) {
-        if (config.loadMode == LoadMode.UPSERT && (config.primaryKeys == null || config.primaryKeys.isEmpty())) {
+        if (config.partitionKeys == null || config.partitionKeys.isEmpty()) {
+            throw new KafkaJsonPaimonException("Paimon partitionKeys is required: " + config.identifier());
+        }
+        if (config.loadMode == LoadMode.UPSERT && config.primaryKeyMode == null) {
             throw new KafkaJsonPaimonException("Paimon UPSERT requires primaryKey: " + config.identifier());
         }
     }
@@ -386,10 +391,6 @@ public class TableResolver {
             values.add(String.valueOf(item));
         }
         return values;
-    }
-
-    private String primaryKeyField(PrimaryKeyConfig primaryKey) {
-        return TextUtils.isBlank(primaryKey.field) ? ProxyPrimaryKeyGenerator.FIELD_NAME : primaryKey.field;
     }
 
     private int proxyPrimaryKeyLength(ProxyPrimaryKeyType type) {

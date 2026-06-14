@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -66,8 +67,7 @@ public final class PaimonValueConverter {
                 ? number.doubleValue() : Double.parseDouble(String.valueOf(value)));
         converters.put(DataTypeRoot.FLOAT, (value, type) -> value instanceof Number number
                 ? number.floatValue() : Float.parseFloat(String.valueOf(value)));
-        converters.put(DataTypeRoot.BOOLEAN, (value, type) -> value instanceof Boolean bool
-                ? bool : Boolean.parseBoolean(String.valueOf(value)));
+        converters.put(DataTypeRoot.BOOLEAN, (value, type) -> toBoolean(value));
         converters.put(DataTypeRoot.DECIMAL, PaimonValueConverter::toDecimal);
         converters.put(DataTypeRoot.DATE, (value, type) -> (int) LocalDate.parse(String.valueOf(value)).toEpochDay());
         converters.put(DataTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE, (value, type) ->
@@ -82,6 +82,20 @@ public final class PaimonValueConverter {
 
     private static BinaryString toBinaryString(Object value) {
         return BinaryString.fromString(String.valueOf(value));
+    }
+
+    private static Boolean toBoolean(Object value) {
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        String text = String.valueOf(value).toLowerCase(Locale.ROOT);
+        if ("true".equals(text)) {
+            return true;
+        }
+        if ("false".equals(text)) {
+            return false;
+        }
+        throw new IllegalArgumentException("Unsupported boolean value: " + value);
     }
 
     private static LocalDateTime parseDateTime(String value) {

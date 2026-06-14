@@ -62,7 +62,10 @@ public class ConfigLoader {
         while (matcher.find()) {
             String envName = matcher.group(1);
             String value = System.getenv(envName);
-            matcher.appendReplacement(buffer, Matcher.quoteReplacement(value == null ? "" : value));
+            if (value == null) {
+                throw new KafkaJsonPaimonException("Missing environment variable: " + envName);
+            }
+            matcher.appendReplacement(buffer, Matcher.quoteReplacement(value));
         }
         matcher.appendTail(buffer);
         return buffer.toString();

@@ -51,11 +51,21 @@ public class PaimonTableSchemaSnapshot {
      */
     public PaimonTableSchemaSnapshot(Table table) {
         this.fields = table.rowType().getFields().stream()
-                .collect(Collectors.toMap(field -> field.name().toLowerCase(Locale.ROOT), field -> field));
+                .collect(Collectors.toMap(field -> field.name().toLowerCase(Locale.ROOT), field -> field,
+                        (left, right) -> left, LinkedHashMap::new));
         this.primaryKeys = new ArrayList<>(table.primaryKeys());
         this.partitionKeys = new ArrayList<>(table.partitionKeys());
         this.options = new LinkedHashMap<>(table.options());
         this.comment = table.comment().orElse(null);
+    }
+
+    PaimonTableSchemaSnapshot(Map<String, DataField> fields, List<String> primaryKeys, List<String> partitionKeys,
+            Map<String, String> options, String comment) {
+        this.fields = new LinkedHashMap<>(fields);
+        this.primaryKeys = new ArrayList<>(primaryKeys);
+        this.partitionKeys = new ArrayList<>(partitionKeys);
+        this.options = new LinkedHashMap<>(options);
+        this.comment = comment;
     }
 
     /**

@@ -12,6 +12,7 @@ import com.datafusion.plugin.kafka.json.core.enums.CheckpointMode;
 import com.datafusion.plugin.kafka.json.core.enums.DeploymentMode;
 import com.datafusion.plugin.kafka.json.core.enums.ExecutionMode;
 import com.datafusion.plugin.kafka.json.core.enums.LoadMode;
+import com.datafusion.plugin.kafka.json.core.enums.PrimaryKeyMode;
 import com.datafusion.plugin.kafka.json.core.enums.ProxyPrimaryKeyType;
 import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
 import com.datafusion.plugin.kafka.json.core.enums.RestartStrategyType;
@@ -129,6 +130,7 @@ public class ConfigValidator {
             validateExpression(table.tableComment, JsonType.STRING, false, "sink.tables[].tableComment");
             validateExpression(table.createIfNotExists, JsonType.BOOLEAN, false, "sink.tables[].createIfNotExists");
             validateExpression(table.partitionKeys, JsonType.ARRAY, false, "sink.tables[].partitionKeys");
+            validateRequiredExpression(table.partitionKeys, "sink.tables[].partitionKeys");
             if (!TextUtils.isBlank(table.loadMode)) {
                 LoadMode.parse(table.loadMode, LoadMode.APPEND);
             }
@@ -180,9 +182,6 @@ public class ConfigValidator {
         validatePrimaryKeyExpression(table.primaryKey);
         if (mode == PrimaryKeyMode.PROXY) {
             ProxyPrimaryKeyType.parse(table.primaryKey.algorithm);
-            if (TextUtils.isBlank(table.primaryKey.field)) {
-                throw new KafkaJsonPaimonException("sink.tables[].primaryKey.field is required for PROXY");
-            }
         }
         if (mode == PrimaryKeyMode.FIELDS && loadMode == LoadMode.UPSERT && table.primaryKey.defaultValue == null
                 && TextUtils.isBlank(table.primaryKey.path)) {
@@ -226,6 +225,12 @@ public class ConfigValidator {
         }
     }
 
+    private void validateRequiredExpression(com.fasterxml.jackson.databind.JsonNode node, String name) {
+        if (node == null) {
+            throw new KafkaJsonPaimonException(name + " is required");
+        }
+    }
+
     private JsonType inferJsonType(ColumnConfig column) {
         String dataType = TextUtils.upper(column.dataType, "STRING");
         if ("INT".equals(dataType) || "INTEGER".equals(dataType) || "BIGINT".equals(dataType) || "LONG".equals(dataType)
@@ -243,31 +248,4 @@ public class ConfigValidator {
         return value instanceof String text ? text : null;
     }
 
-    /**
-     * 主键模式.
-     */
-    private enum PrimaryKeyMode {
-
-        /**
-         * 字段主键.
-         */
-        FIELDS,
-
-        /**
-         * 代理主键.
-         */
-        PROXY;
-
-        private static PrimaryKeyMode parse(String value) {
-            String text = TextUtils.upper(value, null);
-            if (TextUtils.isBlank(text)) {
-                throw new KafkaJsonPaimonException("sink.tables[].primaryKey.mode is required");
-            }
-            try {
-                return PrimaryKeyMode.valueOf(text);
-            } catch (IllegalArgumentException e) {
-                throw new KafkaJsonPaimonException("Unsupported primaryKey.mode: " + value, e);
-            }
-        }
-    }
 }

@@ -88,6 +88,25 @@ class TableResolverTest {
         Assertions.assertEquals(64, String.valueOf(plan.get().records.get(0).get("_id_")).length());
     }
 
+    /**
+     * PROXY 主键固定使用 _id_ 字段,不需要在配置里声明 field.
+     */
+    @Test
+    void shouldUseFixedProxyPrimaryKeyFieldWithoutFieldConfig() throws Exception {
+        PaimonSinkConfig sink = baseSink();
+        sink.loadMode = "UPSERT";
+        PaimonTableConfig table = sink.tables.get(0);
+        table.primaryKey = new PrimaryKeyConfig();
+        table.primaryKey.mode = "PROXY";
+        table.primaryKey.defaultValue = List.of("day_pt", "today");
+
+        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(
+                json("{\"data\":[{\"today\":\"2026-06-12\",\"day_pt\":\"2026-06-12\"}]}"), record());
+
+        Assertions.assertTrue(plan.isPresent());
+        Assertions.assertTrue(plan.get().records.get(0).containsKey("_id_"));
+    }
+
     private PaimonSinkConfig baseSink() throws Exception {
         PaimonSinkConfig sink = new PaimonSinkConfig();
         sink.options.put("warehouse", "file:///tmp/paimon");

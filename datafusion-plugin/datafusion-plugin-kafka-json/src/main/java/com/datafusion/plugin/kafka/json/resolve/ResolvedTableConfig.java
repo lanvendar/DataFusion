@@ -2,6 +2,7 @@ package com.datafusion.plugin.kafka.json.resolve;
 
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
 import com.datafusion.plugin.kafka.json.core.enums.LoadMode;
+import com.datafusion.plugin.kafka.json.core.enums.PrimaryKeyMode;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -57,6 +58,11 @@ public class ResolvedTableConfig implements Serializable {
      * 主键字段.
      */
     public List<String> primaryKeys = new ArrayList<>();
+
+    /**
+     * 主键模式.
+     */
+    public PrimaryKeyMode primaryKeyMode;
 
     /**
      * 字段定义.

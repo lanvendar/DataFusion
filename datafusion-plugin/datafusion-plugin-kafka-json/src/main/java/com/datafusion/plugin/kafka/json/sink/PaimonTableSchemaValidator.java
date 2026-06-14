@@ -2,13 +2,14 @@ package com.datafusion.plugin.kafka.json.sink;
 
 import com.datafusion.plugin.kafka.json.core.PaimonSchemaMismatchException;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
+import com.datafusion.plugin.kafka.json.core.enums.LoadMode;
+import com.datafusion.plugin.kafka.json.core.enums.PrimaryKeyMode;
 import com.datafusion.plugin.kafka.json.resolve.ResolvedTableConfig;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
 import org.apache.paimon.options.Options;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypes;
-import org.apache.paimon.types.DecimalType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,6 +44,14 @@ public final class PaimonTableSchemaValidator {
      * @param snapshot Paimon 真实表结构快照
      */
     public static void validate(ResolvedTableConfig tableConfig, PaimonTableSchemaSnapshot snapshot) {
+        List<String> actualFieldNames = new ArrayList<>(snapshot.fields().keySet());
+        List<String> configuredFieldNames = tableConfig.columns.stream()
+                .map(column -> column.name.toLowerCase(Locale.ROOT))
+                .toList();
+        if (!Objects.equals(actualFieldNames, configuredFieldNames)) {
+            throw new PaimonSchemaMismatchException("Paimon field names not match json schema: " + tableConfig.identifier()
+                    + ", actualPaimon=" + actualFieldNames + ", jsonSchema=" + configuredFieldNames);
+        }
         for (ColumnConfig configured : tableConfig.columns) {
             DataField actual = snapshot.fields().get(configured.name.toLowerCase(Locale.ROOT));
             if (actual == null) {
@@ -121,8 +130,21 @@ public final class PaimonTableSchemaValidator {
     }
 
     private static void validatePrimaryKeys(ResolvedTableConfig tableConfig, PaimonTableSchemaSnapshot snapshot) {
-        List<String> actualPrimaryKeys = snapshot.primaryKeys();
+        if (tableConfig.primaryKeyMode == PrimaryKeyMode.PROXY) {
+            validateProxyPrimaryKey(tableConfig, snapshot);
+            return;
+        }
+        if (tableConfig.primaryKeyMode != PrimaryKeyMode.FIELDS) {
+            return;
+        }
+        if (tableConfig.loadMode == LoadMode.APPEND) {
+            return;
+        }
         List<String> jsonPrimaryKeys = safeList(tableConfig.primaryKeys);
+        if (jsonPrimaryKeys.isEmpty()) {
+            throw new PaimonSchemaMismatchException("FIELDS primary keys must not be empty: " + tableConfig.identifier());
+        }
+        List<String> actualPrimaryKeys = snapshot.primaryKeys();
         if (!Objects.equals(actualPrimaryKeys, jsonPrimaryKeys)) {
             LOGGER.warn("Paimon primary keys not match json schema, identifier={}, actualPaimon={}, jsonSchema={}",
                     tableConfig.identifier(), actualPrimaryKeys, jsonPrimaryKeys);
@@ -132,13 +154,26 @@ public final class PaimonTableSchemaValidator {
     }
 
     private static void validatePartitionKeys(ResolvedTableConfig tableConfig, PaimonTableSchemaSnapshot snapshot) {
-        List<String> actualPartitionKeys = snapshot.partitionKeys();
         List<String> jsonPartitionKeys = safeList(tableConfig.partitionKeys);
+        if (jsonPartitionKeys.isEmpty()) {
+            throw new PaimonSchemaMismatchException("Paimon partition keys must not be empty: " + tableConfig.identifier());
+        }
+        List<String> actualPartitionKeys = snapshot.partitionKeys();
         if (!Objects.equals(actualPartitionKeys, jsonPartitionKeys)) {
             LOGGER.warn("Paimon partition keys not match json schema, identifier={}, actualPaimon={}, jsonSchema={}",
                     tableConfig.identifier(), actualPartitionKeys, jsonPartitionKeys);
             throw new PaimonSchemaMismatchException("Paimon partition keys not match json schema: " + tableConfig.identifier()
                     + ", actualPaimon=" + actualPartitionKeys + ", jsonSchema=" + jsonPartitionKeys);
+        }
+    }
+
+    private static void validateProxyPrimaryKey(ResolvedTableConfig tableConfig, PaimonTableSchemaSnapshot snapshot) {
+        if (tableConfig.loadMode != LoadMode.UPSERT) {
+            return;
+        }
+        String proxyField = "_id_";
+        if (!snapshot.fields().containsKey(proxyField.toLowerCase(Locale.ROOT))) {
+            throw new PaimonSchemaMismatchException("Paimon table lacks proxy primary key field: " + proxyField);
         }
     }
 

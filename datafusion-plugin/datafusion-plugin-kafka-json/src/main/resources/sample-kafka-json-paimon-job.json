@@ -18,7 +18,7 @@
     "parallelism": 2,
     "deploymentMode": "LOCAL",
     "executionMode": "STREAMING",
-    "checkpointMode": "EXACTLY_ONCE",
+    "checkpointMode": "AT_LEAST_ONCE",
     "checkpointIntervalMs": 60000,
     "checkpointTimeoutMs": 600000,
     "maxConcurrentCheckpoints": 1,
@@ -66,7 +66,6 @@
         ],
         "primaryKey": {
           "mode": "PROXY",
-          "field": "_id_",
           "algorithm": "SHA-256",
           "defaultValue": [
             "day_pt",

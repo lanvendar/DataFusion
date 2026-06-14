@@ -104,7 +104,7 @@ public class PaimonTableSchemaCache {
                 load(catalog, table);
             }
         } catch (Exception e) {
-            throw new PaimonSchemaMismatchException("Failed to preload Paimon table schemas: " + e.getMessage());
+            throw new PaimonSchemaMismatchException("Failed to preload Paimon table schemas", e);
         }
     }
 

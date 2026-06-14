@@ -75,6 +75,10 @@ public class TableWriterRegistry implements AutoCloseable {
         if (handle == null) {
             return;
         }
+        if (!schemaCache.validate(plan)) {
+            removeWriter(plan.tableConfig.identifier(), handle);
+            return;
+        }
         handle.buffer.addAll(plan.records);
         long now = System.currentTimeMillis();
         if (handle.buffer.size() >= batchSize() || now - handle.lastFlushMs >= flushIntervalMs()) {
@@ -124,6 +128,11 @@ public class TableWriterRegistry implements AutoCloseable {
         TableWriterHandle handle = new TableWriterHandle(writer);
         writers.put(identifier, handle);
         return handle;
+    }
+
+    private void removeWriter(String identifier, TableWriterHandle handle) {
+        writers.remove(identifier);
+        handle.writer.close();
     }
 
     private void evictIfNecessary() {

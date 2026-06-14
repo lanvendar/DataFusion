@@ -15,7 +15,6 @@
     <modules>
         <module>datafusion-plugin-api</module>
         <module>datafusion-plugin-datax</module>
-        <module>plugin-flink-schema-paimon</module>
         <module>datafusion-plugin-kafka-json</module>
     </modules>
 

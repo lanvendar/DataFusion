@@ -98,7 +98,7 @@
 | `parallelism` | `Integer` | No | `1` | Flink 作业并行度 |
 | `deploymentMode` | `String` | No | `LOCAL` | Flink 部署模式 |
 | `executionMode` | `String` | No | `STREAMING` | Flink 执行模式 |
-| `checkpointMode` | `String` | No | `EXACTLY_ONCE` | Flink checkpoint 模式 |
+| `checkpointMode` | `String` | No | `AT_LEAST_ONCE` | Flink checkpoint 模式；当前自定义 sink 不声明端到端 exactly-once |
 | `checkpointIntervalMs` | `Long` | No | `60000` | checkpoint 间隔 |
 | `checkpointTimeoutMs` | `Long` | No | `600000` | checkpoint 超时 |
 | `maxConcurrentCheckpoints` | `Integer` | No | `1` | 最大并发 checkpoint 数 |
@@ -179,13 +179,12 @@
 | Field | Field type | Required | Default | Notes |
 |-------|------------|----------|---------|-------|
 | `mode` | `String` | Yes | 无 | 支持 `FIELDS`、`PROXY` |
-| `field` | `String` | No | `_id_` | `PROXY` 模式生成的代理主键字段名 |
 | `algorithm` | `String` | No | `UUID` | `PROXY` 模式支持 `UUID`、`SHA-256`、`SHA-512` |
 | `path` | `String` | No | 无 | JMESPath 表达式；空字符串等价于未配置 |
 | `defaultValue` | `Object` | Conditional | 无 | 主键字段列表兜底值，最终值必须是字符串数组 |
 | `jsonType` | `String` | No | `ARRAY` | 固定按数组校验 |
 
-`FIELDS` 与 `PROXY` 互斥。`FIELDS` 模式下 `path/defaultValue` 解析出来的是 Paimon 主键字段列表；`PROXY` 模式下解析出来的是代理主键源字段列表。`PROXY` 模式会自动向 Paimon schema 和输出记录中补充 `field` 字段，真实 Paimon 主键由 `field` 和分区字段组成。
+`FIELDS` 与 `PROXY` 互斥。`FIELDS` 模式下 `path/defaultValue` 解析出来的是 Paimon 主键字段列表；`PROXY` 模式下解析出来的是代理主键源字段列表。`PROXY` 模式会自动向 Paimon schema 和输出记录中补充固定 `_id_` 字段，真实 Paimon 主键由 `_id_` 和分区字段组成。
 
 #### 2.4.10 `WriterConfig`
 
