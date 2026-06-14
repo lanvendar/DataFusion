@@ -43,6 +43,8 @@ datafusion-agent/src/main/resources/templates/{plugin}/
 | `DATAX` | `LOCAL` | `templates/datax/datax-local.yml` | `LocalProcessSpec` |
 | `DATAX` | `K8S` | `templates/datax/datax-k8s-job.yml` | Kubernetes YAML |
 
+Shell 第一版只有 `LOCAL`，实现按 `shell.local` 包归类；只有出现第二种 Shell 运行模式时，才引入类似 DataX 的 runner 分发抽象。
+
 占位符使用 `{{name}}`。值只能来自：
 
 - `pluginParam` 派生值。

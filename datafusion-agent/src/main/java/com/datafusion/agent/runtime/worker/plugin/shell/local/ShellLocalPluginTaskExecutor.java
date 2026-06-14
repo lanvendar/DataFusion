@@ -1,4 +1,4 @@
-package com.datafusion.agent.runtime.worker.plugin.shell;
+package com.datafusion.agent.runtime.worker.plugin.shell.local;
 
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.PluginResultJson;

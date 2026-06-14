@@ -55,6 +55,8 @@ POST /internal/schedule/reportTaskResult
 
 `runMode` 表示终端运行形态，例如 `LOCAL`、`K8S`、`YARN`。状态映射按 `pluginType + runMode` 选择，不能只按 `runMode` 全局处理。
 
+Shell 当前只实现 `LOCAL`，代码归类在 `plugin.shell.local` 包下。后续新增 `SHELL + K8S` 或其他运行模式时，再按 DataX 的模式补充独立 runner 和状态映射。
+
 通用插件闭环：
 
 ```text

@@ -1,4 +1,4 @@
-package com.datafusion.agent.runtime.worker.plugin.shell;
+package com.datafusion.agent.runtime.worker.plugin.shell.local;
 
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
