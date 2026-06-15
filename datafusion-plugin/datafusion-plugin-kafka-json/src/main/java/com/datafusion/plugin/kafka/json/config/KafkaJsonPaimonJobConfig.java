@@ -271,14 +271,9 @@ public class KafkaJsonPaimonJobConfig implements Serializable {
         public Boolean enabled = true;
 
         /**
-         * 目标 database 表达式或简写.
+         * 目标表结构配置.
          */
-        public JsonNode database;
-
-        /**
-         * 目标表名表达式或简写.
-         */
-        public JsonNode tableName;
+        public TableConfig table = new TableConfig();
 
         /**
          * 列映射表达式或简写.
@@ -291,9 +286,40 @@ public class KafkaJsonPaimonJobConfig implements Serializable {
         public String loadMode;
 
         /**
+         * 字段定义.
+         */
+        public List<ColumnConfig> columns = new ArrayList<>();
+
+        /**
+         * 表级 Paimon options.
+         */
+        public Map<String, String> options = new LinkedHashMap<>();
+    }
+
+    /**
+     * Paimon 表结构配置.
+     */
+    public static class TableConfig implements Serializable {
+
+        /**
+         * 序列化版本号.
+         */
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * 目标 database 表达式或简写.
+         */
+        public JsonNode database;
+
+        /**
+         * 目标表名表达式或简写.
+         */
+        public JsonNode name;
+
+        /**
          * 表注释表达式或简写.
          */
-        public JsonNode tableComment;
+        public JsonNode comment;
 
         /**
          * 是否自动建表表达式或简写.
@@ -308,17 +334,7 @@ public class KafkaJsonPaimonJobConfig implements Serializable {
         /**
          * 主键配置.
          */
-        public PrimaryKeyConfig primaryKey;
-
-        /**
-         * 字段定义.
-         */
-        public List<ColumnConfig> columns = new ArrayList<>();
-
-        /**
-         * 表级 Paimon options.
-         */
-        public Map<String, String> options = new LinkedHashMap<>();
+        public PrimaryKeyConfig primaryKeys;
     }
 
     /**
@@ -339,27 +355,32 @@ public class KafkaJsonPaimonJobConfig implements Serializable {
         /**
          * 字段类型.
          */
-        public String dataType = "STRING";
+        public String dataType;
+
+        /**
+         * 标准 schema 字段类型别名.
+         */
+        public String type;
 
         /**
          * 字符串长度.
          */
-        public Integer length = 255;
+        public Integer length;
 
         /**
          * 数值精度.
          */
-        public Integer precision = 18;
+        public Integer precision;
 
         /**
          * 数值小数位.
          */
-        public Integer scale = 4;
+        public Integer scale;
 
         /**
          * 是否允许为空.
          */
-        public Boolean nullable = true;
+        public Boolean nullable;
 
         /**
          * 字段注释.
@@ -377,6 +398,11 @@ public class KafkaJsonPaimonJobConfig implements Serializable {
         public JsonNode value;
 
         /**
+         * 显式配置字段.
+         */
+        public transient List<String> configuredFields = new ArrayList<>();
+
+        /**
          * 复制字段定义.
          *
          * @return 字段定义副本
@@ -384,7 +410,8 @@ public class KafkaJsonPaimonJobConfig implements Serializable {
         public ColumnConfig copy() {
             ColumnConfig copy = new ColumnConfig();
             copy.name = name;
-            copy.dataType = dataType;
+            copy.dataType = effectiveDataType();
+            copy.type = type;
             copy.length = length;
             copy.precision = precision;
             copy.scale = scale;
@@ -392,7 +419,18 @@ public class KafkaJsonPaimonJobConfig implements Serializable {
             copy.comment = comment;
             copy.format = format;
             copy.value = value;
+            copy.configuredFields = configuredFields == null ? new ArrayList<>() : new ArrayList<>(configuredFields);
             return copy;
+        }
+
+        private String effectiveDataType() {
+            if (dataType != null && !dataType.isBlank()) {
+                return dataType;
+            }
+            if (type != null && !type.isBlank()) {
+                return type;
+            }
+            return "STRING";
         }
     }
 

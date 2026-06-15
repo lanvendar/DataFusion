@@ -29,14 +29,11 @@ public enum PrimaryKeyMode {
      * @return 主键模式
      */
     public static PrimaryKeyMode parse(String value) {
-        String text = TextUtils.upper(value, null);
-        if (TextUtils.isBlank(text)) {
-            throw new KafkaJsonPaimonException("primaryKey.mode is required");
-        }
+        String text = TextUtils.upper(value, FIELDS.name());
         try {
             return PrimaryKeyMode.valueOf(text);
         } catch (IllegalArgumentException e) {
-            throw new KafkaJsonPaimonException("Unsupported primaryKey.mode: " + value, e);
+            throw new KafkaJsonPaimonException("Unsupported primaryKeys.mode: " + value, e);
         }
     }
 }

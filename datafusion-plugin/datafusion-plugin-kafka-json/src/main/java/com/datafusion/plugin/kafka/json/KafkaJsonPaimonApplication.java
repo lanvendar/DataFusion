@@ -102,7 +102,7 @@ public class KafkaJsonPaimonApplication {
     }
 
     private static String staticTableName(PaimonTableConfig table) {
-        ExpressionSpec spec = ExpressionSpecNormalizer.constant(table.tableName, JsonType.STRING);
+        ExpressionSpec spec = ExpressionSpecNormalizer.constant(table.table.name, JsonType.STRING);
         Object defaultValue = spec.defaultValue;
         return defaultValue instanceof String ? (String) defaultValue : null;
     }

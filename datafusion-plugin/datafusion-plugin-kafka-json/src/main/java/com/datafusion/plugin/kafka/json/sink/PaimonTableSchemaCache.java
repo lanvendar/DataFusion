@@ -109,8 +109,8 @@ public class PaimonTableSchemaCache {
     }
 
     private void load(Catalog catalog, PaimonTableConfig table) throws Exception {
-        String database = staticString(table.database);
-        String tableName = staticString(table.tableName);
+        String database = staticString(table.table.database);
+        String tableName = staticString(table.table.name);
         if (TextUtils.isBlank(database) || TextUtils.isBlank(tableName)) {
             LOGGER.info("Paimon table schema preload skipped because table name is dynamic, database={}, tableName={}",
                     database, tableName);

@@ -57,40 +57,42 @@
     "tables": [
       {
         "enabled": true,
-        "database": "dw_dev",
-        "tableName": {
-          "path": "schema.table.name",
-          "defaultValue": "ods_spider_oilchem_price_market"
+        "table": {
+          "database": "dw_dev",
+          "name": {
+            "path": "schema.table.name",
+            "defaultValue": "ods_spider_oilchem_price_market"
+          },
+          "comment": "隆众市场价格行情表",
+          "createIfNotExists": true,
+          "partitionKeys": [
+            "day_pt"
+          ],
+          "primaryKeys": {
+            "mode": "PROXY",
+            "defaultValue": [
+              "day_pt",
+              "varieties_id",
+              "category_name",
+              "sub_category_name",
+              "business_type",
+              "two_level_business_type",
+              "region_id",
+              "internal_market_name",
+              "sale_region_name",
+              "standard",
+              "brand_name",
+              "specifications_name",
+              "purpose_name",
+              "process",
+              "producer",
+              "price_type_name",
+              "receiving_station"
+            ]
+          }
         },
         "columnsMapping": "data",
         "loadMode": "UPSERT",
-        "tableComment": "隆众市场价格行情表",
-        "createIfNotExists": true,
-        "partitionKeys": [
-          "day_pt"
-        ],
-        "primaryKey": {
-          "mode": "PROXY",
-          "defaultValue": [
-            "day_pt",
-            "varieties_id",
-            "category_name",
-            "sub_category_name",
-            "business_type",
-            "two_level_business_type",
-            "region_id",
-            "internal_market_name",
-            "sale_region_name",
-            "standard",
-            "brand_name",
-            "specifications_name",
-            "purpose_name",
-            "process",
-            "producer",
-            "price_type_name",
-            "receiving_station"
-          ]
-        },
         "columns": [
           {
             "name": "today",

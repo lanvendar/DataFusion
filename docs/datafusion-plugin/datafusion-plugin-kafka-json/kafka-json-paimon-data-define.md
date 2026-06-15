@@ -53,11 +53,10 @@
 | `PaimonSinkConfig` | 配置 Paimon sink | `tables` | `List<PaimonTableConfig>` | 启动时加载，运行期只读 | 多表路由、字段定义与表级 options |
 | `PaimonSinkConfig` | 配置 Paimon sink | `loadMode` | `String` | 启动时加载，运行期只读 | 全局默认写入模式 |
 | `PaimonSinkConfig` | 配置 Paimon sink | `writer` | `WriterConfig` | 启动时加载，运行期只读 | Paimon writer 缓冲、flush 和缓存控制 |
-| `PaimonTableConfig` | 单张目标表配置 | `database` | `ExpressionSpec` | 每条 Kafka 消息解析 | 最终值必须为字符串 |
-| `PaimonTableConfig` | 单张目标表配置 | `tableName` | `ExpressionSpec` | 每条 Kafka 消息解析 | 兼做路由表达式和目标表名定义 |
+| `PaimonTableConfig` | 单张目标表配置 | `table` | `TableConfig` | 每条 Kafka 消息解析 | 表级默认结构和 job.json 覆盖配置 |
 | `PaimonTableConfig` | 单张目标表配置 | `columnsMapping` | `ExpressionSpec` | 每条 Kafka 消息解析 | 消息级 JMESPath，结果必须是对象数组或单层对象 |
 | `PaimonTableConfig` | 单张目标表配置 | `columns` | `List<ColumnConfig>` | 启动时加载，运行期只读 | Paimon 表字段定义与单条记录取值规则 |
-| `PaimonTableConfig` | 单张目标表配置 | `primaryKey` | `PrimaryKeyConfig` | 启动时加载，运行期只读 | 普通字段主键或代理主键 |
+| `TableConfig` | 单张目标表配置 | `primaryKeys` | `PrimaryKeyConfig` | 启动时加载，运行期只读 | 普通字段主键或代理主键 |
 | `ResolvedTableWritePlan` | 单条消息解析后生成写入计划 | `tableConfig` | `ResolvedTableConfig` | 每条 Kafka 消息临时存在 | database、tableName、table schema、options 合并后的结果 |
 | `ResolvedTableWritePlan` | 单条消息解析后生成写入计划 | `records` | `List<Map<String, Object>>` | 每条 Kafka 消息临时存在 | 已按 `columns[].value` 抽取、默认值和代理主键处理后的记录 |
 
@@ -98,7 +97,7 @@
 | `parallelism` | `Integer` | No | `1` | Flink 作业并行度 |
 | `deploymentMode` | `String` | No | `LOCAL` | Flink 部署模式 |
 | `executionMode` | `String` | No | `STREAMING` | Flink 执行模式 |
-| `checkpointMode` | `String` | No | `AT_LEAST_ONCE` | Flink checkpoint 模式；当前自定义 sink 不声明端到端 exactly-once |
+| `checkpointMode` | `String` | No | `AT_LEAST_ONCE` | Flink checkpoint 模式；当前 Sink V2 提交模型默认按至少一次语义说明 |
 | `checkpointIntervalMs` | `Long` | No | `60000` | checkpoint 间隔 |
 | `checkpointTimeoutMs` | `Long` | No | `600000` | checkpoint 超时 |
 | `maxConcurrentCheckpoints` | `Integer` | No | `1` | 最大并发 checkpoint 数 |
@@ -127,18 +126,24 @@
 | Field | Field type | Required | Default | Notes |
 |-------|------------|----------|---------|-------|
 | `enabled` | `Boolean` | No | `true` | 是否启用当前表 |
-| `database` | `ExpressionSpec` or scalar | Yes | 无 | 解析目标 Paimon database；常量可简写为字符串 |
-| `tableName` | `ExpressionSpec` or scalar | Yes | 无 | 解析目标 Paimon table name；常量可简写为字符串 |
+| `table` | `TableConfig` | Yes | 默认对象 | 解析目标 Paimon table 结构 |
 | `columnsMapping` | `ExpressionSpec` or string | Yes | 无 | 消息级 JMESPath，用于把 Kafka JSON 转换为待映射记录；可简写为 path 字符串，结果支持对象数组或单层对象，默认 `jsonType=ANY` |
 | `loadMode` | `String` | No | 继承 `sink.loadMode` 或 `APPEND` | 支持 `APPEND`、`UPSERT` |
-| `tableComment` | `ExpressionSpec` or scalar | No | 无 | 解析 Paimon 表注释；常量可简写为字符串，默认 `jsonType=STRING` |
-| `createIfNotExists` | `ExpressionSpec` or boolean | No | `true` | 解析是否允许自动建表；常量可简写为布尔值，默认 `jsonType=BOOLEAN` |
-| `partitionKeys` | `ExpressionSpec` or array | No | 空列表 | 解析分区字段列表；常量可简写为字符串数组，默认 `jsonType=ARRAY` |
-| `primaryKey` | `PrimaryKeyConfig` | Conditional | 无 | `UPSERT` 时必须配置普通主键或代理主键 |
-| `columns` | `List<ColumnConfig>` | Yes | 无 | Paimon 字段定义和记录取值规则 |
+| `columns` | `List<ColumnConfig>` | No | 空列表 | Paimon 字段覆盖配置和记录取值规则 |
 | `options` | `Map<String, String>` | No | 空 map | 表级 Paimon options，覆盖全局同名 key |
 
-#### 2.4.7 `ExpressionSpec`
+#### 2.4.7 `TableConfig`
+
+| Field | Field type | Required | Default | Notes |
+|-------|------------|----------|---------|-------|
+| `database` | `String` | Yes | 无 | 目标 database；Kafka `schema.table` 默认不承载 database |
+| `name` | `ExpressionSpec` or scalar | No | 无 | 解析目标 Paimon table name；常量可简写为字符串 |
+| `comment` | `ExpressionSpec` or scalar | No | 无 | 解析 Paimon 表注释；常量可简写为字符串，默认 `jsonType=STRING` |
+| `createIfNotExists` | `ExpressionSpec` or boolean | No | `true` | 解析是否允许自动建表；常量可简写为布尔值，默认 `jsonType=BOOLEAN` |
+| `partitionKeys` | `ExpressionSpec` or array | No | 空列表 | 解析分区字段列表；常量可简写为字符串数组，默认 `jsonType=ARRAY` |
+| `primaryKeys` | `PrimaryKeyConfig` | Conditional | 无 | `UPSERT` 时必须配置普通主键或代理主键 |
+
+#### 2.4.8 `ExpressionSpec`
 
 | Field | Field type | Required | Default | Notes |
 |-------|------------|----------|---------|-------|
@@ -151,12 +156,12 @@
 支持 `ExpressionSpec` 简写规则：
 
 - 业务字段需要常量值时，可直接写标量或数组，例如 `"database": "dw_dev"`、`"partitionKeys": ["day_pt"]`。
-- `columnsMapping` 可直接写 JMESPath 字符串，例如 `"columnsMapping": "schema.data"`，等价于 `{"path": "schema.data", "jsonType": "ANY"}`；业务校验只接受数组或对象结果。
+- `columnsMapping` 可直接写 JMESPath 字符串，例如 `"columnsMapping": "data"`，等价于 `{"path": "data", "jsonType": "ANY"}`；业务校验只接受数组或对象结果。
 - 标量或数组简写统一归一化为 `ExpressionSpec.defaultValue`；`columnsMapping` 字符串简写归一化为 `ExpressionSpec.path`。
 - `columns[].value` 未配置时，默认等价于 `{"path": "<column.name>"}`。
 - `jsonType` 由字段语义或 `dataType` 推断，只有需要强约束或表达式返回类型不明显时才显式配置。
 
-#### 2.4.8 `ColumnConfig`
+#### 2.4.9 `ColumnConfig`
 
 | Field | Field type | Required | Default | Notes |
 |-------|------------|----------|---------|-------|
@@ -174,19 +179,33 @@
 
 `columns[].value.defaultValue` 是列值兜底值。第一版不再额外提供 `columns[].defaultValue`，避免同一默认值语义出现两份配置。
 
-#### 2.4.9 `PrimaryKeyConfig`
+Kafka 标准结构与 job.json 覆盖合并优先级：
+
+```text
+内置默认值 < Kafka JSON schema.table/schema.columns < job.json sink.tables[].table/sink.tables[].columns
+```
+
+合并规则：
+
+- `schema.table` 提供表名、表注释、是否自动建表、分区字段和主键配置的默认值。
+- `schema.columns[]` 提供字段结构默认值。
+- `sink.tables[].table` 按字段覆盖 `schema.table`，其中 `table.primaryKeys` 覆盖 `schema.table.primaryKeys`。
+- `sink.tables[].columns[]` 按 `name` 覆盖 `schema.columns[]` 的同名字段；配置中新出现的列会加入最终 schema。
+- `columns[].value` 未配置时仍默认从单条 record 按列名取值。
+
+#### 2.4.10 `PrimaryKeyConfig`
 
 | Field | Field type | Required | Default | Notes |
 |-------|------------|----------|---------|-------|
-| `mode` | `String` | Yes | 无 | 支持 `FIELDS`、`PROXY` |
+| `mode` | `String` | No | `FIELDS` | 支持 `FIELDS`、`PROXY` |
 | `algorithm` | `String` | No | `UUID` | `PROXY` 模式支持 `UUID`、`SHA-256`、`SHA-512` |
 | `path` | `String` | No | 无 | JMESPath 表达式；空字符串等价于未配置 |
 | `defaultValue` | `Object` | Conditional | 无 | 主键字段列表兜底值，最终值必须是字符串数组 |
 | `jsonType` | `String` | No | `ARRAY` | 固定按数组校验 |
 
-`FIELDS` 与 `PROXY` 互斥。`FIELDS` 模式下 `path/defaultValue` 解析出来的是 Paimon 主键字段列表；`PROXY` 模式下解析出来的是代理主键源字段列表。`PROXY` 模式会自动向 Paimon schema 和输出记录中补充固定 `_id_` 字段，真实 Paimon 主键由 `_id_` 和分区字段组成。
+`FIELDS` 与 `PROXY` 互斥。`mode` 未配置时默认 `FIELDS`。`FIELDS` 模式下 `path/defaultValue` 解析出来的是 Paimon 主键字段列表；`PROXY` 模式下解析出来的是代理主键源字段列表。`PROXY` 模式会自动向 Paimon schema 和输出记录中补充固定 `_id_` 字段，真实 Paimon 主键由 `_id_` 和分区字段组成。
 
-#### 2.4.10 `WriterConfig`
+#### 2.4.11 `WriterConfig`
 
 | Field | Field type | Required | Default | Notes |
 |-------|------------|----------|---------|-------|
@@ -194,7 +213,7 @@
 | `flushIntervalMs` | `Long` | No | `5000` | 空闲 flush 间隔 |
 | `maxOpenWriters` | `Integer` | No | `256` | 单实例最多缓存 writer 数 |
 
-#### 2.4.11 `ResolvedTableConfig`
+#### 2.4.12 `ResolvedTableConfig`
 
 | Field | Field type | Required | Default | Notes |
 |-------|------------|----------|---------|-------|
@@ -216,7 +235,7 @@
 | `KafkaSourceConfig` | Kafka | Inbound | `properties` | `Map<String, String>` | 原样透传 | SASL/SSL 等配置 |
 | `ExpressionSpec` | JMESPath | Inbound | `path` | `String` | 基于 Jackson JSON 节点编译和求值 | 使用 `io.burt:jmespath-jackson` 或等价库 |
 | `PaimonSinkConfig` | Paimon Catalog | Outbound | `options` | `Map<String, String>` | 原样传给 Paimon catalog，并过滤连接参数后作为表 options | 包含 S3 和 filesystem catalog 配置 |
-| `PaimonTableConfig` | Paimon Table | Outbound | `columns` / `primaryKey` / `partitionKeys` | Config objects | 转换为 Paimon `Schema` | 自动建表和已有表校验使用同一结构 |
+| `PaimonTableConfig` | Paimon Table | Outbound | `table` / `columns` | Config objects | 转换为 Paimon `Schema` | 自动建表和已有表校验使用同一结构 |
 
 ### 2.6 State / Enum Model
 
@@ -258,7 +277,7 @@
 | `ExpressionSpec.path` -> extracted value | 使用 JMESPath 在消息级或记录级上下文求值 | `path` 为空时跳过求值，直接使用 `defaultValue` |
 | extracted value -> final expression value | 当取值为 `null`、缺失或空字符串时使用 `defaultValue` | 若最终仍为空，由调用方按必填规则处理 |
 | final expression value -> typed value | 按 `jsonType` 校验顶层类型 | `ANY` 不校验；`ARRAY` 不校验元素类型 |
-| Kafka JSON + `PaimonTableConfig` -> `ResolvedTableConfig` | 使用 `tableName.path` 从 Kafka JSON 读取目标表名；取不到时使用 `defaultValue`；最终仍为空则过滤消息 | 多表按 `tables[]` 顺序解析，第一张得到有效目标表名的配置命中；第一版不支持一条消息写多张表 |
+| Kafka JSON + `PaimonTableConfig` -> `ResolvedTableConfig` | 使用 `table.name.path` 从 Kafka JSON 读取目标表名；取不到时使用 `defaultValue`；最终仍为空则过滤消息 | 多表按 `tables[]` 顺序解析，第一张得到有效目标表名的配置命中；第一版不支持一条消息写多张表 |
 | Kafka JSON + `columnsMapping` -> record JSON | 使用 `columnsMapping.path` 在整条 Kafka JSON 上求值，生成待映射记录 | 结果可以是对象数组或单层对象；单层对象自动包装为一条记录；数组元素必须是对象；可用 JMESPath 投影复杂 JSON 为标准行 |
 | record JSON + `columns[]` -> output record | 每列从 `columns[].value.path` 提取，取不到用 `defaultValue`，再按 `dataType` 转换 | 必输字段为空或转换失败时按 `recordErrorPolicy` 处理 |
 | `PrimaryKeyConfig.PROXY` -> output record | 按 `path/defaultValue` 解析出的源字段列表从输出 record 取值，用 `_` 拼接后生成 UUID/SHA 摘要 | 自动补充代理主键列；真实 Paimon 主键为代理主键列和分区字段 |

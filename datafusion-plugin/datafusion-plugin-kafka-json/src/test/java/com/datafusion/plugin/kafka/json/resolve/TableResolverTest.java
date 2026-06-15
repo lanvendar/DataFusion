@@ -28,7 +28,7 @@ class TableResolverTest {
     @Test
     void shouldUseTableNameDefaultWhenPathMissed() throws Exception {
         PaimonSinkConfig sink = baseSink();
-        sink.tables.get(0).tableName = JacksonUtils.str2JsonNode("{\"path\":\"schema.table.name\",\"defaultValue\":\"fallback_table\"}");
+        sink.tables.get(0).table.name = JacksonUtils.str2JsonNode("{\"path\":\"schema.table.name\",\"defaultValue\":\"fallback_table\"}");
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("{\"schema\":{},\"data\":[{\"today\":\"2026-06-12\"}]}"),
                 record());
@@ -44,7 +44,7 @@ class TableResolverTest {
     @Test
     void shouldSkipMessageWhenTableNameIsEmpty() throws Exception {
         PaimonSinkConfig sink = baseSink();
-        sink.tables.get(0).tableName = JacksonUtils.str2JsonNode("{\"path\":\"schema.table.name\"}");
+        sink.tables.get(0).table.name = JacksonUtils.str2JsonNode("{\"path\":\"schema.table.name\"}");
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("{\"schema\":{},\"data\":[{\"today\":\"2026-06-12\"}]}"),
                 record());
@@ -75,10 +75,10 @@ class TableResolverTest {
         PaimonSinkConfig sink = baseSink();
         sink.loadMode = "UPSERT";
         PaimonTableConfig table = sink.tables.get(0);
-        table.primaryKey = new PrimaryKeyConfig();
-        table.primaryKey.mode = "PROXY";
-        table.primaryKey.algorithm = "SHA-256";
-        table.primaryKey.defaultValue = List.of("day_pt", "today");
+        table.table.primaryKeys = new PrimaryKeyConfig();
+        table.table.primaryKeys.mode = "PROXY";
+        table.table.primaryKeys.algorithm = "SHA-256";
+        table.table.primaryKeys.defaultValue = List.of("day_pt", "today");
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(
                 json("{\"data\":[{\"today\":\"2026-06-12\",\"day_pt\":\"2026-06-12\"}]}"), record());
@@ -96,9 +96,9 @@ class TableResolverTest {
         PaimonSinkConfig sink = baseSink();
         sink.loadMode = "UPSERT";
         PaimonTableConfig table = sink.tables.get(0);
-        table.primaryKey = new PrimaryKeyConfig();
-        table.primaryKey.mode = "PROXY";
-        table.primaryKey.defaultValue = List.of("day_pt", "today");
+        table.table.primaryKeys = new PrimaryKeyConfig();
+        table.table.primaryKeys.mode = "PROXY";
+        table.table.primaryKeys.defaultValue = List.of("day_pt", "today");
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(
                 json("{\"data\":[{\"today\":\"2026-06-12\",\"day_pt\":\"2026-06-12\"}]}"), record());
@@ -107,14 +107,97 @@ class TableResolverTest {
         Assertions.assertTrue(plan.get().records.get(0).containsKey("_id_"));
     }
 
+    /**
+     * Kafka 标准 schema 可以提供表名和字段结构.
+     */
+    @Test
+    void shouldUseKafkaSchemaWhenJobTableAndColumnsOmitted() throws Exception {
+        PaimonSinkConfig sink = baseSink();
+        PaimonTableConfig table = sink.tables.get(0);
+        table.table.name = null;
+        table.columns.clear();
+
+        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("""
+                {"schema":{"table":{"name":"ods_from_schema","partitionKeys":["day_pt"]},
+                "columns":[{"name":"today","type":"VARCHAR","length":32,"nullable":false},
+                {"name":"day_pt","type":"DATE","nullable":false}]},"data":[{"today":"2026-06-12","day_pt":"2026-06-12"}]}
+                """), record());
+
+        Assertions.assertTrue(plan.isPresent());
+        Assertions.assertEquals("ods_from_schema", plan.get().tableConfig.tableName);
+        Assertions.assertEquals(2, plan.get().tableConfig.columns.size());
+        Assertions.assertEquals("VARCHAR", plan.get().tableConfig.columns.get(0).dataType);
+    }
+
+    /**
+     * job.json 字段配置按字段名覆盖 Kafka 标准 schema 字段.
+     */
+    @Test
+    void shouldOverrideKafkaSchemaColumnByJobColumn() throws Exception {
+        PaimonSinkConfig sink = baseSink();
+        PaimonTableConfig table = sink.tables.get(0);
+        table.table.name = null;
+        table.columns.clear();
+        table.columns.add(column("today", "VARCHAR", false));
+        table.columns.get(0).length = 64;
+
+        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("""
+                {"schema":{"table":{"name":"ods_from_schema","partitionKeys":["day_pt"]},
+                "columns":[{"name":"today","type":"VARCHAR","length":32,"nullable":true},
+                {"name":"day_pt","type":"DATE","nullable":false}]},"data":[{"today":"2026-06-12","day_pt":"2026-06-12"}]}
+                """), record());
+
+        Assertions.assertTrue(plan.isPresent());
+        Assertions.assertEquals(64, plan.get().tableConfig.columns.get(0).length);
+        Assertions.assertFalse(plan.get().tableConfig.columns.get(0).nullable);
+    }
+
+    /**
+     * primaryKeys.mode 省略时默认按 FIELDS 处理.
+     */
+    @Test
+    void shouldDefaultPrimaryKeyModeToFields() throws Exception {
+        PaimonSinkConfig sink = baseSink();
+        sink.loadMode = "UPSERT";
+        PaimonTableConfig table = sink.tables.get(0);
+        table.table.primaryKeys = new PrimaryKeyConfig();
+        table.table.primaryKeys.defaultValue = List.of("day_pt", "today");
+
+        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(
+                json("{\"data\":[{\"today\":\"2026-06-12\",\"day_pt\":\"2026-06-12\"}]}"), record());
+
+        Assertions.assertTrue(plan.isPresent());
+        Assertions.assertEquals(List.of("day_pt", "today"), plan.get().tableConfig.primaryKeys);
+    }
+
+    /**
+     * Kafka schema.table.primaryKeys 可以提供主键配置.
+     */
+    @Test
+    void shouldUseKafkaSchemaPrimaryKeysConfig() throws Exception {
+        PaimonSinkConfig sink = baseSink();
+        sink.loadMode = "UPSERT";
+        PaimonTableConfig table = sink.tables.get(0);
+        table.table.name = null;
+
+        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("""
+                {"schema":{"table":{"name":"ods_from_schema","partitionKeys":["day_pt"],
+                "primaryKeys":{"defaultValue":["day_pt","today"]}}},
+                "data":[{"today":"2026-06-12","day_pt":"2026-06-12"}]}
+                """), record());
+
+        Assertions.assertTrue(plan.isPresent());
+        Assertions.assertEquals(List.of("day_pt", "today"), plan.get().tableConfig.primaryKeys);
+    }
+
     private PaimonSinkConfig baseSink() throws Exception {
         PaimonSinkConfig sink = new PaimonSinkConfig();
         sink.options.put("warehouse", "file:///tmp/paimon");
         PaimonTableConfig table = new PaimonTableConfig();
-        table.database = JacksonUtils.str2JsonNode("\"dw_dev\"");
-        table.tableName = JacksonUtils.str2JsonNode("\"ods_test\"");
+        table.table.database = JacksonUtils.str2JsonNode("\"dw_dev\"");
+        table.table.name = JacksonUtils.str2JsonNode("\"ods_test\"");
         table.columnsMapping = JacksonUtils.str2JsonNode("\"data\"");
-        table.partitionKeys = JacksonUtils.str2JsonNode("[\"day_pt\"]");
+        table.table.partitionKeys = JacksonUtils.str2JsonNode("[\"day_pt\"]");
         table.columns.add(column("today", "VARCHAR", false));
         table.columns.add(column("day_pt", "DATE", false));
         sink.tables.add(table);

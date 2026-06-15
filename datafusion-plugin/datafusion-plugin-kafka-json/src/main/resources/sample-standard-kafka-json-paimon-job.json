@@ -1,0 +1,73 @@
+{
+  "job": {
+    "id": "sample_standard_kafka_json_paimon",
+    "name": "Sample Standard Kafka JSON To Paimon",
+    "version": "1.0.0"
+  },
+  "source": {
+    "type": "KAFKA",
+    "bootstrapServers": "kafka-1:9092,kafka-2:9092",
+    "topics": [
+      "standard-kafka-json-topic"
+    ],
+    "groupId": "datafusion-plugin-kafka-json-standard",
+    "startingOffsets": "group-offsets",
+    "properties": {}
+  },
+  "runtime": {
+    "parallelism": 2,
+    "deploymentMode": "LOCAL",
+    "executionMode": "STREAMING",
+    "checkpointMode": "AT_LEAST_ONCE",
+    "checkpointIntervalMs": 60000,
+    "checkpointTimeoutMs": 600000,
+    "maxConcurrentCheckpoints": 1,
+    "checkpointStorage": "file:///tmp/flink-checkpoints/kafka-json-standard-paimon",
+    "stateBackend": "HASHMAP",
+    "restartStrategy": "FIXED_DELAY",
+    "restartAttempts": 3,
+    "restartDelayMs": 10000
+  },
+  "sink": {
+    "type": "PAIMON",
+    "connectType": "S3",
+    "schemaMismatchPolicy": "SKIP",
+    "recordErrorPolicy": "SKIP",
+    "loadMode": "UPSERT",
+    "options": {
+      "warehouse": "s3://data-lake-warehouse/paimon",
+      "catalogType": "filesystem",
+      "database": "dw_prod",
+      "s3.endpoint": "http://s3.example.com",
+      "s3.endpoint.region": "us-east-1",
+      "s3.access-key": "${env:PAIMON_S3_ACCESS_KEY}",
+      "s3.secret-key": "${env:PAIMON_S3_SECRET_KEY}",
+      "s3.path.style.access": "true",
+      "s3.connection.ssl.enabled": "false",
+      "s3.fast.upload.buffer": "array",
+      "bucket": "2",
+      "write-buffer-size": "128mb",
+      "file.format": "parquet"
+    },
+    "tables": [
+      {
+        "enabled": true,
+        "table": {
+          "database": "dw_dev"
+        },
+        "columnsMapping": "data",
+        "loadMode": "UPSERT",
+        "options": {
+          "bucket": "4",
+          "write-buffer-size": "128mb",
+          "file.format": "parquet"
+        }
+      }
+    ],
+    "writer": {
+      "batchSize": 1000,
+      "flushIntervalMs": 5000,
+      "maxOpenWriters": 256
+    }
+  }
+}

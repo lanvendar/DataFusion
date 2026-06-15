@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 /**
  * Kafka JSON 到目标 Paimon 表的解析器.
@@ -57,6 +56,16 @@ public class TableResolver {
      * Kafka offset 字段名.
      */
     public static final String KAFKA_OFFSET_FIELD = "_kafka_offset";
+
+    /**
+     * Kafka 标准 schema table 路径.
+     */
+    private static final String SCHEMA_TABLE_PATH = "schema.table";
+
+    /**
+     * Kafka 标准 schema columns 路径.
+     */
+    private static final String SCHEMA_COLUMNS_PATH = "schema.columns";
 
     /**
      * sink 配置.
@@ -122,12 +131,13 @@ public class TableResolver {
     }
 
     private Optional<ResolvedTableWritePlan> resolveTable(Object messageObject, PaimonTableConfig table, KafkaRecord kafkaRecord) {
-        String tableName = stringValue(evaluate(messageObject, ExpressionSpecNormalizer.constant(table.tableName, JsonType.STRING),
-                "sink.tables[].tableName"));
+        StandardSchema schema = standardSchema(messageObject);
+        String tableName = stringValue(evaluate(messageObject, tableSpec(table.table.name, "name", schema.table.name, JsonType.STRING),
+                "sink.tables[].table.name"));
         if (TextUtils.isBlank(tableName)) {
             return Optional.empty();
         }
-        ResolvedTableConfig tableConfig = buildTableConfig(messageObject, table, tableName);
+        ResolvedTableConfig tableConfig = buildTableConfig(messageObject, table, schema, tableName);
         List<Map<String, Object>> records = buildRecords(messageObject, table, tableConfig, kafkaRecord);
         if (records.isEmpty()) {
             LOGGER.warn("Skip Kafka JSON message because no valid records resolved, identifier={}, topic={}, partition={}, offset={}",
@@ -143,22 +153,23 @@ public class TableResolver {
         return Optional.of(plan);
     }
 
-    private ResolvedTableConfig buildTableConfig(Object messageObject, PaimonTableConfig table, String tableName) {
+    private ResolvedTableConfig buildTableConfig(Object messageObject, PaimonTableConfig table, StandardSchema schema, String tableName) {
         ResolvedTableConfig config = new ResolvedTableConfig();
-        config.database = requiredString(evaluate(messageObject, ExpressionSpecNormalizer.constant(table.database, JsonType.STRING),
-                "sink.tables[].database"), "sink.tables[].database");
+        config.database = requiredString(evaluate(messageObject, tableSpec(table.table.database, "database", schema.table.database,
+                JsonType.STRING), "sink.tables[].table.database"), "sink.tables[].table.database");
         config.tableName = tableName;
         config.loadMode = LoadMode.parse(table.loadMode, LoadMode.parse(sink.loadMode, LoadMode.APPEND));
-        config.tableComment = stringValue(evaluate(messageObject, ExpressionSpecNormalizer.constant(table.tableComment, JsonType.STRING),
-                "sink.tables[].tableComment"));
-        Object createIfNotExists = evaluate(messageObject, ExpressionSpecNormalizer.constant(table.createIfNotExists, JsonType.BOOLEAN),
-                "sink.tables[].createIfNotExists");
+        config.tableComment = stringValue(evaluate(messageObject, tableSpec(table.table.comment, "comment", schema.table.comment,
+                JsonType.STRING), "sink.tables[].table.comment"));
+        Object createIfNotExists = evaluate(messageObject, tableSpec(table.table.createIfNotExists, "createIfNotExists",
+                schema.table.createIfNotExists, JsonType.BOOLEAN), "sink.tables[].table.createIfNotExists");
         config.createIfNotExists = createIfNotExists == null || Boolean.TRUE.equals(createIfNotExists);
-        config.partitionKeys = stringList(evaluate(messageObject, ExpressionSpecNormalizer.constant(table.partitionKeys, JsonType.ARRAY),
-                "sink.tables[].partitionKeys"), "sink.tables[].partitionKeys");
-        config.columns = copyColumns(table.columns);
-        config.primaryKeyMode = table.primaryKey == null ? null : PrimaryKeyMode.parse(table.primaryKey.mode);
-        config.primaryKeys = resolvePrimaryKeys(messageObject, table.primaryKey, config);
+        config.partitionKeys = stringList(evaluate(messageObject, tableSpec(table.table.partitionKeys, "partitionKeys",
+                schema.table.partitionKeys, JsonType.ARRAY), "sink.tables[].table.partitionKeys"), "sink.tables[].table.partitionKeys");
+        config.columns = mergeColumns(schema.columns, table.columns);
+        config.primaryKeysConfig = mergePrimaryKeys(schema.table.primaryKeys, table.table.primaryKeys);
+        config.primaryKeyMode = config.primaryKeysConfig == null ? null : PrimaryKeyMode.parse(config.primaryKeysConfig.mode);
+        config.primaryKeys = resolvePrimaryKeys(messageObject, config.primaryKeysConfig, config);
         config.options = new LinkedHashMap<>(sink.globalOptions());
         if (table.options != null) {
             config.options.putAll(table.options);
@@ -175,7 +186,7 @@ public class TableResolver {
         List<Map<String, Object>> sourceRecords = normalizeRecordSet(mapped, tableConfig, kafkaRecord);
         List<Map<String, Object>> targetRecords = new ArrayList<>();
         for (int i = 0; i < sourceRecords.size(); i++) {
-            Map<String, Object> target = mapRecord(sourceRecords.get(i), tableConfig, table.primaryKey, kafkaRecord, i);
+            Map<String, Object> target = mapRecord(sourceRecords.get(i), tableConfig, tableConfig.primaryKeysConfig, kafkaRecord, i);
             if (target != null) {
                 targetRecords.add(target);
             }
@@ -246,8 +257,8 @@ public class TableResolver {
             return new ArrayList<>();
         }
         PrimaryKeyMode mode = PrimaryKeyMode.parse(primaryKey.mode);
-        List<String> fields = stringList(evaluate(messageObject, primaryKeySpec(primaryKey), "sink.tables[].primaryKey"),
-                "sink.tables[].primaryKey");
+        List<String> fields = stringList(evaluate(messageObject, primaryKeySpec(primaryKey), "sink.tables[].table.primaryKeys"),
+                "sink.tables[].table.primaryKeys");
         if (mode == PrimaryKeyMode.PROXY) {
             appendProxyColumn(config, ProxyPrimaryKeyType.parse(primaryKey.algorithm));
             List<String> primaryKeys = new ArrayList<>();
@@ -273,8 +284,8 @@ public class TableResolver {
         if (primaryKey == null || PrimaryKeyMode.parse(primaryKey.mode) != PrimaryKeyMode.PROXY) {
             return;
         }
-        List<String> fields = stringList(evaluate(source, primaryKeySpec(primaryKey), "sink.tables[].primaryKey"),
-                "sink.tables[].primaryKey");
+        List<String> fields = stringList(evaluate(source, primaryKeySpec(primaryKey), "sink.tables[].table.primaryKeys"),
+                "sink.tables[].table.primaryKeys");
         ProxyPrimaryKeyType type = ProxyPrimaryKeyType.parse(primaryKey.algorithm);
         target.put(ProxyPrimaryKeyGenerator.FIELD_NAME, ProxyPrimaryKeyGenerator.generate(target, fields, type));
     }
@@ -336,7 +347,7 @@ public class TableResolver {
             throw new KafkaJsonPaimonException("Paimon partitionKeys is required: " + config.identifier());
         }
         if (config.loadMode == LoadMode.UPSERT && config.primaryKeyMode == null) {
-            throw new KafkaJsonPaimonException("Paimon UPSERT requires primaryKey: " + config.identifier());
+            throw new KafkaJsonPaimonException("Paimon UPSERT requires primaryKeys: " + config.identifier());
         }
     }
 
@@ -352,8 +363,151 @@ public class TableResolver {
         }
     }
 
-    private List<ColumnConfig> copyColumns(List<ColumnConfig> columns) {
-        return columns.stream().map(ColumnConfig::copy).collect(Collectors.toCollection(ArrayList::new));
+    private StandardSchema standardSchema(Object messageObject) {
+        StandardSchema schema = new StandardSchema();
+        Object tableObject = evaluate(messageObject, pathSpec(SCHEMA_TABLE_PATH, JsonType.OBJECT), SCHEMA_TABLE_PATH);
+        if (tableObject instanceof Map<?, ?> tableMap) {
+            schema.table = tableSchema(copyMap(tableMap));
+        }
+        Object columnsObject = evaluate(messageObject, pathSpec(SCHEMA_COLUMNS_PATH, JsonType.ARRAY), SCHEMA_COLUMNS_PATH);
+        if (columnsObject instanceof Collection<?> collection) {
+            schema.columns = columnSchemas(collection);
+        }
+        return schema;
+    }
+
+    private StandardTableSchema tableSchema(Map<String, Object> table) {
+        StandardTableSchema schema = new StandardTableSchema();
+        schema.database = table.get("database");
+        schema.name = table.get("name");
+        schema.comment = table.get("comment");
+        schema.createIfNotExists = table.get("createIfNotExists");
+        schema.partitionKeys = table.get("partitionKeys");
+        schema.primaryKeys = primaryKeysConfig(table.get("primaryKeys"));
+        return schema;
+    }
+
+    private PrimaryKeyConfig primaryKeysConfig(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Collection<?> collection) {
+            PrimaryKeyConfig primaryKey = new PrimaryKeyConfig();
+            primaryKey.mode = PrimaryKeyMode.FIELDS.name();
+            primaryKey.defaultValue = new ArrayList<>(collection);
+            return primaryKey;
+        }
+        try {
+            JsonNode node = JacksonUtils.obj2JsonNode(value);
+            return JacksonUtils.treeNode2Bean(node, PrimaryKeyConfig.class);
+        } catch (Exception e) {
+            throw new KafkaJsonPaimonException("Failed to parse schema.table.primaryKeys", e);
+        }
+    }
+
+    private List<ColumnConfig> columnSchemas(Collection<?> collection) {
+        List<ColumnConfig> columns = new ArrayList<>();
+        for (Object item : collection) {
+            if (item == null) {
+                continue;
+            }
+            try {
+                JsonNode node = JacksonUtils.obj2JsonNode(item);
+                ColumnConfig column = JacksonUtils.treeNode2Bean(node, ColumnConfig.class);
+                columns.add(column.copy());
+            } catch (Exception e) {
+                throw new KafkaJsonPaimonException("Failed to parse schema.columns item", e);
+            }
+        }
+        return columns;
+    }
+
+    private ExpressionSpec tableSpec(JsonNode node, String fieldName, Object defaultValue, JsonType jsonType) {
+        if (node != null && !node.isNull()) {
+            return ExpressionSpecNormalizer.constant(node, jsonType);
+        }
+        ExpressionSpec spec = new ExpressionSpec();
+        spec.jsonType = jsonType.name();
+        spec.path = SCHEMA_TABLE_PATH + "." + fieldName;
+        spec.defaultValue = defaultValue;
+        return spec;
+    }
+
+    private ExpressionSpec pathSpec(String path, JsonType jsonType) {
+        ExpressionSpec spec = new ExpressionSpec();
+        spec.path = path;
+        spec.jsonType = jsonType.name();
+        return spec;
+    }
+
+    private List<ColumnConfig> mergeColumns(List<ColumnConfig> schemaColumns, List<ColumnConfig> jobColumns) {
+        Map<String, ColumnConfig> columns = new LinkedHashMap<>();
+        for (ColumnConfig column : safeColumns(schemaColumns)) {
+            if (TextUtils.isBlank(column.name)) {
+                continue;
+            }
+            columns.put(column.name.toLowerCase(), column.copy());
+        }
+        for (ColumnConfig column : safeColumns(jobColumns)) {
+            if (TextUtils.isBlank(column.name)) {
+                continue;
+            }
+            String key = column.name.toLowerCase();
+            ColumnConfig merged = columns.containsKey(key) ? mergeColumn(columns.get(key), column) : column.copy();
+            columns.put(key, merged);
+        }
+        return new ArrayList<>(columns.values());
+    }
+
+    private Collection<ColumnConfig> safeColumns(List<ColumnConfig> columns) {
+        return columns == null ? List.of() : columns;
+    }
+
+    private ColumnConfig mergeColumn(ColumnConfig base, ColumnConfig override) {
+        ColumnConfig merged = base.copy();
+        merged.name = override.name;
+        if (!TextUtils.isBlank(override.dataType) || !TextUtils.isBlank(override.type)) {
+            merged.dataType = !TextUtils.isBlank(override.dataType) ? override.dataType : override.type;
+        }
+        if (override.length != null) {
+            merged.length = override.length;
+        }
+        if (override.precision != null) {
+            merged.precision = override.precision;
+        }
+        if (override.scale != null) {
+            merged.scale = override.scale;
+        }
+        if (override.nullable != null) {
+            merged.nullable = override.nullable;
+        }
+        if (override.comment != null) {
+            merged.comment = override.comment;
+        }
+        if (override.format != null) {
+            merged.format = override.format;
+        }
+        if (override.value != null) {
+            merged.value = override.value;
+        }
+        return merged;
+    }
+
+    private PrimaryKeyConfig mergePrimaryKeys(PrimaryKeyConfig schemaPrimaryKeys, PrimaryKeyConfig jobPrimaryKeys) {
+        if (jobPrimaryKeys != null) {
+            return copyPrimaryKey(jobPrimaryKeys);
+        }
+        return schemaPrimaryKeys == null ? null : copyPrimaryKey(schemaPrimaryKeys);
+    }
+
+    private PrimaryKeyConfig copyPrimaryKey(PrimaryKeyConfig source) {
+        PrimaryKeyConfig copy = new PrimaryKeyConfig();
+        copy.mode = source.mode;
+        copy.algorithm = source.algorithm;
+        copy.path = source.path;
+        copy.defaultValue = source.defaultValue;
+        copy.jsonType = source.jsonType;
+        return copy;
     }
 
     private Map<String, Object> copyMap(Map<?, ?> source) {
@@ -405,5 +559,57 @@ public class TableResolver {
 
     private boolean isSystemColumn(String name) {
         return KAFKA_TOPIC_FIELD.equals(name) || KAFKA_PARTITION_FIELD.equals(name) || KAFKA_OFFSET_FIELD.equals(name);
+    }
+
+    /**
+     * Kafka 标准 schema.
+     */
+    private static class StandardSchema {
+
+        /**
+         * 表 schema.
+         */
+        private StandardTableSchema table = new StandardTableSchema();
+
+        /**
+         * 字段 schema.
+         */
+        private List<ColumnConfig> columns = new ArrayList<>();
+    }
+
+    /**
+     * Kafka 标准 table schema.
+     */
+    private static class StandardTableSchema {
+
+        /**
+         * database.
+         */
+        private Object database;
+
+        /**
+         * 表名.
+         */
+        private Object name;
+
+        /**
+         * 表注释.
+         */
+        private Object comment;
+
+        /**
+         * 是否建表.
+         */
+        private Object createIfNotExists;
+
+        /**
+         * 分区字段.
+         */
+        private Object partitionKeys;
+
+        /**
+         * 主键配置.
+         */
+        private PrimaryKeyConfig primaryKeys;
     }
 }

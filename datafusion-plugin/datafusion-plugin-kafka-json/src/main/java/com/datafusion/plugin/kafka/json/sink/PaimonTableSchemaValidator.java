@@ -105,8 +105,10 @@ public final class PaimonTableSchemaValidator {
     public static DataType paimonType(ColumnConfig field) {
         String type = TextUtils.upper(field.dataType, "STRING");
         DataType dataType;
-        if ("STRING".equals(type) || "VARCHAR".equals(type) || "JSON".equals(type)) {
-            dataType = field.length == null ? DataTypes.STRING() : DataTypes.VARCHAR(field.length);
+        if ("STRING".equals(type) || "JSON".equals(type)) {
+            dataType = DataTypes.STRING();
+        } else if ("VARCHAR".equals(type)) {
+            dataType = DataTypes.VARCHAR(field.length == null ? 255 : field.length);
         } else if ("INT".equals(type) || "INTEGER".equals(type)) {
             dataType = DataTypes.INT();
         } else if ("BIGINT".equals(type) || "LONG".equals(type)) {

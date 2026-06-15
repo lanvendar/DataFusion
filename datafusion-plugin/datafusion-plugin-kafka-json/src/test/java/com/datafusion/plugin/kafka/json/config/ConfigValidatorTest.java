@@ -35,10 +35,10 @@ class ConfigValidatorTest {
         PaimonSinkConfig sink = new PaimonSinkConfig();
         sink.options.put("warehouse", "file:///tmp/paimon");
         PaimonTableConfig table = new PaimonTableConfig();
-        table.database = JacksonUtils.str2JsonNode("\"dw_dev\"");
-        table.tableName = JacksonUtils.str2JsonNode("\"ods_test\"");
+        table.table.database = JacksonUtils.str2JsonNode("\"dw_dev\"");
+        table.table.name = JacksonUtils.str2JsonNode("\"ods_test\"");
         table.columnsMapping = JacksonUtils.str2JsonNode("\"data\"");
-        table.partitionKeys = JacksonUtils.str2JsonNode("[\"day_pt\"]");
+        table.table.partitionKeys = JacksonUtils.str2JsonNode("[\"day_pt\"]");
         table.columns.add(column("today", "VARCHAR", false));
         table.columns.add(column("day_pt", "DATE", false));
         sink.tables.add(table);

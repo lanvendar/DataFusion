@@ -6,6 +6,7 @@ import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSi
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PrimaryKeyConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.RuntimeConfig;
+import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.TableConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.WriterConfig;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
 import com.datafusion.plugin.kafka.json.core.enums.CheckpointMode;
@@ -124,19 +125,14 @@ public class ConfigValidator {
                 continue;
             }
             enabledCount++;
-            validateExpression(table.database, JsonType.STRING, false, "sink.tables[].database");
-            validateExpression(table.tableName, JsonType.STRING, false, "sink.tables[].tableName");
+            validateTableConfig(table.table);
             validateExpression(table.columnsMapping, JsonType.ANY, true, "sink.tables[].columnsMapping");
-            validateExpression(table.tableComment, JsonType.STRING, false, "sink.tables[].tableComment");
-            validateExpression(table.createIfNotExists, JsonType.BOOLEAN, false, "sink.tables[].createIfNotExists");
-            validateExpression(table.partitionKeys, JsonType.ARRAY, false, "sink.tables[].partitionKeys");
-            validateRequiredExpression(table.partitionKeys, "sink.tables[].partitionKeys");
             if (!TextUtils.isBlank(table.loadMode)) {
                 LoadMode.parse(table.loadMode, LoadMode.APPEND);
             }
             validateColumns(table);
-            validatePrimaryKey(table, LoadMode.parse(table.loadMode, LoadMode.parse(sink.loadMode, LoadMode.APPEND)));
-            String tableName = staticDefault(table.tableName);
+            validatePrimaryKey(table.table, LoadMode.parse(table.loadMode, LoadMode.parse(sink.loadMode, LoadMode.APPEND)));
+            String tableName = staticDefault(table.table.name);
             if (!TextUtils.isBlank(tableName) && !staticNames.add(tableName.toLowerCase())) {
                 throw new KafkaJsonPaimonException("Duplicate static sink tableName: " + tableName);
             }
@@ -146,9 +142,20 @@ public class ConfigValidator {
         }
     }
 
+    private void validateTableConfig(TableConfig table) {
+        if (table == null) {
+            throw new KafkaJsonPaimonException("sink.tables[].table is required");
+        }
+        validateExpression(table.database, JsonType.STRING, false, "sink.tables[].table.database");
+        validateExpression(table.name, JsonType.STRING, false, "sink.tables[].table.name");
+        validateExpression(table.comment, JsonType.STRING, false, "sink.tables[].table.comment");
+        validateExpression(table.createIfNotExists, JsonType.BOOLEAN, false, "sink.tables[].table.createIfNotExists");
+        validateExpression(table.partitionKeys, JsonType.ARRAY, false, "sink.tables[].table.partitionKeys");
+    }
+
     private void validateColumns(PaimonTableConfig table) {
-        if (table.columns == null || table.columns.isEmpty()) {
-            throw new KafkaJsonPaimonException("sink.tables[].columns is required");
+        if (table.columns == null) {
+            return;
         }
         Set<String> names = new HashSet<>();
         for (ColumnConfig column : table.columns) {
@@ -171,28 +178,25 @@ public class ConfigValidator {
         }
     }
 
-    private void validatePrimaryKey(PaimonTableConfig table, LoadMode loadMode) {
-        if (table.primaryKey == null) {
-            if (loadMode == LoadMode.UPSERT) {
-                throw new KafkaJsonPaimonException("sink.tables[].primaryKey is required for UPSERT");
-            }
+    private void validatePrimaryKey(TableConfig table, LoadMode loadMode) {
+        if (table == null || table.primaryKeys == null) {
             return;
         }
-        PrimaryKeyMode mode = PrimaryKeyMode.parse(table.primaryKey.mode);
-        validatePrimaryKeyExpression(table.primaryKey);
+        PrimaryKeyMode mode = PrimaryKeyMode.parse(table.primaryKeys.mode);
+        validatePrimaryKeyExpression(table.primaryKeys);
         if (mode == PrimaryKeyMode.PROXY) {
-            ProxyPrimaryKeyType.parse(table.primaryKey.algorithm);
+            ProxyPrimaryKeyType.parse(table.primaryKeys.algorithm);
         }
-        if (mode == PrimaryKeyMode.FIELDS && loadMode == LoadMode.UPSERT && table.primaryKey.defaultValue == null
-                && TextUtils.isBlank(table.primaryKey.path)) {
-            throw new KafkaJsonPaimonException("sink.tables[].primaryKey.path or defaultValue is required for UPSERT");
+        if (mode == PrimaryKeyMode.FIELDS && loadMode == LoadMode.UPSERT && table.primaryKeys.defaultValue == null
+                && TextUtils.isBlank(table.primaryKeys.path)) {
+            throw new KafkaJsonPaimonException("sink.tables[].table.primaryKeys.path or defaultValue is required for UPSERT");
         }
     }
 
     private void validatePrimaryKeyExpression(PrimaryKeyConfig primaryKey) {
         JsonType.parse(primaryKey.jsonType);
         if (!"ARRAY".equals(TextUtils.upper(primaryKey.jsonType, "ARRAY"))) {
-            throw new KafkaJsonPaimonException("sink.tables[].primaryKey.jsonType must be ARRAY");
+            throw new KafkaJsonPaimonException("sink.tables[].table.primaryKeys.jsonType must be ARRAY");
         }
     }
 
@@ -232,7 +236,7 @@ public class ConfigValidator {
     }
 
     private JsonType inferJsonType(ColumnConfig column) {
-        String dataType = TextUtils.upper(column.dataType, "STRING");
+        String dataType = TextUtils.upper(!TextUtils.isBlank(column.dataType) ? column.dataType : column.type, "STRING");
         if ("INT".equals(dataType) || "INTEGER".equals(dataType) || "BIGINT".equals(dataType) || "LONG".equals(dataType)
                 || "DOUBLE".equals(dataType) || "FLOAT".equals(dataType) || "DECIMAL".equals(dataType)) {
             return JsonType.NUMBER;

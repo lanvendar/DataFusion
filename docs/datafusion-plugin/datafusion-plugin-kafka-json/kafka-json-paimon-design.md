@@ -4,13 +4,13 @@
 
 ## 1. Capability
 
-- Capability: 从 Kafka 消费 JSON 消息，通过 `columnsMapping` 的消息级 JMESPath 生成记录数组，再通过 JMESPath 从消息和单条记录中提取表名和字段值，按 `job.json` 中的表结构写入 Paimon。
+- Capability: 从 Kafka 消费 JSON 消息，通过 `columnsMapping` 的消息级 JMESPath 生成记录数组，优先复用 Kafka JSON 中的标准 `schema.table` / `schema.columns`，再用 `job.json` 中的 `tables[].table{}` / `tables[].columns[]` 覆盖默认结构，最终写入 Paimon。
 - Module: `datafusion-plugin/datafusion-plugin-kafka-json`
 - Module boundary: 该模块命名带 `datafusion-plugin` 前缀，定位为通用 Kafka JSON 解析插件，不绑定 OilChem 或 `schema + data` 固定协议。
 - Java backend package: `com.datafusion.plugin.kafka.json`
 - Frontend path: 无
 - Route / API prefix: 无
-- Call chain: `job config` -> `KafkaSource` -> `JsonNode parser` -> `JMESPath extractor` -> `table resolver` -> `record mapper` -> `Paimon writer registry`
+- Call chain: `job config` -> `KafkaSource` -> `JsonNode parser` -> `JMESPath extractor` -> `table resolver` -> `record mapper` -> `Paimon Sink V2 writer` -> `Paimon committer`
 
 ## 2. Data Flow
 
@@ -18,18 +18,19 @@
 |----------|--------|---------|--------|----------------|-------|
 | 启动作业 | 本地 `job.json` 或启动参数配置文件 | `ConfigLoader` -> `ConfigValidator` | Flink 作业运行时 | `KafkaJsonPaimonJobConfig` | 启动前完成配置和表达式校验 |
 | 消费 Kafka 消息 | Kafka topic | Flink `KafkaSource<String>` | `JsonMessageParser` | 原始 JSON -> Jackson `JsonNode` | 不要求固定 envelope |
-| 表路由解析 | `JsonNode` + `sink.tables[]` | `TableResolver` | `PaimonTableConfig` | 命中的目标表配置 | 使用 `tableName.path` 读取消息表名；取不到时使用 `defaultValue`；最终仍为空则过滤消息；按 `tables[]` 顺序匹配，第一版一条消息只写入第一张命中表 |
+| 表路由解析 | `JsonNode` + `sink.tables[]` | `TableResolver` | `PaimonTableConfig` | 命中的目标表配置 | 使用 `table.name.path` 读取消息表名；取不到时使用 `defaultValue`；最终仍为空则过滤消息；按 `tables[]` 顺序匹配，第一版一条消息只写入第一张命中表 |
 | 解析记录数组 | Kafka `JsonNode` + `columnsMapping` | `ExpressionEvaluator` | record nodes | `Array<Object>` | `columnsMapping.path` 是消息级 JMESPath，结果支持对象数组或单层对象，单层对象自动包装为一条记录 |
-| 解析目标表结构 | Kafka `JsonNode` + `PaimonTableConfig` | `TableResolver` | `ResolvedTableConfig` | database/tableName/table metadata/columns/options | 表结构以 job.json 为准，Kafka 仅提供可选动态取值 |
+| 解析目标表结构 | Kafka `JsonNode` + `PaimonTableConfig` | `TableResolver` | `ResolvedTableConfig` | database/tableName/table metadata/columns/options | 标准结构以 Kafka `schema.table` / `schema.columns` 为默认源，job.json 以 `table{}` / `columns[]` 覆盖默认值 |
 | 解析单条记录 | record `JsonNode` + `columns[]` | `RecordMapper` | `Map<String, Object>` | 写入记录 | 每列按 `columns[].value` 取值和兜底 |
-| 生成代理主键 | mapped record + `PrimaryKeyConfig` | `PrimaryKeyResolver` | mapped record | `_id_` | `PROXY` 模式自动补充固定代理主键列 |
-| 初始化或复用 writer | `ResolvedTableConfig` | `PaimonWriterRegistry` | `PaimonTableWriter` | 按 `database.table` 缓存 | 启动预加载真实 Paimon schema，运行期校验当前目标结构 |
-| 批量写入 | mapped records | `RecordNormalizer` -> `PaimonTableWriter` | Paimon | `GenericRow` / `CommitMessage` | 单条错误按 `recordErrorPolicy` 处理 |
+| 生成代理主键 | mapped record + `PrimaryKeyConfig` | `PrimaryKeyResolver` | mapped record | `_id_` | `PROXY` 模式自动补充固定代理主键列；`mode` 未配置时默认 `FIELDS` |
+| 初始化或复用 writer | `ResolvedTableConfig` | `PaimonTableWriterRegistry` | `PaimonTableWriter` | 按 `database.table` 缓存 | 启动预加载真实 Paimon schema，运行期校验当前目标结构 |
+| 批量写入 | mapped records | `RecordNormalizer` -> `PaimonTableWriter` | Paimon | `GenericRow` / `CommitMessage` | writer 只写文件并产出 `CommitMessage`，不直接提交 snapshot |
+| 按表提交 | `PaimonCommittable` | `PaimonCommitter` | Paimon snapshot | `identifier + commitIdentifier` | committer 按表和提交编号聚合提交，避免不同表或不同 checkpoint 的消息混提 |
 | 容错恢复 | Flink checkpoint state | Flink runtime | Kafka offsets + Paimon commit | runtime 配置 | `UPSERT` 结合主键提升重放幂等性 |
 
 ## 3. job.json Contract
 
-`job.json` 是通用插件的唯一表结构配置源。Kafka 消息不再必须携带 `schema.columns` 或主键定义；它只需要能被 `columnsMapping.path` 投影成对象数组或单层对象，并提供可选的表名字段供 `tableName.path` 做多表路由。
+`job.json` 是通用插件的覆盖配置源。Kafka 消息可携带标准结构 `schema.table` / `schema.columns` 作为默认 schema，job.json 只覆盖需要变更的字段。
 
 顶层结构如下：
 
@@ -53,7 +54,8 @@
 | `sink.options` | Yes | 全局 Paimon options，包含 catalog 连接参数和默认表 options |
 | `sink.tables` | Yes | 目标表数组，每个元素定义路由、表结构、字段取值和写入策略 |
 | `sink.tables[].columnsMapping` | Yes | 消息级 JMESPath，结果必须是待映射的对象数组或单层对象 |
-| `sink.tables[].columns` | Yes | Paimon 表字段与 record 取值规则 |
+| `sink.tables[].table` | No | 表级覆盖配置；未配置时优先读取 Kafka `schema.table` |
+| `sink.tables[].columns` | No | 字段覆盖配置；未配置时优先读取 Kafka `schema.columns` |
 | `sink.loadMode` | No | 全局默认写入模式，支持 `APPEND`、`UPSERT`，表级 `loadMode` 可覆盖 |
 | `sink.writer` | No | Paimon writer 缓冲、flush 和缓存控制；新插件只支持 `writer`，不兼容旧字段 `write` |
 
@@ -112,39 +114,49 @@ OilChem 样例配置骨架：
     "tables": [
       {
         "enabled": true,
-        "database": "dw_dev",
-        "tableName": {
-          "path": "schema.table.name",
-          "defaultValue": "ods_spider_oilchem_price_market"
+        "table": {
+          "database": "dw_dev",
+          "name": {
+            "path": "schema.table.name",
+            "defaultValue": "ods_spider_oilchem_price_market"
+          },
+          "comment": {
+            "path": "schema.table.comment"
+          },
+          "createIfNotExists": {
+            "path": "schema.table.createIfNotExists",
+            "defaultValue": true
+          },
+          "partitionKeys": {
+            "path": "schema.table.partitionKeys",
+            "defaultValue": ["day_pt"]
+          },
+          "primaryKeys": {
+            "mode": "PROXY",
+            "algorithm": "SHA-256",
+            "defaultValue": [
+              "day_pt",
+              "varieties_id",
+              "category_name",
+              "sub_category_name",
+              "business_type",
+              "two_level_business_type",
+              "region_id",
+              "internal_market_name",
+              "sale_region_name",
+              "standard",
+              "brand_name",
+              "specifications_name",
+              "purpose_name",
+              "process",
+              "producer",
+              "price_type_name",
+              "receiving_station"
+            ]
+          }
         },
-        "columnsMapping": "schema.data",
+        "columnsMapping": "data",
         "loadMode": "UPSERT",
-        "tableComment": "隆众市场价格行情表",
-        "createIfNotExists": true,
-        "partitionKeys": ["day_pt"],
-        "primaryKey": {
-          "mode": "PROXY",
-          "algorithm": "SHA-256",
-          "defaultValue": [
-            "day_pt",
-            "varieties_id",
-            "category_name",
-            "sub_category_name",
-            "business_type",
-            "two_level_business_type",
-            "region_id",
-            "internal_market_name",
-            "sale_region_name",
-            "standard",
-            "brand_name",
-            "specifications_name",
-            "purpose_name",
-            "process",
-            "producer",
-            "price_type_name",
-            "receiving_station"
-          ]
-        },
         "columns": [
           {
             "name": "today",
@@ -197,8 +209,27 @@ OilChem 样例配置骨架：
       "name": "ods_spider_oilchem_price_market",
       "comment": "隆众市场价格行情表",
       "createIfNotExists": true,
+      "primaryKeys": {
+        "mode": "PROXY",
+        "algorithm": "SHA-256",
+        "defaultValue": [
+          "day_pt",
+          "varieties_id",
+          "business_type",
+          "two_level_business_type"
+        ]
+      },
       "partitionKeys": ["day_pt"]
-    }
+    },
+    "columns": [
+      {
+        "name": "today",
+        "type": "VARCHAR",
+        "length": 32,
+        "nullable": false,
+        "comment": "价格日期"
+      }
+    ]
   },
   "data": [
     {
@@ -209,14 +240,37 @@ OilChem 样例配置骨架：
 }
 ```
 
-当 `tableName.defaultValue`、`tableComment.defaultValue`、`partitionKeys.defaultValue` 都固定且作业只写一张表时，Kafka 消息可以逐步简化到只保留 `columnsMapping.path` 能取到的记录数组。`columnsMapping.path` 也可以使用 JMESPath 投影复杂 JSON，例如把 `schema.data[].{today: today, day_pt: day_pt}` 转成标准行数组。如果 `sink.tables[]` 配置多张表，建议保留 `schema.table.name` 或等价表名字段，用于多表路由、日志和排障。
+当 `table.name.defaultValue`、`table.comment.defaultValue`、`partitionKeys.defaultValue` 都固定且作业只写一张表时，Kafka 消息可以逐步简化到只保留 `columnsMapping.path` 能取到的记录数组。`columnsMapping.path` 也可以使用 JMESPath 投影复杂 JSON，例如把 `data[].{today: today, day_pt: day_pt}` 转成标准行数组。如果 `sink.tables[]` 配置多张表，建议保留 `schema.table.name` 或等价表名字段，用于多表路由、日志和排障。
+
+标准结构合并优先级：
+
+```text
+内置默认值 < Kafka JSON schema.table/schema.columns < job.json sink.tables[].table/sink.tables[].columns
+```
+
+表级字段合并规则：
+
+- `table.database`: job.json 必须能解析出最终 database；Kafka `schema.table` 默认不承载 database。
+- `table.name`: job.json `table.name` 覆盖 Kafka `schema.table.name`；最终为空时过滤消息。
+- `table.comment`: job.json `table.comment` 覆盖 Kafka `schema.table.comment`。
+- `table.createIfNotExists`: job.json `table.createIfNotExists` 覆盖 Kafka `schema.table.createIfNotExists`；默认 `true`。
+- `table.partitionKeys`: job.json `table.partitionKeys` 覆盖 Kafka `schema.table.partitionKeys`；最终按分区规则校验。
+- `table.primaryKeys`: job.json `table.primaryKeys` 覆盖 Kafka `schema.table.primaryKeys`；未配置 `mode` 时默认 `FIELDS`；`defaultValue` 是主键字段数组。
+
+字段合并规则：
+
+- Kafka `schema.columns[]` 提供默认字段结构，job.json `columns[]` 按 `name` 覆盖同名字段。
+- job.json `columns[]` 中出现的新字段会加入最终 schema。
+- 同名字段覆盖字段类型、长度、精度、小数位、nullable、comment、format、value 等配置。
+- `columns[].value` 未配置时仍默认按列名从单条 record 中取值。
 
 `columnsMapping.path` 与 `columns[].value.path` 的上下文不同：
 
 - `columnsMapping.path` 在整条 Kafka JSON 上求值，目标是生成 `Array<Object>` 或单层 `Object`；单层对象自动包装为一条记录。
 - `columns[].value.path` 在单条 record 上求值，目标是生成单列值。
+- `table.*` 和 `columns[]` 可以共享 Kafka 标准结构中的 `schema.table` / `schema.columns`，job.json 中显式配置的值优先覆盖 Kafka 消息中的默认值。
 
-因此 `schema.data[].today` 这类表达式适合放在 `columnsMapping.path` 的投影里，不建议直接作为列值表达式；列值表达式应保持相对于单条 record，例如 `today`。
+因此 `data[].today` 这类表达式适合放在 `columnsMapping.path` 的投影里，不建议直接作为列值表达式；列值表达式应保持相对于单条 record，例如 `today`。
 
 配置支持简写：常量值可以直接写字符串、布尔值或数组，并统一归一化为 `ExpressionSpec.defaultValue`；`columnsMapping` 可以直接写 JMESPath 字符串，并归一化为 `ExpressionSpec.path`；`columns[].value` 不写时默认按列名取值；`jsonType` 通常由字段语义或 `dataType` 推断，只有表达式返回类型不明显时才显式配置。
 
@@ -235,7 +289,8 @@ OilChem 样例配置骨架：
 | `datafusion-plugin/datafusion-plugin-kafka-json/src/main/java/com/datafusion/plugin/kafka/json/resolve/*` | 表路由、字段映射、主键解析 |
 | `datafusion-plugin/datafusion-plugin-kafka-json/src/main/java/com/datafusion/plugin/kafka/json/source/*` | Kafka source 构建和反序列化 |
 | `datafusion-plugin/datafusion-plugin-kafka-json/src/main/java/com/datafusion/plugin/kafka/json/sink/paimon/*` | Paimon writer、schema 校验、批量提交 |
-| `datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/sample-kafka-json-paimon-job.json` | 样例配置 |
+| `datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/sample-standard-kafka-json-paimon-job.json` | 标准结构简化样例，Kafka 消息提供 `schema.table` / `schema.columns` |
+| `datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/sample-generic-kafka-json-paimon-job.json` | 通用结构样例，job 配置完整定义 table、columns 和 JMESPath |
 
 ### 4.2 Modified Files
 
@@ -267,7 +322,7 @@ OilChem 样例配置骨架：
 | `validate(KafkaJsonPaimonJobConfig config)` | 顶层配置 | `void` | 校验 Kafka、runtime、sink、JMESPath 表达式和 Paimon 表结构配置 |
 | `parse(String message)` | Kafka 原始消息 | `JsonNode` | 使用 Jackson 解析任意 JSON |
 | `evaluate(ExpressionSpec spec, JsonNode context)` | 表达式配置和上下文 | `Object` | JMESPath 求值、默认值兜底和 `jsonType` 顶层校验 |
-| `resolveTable(JsonNode message, List<PaimonTableConfig> tables)` | Kafka 消息和表配置 | `Optional<PaimonTableConfig>` | 使用 `tableName.path/defaultValue` 判断当前消息目标表 |
+| `resolveTable(JsonNode message, List<PaimonTableConfig> tables)` | Kafka 消息和表配置 | `Optional<PaimonTableConfig>` | 使用 `table.name.path/defaultValue` 判断当前消息目标表 |
 | `resolve(JsonNode message, KafkaRecord record)` | Kafka 消息和 Kafka 元信息 | `Optional<ResolvedTableWritePlan>` | 通过 `columnsMapping` 生成单表写入计划 |
 | `write(ResolvedTableWritePlan plan)` | 写入计划 | `void` | 获取 writer，按策略校验和写入 |
 
@@ -279,23 +334,23 @@ OilChem 样例配置骨架：
 | `ExpressionSpec.path` 为空 | 不执行 JMESPath，直接使用 `defaultValue` | 若没有默认值，由调用方按必填规则处理 |
 | `ExpressionSpec.path` 取不到值 | 使用 `defaultValue` | 若最终仍为空，由调用方按必填规则处理 |
 | `jsonType` 不匹配 | 表达式最终值与顶层类型不一致 | 启动期能发现的配置错误直接 fail；运行期按 `recordErrorPolicy` 或 `schemaMismatchPolicy` 处理 |
-| 多表路由 | `tableName.path` 有值时以该值路由；取不到值时使用 `defaultValue`；最终仍为空则过滤消息 | 未命中或为空时记录 WARN 并跳过，日志包含 topic、partition、offset、tableName、reason |
+| 多表路由 | `table.name.path` 有值时以该值路由；取不到值时使用 `defaultValue`；最终仍为空则过滤消息 | 未命中或为空时记录 WARN 并跳过，日志包含 topic、partition、offset、tableName、reason |
 | 一条消息写多张表 | 第一版不支持 | 后续可增加 `multiMatch=true` |
 | `columnsMapping` 结果不是数组或对象 | 当前消息无法生成记录列表 | 按 `recordErrorPolicy` 处理 |
 | `columnsMapping` 结果是单层对象 | 自动包装为单条 record | 继续执行字段映射 |
 | `columnsMapping` 数组元素不是对象 | 当前元素跳过或失败 | 按 `recordErrorPolicy` 处理，不影响同一数组其他元素；日志包含 topic、partition、offset、tableName、recordIndex、reason |
 | `columns[].value` 未配置 | 默认按列名作为 JMESPath，即 `path=<column.name>` | 减少简单字段配置 |
 | 必输字段为空 | `nullable=false` 且表达式最终值为空 | 按 `recordErrorPolicy` 处理 |
-| `UPSERT` 未配置主键 | `loadMode=UPSERT` 时必须有 `primaryKey` | 配置校验失败 |
-| 普通主键 | `primaryKey.mode=FIELDS` 时从 `primaryKey.path/defaultValue` 得到主键列表 | 主键字段必须存在于 `columns[]` |
-| 代理主键 | `primaryKey.mode=PROXY` 时自动补充固定 `_id_` 字段；真实 Paimon 主键只有 `_id_` 和分区字段 | `primaryKey.path/defaultValue` 得到的源字段用于生成代理键；字段值允许为空字符串参与拼接 |
+| `UPSERT` 未配置主键 | `loadMode=UPSERT` 时从 job.json `table.primaryKeys`、Kafka `schema.table.primaryKeys` 解析主键 | 解析不到主键字段时配置校验或运行期 schema 校验失败 |
+| 普通主键 | `primaryKeys.mode=FIELDS` 时从 `primaryKeys.path/defaultValue` 得到主键列表；`mode` 为空默认 `FIELDS` | 主键字段必须存在于 `columns[]` |
+| 代理主键 | `primaryKeys.mode=PROXY` 时自动补充固定 `_id_` 字段；真实 Paimon 主键只有 `_id_` 和分区字段 | `primaryKeys.path/defaultValue` 得到的源字段用于生成代理键；字段值允许为空字符串参与拼接 |
 | Paimon 表不存在 | `createIfNotExists=true` 时自动建表 | `false` 时抛异常 |
 | Paimon 表已存在且不兼容 | 比较字段缺失、类型、主键、分区和表 options | 按 `schemaMismatchPolicy` 处理；comment 不一致只 WARN；日志包含 topic、partition、offset、tableName、reason |
 | Kafka 元数据字段 | `includeKafkaMetadataFields=true` 时自动补 `_kafka_topic`、`_kafka_partition`、`_kafka_offset` | 关闭时不写入 |
 
 ### 5.4 Transaction Boundary
 
-- Consistency boundary: 当前自定义 `RichSinkFunction` 在 checkpoint 时 flush Paimon batch，默认使用 `AT_LEAST_ONCE`。
+- Consistency boundary: 当前使用 Flink Sink V2 提交模型，writer 并行写文件并产出 `CommitMessage`，committer 按表和提交编号聚合提交。
 - Replay behavior: `UPSERT` + 主键或代理主键可以提升失败重放时的幂等性；`APPEND` 表在 Paimon commit 成功但 Kafka offset checkpoint 未完成时可能重复写入。
 - Failure behavior: 单表批次写入异常、Paimon commit 失败、`schemaMismatchPolicy=FAIL` 的 schema 校验失败会让当前 Flink task 失败并触发重启策略。
 
@@ -346,7 +401,7 @@ OilChem 样例配置骨架：
 
 ## 10. Verification
 
-- Unit tests: `ExpressionSpec` 求值、`jsonType` 校验、`tableName.path/defaultValue` 路由、`columnsMapping` 解析、record 映射、代理主键生成、配置校验。
+- Unit tests: `ExpressionSpec` 求值、`jsonType` 校验、`table.name.path/defaultValue` 路由、`columnsMapping` 解析、record 映射、代理主键生成、配置校验。
 - Compile / build command: `mvn -DskipTests compile -pl datafusion-plugin/datafusion-plugin-kafka-json -am`。
 - Frontend verification: 无。
 - Style / lint: Java 文件走项目 Checkstyle 约定。
