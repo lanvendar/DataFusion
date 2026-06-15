@@ -1,0 +1,416 @@
+{
+  "job": {
+    "id": "kafka_json_ods_spider_oilchem_price_market",
+    "name": "Kafka JSON Ods Spider OilChem Price Market To Paimon",
+    "version": "1.0.0"
+  },
+  "source": {
+    "type": "KAFKA",
+    "bootstrapServers": "sz-kafka.indusmind.me:9094",
+    "topics": [
+      "dw-web-spider-paimon-test"
+    ],
+    "groupId": "dw-web-spider-paimon-test11",
+    "startingOffsets": "group-offsets",
+    "properties": {
+      "client.id": "sh-web-spider",
+      "security.protocol": "SASL_SSL",
+      "sasl.mechanism": "SCRAM-SHA-512",
+      "sasl.jaas.config": "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"dw-web-spider\" password=\"msh9s4DmH2PwKt9WYtnA3AMLkIjlKGkA\";"
+    }
+  },
+  "runtime": {
+    "parallelism": 2,
+    "deploymentMode": "LOCAL",
+    "executionMode": "STREAMING",
+    "checkpointMode": "AT_LEAST_ONCE",
+    "checkpointIntervalMs": 60000,
+    "checkpointTimeoutMs": 600000,
+    "maxConcurrentCheckpoints": 1,
+    "checkpointStorage": "file:///tmp/flink-checkpoints/kafka-json-ods-spider-oilchem-price-market",
+    "stateBackend": "HASHMAP",
+    "restartStrategy": "FIXED_DELAY",
+    "restartAttempts": 3,
+    "restartDelayMs": 10000
+  },
+  "sink": {
+    "type": "PAIMON",
+    "connectType": "S3",
+    "schemaMismatchPolicy": "SKIP",
+    "recordErrorPolicy": "SKIP",
+    "loadMode": "UPSERT",
+    "options": {
+      "warehouse": "s3://data-lake-warehouse/paimon",
+      "catalogType": "filesystem",
+      "database": "dw_prod",
+      "s3.endpoint": "http://sz-s3.indusmind.me",
+      "s3.endpoint.region": "us-east-1",
+      "s3.access-key": "DNFY3F8DZ102RKOAXIMJ",
+      "s3.secret-key": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+      "s3.path.style.access": "true",
+      "s3.connection.ssl.enabled": "false",
+      "s3.fast.upload.buffer": "array",
+      "bucket": "2",
+      "write-buffer-size": "128mb",
+      "file.format": "parquet"
+    },
+    "tables": [
+      {
+        "enabled": true,
+        "database": "dw_dev",
+        "tableName": {
+          "path": "schema.table.name",
+          "defaultValue": "ods_spider_oilchem_price_market"
+        },
+        "columnsMapping": "data",
+        "loadMode": "UPSERT",
+        "tableComment": "隆众市场价格行情表",
+        "createIfNotExists": true,
+        "partitionKeys": [
+          "day_pt"
+        ],
+        "primaryKey": {
+          "mode": "PROXY",
+          "defaultValue": [
+            "day_pt",
+            "varieties_id",
+            "category_name",
+            "sub_category_name",
+            "business_type",
+            "two_level_business_type",
+            "region_id",
+            "internal_market_name",
+            "sale_region_name",
+            "standard",
+            "brand_name",
+            "specifications_name",
+            "purpose_name",
+            "process",
+            "producer",
+            "price_type_name",
+            "receiving_station"
+          ]
+        },
+        "columns": [
+          {
+            "name": "today",
+            "dataType": "VARCHAR",
+            "length": 32,
+            "nullable": false,
+            "comment": "价格日期"
+          },
+          {
+            "name": "query_date",
+            "dataType": "VARCHAR",
+            "length": 32,
+            "nullable": false,
+            "comment": "本次请求日期"
+          },
+          {
+            "name": "varieties_id",
+            "dataType": "BIGINT",
+            "nullable": false,
+            "comment": "品种ID",
+            "value": {
+              "path": "varieties_id",
+              "defaultValue": -1
+            }
+          },
+          {
+            "name": "varieties_name",
+            "dataType": "VARCHAR",
+            "length": 128,
+            "nullable": true,
+            "comment": "品种名称"
+          },
+          {
+            "name": "category_name",
+            "dataType": "VARCHAR",
+            "length": 64,
+            "nullable": true,
+            "comment": "请求一级品类",
+            "value": {
+              "path": "category_name",
+              "defaultValue": "_UNKNOWN_"
+            }
+          },
+          {
+            "name": "sub_category_name",
+            "dataType": "VARCHAR",
+            "length": 128,
+            "nullable": true,
+            "comment": "请求二级分类",
+            "value": {
+              "path": "sub_category_name",
+              "defaultValue": "_UNKNOWN_"
+            }
+          },
+          {
+            "name": "business_type",
+            "dataType": "VARCHAR",
+            "length": 32,
+            "nullable": false,
+            "comment": "价格类型编码",
+            "value": {
+              "path": "business_type",
+              "defaultValue": "_UNKNOWN_"
+            }
+          },
+          {
+            "name": "business_type_name",
+            "dataType": "VARCHAR",
+            "length": 64,
+            "nullable": true,
+            "comment": "价格类型"
+          },
+          {
+            "name": "two_level_business_type",
+            "dataType": "BIGINT",
+            "nullable": false,
+            "comment": "二级业务类型编码，对应请求 twoLevelBusinessType",
+            "value": {
+              "path": "two_level_business_type",
+              "defaultValue": -1
+            }
+          },
+          {
+            "name": "region_id",
+            "dataType": "BIGINT",
+            "nullable": false,
+            "comment": "区域ID",
+            "value": {
+              "path": "region_id",
+              "defaultValue": -1
+            }
+          },
+          {
+            "name": "region_name",
+            "dataType": "VARCHAR",
+            "length": 64,
+            "nullable": true,
+            "comment": "区域名称"
+          },
+          {
+            "name": "internal_market_name",
+            "dataType": "VARCHAR",
+            "length": 128,
+            "nullable": true,
+            "comment": "市场名称",
+            "value": {
+              "path": "internal_market_name",
+              "defaultValue": "_UNKNOWN_"
+            }
+          },
+          {
+            "name": "sale_region_name",
+            "dataType": "VARCHAR",
+            "length": 128,
+            "nullable": true,
+            "comment": "销售地区",
+            "value": {
+              "path": "sale_region_name",
+              "defaultValue": "_UNKNOWN_"
+            }
+          },
+          {
+            "name": "standard",
+            "dataType": "VARCHAR",
+            "length": 128,
+            "nullable": true,
+            "comment": "标准",
+            "value": {
+              "path": "standard",
+              "defaultValue": "_UNKNOWN_"
+            }
+          },
+          {
+            "name": "brand_name",
+            "dataType": "VARCHAR",
+            "length": 128,
+            "nullable": true,
+            "comment": "品牌",
+            "value": {
+              "path": "brand_name",
+              "defaultValue": "_UNKNOWN_"
+            }
+          },
+          {
+            "name": "specifications_name",
+            "dataType": "VARCHAR",
+            "length": 128,
+            "nullable": true,
+            "comment": "规格",
+            "value": {
+              "path": "specifications_name",
+              "defaultValue": "_UNKNOWN_"
+            }
+          },
+          {
+            "name": "purpose_name",
+            "dataType": "VARCHAR",
+            "length": 128,
+            "nullable": true,
+            "comment": "用途",
+            "value": {
+              "path": "purpose_name",
+              "defaultValue": "_UNKNOWN_"
+            }
+          },
+          {
+            "name": "process",
+            "dataType": "VARCHAR",
+            "length": 128,
+            "nullable": true,
+            "comment": "工艺",
+            "value": {
+              "path": "process",
+              "defaultValue": "_UNKNOWN_"
+            }
+          },
+          {
+            "name": "producer",
+            "dataType": "VARCHAR",
+            "length": 128,
+            "nullable": true,
+            "comment": "生产企业",
+            "value": {
+              "path": "producer",
+              "defaultValue": "_UNKNOWN_"
+            }
+          },
+          {
+            "name": "price_type_name",
+            "dataType": "VARCHAR",
+            "length": 128,
+            "nullable": true,
+            "comment": "价格条件",
+            "value": {
+              "path": "price_type_name",
+              "defaultValue": "_UNKNOWN_"
+            }
+          },
+          {
+            "name": "receiving_station",
+            "dataType": "VARCHAR",
+            "length": 128,
+            "nullable": true,
+            "comment": "接收站",
+            "value": {
+              "path": "receiving_station",
+              "defaultValue": "_UNKNOWN_"
+            }
+          },
+          {
+            "name": "unit_valuation_name",
+            "dataType": "VARCHAR",
+            "length": 32,
+            "nullable": true,
+            "comment": "单位"
+          },
+          {
+            "name": "min_price",
+            "dataType": "DECIMAL",
+            "precision": 18,
+            "scale": 4,
+            "nullable": true,
+            "comment": "最低价"
+          },
+          {
+            "name": "max_price",
+            "dataType": "DECIMAL",
+            "precision": 18,
+            "scale": 4,
+            "nullable": true,
+            "comment": "最高价"
+          },
+          {
+            "name": "mainstream_price",
+            "dataType": "DECIMAL",
+            "precision": 18,
+            "scale": 4,
+            "nullable": true,
+            "comment": "主流价"
+          },
+          {
+            "name": "min_price_change",
+            "dataType": "DECIMAL",
+            "precision": 18,
+            "scale": 4,
+            "nullable": true,
+            "comment": "最低价涨跌"
+          },
+          {
+            "name": "max_price_change",
+            "dataType": "DECIMAL",
+            "precision": 18,
+            "scale": 4,
+            "nullable": true,
+            "comment": "最高价涨跌"
+          },
+          {
+            "name": "mainstream_price_change",
+            "dataType": "DECIMAL",
+            "precision": 18,
+            "scale": 4,
+            "nullable": true,
+            "comment": "主流价涨跌"
+          },
+          {
+            "name": "data_rise_or_fall",
+            "dataType": "VARCHAR",
+            "length": 64,
+            "nullable": true,
+            "comment": "整体涨跌值"
+          },
+          {
+            "name": "data_rate",
+            "dataType": "VARCHAR",
+            "length": 32,
+            "nullable": true,
+            "comment": "涨跌幅"
+          },
+          {
+            "name": "remark",
+            "dataType": "VARCHAR",
+            "length": 512,
+            "nullable": true,
+            "comment": "备注"
+          },
+          {
+            "name": "has_notice",
+            "dataType": "BIGINT",
+            "nullable": true,
+            "comment": "是否有通知"
+          },
+          {
+            "name": "index_price_type",
+            "dataType": "BIGINT",
+            "nullable": true,
+            "comment": "指数价格类型"
+          },
+          {
+            "name": "day_pt",
+            "dataType": "DATE",
+            "nullable": false,
+            "comment": "分区日期",
+            "format": "yyyy-MM-dd",
+            "value": {
+              "path": "day_pt",
+              "defaultValue": "1970-01-01"
+            }
+          }
+        ],
+        "options": {
+          "bucket": "4",
+          "write-buffer-size": "128mb",
+          "file.format": "parquet"
+        }
+      }
+    ],
+    "writer": {
+      "batchSize": 1000,
+      "flushIntervalMs": 5000,
+      "maxOpenWriters": 256
+    }
+  }
+}

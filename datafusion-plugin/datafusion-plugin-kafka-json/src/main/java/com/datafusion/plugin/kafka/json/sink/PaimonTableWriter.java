@@ -1,11 +1,12 @@
 package com.datafusion.plugin.kafka.json.sink;
 
+import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
 import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
-import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
 import com.datafusion.plugin.kafka.json.resolve.ResolvedTableConfig;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
 import org.apache.paimon.catalog.Catalog;
+import org.apache.paimon.catalog.Catalog.TableNotExistException;
 import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
 import org.apache.paimon.catalog.Identifier;
@@ -13,9 +14,8 @@ import org.apache.paimon.data.GenericRow;
 import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.schema.Schema;
 import org.apache.paimon.table.Table;
-import org.apache.paimon.table.sink.BatchTableCommit;
-import org.apache.paimon.table.sink.BatchTableWrite;
 import org.apache.paimon.table.sink.CommitMessage;
+import org.apache.paimon.table.sink.StreamTableWrite;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.RowType;
 import org.slf4j.Logger;
@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 单张 Paimon 表 writer.
+ * Paimon 流式单表 writer,只写文件并产出 commit message.
  *
  * @author DataFusion
  * @version 1.0.0
@@ -55,12 +55,17 @@ public class PaimonTableWriter implements AutoCloseable {
     private final RecordErrorPolicy recordErrorPolicy;
 
     /**
+     * commit user.
+     */
+    private final String commitUser;
+
+    /**
      * Paimon catalog.
      */
     private Catalog catalog;
 
     /**
-     * 表标识符.
+     * 表标识.
      */
     private Identifier identifier;
 
@@ -75,16 +80,24 @@ public class PaimonTableWriter implements AutoCloseable {
     private RowType rowType;
 
     /**
-     * 构造表 writer.
+     * 流式 writer.
+     */
+    private StreamTableWrite write;
+
+    /**
+     * 构造流式单表 writer.
      *
      * @param catalogOptions catalog 配置
      * @param tableConfig 目标表配置
-     * @param recordErrorPolicy 单条记录错误处理策略
+     * @param recordErrorPolicy 单条记录错误策略
+     * @param commitUser commit user
      */
-    public PaimonTableWriter(Map<String, String> catalogOptions, ResolvedTableConfig tableConfig, RecordErrorPolicy recordErrorPolicy) {
+    public PaimonTableWriter(Map<String, String> catalogOptions, ResolvedTableConfig tableConfig,
+            RecordErrorPolicy recordErrorPolicy, String commitUser) {
         this.catalogOptions = new LinkedHashMap<>(catalogOptions);
         this.tableConfig = tableConfig;
         this.recordErrorPolicy = recordErrorPolicy;
+        this.commitUser = commitUser;
     }
 
     /**
@@ -97,56 +110,68 @@ public class PaimonTableWriter implements AutoCloseable {
             identifier = Identifier.create(tableConfig.database, tableConfig.tableName);
             table = getOrCreateTable(identifier);
             rowType = table.rowType();
+            write = table.newStreamWriteBuilder().withCommitUser(commitUser).newWrite();
             LOGGER.info("Paimon table writer opened, identifier={}, fields={}", identifier, rowType.getFieldCount());
         } catch (Exception e) {
-            throw new KafkaJsonPaimonException("Failed to open Paimon table writer: " + tableConfig.identifier(), e);
+            throw new KafkaJsonPaimonException("Failed to open Paimon stream table writer: " + tableConfig.identifier(), e);
         }
     }
 
     /**
-     * 获取当前 Paimon 表结构快照.
+     * 获取表结构快照.
      *
-     * @return Paimon 表结构快照
+     * @return 表结构快照
      */
     public PaimonTableSchemaSnapshot schemaSnapshot() {
         return new PaimonTableSchemaSnapshot(table);
     }
 
     /**
-     * 批量写入记录.
+     * 写入记录.
      *
      * @param records 记录列表
+     * @return 成功写入条数
      */
-    public void writeBatch(List<Map<String, Object>> records) {
-        if (records == null || records.isEmpty()) {
-            return;
-        }
+    public int write(List<Map<String, Object>> records) {
         List<Map<String, Object>> normalizedRecords = RecordNormalizer.normalize(records, tableConfig, recordErrorPolicy);
-        if (normalizedRecords.isEmpty()) {
-            return;
+        int written = 0;
+        for (int i = 0; i < normalizedRecords.size(); i++) {
+            InternalRow row = toRow(normalizedRecords.get(i), i);
+            if (row == null) {
+                continue;
+            }
+            try {
+                writeRecord(row);
+                written++;
+            } catch (Exception e) {
+                throw new KafkaJsonPaimonException("Failed to write Paimon record: " + tableConfig.identifier(), e);
+            }
         }
-        long start = System.currentTimeMillis();
-        LOGGER.info("Paimon write started, identifier={}, records={}", identifier, normalizedRecords.size());
-        try (BatchTableWrite write = table.newBatchWriteBuilder().newWrite();
-                BatchTableCommit commit = table.newBatchWriteBuilder().newCommit()) {
-            int written = 0;
-            for (int i = 0; i < normalizedRecords.size(); i++) {
-                InternalRow row = toRow(normalizedRecords.get(i), i);
-                if (row != null) {
-                    writeRecord(write, row);
-                    written++;
-                }
+        return written;
+    }
+
+    /**
+     * 准备提交.
+     *
+     * @param commitIdentifier 提交编号
+     * @return committable
+     */
+    public PaimonCommittable prepareCommit(long commitIdentifier) {
+        try {
+            List<CommitMessage> messages = write.prepareCommit(false, commitIdentifier);
+            if (messages.isEmpty()) {
+                return null;
             }
-            if (written == 0) {
-                LOGGER.warn("Skip Paimon commit because all records are invalid, identifier={}", identifier);
-                return;
-            }
-            List<CommitMessage> messages = write.prepareCommit();
-            commit.commit(messages);
-            LOGGER.info("Paimon write finished, identifier={}, records={}, commitMessages={}, elapsedMs={}",
-                    identifier, written, messages.size(), System.currentTimeMillis() - start);
+            PaimonCommittable committable = new PaimonCommittable();
+            committable.database = tableConfig.database;
+            committable.tableName = tableConfig.tableName;
+            committable.commitIdentifier = commitIdentifier;
+            committable.commitMessages = messages;
+            LOGGER.info("Paimon table prepared commit, identifier={}, commitIdentifier={}, commitMessages={}",
+                    identifier, commitIdentifier, messages.size());
+            return committable;
         } catch (Exception e) {
-            throw new KafkaJsonPaimonException("Failed to write Paimon records: " + tableConfig.identifier(), e);
+            throw new KafkaJsonPaimonException("Failed to prepare Paimon commit: " + tableConfig.identifier(), e);
         }
     }
 
@@ -155,19 +180,30 @@ public class PaimonTableWriter implements AutoCloseable {
      */
     @Override
     public void close() {
+        RuntimeException failure = null;
+        if (write != null) {
+            try {
+                write.close();
+            } catch (Exception e) {
+                failure = new KafkaJsonPaimonException("Failed to close Paimon stream write: " + tableConfig.identifier(), e);
+            }
+        }
         if (catalog != null) {
             try {
                 catalog.close();
             } catch (Exception e) {
-                throw new KafkaJsonPaimonException("Failed to close Paimon catalog: " + tableConfig.identifier(), e);
+                failure = new KafkaJsonPaimonException("Failed to close Paimon catalog: " + tableConfig.identifier(), e);
             }
+        }
+        if (failure != null) {
+            throw failure;
         }
     }
 
     private Table getOrCreateTable(Identifier tableIdentifier) throws Exception {
         try {
             return catalog.getTable(tableIdentifier);
-        } catch (Catalog.TableNotExistException e) {
+        } catch (TableNotExistException e) {
             if (!Boolean.TRUE.equals(tableConfig.createIfNotExists)) {
                 throw new KafkaJsonPaimonException("Paimon table does not exist: " + tableIdentifier);
             }
@@ -212,7 +248,7 @@ public class PaimonTableWriter implements AutoCloseable {
         }
     }
 
-    private void writeRecord(BatchTableWrite write, InternalRow row) throws Exception {
+    private void writeRecord(InternalRow row) throws Exception {
         if (isDynamicBucketTable()) {
             write.write(row, 0);
             return;

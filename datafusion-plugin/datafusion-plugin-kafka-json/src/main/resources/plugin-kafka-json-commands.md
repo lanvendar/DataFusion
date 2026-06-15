@@ -20,12 +20,7 @@ mvn -DskipTests package -pl datafusion-plugin/datafusion-plugin-kafka-json -am
 
 ```bash
 cd /Users/lanvendar/Projects/DataFusion
-java \
-  -DKAFKA_JSON_PAIMON_LOG_DIR=datafusion-plugin/datafusion-plugin-kafka-json/target/logs \
-  -DKAFKA_JSON_PAIMON_LOG_LEVEL=INFO \
-  -DKAFKA_JSON_PAIMON_LOG_MAX_FILE_SIZE=100MB \
-  -jar datafusion-plugin/datafusion-plugin-kafka-json/target/datafusion-plugin-kafka-json-1.0.0-executable.jar \
-  --config datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/sample-kafka-json-paimon-job.json
+sample-kafka-json-paimon-job.json
 ```
 
 启动参数：
@@ -126,4 +121,6 @@ timestamp
 
 `sink.tables[].columnsMapping` 是消息级 JMESPath，结果支持对象数组或单层对象；`columns[].value.path` 是单条记录级 JMESPath，不配置时默认按列名取值。
 
-当前自定义 sink 默认按至少一次语义写入 Paimon。`UPSERT` + 主键或代理主键可以提升失败重放时的幂等性；`APPEND` 表在失败重启后可能出现重复写入。
+当前 sink 使用 Flink Sink V2 提交模型：writer 并行写文件并产出 Paimon `CommitMessage`，committer 按表和提交编号聚合后提交。写入计划会按目标表分组，避免多个 subtask 同时提交同一张 filesystem/S3 Paimon 表时抢占相同 snapshot 文件。
+
+`UPSERT` + 主键或代理主键可以提升失败重放时的幂等性；`APPEND` 表在 Paimon commit 成功但 Kafka offset checkpoint 未完成时可能重复写入。

@@ -158,7 +158,7 @@ public class ConfigValidator {
             if (!names.add(column.name.toLowerCase())) {
                 throw new KafkaJsonPaimonException("Duplicate sink column: " + column.name);
             }
-            validateExpression(column.value, inferJsonType(column), true, "sink.tables[].columns[].value");
+            validateExpression(column.value, inferJsonType(column), false, "sink.tables[].columns[].value");
             if (column.length != null && column.length <= 0) {
                 throw new KafkaJsonPaimonException("sink.tables[].columns[].length must be greater than 0");
             }

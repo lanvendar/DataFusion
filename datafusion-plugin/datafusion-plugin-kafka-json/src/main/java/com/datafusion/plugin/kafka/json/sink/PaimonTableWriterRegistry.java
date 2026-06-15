@@ -2,24 +2,26 @@ package com.datafusion.plugin.kafka.json.sink;
 
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSinkConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.WriterConfig;
+import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
 import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
 import com.datafusion.plugin.kafka.json.core.enums.SchemaMismatchPolicy;
 import com.datafusion.plugin.kafka.json.resolve.ResolvedTableConfig;
 import com.datafusion.plugin.kafka.json.resolve.ResolvedTableWritePlan;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Paimon 多表 writer 注册表.
+ * Paimon 流式 writer 注册表.
  *
  * @author DataFusion
  * @version 1.0.0
  * @since 1.0.0
  */
-public class TableWriterRegistry implements AutoCloseable {
+public class PaimonTableWriterRegistry implements AutoCloseable {
 
     /**
      * sink 配置.
@@ -42,21 +44,27 @@ public class TableWriterRegistry implements AutoCloseable {
     private final PaimonTableSchemaCache schemaCache;
 
     /**
+     * commit user.
+     */
+    private final String commitUser;
+
+    /**
      * writer 缓存.
      */
-    private final LinkedHashMap<String, TableWriterHandle> writers = new LinkedHashMap<>(16, 0.75F, true);
+    private final Map<String, TableWriterHandle> writers = new LinkedHashMap<>();
 
     /**
      * 构造 writer 注册表.
      *
      * @param sink sink 配置
+     * @param commitUser commit user
      */
-    public TableWriterRegistry(PaimonSinkConfig sink) {
+    public PaimonTableWriterRegistry(PaimonSinkConfig sink, String commitUser) {
         this.sink = sink;
         this.writerConfig = sink.writer == null ? new WriterConfig() : sink.writer;
-        SchemaMismatchPolicy schemaMismatchPolicy = SchemaMismatchPolicy.parse(sink.schemaMismatchPolicy);
         this.recordErrorPolicy = RecordErrorPolicy.parse(sink.recordErrorPolicy);
-        this.schemaCache = new PaimonTableSchemaCache(sink, schemaMismatchPolicy);
+        this.schemaCache = new PaimonTableSchemaCache(sink, SchemaMismatchPolicy.parse(sink.schemaMismatchPolicy));
+        this.commitUser = commitUser;
     }
 
     /**
@@ -72,9 +80,6 @@ public class TableWriterRegistry implements AutoCloseable {
             return;
         }
         TableWriterHandle handle = writer(plan.tableConfig);
-        if (handle == null) {
-            return;
-        }
         if (!schemaCache.validate(plan)) {
             removeWriter(plan.tableConfig.identifier(), handle);
             return;
@@ -87,12 +92,30 @@ public class TableWriterRegistry implements AutoCloseable {
     }
 
     /**
-     * 刷新所有 writer.
+     * 刷新缓冲到 writer.
      */
     public synchronized void flushAll() {
         for (TableWriterHandle handle : writers.values()) {
             flush(handle);
         }
+    }
+
+    /**
+     * 准备提交.
+     *
+     * @param commitIdentifier 提交编号
+     * @return committables
+     */
+    public synchronized Collection<PaimonCommittable> prepareCommit(long commitIdentifier) {
+        flushAll();
+        List<PaimonCommittable> committables = new ArrayList<>();
+        for (TableWriterHandle handle : writers.values()) {
+            PaimonCommittable committable = handle.writer.prepareCommit(commitIdentifier);
+            if (committable != null && committable.commitMessages != null && !committable.commitMessages.isEmpty()) {
+                committables.add(committable);
+            }
+        }
+        return committables;
     }
 
     /**
@@ -121,8 +144,10 @@ public class TableWriterRegistry implements AutoCloseable {
         if (existing != null) {
             return existing;
         }
-        evictIfNecessary();
-        PaimonTableWriter writer = new PaimonTableWriter(sink.globalOptions(), tableConfig, recordErrorPolicy);
+        if (writers.size() >= maxOpenWriters()) {
+            throw new KafkaJsonPaimonException("Too many open Paimon writers, maxOpenWriters=" + maxOpenWriters());
+        }
+        PaimonTableWriter writer = new PaimonTableWriter(sink.globalOptions(), tableConfig, recordErrorPolicy, commitUser);
         writer.open();
         schemaCache.put(identifier, writer.schemaSnapshot());
         TableWriterHandle handle = new TableWriterHandle(writer);
@@ -135,16 +160,6 @@ public class TableWriterRegistry implements AutoCloseable {
         handle.writer.close();
     }
 
-    private void evictIfNecessary() {
-        if (writers.size() < maxOpenWriters()) {
-            return;
-        }
-        Map.Entry<String, TableWriterHandle> eldest = writers.entrySet().iterator().next();
-        flush(eldest.getValue());
-        eldest.getValue().writer.close();
-        writers.remove(eldest.getKey());
-    }
-
     private void flush(TableWriterHandle handle) {
         if (handle.buffer.isEmpty()) {
             handle.lastFlushMs = System.currentTimeMillis();
@@ -152,7 +167,7 @@ public class TableWriterRegistry implements AutoCloseable {
         }
         List<Map<String, Object>> records = new ArrayList<>(handle.buffer);
         handle.buffer.clear();
-        handle.writer.writeBatch(records);
+        handle.writer.write(records);
         handle.lastFlushMs = System.currentTimeMillis();
     }
 
