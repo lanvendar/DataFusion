@@ -1,10 +1,11 @@
 package com.datafusion.plugin.kafka.json.resolve;
 
+import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSinkConfig;
-import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PrimaryKeyConfig;
-import com.datafusion.plugin.kafka.json.config.TableMetadataRules;
+import com.datafusion.plugin.kafka.json.config.PaimonTableConfig;
+import com.datafusion.plugin.kafka.json.config.PaimonTableConfigRules;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
 import com.datafusion.plugin.kafka.json.core.SystemFieldNames;
 import com.datafusion.plugin.kafka.json.core.enums.LoadMode;
@@ -45,18 +46,18 @@ class TableConfigResolver {
         this.expressionEvaluator = expressionEvaluator;
     }
 
-    String resolveTableName(PaimonTableConfig table) {
+    String resolveTableName(KafkaJsonPaimonJobConfig.PaimonTableConfig table) {
         return stringValue(evaluate(null, ExpressionSpecNormalizer.constant(table.table.name, JsonType.STRING),
                 "sink.tables[].table.name"));
     }
 
-    ResolvedTableConfig resolve(Object messageObject, PaimonTableConfig table, StandardSchema schema, String tableName) {
-        ResolvedTableConfig config = new ResolvedTableConfig();
+    PaimonTableConfig resolve(Object messageObject, KafkaJsonPaimonJobConfig.PaimonTableConfig table, StandardSchema schema, String tableName) {
+        PaimonTableConfig config = new PaimonTableConfig();
         config.database = requiredString(evaluate(messageObject, ExpressionSpecNormalizer.constant(table.table.database, JsonType.STRING),
                 "sink.tables[].table.database"), "sink.tables[].table.database");
         config.tableName = tableName;
         config.loadMode = LoadMode.parse(table.loadMode, LoadMode.parse(sink.loadMode, LoadMode.APPEND));
-        boolean useJobTableMetadata = TableMetadataRules.hasJobTableMetadata(table.table);
+        boolean useJobTableMetadata = PaimonTableConfigRules.hasJobTableMetadata(table.table);
         StandardSchema.StandardTableSchema schemaTable = schema == null ? null : schema.table;
         config.tableComment = stringValue(resolveTableMetadataValue(messageObject, useJobTableMetadata, table.table.comment,
                 schemaTable == null ? null : schemaTable.comment, JsonType.STRING, "sink.tables[].table.comment"));
@@ -80,7 +81,7 @@ class TableConfigResolver {
         return config;
     }
 
-    private List<String> resolvePrimaryKeys(Object messageObject, PrimaryKeyConfig primaryKey, ResolvedTableConfig config) {
+    private List<String> resolvePrimaryKeys(Object messageObject, PrimaryKeyConfig primaryKey, PaimonTableConfig config) {
         if (primaryKey == null) {
             return new ArrayList<>();
         }
@@ -108,7 +109,7 @@ class TableConfigResolver {
         return spec;
     }
 
-    private void appendProxyColumn(ResolvedTableConfig config, ProxyPrimaryKeyType type) {
+    private void appendProxyColumn(PaimonTableConfig config, ProxyPrimaryKeyType type) {
         String fieldName = ProxyPrimaryKeyGenerator.FIELD_NAME;
         boolean exists = config.columns.stream().anyMatch(column -> fieldName.equals(column.name));
         if (exists) {
@@ -123,7 +124,7 @@ class TableConfigResolver {
         config.columns.add(0, column);
     }
 
-    private void appendSystemColumns(ResolvedTableConfig config) {
+    private void appendSystemColumns(PaimonTableConfig config) {
         if (!Boolean.TRUE.equals(config.includeKafkaMetadataFields)) {
             return;
         }

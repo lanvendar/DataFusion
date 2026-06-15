@@ -1,11 +1,12 @@
 package com.datafusion.plugin.kafka.json.resolve;
 
 import com.datafusion.common.utils.JacksonUtils;
+import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSinkConfig;
-import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PrimaryKeyConfig;
-import com.datafusion.plugin.kafka.json.config.TableMetadataRules;
+import com.datafusion.plugin.kafka.json.config.PaimonTableConfig;
+import com.datafusion.plugin.kafka.json.config.PaimonTableConfigRules;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
 import com.datafusion.plugin.kafka.json.core.SystemFieldNames;
 import com.datafusion.plugin.kafka.json.core.enums.PrimaryKeyMode;
@@ -110,7 +111,7 @@ public class TableResolver {
         Object messageObject = toJavaObject(message);
         StandardSchema schema = standardSchemaParser.parse(messageObject);
         ResolveContext context = buildResolveContext();
-        for (PaimonTableConfig table : sink.tables) {
+        for (KafkaJsonPaimonJobConfig.PaimonTableConfig table : sink.tables) {
             if (table == null || Boolean.FALSE.equals(table.enabled)) {
                 continue;
             }
@@ -126,22 +127,13 @@ public class TableResolver {
         return Optional.empty();
     }
 
-    /**
-     * 获取跳过计数.
-     *
-     * @return 跳过计数
-     */
-    public long skippedCount() {
-        return skippedCount.get();
-    }
-
-    private Optional<ResolvedTableWritePlan> resolveTable(Object messageObject, PaimonTableConfig table, StandardSchema schema,
-            ResolveContext context, KafkaRecord kafkaRecord) {
+    private Optional<ResolvedTableWritePlan> resolveTable(Object messageObject, KafkaJsonPaimonJobConfig.PaimonTableConfig table,
+                                                          StandardSchema schema, ResolveContext context, KafkaRecord kafkaRecord) {
         String tableName = tableConfigResolver.resolveTableName(table);
         if (!matchesTable(schema, tableName, context)) {
             return Optional.empty();
         }
-        ResolvedTableConfig tableConfig = tableConfigResolver.resolve(messageObject, table, schema, tableName);
+        PaimonTableConfig tableConfig = tableConfigResolver.resolve(messageObject, table, schema, tableName);
         RecordBuildResult records = buildRecords(messageObject, table, tableConfig, kafkaRecord);
         if (records.targetRecords.isEmpty()) {
             LOGGER.warn("Skip Kafka JSON message because no valid records resolved, identifier={}, topic={}, partition={}, offset={}",
@@ -164,7 +156,7 @@ public class TableResolver {
         }
         String messageTableName = schema == null || schema.table == null ? null : stringValue(schema.table.name);
         if (TextUtils.isBlank(messageTableName)) {
-            return context.enabledTableCount == 1 && TableMetadataRules.canRouteWithoutSchemaTableName(context.singleEnabledTable);
+            return context.enabledTableCount == 1 && PaimonTableConfigRules.canRouteWithoutSchemaTableName(context.singleEnabledTable);
         }
         return tableName.equals(messageTableName);
     }
@@ -172,8 +164,8 @@ public class TableResolver {
     private ResolveContext buildResolveContext() {
         ResolveContext context = new ResolveContext();
         int count = 0;
-        PaimonTableConfig matched = null;
-        for (PaimonTableConfig table : sink.tables) {
+        KafkaJsonPaimonJobConfig.PaimonTableConfig matched = null;
+        for (KafkaJsonPaimonJobConfig.PaimonTableConfig table : sink.tables) {
             if (table != null && !Boolean.FALSE.equals(table.enabled)) {
                 count++;
                 matched = count == 1 ? table : null;
@@ -184,8 +176,8 @@ public class TableResolver {
         return context;
     }
 
-    private RecordBuildResult buildRecords(Object messageObject, PaimonTableConfig table, ResolvedTableConfig tableConfig,
-            KafkaRecord kafkaRecord) {
+    private RecordBuildResult buildRecords(Object messageObject, KafkaJsonPaimonJobConfig.PaimonTableConfig table, PaimonTableConfig tableConfig,
+                                           KafkaRecord kafkaRecord) {
         Object mapped = evaluate(messageObject, ExpressionSpecNormalizer.path(table.columnsMapping, JsonType.ANY, null),
                 "sink.tables[].columnsMapping");
         List<Map<String, Object>> sourceRecords = normalizeRecordSet(mapped, tableConfig, kafkaRecord);
@@ -201,8 +193,8 @@ public class TableResolver {
         return result;
     }
 
-    private Map<String, Object> mapRecord(Map<String, Object> source, ResolvedTableConfig tableConfig, PrimaryKeyConfig primaryKey,
-            KafkaRecord kafkaRecord, int recordIndex) {
+    private Map<String, Object> mapRecord(Map<String, Object> source, PaimonTableConfig tableConfig,
+            PrimaryKeyConfig primaryKey, KafkaRecord kafkaRecord, int recordIndex) {
         try {
             Map<String, Object> target = new LinkedHashMap<>();
             for (ColumnConfig column : tableConfig.columns) {
@@ -230,7 +222,8 @@ public class TableResolver {
         }
     }
 
-    private List<Map<String, Object>> normalizeRecordSet(Object value, ResolvedTableConfig tableConfig, KafkaRecord kafkaRecord) {
+    private List<Map<String, Object>> normalizeRecordSet(Object value, PaimonTableConfig tableConfig,
+            KafkaRecord kafkaRecord) {
         if (value instanceof Map<?, ?> map) {
             return List.of(copyMap(map));
         }
@@ -251,7 +244,7 @@ public class TableResolver {
         return List.of();
     }
 
-    private void handleRecordSetError(ResolvedTableConfig tableConfig, KafkaRecord kafkaRecord, int recordIndex, String reason) {
+    private void handleRecordSetError(PaimonTableConfig tableConfig, KafkaRecord kafkaRecord, int recordIndex, String reason) {
         if (recordErrorPolicy == RecordErrorPolicy.FAIL) {
             throw new KafkaJsonPaimonException(reason);
         }
@@ -323,17 +316,35 @@ public class TableResolver {
         return KAFKA_TOPIC_FIELD.equals(name) || KAFKA_PARTITION_FIELD.equals(name) || KAFKA_OFFSET_FIELD.equals(name);
     }
 
+    /**
+     * 单条消息解析上下文.
+     */
     private static final class ResolveContext {
 
+        /**
+         * 已启用表数量.
+         */
         private int enabledTableCount;
 
-        private PaimonTableConfig singleEnabledTable;
+        /**
+         * 单表路由候选表.
+         */
+        private KafkaJsonPaimonJobConfig.PaimonTableConfig singleEnabledTable;
     }
 
+    /**
+     * 记录映射结果.
+     */
     private static final class RecordBuildResult {
 
+        /**
+         * columnsMapping 解析后的源记录.
+         */
         private final List<Map<String, Object>> sourceRecords = new ArrayList<>();
 
+        /**
+         * 映射后的目标记录.
+         */
         private final List<Map<String, Object>> targetRecords = new ArrayList<>();
     }
 }

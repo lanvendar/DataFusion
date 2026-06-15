@@ -1,8 +1,8 @@
 package com.datafusion.plugin.kafka.json.sink;
 
-import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
-import com.datafusion.plugin.kafka.json.resolve.ResolvedTableConfig;
+import com.datafusion.plugin.kafka.json.config.PaimonTableConfig;
+import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +40,7 @@ public final class RecordNormalizer {
      * @param recordErrorPolicy 单条记录错误处理策略
      * @return 归一化记录
      */
-    public static List<PaimonRecord> normalize(List<PaimonRecord> records, ResolvedTableConfig tableConfig,
+    public static List<PaimonRecord> normalize(List<PaimonRecord> records, PaimonTableConfig tableConfig,
             RecordErrorPolicy recordErrorPolicy) {
         List<PaimonRecord> normalized = new ArrayList<>();
         for (int i = 0; i < records.size(); i++) {
@@ -52,7 +52,7 @@ public final class RecordNormalizer {
         return normalized;
     }
 
-    private static PaimonRecord normalizeRecord(PaimonRecord record, ResolvedTableConfig tableConfig,
+    private static PaimonRecord normalizeRecord(PaimonRecord record, PaimonTableConfig tableConfig,
             RecordErrorPolicy recordErrorPolicy) {
         Map<String, Object> normalized = new LinkedHashMap<>();
         for (ColumnConfig column : tableConfig.columns) {
@@ -73,8 +73,8 @@ public final class RecordNormalizer {
         return value;
     }
 
-    private static PaimonRecord handleRecordError(ResolvedTableConfig tableConfig, PaimonRecord record, String columnName,
-            RecordErrorPolicy recordErrorPolicy, RuntimeException e) {
+    private static PaimonRecord handleRecordError(PaimonTableConfig tableConfig, PaimonRecord record,
+                                                  String columnName, RecordErrorPolicy recordErrorPolicy, RuntimeException e) {
         if (recordErrorPolicy == RecordErrorPolicy.FAIL) {
             throw e;
         }

@@ -1,5 +1,7 @@
 package com.datafusion.plugin.kafka.json.resolve;
 
+import com.datafusion.plugin.kafka.json.config.PaimonTableConfig;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -20,10 +22,10 @@ public class ResolvedTableWritePlan implements Serializable {
      */
     private static final long serialVersionUID = 1L;
 
-    /**
+     /**
      * 目标表配置.
      */
-    public ResolvedTableConfig tableConfig = new ResolvedTableConfig();
+    public PaimonTableConfig tableConfig = new PaimonTableConfig();
 
     /**
      * 待写入记录.

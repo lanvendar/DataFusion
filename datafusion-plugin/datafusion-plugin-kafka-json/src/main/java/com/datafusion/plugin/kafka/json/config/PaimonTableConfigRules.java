@@ -10,9 +10,9 @@ import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.TableCon
  * @version 1.0.0
  * @since 1.0.0
  */
-public final class TableMetadataRules {
+public final class PaimonTableConfigRules {
 
-    private TableMetadataRules() {
+    private PaimonTableConfigRules() {
     }
 
     /**

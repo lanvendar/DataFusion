@@ -1,11 +1,11 @@
 package com.datafusion.plugin.kafka.json.sink;
 
-import com.datafusion.plugin.kafka.json.core.PaimonSchemaMismatchException;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
+import com.datafusion.plugin.kafka.json.config.PaimonTableConfig;
+import com.datafusion.plugin.kafka.json.core.PaimonSchemaMismatchException;
 import com.datafusion.plugin.kafka.json.core.SystemFieldNames;
 import com.datafusion.plugin.kafka.json.core.enums.LoadMode;
 import com.datafusion.plugin.kafka.json.core.enums.PrimaryKeyMode;
-import com.datafusion.plugin.kafka.json.resolve.ResolvedTableConfig;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
 import org.apache.paimon.options.Options;
 import org.apache.paimon.types.DataField;
@@ -44,7 +44,7 @@ public final class PaimonTableSchemaValidator {
      * @param tableConfig Kafka JSON schema 解析后的目标表配置
      * @param snapshot Paimon 真实表结构快照
      */
-    public static void validate(ResolvedTableConfig tableConfig, PaimonTableSchemaSnapshot snapshot) {
+    public static void validate(PaimonTableConfig tableConfig, PaimonTableSchemaSnapshot snapshot) {
         List<String> actualFieldNames = new ArrayList<>(snapshot.fields().keySet());
         List<String> configuredFieldNames = tableConfig.columns.stream()
                 .map(column -> column.name.toLowerCase(Locale.ROOT))
@@ -91,7 +91,7 @@ public final class PaimonTableSchemaValidator {
      * @param tableConfig 目标表配置
      * @return Paimon 表 options
      */
-    public static Map<String, String> tableOptions(ResolvedTableConfig tableConfig) {
+    public static Map<String, String> tableOptions(PaimonTableConfig tableConfig) {
         Map<String, String> options = new LinkedHashMap<>(tableConfig.options);
         options.keySet().removeIf(PaimonTableSchemaValidator::isConnectionOption);
         return options;
@@ -121,7 +121,7 @@ public final class PaimonTableSchemaValidator {
         return dataType.copy(!Boolean.FALSE.equals(field.nullable));
     }
 
-    private static void validatePrimaryKeys(ResolvedTableConfig tableConfig, PaimonTableSchemaSnapshot snapshot) {
+    private static void validatePrimaryKeys(PaimonTableConfig tableConfig, PaimonTableSchemaSnapshot snapshot) {
         if (tableConfig.primaryKeyMode == PrimaryKeyMode.PROXY) {
             validateProxyPrimaryKey(tableConfig, snapshot);
             return;
@@ -145,7 +145,7 @@ public final class PaimonTableSchemaValidator {
         }
     }
 
-    private static void validatePartitionKeys(ResolvedTableConfig tableConfig, PaimonTableSchemaSnapshot snapshot) {
+    private static void validatePartitionKeys(PaimonTableConfig tableConfig, PaimonTableSchemaSnapshot snapshot) {
         List<String> jsonPartitionKeys = safeList(tableConfig.partitionKeys);
         if (jsonPartitionKeys.isEmpty()) {
             throw new PaimonSchemaMismatchException("Paimon partition keys must not be empty: " + tableConfig.identifier());
@@ -159,7 +159,7 @@ public final class PaimonTableSchemaValidator {
         }
     }
 
-    private static void validateProxyPrimaryKey(ResolvedTableConfig tableConfig, PaimonTableSchemaSnapshot snapshot) {
+    private static void validateProxyPrimaryKey(PaimonTableConfig tableConfig, PaimonTableSchemaSnapshot snapshot) {
         if (tableConfig.loadMode != LoadMode.UPSERT) {
             return;
         }
@@ -169,7 +169,7 @@ public final class PaimonTableSchemaValidator {
         }
     }
 
-    private static void validateTableOptions(ResolvedTableConfig tableConfig, PaimonTableSchemaSnapshot snapshot) {
+    private static void validateTableOptions(PaimonTableConfig tableConfig, PaimonTableSchemaSnapshot snapshot) {
         Map<String, String> actual = snapshot.options();
         for (Map.Entry<String, String> entry : tableOptions(tableConfig).entrySet()) {
             String actualValue = actual.get(entry.getKey());

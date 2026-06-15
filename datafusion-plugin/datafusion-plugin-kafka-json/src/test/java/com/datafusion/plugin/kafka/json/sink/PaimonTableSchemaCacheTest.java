@@ -2,9 +2,9 @@ package com.datafusion.plugin.kafka.json.sink;
 
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSinkConfig;
+import com.datafusion.plugin.kafka.json.config.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.core.SystemFieldNames;
 import com.datafusion.plugin.kafka.json.core.enums.SchemaMismatchPolicy;
-import com.datafusion.plugin.kafka.json.resolve.ResolvedTableConfig;
 import com.datafusion.plugin.kafka.json.resolve.ResolvedTableWritePlan;
 import org.apache.paimon.types.DataField;
 import org.junit.jupiter.api.Assertions;
@@ -53,7 +53,7 @@ class PaimonTableSchemaCacheTest {
 
     private ResolvedTableWritePlan planWithoutColumns() {
         ResolvedTableWritePlan plan = new ResolvedTableWritePlan();
-        plan.tableConfig = new ResolvedTableConfig();
+        plan.tableConfig = new PaimonTableConfig();
         plan.tableConfig.database = "dw_dev";
         plan.tableConfig.tableName = "ods_test";
         plan.tableConfig.includeKafkaMetadataFields = true;

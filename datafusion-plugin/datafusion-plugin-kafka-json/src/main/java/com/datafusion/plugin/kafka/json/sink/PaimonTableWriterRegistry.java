@@ -2,11 +2,11 @@ package com.datafusion.plugin.kafka.json.sink;
 
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSinkConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.WriterConfig;
+import com.datafusion.plugin.kafka.json.config.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
 import com.datafusion.plugin.kafka.json.core.enums.PaimonTableSchemaStatus;
 import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
 import com.datafusion.plugin.kafka.json.core.enums.SchemaMismatchPolicy;
-import com.datafusion.plugin.kafka.json.resolve.ResolvedTableConfig;
 import com.datafusion.plugin.kafka.json.resolve.ResolvedTableWritePlan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -158,7 +158,7 @@ public class PaimonTableWriterRegistry implements AutoCloseable {
     }
 
     private TableWriterHandle writer(ResolvedTableWritePlan plan, PaimonTableSchemaStatus status) {
-        ResolvedTableConfig tableConfig = plan.tableConfig;
+        PaimonTableConfig tableConfig = plan.tableConfig;
         String identifier = tableConfig.identifier();
         TableWriterHandle existing = writers.get(identifier);
         if (existing != null) {

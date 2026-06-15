@@ -1,8 +1,8 @@
 package com.datafusion.plugin.kafka.json.sink;
 
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
+import com.datafusion.plugin.kafka.json.config.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
-import com.datafusion.plugin.kafka.json.resolve.ResolvedTableConfig;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -22,7 +22,7 @@ class RecordNormalizerTest {
      */
     @Test
     void shouldNotRejectEmptyValueByConfiguredNullable() {
-        ResolvedTableConfig tableConfig = new ResolvedTableConfig();
+        PaimonTableConfig tableConfig = new PaimonTableConfig();
         tableConfig.database = "dw_dev";
         tableConfig.tableName = "ods_test";
         tableConfig.columns.add(column("category_name", false));

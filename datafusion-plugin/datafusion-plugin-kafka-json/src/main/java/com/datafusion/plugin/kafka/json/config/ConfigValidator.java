@@ -209,7 +209,7 @@ public class ConfigValidator {
         if (table == null) {
             return;
         }
-        if (TableMetadataRules.hasJobTableMetadata(table)) {
+        if (PaimonTableConfigRules.hasJobTableMetadata(table)) {
             if (table.createIfNotExists == null) {
                 throw new KafkaJsonPaimonException(
                         "sink.tables[].table.createIfNotExists is required when job table metadata override is enabled");
@@ -220,7 +220,7 @@ public class ConfigValidator {
             }
         }
         if (table.primaryKeys == null) {
-            if (TableMetadataRules.hasJobTableMetadata(table) && loadMode == LoadMode.UPSERT) {
+            if (PaimonTableConfigRules.hasJobTableMetadata(table) && loadMode == LoadMode.UPSERT) {
                 throw new KafkaJsonPaimonException(
                         "sink.tables[].table.primaryKeys is required for UPSERT when job table metadata override is enabled");
             }

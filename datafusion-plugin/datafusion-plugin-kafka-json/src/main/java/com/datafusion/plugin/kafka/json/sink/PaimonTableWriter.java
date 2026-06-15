@@ -1,10 +1,10 @@
 package com.datafusion.plugin.kafka.json.sink;
 
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
+import com.datafusion.plugin.kafka.json.config.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
 import com.datafusion.plugin.kafka.json.core.enums.LoadMode;
 import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
-import com.datafusion.plugin.kafka.json.resolve.ResolvedTableConfig;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
 import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.Catalog.TableNotExistException;
@@ -48,7 +48,7 @@ public class PaimonTableWriter implements AutoCloseable {
     /**
      * 目标表配置.
      */
-    private final ResolvedTableConfig tableConfig;
+    private final PaimonTableConfig tableConfig;
 
     /**
      * 单条记录错误处理策略.
@@ -93,7 +93,7 @@ public class PaimonTableWriter implements AutoCloseable {
      * @param recordErrorPolicy 单条记录错误策略
      * @param commitUser commit user
      */
-    public PaimonTableWriter(Map<String, String> catalogOptions, ResolvedTableConfig tableConfig,
+    public PaimonTableWriter(Map<String, String> catalogOptions, PaimonTableConfig tableConfig,
             RecordErrorPolicy recordErrorPolicy, String commitUser) {
         this.catalogOptions = new LinkedHashMap<>(catalogOptions);
         this.tableConfig = tableConfig;

@@ -1,11 +1,11 @@
 package com.datafusion.plugin.kafka.json.sink;
 
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
+import com.datafusion.plugin.kafka.json.config.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.core.PaimonSchemaMismatchException;
 import com.datafusion.plugin.kafka.json.core.enums.LoadMode;
 import com.datafusion.plugin.kafka.json.core.enums.PrimaryKeyMode;
 import com.datafusion.plugin.kafka.json.resolve.ProxyPrimaryKeyGenerator;
-import com.datafusion.plugin.kafka.json.resolve.ResolvedTableConfig;
 import org.apache.paimon.types.DataField;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -29,7 +29,7 @@ class PaimonTableSchemaValidatorTest {
      */
     @Test
     void shouldValidateUpsertProxyByGeneratedIdFieldAndPartitionKeys() {
-        ResolvedTableConfig config = tableConfig(LoadMode.UPSERT, PrimaryKeyMode.PROXY,
+        PaimonTableConfig config = tableConfig(LoadMode.UPSERT, PrimaryKeyMode.PROXY,
                 List.of(ProxyPrimaryKeyGenerator.FIELD_NAME, "day_pt"), List.of("day_pt"), proxyColumns());
         PaimonTableSchemaSnapshot snapshot = snapshot(config.columns, List.of("another_key"), List.of("day_pt"));
 
@@ -41,7 +41,7 @@ class PaimonTableSchemaValidatorTest {
      */
     @Test
     void shouldRejectUpsertFieldsWhenPrimaryKeysEmpty() {
-        ResolvedTableConfig config = tableConfig(LoadMode.UPSERT, PrimaryKeyMode.FIELDS, List.of(), List.of("day_pt"),
+        PaimonTableConfig config = tableConfig(LoadMode.UPSERT, PrimaryKeyMode.FIELDS, List.of(), List.of("day_pt"),
                 normalColumns());
         PaimonTableSchemaSnapshot snapshot = snapshot(config.columns, List.of(), List.of("day_pt"));
 
@@ -54,7 +54,7 @@ class PaimonTableSchemaValidatorTest {
      */
     @Test
     void shouldIgnorePrimaryKeysForAppendFields() {
-        ResolvedTableConfig config = tableConfig(LoadMode.APPEND, PrimaryKeyMode.FIELDS, List.of(), List.of("day_pt"),
+        PaimonTableConfig config = tableConfig(LoadMode.APPEND, PrimaryKeyMode.FIELDS, List.of(), List.of("day_pt"),
                 normalColumns());
         PaimonTableSchemaSnapshot snapshot = snapshot(config.columns, List.of("unexpected_key"), List.of("day_pt"));
 
@@ -66,7 +66,7 @@ class PaimonTableSchemaValidatorTest {
      */
     @Test
     void shouldRejectAppendProxyWhenPartitionKeysEmpty() {
-        ResolvedTableConfig config = tableConfig(LoadMode.APPEND, PrimaryKeyMode.PROXY,
+        PaimonTableConfig config = tableConfig(LoadMode.APPEND, PrimaryKeyMode.PROXY,
                 List.of(ProxyPrimaryKeyGenerator.FIELD_NAME), List.of(), proxyColumns());
         PaimonTableSchemaSnapshot snapshot = snapshot(config.columns, List.of(), List.of());
 
@@ -79,7 +79,7 @@ class PaimonTableSchemaValidatorTest {
      */
     @Test
     void shouldRejectWhenFieldStructureNotMatch() {
-        ResolvedTableConfig config = tableConfig(LoadMode.APPEND, PrimaryKeyMode.FIELDS, List.of(), List.of("day_pt"),
+        PaimonTableConfig config = tableConfig(LoadMode.APPEND, PrimaryKeyMode.FIELDS, List.of(), List.of("day_pt"),
                 normalColumns());
         PaimonTableSchemaSnapshot snapshot = snapshot(List.of(column("today", "VARCHAR", 32, false)), List.of(),
                 List.of("day_pt"));
@@ -88,9 +88,9 @@ class PaimonTableSchemaValidatorTest {
                 () -> PaimonTableSchemaValidator.validate(config, snapshot));
     }
 
-    private ResolvedTableConfig tableConfig(LoadMode loadMode, PrimaryKeyMode primaryKeyMode, List<String> primaryKeys,
-            List<String> partitionKeys, List<ColumnConfig> columns) {
-        ResolvedTableConfig config = new ResolvedTableConfig();
+    private PaimonTableConfig tableConfig(LoadMode loadMode, PrimaryKeyMode primaryKeyMode, List<String> primaryKeys,
+                                          List<String> partitionKeys, List<ColumnConfig> columns) {
+        PaimonTableConfig config = new PaimonTableConfig();
         config.database = "dw_dev";
         config.tableName = "ods_test";
         config.loadMode = loadMode;
