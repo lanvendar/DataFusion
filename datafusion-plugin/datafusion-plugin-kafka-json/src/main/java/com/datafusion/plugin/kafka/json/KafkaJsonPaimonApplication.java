@@ -6,7 +6,7 @@ import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.expression.ExpressionSpec;
 import com.datafusion.plugin.kafka.json.expression.ExpressionSpecNormalizer;
-import com.datafusion.plugin.kafka.json.expression.JsonType;
+import com.datafusion.plugin.kafka.json.core.enums.JsonType;
 import com.datafusion.plugin.kafka.json.resolve.KafkaJsonToPaimonWritePlanFunction;
 import com.datafusion.plugin.kafka.json.runtime.FlinkRuntimeConfigurer;
 import com.datafusion.plugin.kafka.json.sink.PaimonMultiTableSink;

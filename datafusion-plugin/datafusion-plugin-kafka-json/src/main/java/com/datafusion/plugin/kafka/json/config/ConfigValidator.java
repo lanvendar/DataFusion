@@ -20,7 +20,7 @@ import com.datafusion.plugin.kafka.json.core.enums.RestartStrategyType;
 import com.datafusion.plugin.kafka.json.core.enums.SchemaMismatchPolicy;
 import com.datafusion.plugin.kafka.json.core.enums.StateBackendType;
 import com.datafusion.plugin.kafka.json.expression.ExpressionSpecNormalizer;
-import com.datafusion.plugin.kafka.json.expression.JsonType;
+import com.datafusion.plugin.kafka.json.core.enums.JsonType;
 import com.datafusion.plugin.kafka.json.resolve.TableMetadataRules;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
 
@@ -134,7 +134,7 @@ public class ConfigValidator {
             validateColumns(table);
             validatePrimaryKey(table.table, LoadMode.parse(table.loadMode, LoadMode.parse(sink.loadMode, LoadMode.APPEND)));
             String tableName = staticDefault(table.table.name);
-            if (!TextUtils.isBlank(tableName) && !staticNames.add(tableName.toLowerCase())) {
+            if (!staticNames.add(table.table.database.asText() + "." + tableName.toLowerCase())) {
                 throw new KafkaJsonPaimonException("Duplicate static sink tableName: " + tableName);
             }
         }
@@ -147,34 +147,11 @@ public class ConfigValidator {
         if (table == null) {
             throw new KafkaJsonPaimonException("sink.tables[].table is required");
         }
-        validateRequiredExpression(table.database, "sink.tables[].table.database");
-        validateExpression(table.database, JsonType.STRING, false, "sink.tables[].table.database");
-        validateTableMetadataCompleteness(table);
-        validateExpression(table.name, JsonType.STRING, false, "sink.tables[].table.name");
+        validateRequiredStaticString(table.database, "sink.tables[].table.database");
+        validateRequiredStaticString(table.name, "sink.tables[].table.name");
         validateExpression(table.comment, JsonType.STRING, false, "sink.tables[].table.comment");
         validateExpression(table.createIfNotExists, JsonType.BOOLEAN, false, "sink.tables[].table.createIfNotExists");
         validateExpression(table.partitionKeys, JsonType.ARRAY, false, "sink.tables[].table.partitionKeys");
-    }
-
-    private void validateTableMetadataCompleteness(TableConfig table) {
-        // database is target-side routing config. Other table metadata keys are a complete section:
-        // either define all of them in job.json, or omit the whole section and use Kafka schema.table.
-        if (!TableMetadataRules.hasJobTableMetadata(table)) {
-            return;
-        }
-        requireTableMetadata(table.name, "sink.tables[].table.name");
-        requireTableMetadata(table.comment, "sink.tables[].table.comment");
-        requireTableMetadata(table.createIfNotExists, "sink.tables[].table.createIfNotExists");
-        requireTableMetadata(table.partitionKeys, "sink.tables[].table.partitionKeys");
-        if (table.primaryKeys == null) {
-            throw new KafkaJsonPaimonException("sink.tables[].table.primaryKeys is required when job table metadata is configured");
-        }
-    }
-
-    private void requireTableMetadata(com.fasterxml.jackson.databind.JsonNode node, String name) {
-        if (node == null || node.isNull()) {
-            throw new KafkaJsonPaimonException(name + " is required when job table metadata is configured");
-        }
     }
 
     private void validateColumns(PaimonTableConfig table) {
@@ -205,7 +182,24 @@ public class ConfigValidator {
     }
 
     private void validatePrimaryKey(TableConfig table, LoadMode loadMode) {
-        if (table == null || table.primaryKeys == null) {
+        if (table == null) {
+            return;
+        }
+        if (TableMetadataRules.hasJobTableMetadata(table)) {
+            if (table.createIfNotExists == null) {
+                throw new KafkaJsonPaimonException(
+                        "sink.tables[].table.createIfNotExists is required when job table metadata override is enabled");
+            }
+            if (table.partitionKeys == null) {
+                throw new KafkaJsonPaimonException(
+                        "sink.tables[].table.partitionKeys is required when job table metadata override is enabled");
+            }
+        }
+        if (table.primaryKeys == null) {
+            if (TableMetadataRules.hasJobTableMetadata(table) && loadMode == LoadMode.UPSERT) {
+                throw new KafkaJsonPaimonException(
+                        "sink.tables[].table.primaryKeys is required for UPSERT when job table metadata override is enabled");
+            }
             return;
         }
         PrimaryKeyMode mode = PrimaryKeyMode.parse(table.primaryKeys.mode);
@@ -258,6 +252,13 @@ public class ConfigValidator {
     private void validateRequiredExpression(com.fasterxml.jackson.databind.JsonNode node, String name) {
         if (node == null) {
             throw new KafkaJsonPaimonException(name + " is required");
+        }
+    }
+
+    private void validateRequiredStaticString(com.fasterxml.jackson.databind.JsonNode node, String name) {
+        validateRequiredExpression(node, name);
+        if (!node.isTextual() || TextUtils.isBlank(node.asText())) {
+            throw new KafkaJsonPaimonException(name + " must be static string");
         }
     }
 

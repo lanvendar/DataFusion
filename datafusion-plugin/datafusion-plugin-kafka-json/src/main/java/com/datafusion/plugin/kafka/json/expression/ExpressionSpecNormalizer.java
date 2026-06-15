@@ -2,6 +2,7 @@ package com.datafusion.plugin.kafka.json.expression;
 
 import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
+import com.datafusion.plugin.kafka.json.core.enums.JsonType;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 

@@ -23,40 +23,45 @@ import java.util.Optional;
 class TableResolverTest {
 
     /**
-     * tableName.path 取不到时使用 defaultValue.
+     * Kafka schema.table.name 与配置表名匹配时命中.
      */
     @Test
-    void shouldUseTableNameDefaultWhenPathMissed() throws Exception {
+    void shouldMatchStaticTableName() throws Exception {
         PaimonSinkConfig sink = baseSink();
-        PaimonTableConfig table = sink.tables.get(0);
-        table.table.name = JacksonUtils.str2JsonNode("{\"path\":\"schema.table.name\",\"defaultValue\":\"fallback_table\"}");
-        table.table.comment = JacksonUtils.str2JsonNode("\"fallback comment\"");
-        table.table.createIfNotExists = JacksonUtils.str2JsonNode("true");
-        table.table.primaryKeys = primaryKeys("day_pt");
 
-        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("{\"schema\":{},\"data\":[{\"today\":\"2026-06-12\"}]}"),
-                record());
+        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(message("[{\"today\":\"2026-06-12\"}]"), record());
 
         Assertions.assertTrue(plan.isPresent());
-        Assertions.assertEquals("fallback_table", plan.get().tableConfig.tableName);
+        Assertions.assertEquals("ods_test", plan.get().tableConfig.tableName);
         Assertions.assertEquals("2026-06-12", plan.get().records.get(0).get("today"));
     }
 
     /**
-     * tableName path 与 defaultValue 都为空时过滤消息.
+     * 单表且 job 已完整配置表结构时,允许没有 schema.table.name 的简化消息.
      */
     @Test
-    void shouldSkipMessageWhenTableNameIsEmpty() throws Exception {
+    void shouldRouteSimplifiedSingleTableMessageWithoutSchemaTableName() throws Exception {
         PaimonSinkConfig sink = baseSink();
-        PaimonTableConfig table = sink.tables.get(0);
-        table.table.name = null;
-        table.table.comment = null;
-        table.table.createIfNotExists = null;
-        table.table.partitionKeys = null;
-        table.table.primaryKeys = null;
 
-        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("{\"schema\":{},\"data\":[{\"today\":\"2026-06-12\"}]}"),
-                record());
+        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("""
+                {"data":[{"today":"2026-06-12","day_pt":"2026-06-12"}]}
+                """), record());
+
+        Assertions.assertTrue(plan.isPresent());
+        Assertions.assertEquals("ods_test", plan.get().tableConfig.tableName);
+        Assertions.assertEquals("2026-06-12", plan.get().records.get(0).get("today"));
+    }
+
+    /**
+     * Kafka schema.table.name 与配置表名不匹配时过滤消息.
+     */
+    @Test
+    void shouldSkipMessageWhenTableNameNotMatched() throws Exception {
+        PaimonSinkConfig sink = baseSink();
+
+        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("""
+                {"schema":{"table":{"name":"other_table"}},"data":[{"today":"2026-06-12"}]}
+                """), record());
 
         Assertions.assertTrue(plan.isEmpty());
     }
@@ -69,7 +74,9 @@ class TableResolverTest {
         PaimonSinkConfig sink = baseSink();
         sink.tables.get(0).columnsMapping = JacksonUtils.str2JsonNode("\"payload\"");
 
-        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("{\"payload\":{\"today\":\"2026-06-12\"}}"), record());
+        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("""
+                {"schema":{"table":{"name":"ods_test"}},"payload":{"today":"2026-06-12"}}
+                """), record());
 
         Assertions.assertTrue(plan.isPresent());
         Assertions.assertEquals(1, plan.get().records.size());
@@ -91,7 +98,7 @@ class TableResolverTest {
         table.table.primaryKeys.defaultValue = List.of("day_pt", "today");
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(
-                json("{\"data\":[{\"today\":\"2026-06-12\",\"day_pt\":\"2026-06-12\"}]}"), record());
+                message("[{\"today\":\"2026-06-12\",\"day_pt\":\"2026-06-12\"}]"), record());
 
         Assertions.assertTrue(plan.isPresent());
         Assertions.assertEquals(List.of("_id_", "day_pt"), plan.get().tableConfig.primaryKeys);
@@ -112,20 +119,19 @@ class TableResolverTest {
         table.table.primaryKeys.defaultValue = List.of("day_pt", "today");
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(
-                json("{\"data\":[{\"today\":\"2026-06-12\",\"day_pt\":\"2026-06-12\"}]}"), record());
+                message("[{\"today\":\"2026-06-12\",\"day_pt\":\"2026-06-12\"}]"), record());
 
         Assertions.assertTrue(plan.isPresent());
         Assertions.assertTrue(plan.get().records.get(0).containsKey("_id_"));
     }
 
     /**
-     * Kafka 标准 schema 可以提供表名和字段结构.
+     * Kafka 标准 schema 可以提供字段结构.
      */
     @Test
-    void shouldUseKafkaSchemaWhenJobTableAndColumnsOmitted() throws Exception {
+    void shouldUseKafkaSchemaColumnsWhenJobColumnsOmitted() throws Exception {
         PaimonSinkConfig sink = baseSink();
         PaimonTableConfig table = sink.tables.get(0);
-        table.table.name = null;
         table.table.comment = null;
         table.table.createIfNotExists = null;
         table.table.partitionKeys = null;
@@ -133,13 +139,13 @@ class TableResolverTest {
         table.columns.clear();
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("""
-                {"schema":{"table":{"name":"ods_from_schema","partitionKeys":["day_pt"]},
+                {"schema":{"table":{"name":"ods_test","partitionKeys":["day_pt"]},
                 "columns":[{"name":"today","type":"VARCHAR","length":32,"nullable":false},
                 {"name":"day_pt","type":"DATE","nullable":false}]},"data":[{"today":"2026-06-12","day_pt":"2026-06-12"}]}
                 """), record());
 
         Assertions.assertTrue(plan.isPresent());
-        Assertions.assertEquals("ods_from_schema", plan.get().tableConfig.tableName);
+        Assertions.assertEquals("ods_test", plan.get().tableConfig.tableName);
         Assertions.assertEquals(2, plan.get().tableConfig.columns.size());
         Assertions.assertEquals("VARCHAR", plan.get().tableConfig.columns.get(0).dataType);
     }
@@ -151,7 +157,6 @@ class TableResolverTest {
     void shouldUseJobColumnsAsCompleteDefinition() throws Exception {
         PaimonSinkConfig sink = baseSink();
         PaimonTableConfig table = sink.tables.get(0);
-        table.table.name = null;
         table.table.comment = null;
         table.table.createIfNotExists = null;
         table.table.partitionKeys = null;
@@ -161,7 +166,7 @@ class TableResolverTest {
         table.columns.get(0).length = 64;
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("""
-                {"schema":{"table":{"name":"ods_from_schema","partitionKeys":["day_pt"]},
+                {"schema":{"table":{"name":"ods_test","partitionKeys":["day_pt"]},
                 "columns":[{"name":"today","type":"VARCHAR","length":32,"nullable":true},
                 {"name":"day_pt","type":"DATE","nullable":false}]},"data":[{"today":"2026-06-12","day_pt":"2026-06-12"}]}
                 """), record());
@@ -185,38 +190,38 @@ class TableResolverTest {
         table.table.primaryKeys.defaultValue = List.of("day_pt", "today");
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(
-                json("{\"data\":[{\"today\":\"2026-06-12\",\"day_pt\":\"2026-06-12\"}]}"), record());
+                message("[{\"today\":\"2026-06-12\",\"day_pt\":\"2026-06-12\"}]"), record());
 
         Assertions.assertTrue(plan.isPresent());
         Assertions.assertEquals(List.of("day_pt", "today"), plan.get().tableConfig.primaryKeys);
     }
 
     /**
-     * Kafka schema.table.primaryKeys 可以提供主键配置.
+     * 未启用 job table 元数据覆盖时允许回退到 Kafka schema.table.primaryKeys.
      */
     @Test
-    void shouldUseKafkaSchemaPrimaryKeysConfig() throws Exception {
+    void shouldUseKafkaSchemaPrimaryKeysConfigWhenJobMetadataOmitted() throws Exception {
         PaimonSinkConfig sink = baseSink();
         sink.loadMode = "UPSERT";
         PaimonTableConfig table = sink.tables.get(0);
-        table.table.name = null;
         table.table.comment = null;
         table.table.createIfNotExists = null;
         table.table.partitionKeys = null;
         table.table.primaryKeys = null;
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("""
-                {"schema":{"table":{"name":"ods_from_schema","partitionKeys":["day_pt"],
+                {"schema":{"table":{"name":"ods_test","partitionKeys":["day_pt"],
                 "primaryKeys":{"defaultValue":["day_pt","today"]}}},
                 "data":[{"today":"2026-06-12","day_pt":"2026-06-12"}]}
                 """), record());
 
         Assertions.assertTrue(plan.isPresent());
+        Assertions.assertEquals(List.of("day_pt"), plan.get().tableConfig.partitionKeys);
         Assertions.assertEquals(List.of("day_pt", "today"), plan.get().tableConfig.primaryKeys);
     }
 
     /**
-     * job.json 配置 table 元数据时按整段覆盖 Kafka schema.table.
+     * job.json table 元数据不受 Kafka schema.table 覆盖.
      */
     @Test
     void shouldUseJobTableMetadataAsCompleteDefinition() throws Exception {
@@ -226,7 +231,7 @@ class TableResolverTest {
         table.table.primaryKeys = primaryKeys("day_pt");
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("""
-                {"schema":{"table":{"name":"ods_from_schema","comment":"schema comment","partitionKeys":["schema_pt"],
+                {"schema":{"table":{"name":"ods_test","comment":"schema comment","partitionKeys":["schema_pt"],
                 "primaryKeys":{"defaultValue":["schema_pt"]}}},
                 "data":[{"today":"2026-06-12","day_pt":"2026-06-12"}]}
                 """), record());
@@ -236,6 +241,24 @@ class TableResolverTest {
         Assertions.assertEquals("job comment", plan.get().tableConfig.tableComment);
         Assertions.assertEquals(List.of("day_pt"), plan.get().tableConfig.partitionKeys);
         Assertions.assertEquals(List.of("day_pt"), plan.get().tableConfig.primaryKeys);
+    }
+
+    /**
+     * 表级 includeKafkaMetadataFields 打开时追加 Kafka 元数据列和值.
+     */
+    @Test
+    void shouldAppendKafkaMetadataFieldsByTableConfig() throws Exception {
+        PaimonSinkConfig sink = baseSink();
+        PaimonTableConfig table = sink.tables.get(0);
+        table.table.includeKafkaMetadataFields = true;
+
+        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(message("[{\"today\":\"2026-06-12\"}]"), record());
+
+        Assertions.assertTrue(plan.isPresent());
+        Assertions.assertTrue(plan.get().tableConfig.columns.stream().anyMatch(column -> TableResolver.KAFKA_TOPIC_FIELD.equals(column.name)));
+        Assertions.assertEquals("topic-a", plan.get().records.get(0).get(TableResolver.KAFKA_TOPIC_FIELD));
+        Assertions.assertEquals(0, plan.get().records.get(0).get(TableResolver.KAFKA_PARTITION_FIELD));
+        Assertions.assertEquals(10L, plan.get().records.get(0).get(TableResolver.KAFKA_OFFSET_FIELD));
     }
 
     private PaimonSinkConfig baseSink() throws Exception {
@@ -282,6 +305,10 @@ class TableResolverTest {
 
     private JsonNode json(String text) throws Exception {
         return JacksonUtils.str2JsonNode(text);
+    }
+
+    private JsonNode message(String data) throws Exception {
+        return json("{\"schema\":{\"table\":{\"name\":\"ods_test\"}},\"data\":" + data + "}");
     }
 
     private KafkaRecord record() {

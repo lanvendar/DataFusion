@@ -59,12 +59,10 @@
         "enabled": true,
         "table": {
           "database": "dw_dev",
-          "name": {
-            "path": "schema.table.name",
-            "defaultValue": "ods_spider_oilchem_price_market"
-          },
+          "name": "ods_spider_oilchem_price_market",
           "comment": "隆众市场价格行情表",
           "createIfNotExists": true,
+          "includeKafkaMetadataFields": false,
           "partitionKeys": [
             "day_pt"
           ],
@@ -94,6 +92,60 @@
         "loadMode": "UPSERT",
         "options": {
           "bucket": "4",
+          "write-buffer-size": "128mb",
+          "file.format": "parquet"
+        },
+        "columnsMapping": "data"
+      },
+      {
+        "enabled": true,
+        "table": {
+          "database": "dw_dev",
+          "name": "ods_spider_cci_thermal_coal_price",
+          "comment": "CCI秦皇岛港动力煤价格指标表",
+          "createIfNotExists": true,
+          "includeKafkaMetadataFields": false,
+          "partitionKeys": [
+            "day_pt"
+          ],
+          "primaryKeys": {
+            "mode": "FIELDS",
+            "defaultValue": [
+              "day_pt",
+              "product_item_code"
+            ]
+          }
+        },
+        "loadMode": "UPSERT",
+        "options": {
+          "bucket": "1",
+          "write-buffer-size": "128mb",
+          "file.format": "parquet"
+        },
+        "columnsMapping": "data"
+      },
+      {
+        "enabled": true,
+        "table": {
+          "database": "dw_dev",
+          "name": "ods_spider_bkccpr_central_parity_rate",
+          "comment": "人民币汇率中间价表",
+          "createIfNotExists": true,
+          "includeKafkaMetadataFields": false,
+          "partitionKeys": [
+            "day_pt"
+          ],
+          "primaryKeys": {
+            "mode": "FIELDS",
+            "defaultValue": [
+              "day_pt",
+              "currency_pair"
+            ]
+          }
+        },
+        "loadMode": "UPSERT",
+        "options": {
+          "bucket": "1",
           "write-buffer-size": "128mb",
           "file.format": "parquet"
         },

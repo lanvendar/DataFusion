@@ -7,7 +7,7 @@ import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
 import com.datafusion.plugin.kafka.json.core.enums.PrimaryKeyMode;
 import com.datafusion.plugin.kafka.json.expression.ExpressionEvaluator;
 import com.datafusion.plugin.kafka.json.expression.ExpressionSpec;
-import com.datafusion.plugin.kafka.json.expression.JsonType;
+import com.datafusion.plugin.kafka.json.core.enums.JsonType;
 
 import java.util.ArrayList;
 import java.util.Collection;

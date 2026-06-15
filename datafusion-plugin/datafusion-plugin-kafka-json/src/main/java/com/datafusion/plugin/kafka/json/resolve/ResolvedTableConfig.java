@@ -71,6 +71,11 @@ public class ResolvedTableConfig implements Serializable {
     public PrimaryKeyConfig primaryKeysConfig;
 
     /**
+     * 是否补充 Kafka 元数据字段.
+     */
+    public Boolean includeKafkaMetadataFields = false;
+
+    /**
      * 字段定义.
      */
     public List<ColumnConfig> columns = new ArrayList<>();

@@ -18,19 +18,19 @@
 |----------|--------|---------|--------|----------------|-------|
 | 启动作业 | 本地 `job.json` 或启动参数配置文件 | `ConfigLoader` -> `ConfigValidator` | Flink 作业运行时 | `KafkaJsonPaimonJobConfig` | 启动前完成配置和表达式校验 |
 | 消费 Kafka 消息 | Kafka topic | Flink `KafkaSource<String>` | `JsonMessageParser` | 原始 JSON -> Jackson `JsonNode` | 不要求固定 envelope |
-| 表路由解析 | `JsonNode` + `sink.tables[]` | `TableResolver` | `PaimonTableConfig` | 命中的目标表配置 | 使用 `table.name.path` 读取消息表名；取不到时使用 `defaultValue`；最终仍为空则过滤消息；按 `tables[]` 顺序匹配，第一版一条消息只写入第一张命中表 |
+| 表路由解析 | `JsonNode` + `sink.tables[]` | `TableResolver` | `PaimonTableConfig` | 命中的目标表配置 | `table.database` 和 `table.name` 必须由 job 静态配置；Kafka JSON 中 `schema.table.name` 等于 `table.name` 时命中；无表名或未命中时过滤消息 |
 | 解析记录数组 | Kafka `JsonNode` + `columnsMapping` | `ExpressionEvaluator` | record nodes | `Array<Object>` | `columnsMapping.path` 是消息级 JMESPath，结果支持对象数组或单层对象，单层对象自动包装为一条记录 |
-| 解析目标表结构 | Kafka `JsonNode` + `PaimonTableConfig` | `TableResolver` | `ResolvedTableConfig` | database/tableName/table metadata/columns/options | `table.database` 来自 job；其它 table 元数据在 job `table{}` 和 Kafka `schema.table` 之间整段二选一；字段定义在 job `columns[]` 和 Kafka `schema.columns[]` 之间二选一 |
+| 解析目标表结构 | Kafka `JsonNode` + `PaimonTableConfig` | `TableResolver` | `ResolvedTableConfig` | database/tableName/table metadata/columns/options | `table.database/name` 来自 job；真实 Paimon 表存在时结构优先；缺表建表时优先使用 job 完整定义，job 未配置 `columns[]` 时字段可取 Kafka `schema.columns[]` |
 | 解析单条记录 | record `JsonNode` + `columns[]` | `RecordMapper` | `Map<String, Object>` | 写入记录 | 每列按 `columns[].value` 取值和兜底 |
 | 生成代理主键 | mapped record + `PrimaryKeyConfig` | `PrimaryKeyResolver` | mapped record | `_id_` | `PROXY` 模式自动补充固定代理主键列；`mode` 未配置时默认 `FIELDS` |
-| 初始化或复用 writer | `ResolvedTableConfig` | `PaimonTableWriterRegistry` | `PaimonTableWriter` | 按 `database.table` 缓存 | 启动预加载真实 Paimon schema，运行期校验当前目标结构 |
+| 初始化或复用 writer | `ResolvedTableConfig` | `PaimonTableWriterRegistry` | `PaimonTableWriter` | 按 `database.table` 缓存 | 启动预加载并标记真实 Paimon 表状态；存在则按真实 schema 写入，缺表则由首条命中数据触发建表 |
 | 批量写入 | mapped records | `RecordNormalizer` -> `PaimonTableWriter` | Paimon | `GenericRow` / `CommitMessage` | writer 只写文件并产出 `CommitMessage`，不直接提交 snapshot |
 | 按表提交 | `PaimonCommittable` | `PaimonCommitter` | Paimon snapshot | `identifier + commitIdentifier` | committer 按表和提交编号聚合提交，避免不同表或不同 checkpoint 的消息混提 |
 | 容错恢复 | Flink checkpoint state | Flink runtime | Kafka offsets + Paimon commit | runtime 配置 | `UPSERT` 结合主键提升重放幂等性 |
 
 ## 3. job.json Contract
 
-`job.json` 是通用插件的覆盖配置源。Kafka 消息可携带标准结构 `schema.table` / `schema.columns` 作为默认 schema。`table.database` 必须由 job 定义；其它 table 元数据不能局部覆盖，job 中一旦配置 `name/comment/createIfNotExists/partitionKeys/primaryKeys` 任一字段，就必须配置完整当前段。字段定义同样不能局部覆盖，job 中一旦配置 `columns[]` 就必须是完整字段定义。
+`job.json` 是通用插件的目标表路由和建表配置源。Kafka 消息可携带标准结构 `schema.table` / `schema.columns`，其中 `schema.table.name` 用于与 `sink.tables[].table.name` 做路由匹配，`schema.columns[]` 只在真实 Paimon 表不存在且 job 未配置 `columns[]` 时作为建表字段定义兜底。`table.database` 和 `table.name` 必须由 job 静态定义；字段定义不能局部覆盖，job 中一旦配置 `columns[]` 就必须是完整字段定义。
 
 顶层结构如下：
 
@@ -54,7 +54,9 @@
 | `sink.options` | Yes | 全局 Paimon options，包含 catalog 连接参数和默认表 options |
 | `sink.tables` | Yes | 目标表数组，每个元素定义路由、表结构、字段取值和写入策略 |
 | `sink.tables[].columnsMapping` | Yes | 消息级 JMESPath，结果必须是待映射的对象数组或单层对象 |
-| `sink.tables[].table` | No | 表级覆盖配置；未配置时优先读取 Kafka `schema.table` |
+| `sink.tables[].table.database` | Yes | 目标 Paimon database，必须静态配置 |
+| `sink.tables[].table.name` | Yes | 目标 Paimon table，必须静态配置，也是默认路由匹配值 |
+| `sink.tables[].table.includeKafkaMetadataFields` | No | 当前表是否自动补充 Kafka topic、partition、offset 字段 |
 | `sink.tables[].columns` | No | 完整字段定义；未配置时读取 Kafka `schema.columns` |
 | `sink.loadMode` | No | 全局默认写入模式，支持 `APPEND`、`UPSERT`，表级 `loadMode` 可覆盖 |
 | `sink.writer` | No | Paimon writer 缓冲、flush 和缓存控制；新插件只支持 `writer`，不兼容旧字段 `write` |
@@ -116,21 +118,11 @@ OilChem 样例配置骨架：
         "enabled": true,
         "table": {
           "database": "dw_dev",
-          "name": {
-            "path": "schema.table.name",
-            "defaultValue": "ods_spider_oilchem_price_market"
-          },
-          "comment": {
-            "path": "schema.table.comment"
-          },
-          "createIfNotExists": {
-            "path": "schema.table.createIfNotExists",
-            "defaultValue": true
-          },
-          "partitionKeys": {
-            "path": "schema.table.partitionKeys",
-            "defaultValue": ["day_pt"]
-          },
+          "name": "ods_spider_oilchem_price_market",
+          "comment": "隆众市场价格行情表",
+          "createIfNotExists": true,
+          "includeKafkaMetadataFields": false,
+          "partitionKeys": ["day_pt"],
           "primaryKeys": {
             "mode": "PROXY",
             "algorithm": "SHA-256",
@@ -245,16 +237,20 @@ OilChem 样例配置骨架：
 标准结构解析规则：
 
 ```text
-表级元数据: job.json 只配置 database 时全量使用 Kafka JSON schema.table；job.json 配置任一 table 元数据字段时必须完整配置当前段并整段覆盖 schema.table
-字段定义: job.json sink.tables[].columns[] 存在时全量使用 job 定义；不存在时全量使用 Kafka JSON schema.columns[]
+表路由: sink.tables[].table.database 和 table.name 必须静态配置；Kafka JSON schema.table.name 与 table.name 相等才命中该配置
+真实表: 真实 Paimon 表存在时，写入字段顺序、字段类型、主键、分区键和 NOT NULL 校验均以真实表为准
+缺表建表: 真实 Paimon 表不存在时，使用 job table 元数据建表；字段优先使用 job columns[]，job 未配置 columns[] 时使用 Kafka schema.columns[]
+字段定义: job.json sink.tables[].columns[] 存在时全量使用 job 定义；不存在时才允许读取 Kafka JSON schema.columns[]
 ```
 
 表级字段规则：
 
-- `table.database`: job.json 必须能解析出最终 database；Kafka `schema.table` 默认不承载 database。
-- `table.name/comment/createIfNotExists/partitionKeys/primaryKeys`: 除 `database` 外属于同一个 table 元数据段；job.json 任一字段出现时必须全部出现，并整段覆盖 Kafka `schema.table`。
-- job.json 不配置 table 元数据段时，全量使用 Kafka `schema.table`；`table.name` 最终为空时过滤消息。
-- `table.createIfNotExists` 未解析到值时默认 `true`；`table.primaryKeys.mode` 未配置时默认 `FIELDS`；`defaultValue` 是主键字段数组。
+- `table.database`: job.json 必须静态配置，用于目标 Paimon 表定位。
+- `table.name`: job.json 必须静态配置，用于目标 Paimon 表定位和默认路由匹配；Kafka JSON `schema.table.name` 为空或不等于该值时跳过当前表配置。
+- `table.comment`: 可选；真实表已存在时仅用于注释差异 WARN，不影响写入；缺表建表时用于表注释。
+- `table.createIfNotExists`: 可选，默认 `true`；缺表时为 `false` 则按 `schemaMismatchPolicy` 处理。
+- `table.partitionKeys`: 缺表建表时必须能解析出非空数组；真实表已存在时仍会与真实表分区键做兼容校验。
+- `table.primaryKeys`: `UPSERT` 缺表建表时必须配置；`mode` 未配置时默认 `FIELDS`；`defaultValue` 是主键字段数组；`PROXY` 模式真实 Paimon 主键为 `_id_` 加分区键。
 
 字段定义规则：
 
@@ -264,6 +260,44 @@ OilChem 样例配置骨架：
 - 真实 Paimon 表不存在时，若 job 配置了 `columns[]`，按 job 完整字段定义建表。
 - 真实 Paimon 表不存在且 job 未配置 `columns[]` 时，按 Kafka `schema.columns[]` 建表；这种模式要求第一条用于建表的 Kafka JSON schema 准确。
 - `columns[].value` 未配置时仍默认按列名从单条 record 中取值。
+
+启动和运行期表状态流程：
+
+```text
+Flink 启动:
+  1. 遍历 sink.tables[] 中 enabled=true 的静态 database/name 配置。
+  2. 查询真实 Paimon 表。
+  3. 表存在时，schema cache 标记 EXISTS，并缓存真实 Paimon schema。
+  4. 表不存在时，schema cache 标记 MISSING_CONFIGURED，不立即失败，等待首条命中数据触发建表。
+
+Kafka 消息进入:
+  1. 读取 schema.table.name。
+  2. 逐个匹配 enabled=true 的 tables[]。
+  3. 只有 schema.table.name == tables[].table.name 时命中。
+  4. 未命中任何配置时 WARN 并跳过该消息。
+
+schema cache 状态 = EXISTS:
+  1. 使用真实 Paimon schema 校验解析后的目标表配置。
+  2. 使用真实 Paimon rowType 做字段顺序、类型转换和 NOT NULL 校验。
+
+schema cache 状态 = MISSING_CONFIGURED:
+  1. createIfNotExists=false 时按 schemaMismatchPolicy 处理。
+  2. createIfNotExists=true 时准备建表 schema。
+  3. columns 优先使用 job columns[]；job 未配置 columns[] 时使用 Kafka schema.columns[]。
+  4. partitionKeys/primaryKeys 使用 job table 配置。
+  5. 建表信息不完整或非法时按 schemaMismatchPolicy 处理；SKIP 时 WARN 并跳过本批 records，表状态保持 MISSING_CONFIGURED。
+  6. 建表成功后 catalog.getTable()，reload 真实 Paimon schema 到 cache，状态改为 EXISTS。
+  7. 本批 records 继续按真实 Paimon schema 写入。
+```
+
+错误策略分层：
+
+- 表缺失、建表信息不完整、建表失败、真实表结构不兼容属于 schema 初始化或 schema 兼容问题，受 `schemaMismatchPolicy` 控制。
+- `schemaMismatchPolicy=SKIP` 时记录 WARN 并跳过本批 records，不让 Flink 任务失败；缺表状态保持 `MISSING_CONFIGURED`，下一条命中数据会继续尝试建表。
+- `schemaMismatchPolicy=FAIL` 时抛错，Flink 按 restart 策略处理。
+- 字段映射失败、字段值格式不合法、类型转换失败、真实 Paimon NOT NULL 字段为空、单条写入失败属于 record 错误，受 `recordErrorPolicy` 控制。
+- `recordErrorPolicy=SKIP` 时只跳过当前 record，不影响同一条 Kafka JSON 中 `data[]` 的其他 record，并以 WARN 记录 `topic`、`partition`、`offset`、`identifier`、`recordIndex`、`column`（如果能定位）和 `reason`。
+- `recordErrorPolicy=FAIL` 时抛错，Flink 按 restart 策略处理。
 
 `columnsMapping.path` 与 `columns[].value.path` 的上下文不同：
 
@@ -347,7 +381,7 @@ OilChem 样例配置骨架：
 | 代理主键 | `primaryKeys.mode=PROXY` 时自动补充固定 `_id_` 字段；真实 Paimon 主键只有 `_id_` 和分区字段 | `primaryKeys.path/defaultValue` 得到的源字段用于生成代理键；字段值允许为空字符串参与拼接 |
 | Paimon 表不存在 | `createIfNotExists=true` 时自动建表 | `false` 时抛异常 |
 | Paimon 表已存在且不兼容 | 比较字段缺失、类型、主键、分区和表 options | 按 `schemaMismatchPolicy` 处理；comment 不一致只 WARN；日志包含 topic、partition、offset、tableName、reason |
-| Kafka 元数据字段 | `includeKafkaMetadataFields=true` 时自动补 `_kafka_topic`、`_kafka_partition`、`_kafka_offset` | 关闭时不写入 |
+| Kafka 元数据字段 | `sink.tables[].table.includeKafkaMetadataFields=true` 时自动补 `_kafka_topic`、`_kafka_partition`、`_kafka_offset` | 关闭时不写入 |
 
 ### 5.4 Transaction Boundary
 

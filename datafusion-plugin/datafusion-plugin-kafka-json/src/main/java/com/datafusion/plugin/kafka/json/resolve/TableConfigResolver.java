@@ -11,9 +11,8 @@ import com.datafusion.plugin.kafka.json.core.enums.ProxyPrimaryKeyType;
 import com.datafusion.plugin.kafka.json.expression.ExpressionEvaluator;
 import com.datafusion.plugin.kafka.json.expression.ExpressionSpec;
 import com.datafusion.plugin.kafka.json.expression.ExpressionSpecNormalizer;
-import com.datafusion.plugin.kafka.json.expression.JsonType;
+import com.datafusion.plugin.kafka.json.core.enums.JsonType;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
-import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -44,37 +43,38 @@ class TableConfigResolver {
         this.expressionEvaluator = expressionEvaluator;
     }
 
-    String resolveTableName(Object messageObject, PaimonTableConfig table, StandardSchema schema) {
-        boolean useJobTableMetadata = TableMetadataRules.hasJobTableMetadata(table.table);
-        return stringValue(evaluate(messageObject, tableSpec(table.table.name, schema.table.name, "name", JsonType.STRING,
-                useJobTableMetadata), "sink.tables[].table.name"));
+    String resolveTableName(PaimonTableConfig table) {
+        return stringValue(evaluate(null, ExpressionSpecNormalizer.constant(table.table.name, JsonType.STRING),
+                "sink.tables[].table.name"));
     }
 
     ResolvedTableConfig resolve(Object messageObject, PaimonTableConfig table, StandardSchema schema, String tableName) {
-        boolean useJobTableMetadata = TableMetadataRules.hasJobTableMetadata(table.table);
         ResolvedTableConfig config = new ResolvedTableConfig();
+        boolean useJobTableMetadata = TableMetadataRules.hasJobTableMetadata(table.table);
+        StandardSchema.StandardTableSchema schemaTable = schema == null ? null : schema.table;
         config.database = requiredString(evaluate(messageObject, ExpressionSpecNormalizer.constant(table.table.database, JsonType.STRING),
                 "sink.tables[].table.database"), "sink.tables[].table.database");
         config.tableName = tableName;
         config.loadMode = LoadMode.parse(table.loadMode, LoadMode.parse(sink.loadMode, LoadMode.APPEND));
-        config.tableComment = stringValue(evaluate(messageObject, tableSpec(table.table.comment, schema.table.comment, "comment",
-                JsonType.STRING, useJobTableMetadata), "sink.tables[].table.comment"));
-        Object createIfNotExists = evaluate(messageObject, tableSpec(table.table.createIfNotExists, schema.table.createIfNotExists,
-                "createIfNotExists", JsonType.BOOLEAN, useJobTableMetadata), "sink.tables[].table.createIfNotExists");
+        config.tableComment = stringValue(resolveTableMetadataValue(messageObject, useJobTableMetadata, table.table.comment,
+                schemaTable == null ? null : schemaTable.comment, JsonType.STRING, "sink.tables[].table.comment"));
+        Object createIfNotExists = resolveTableMetadataValue(messageObject, useJobTableMetadata, table.table.createIfNotExists,
+                schemaTable == null ? null : schemaTable.createIfNotExists, JsonType.BOOLEAN, "sink.tables[].table.createIfNotExists");
         config.createIfNotExists = createIfNotExists == null || Boolean.TRUE.equals(createIfNotExists);
-        config.partitionKeys = stringList(evaluate(messageObject, tableSpec(table.table.partitionKeys, schema.table.partitionKeys,
-                "partitionKeys", JsonType.ARRAY, useJobTableMetadata), "sink.tables[].table.partitionKeys"),
+        config.partitionKeys = stringList(resolveTableMetadataValue(messageObject, useJobTableMetadata, table.table.partitionKeys,
+                schemaTable == null ? null : schemaTable.partitionKeys, JsonType.ARRAY, "sink.tables[].table.partitionKeys"),
                 "sink.tables[].table.partitionKeys");
         config.columns = resolveColumns(schema.columns, table.columns);
-        config.primaryKeysConfig = resolvePrimaryKeysConfig(schema.table.primaryKeys, table.table.primaryKeys, useJobTableMetadata);
+        config.primaryKeysConfig = resolvePrimaryKeysConfig(useJobTableMetadata, table.table.primaryKeys,
+                schemaTable == null ? null : schemaTable.primaryKeys);
         config.primaryKeyMode = config.primaryKeysConfig == null ? null : PrimaryKeyMode.parse(config.primaryKeysConfig.mode);
         config.primaryKeys = resolvePrimaryKeys(messageObject, config.primaryKeysConfig, config);
+        config.includeKafkaMetadataFields = table.table.includeKafkaMetadataFields;
         config.options = new LinkedHashMap<>(sink.globalOptions());
         if (table.options != null) {
             config.options.putAll(table.options);
         }
         appendSystemColumns(config);
-        validateLoadMode(config);
         return config;
     }
 
@@ -122,7 +122,7 @@ class TableConfigResolver {
     }
 
     private void appendSystemColumns(ResolvedTableConfig config) {
-        if (!Boolean.TRUE.equals(sink.includeKafkaMetadataFields)) {
+        if (!Boolean.TRUE.equals(config.includeKafkaMetadataFields)) {
             return;
         }
         config.columns.add(kafkaTopicColumn());
@@ -158,29 +158,6 @@ class TableConfigResolver {
         return column;
     }
 
-    private void validateLoadMode(ResolvedTableConfig config) {
-        if (config.partitionKeys == null || config.partitionKeys.isEmpty()) {
-            throw new KafkaJsonPaimonException("Paimon partitionKeys is required: " + config.identifier());
-        }
-        if (config.loadMode == LoadMode.UPSERT && config.primaryKeyMode == null) {
-            throw new KafkaJsonPaimonException("Paimon UPSERT requires primaryKeys: " + config.identifier());
-        }
-    }
-
-    private ExpressionSpec tableSpec(JsonNode jobNode, Object schemaValue, String fieldName, JsonType jsonType, boolean useJobTableMetadata) {
-        if (useJobTableMetadata) {
-            return ExpressionSpecNormalizer.constant(jobNode, jsonType);
-        }
-        if (schemaValue instanceof JsonNode node && !node.isNull()) {
-            return ExpressionSpecNormalizer.constant(node, jsonType);
-        }
-        ExpressionSpec spec = new ExpressionSpec();
-        spec.jsonType = jsonType.name();
-        spec.path = StandardSchemaParser.SCHEMA_TABLE_PATH + "." + fieldName;
-        spec.defaultValue = schemaValue;
-        return spec;
-    }
-
     private List<ColumnConfig> resolveColumns(List<ColumnConfig> schemaColumns, List<ColumnConfig> jobColumns) {
         // Job columns are an explicit complete table definition. Once columns[] appears in job config,
         // do not merge it with Kafka schema.columns; missing fields would otherwise be silently hidden.
@@ -197,13 +174,30 @@ class TableConfigResolver {
         return columns;
     }
 
-    private PrimaryKeyConfig resolvePrimaryKeysConfig(PrimaryKeyConfig schemaPrimaryKeys, PrimaryKeyConfig jobPrimaryKeys,
-            boolean useJobTableMetadata) {
-        PrimaryKeyConfig source = useJobTableMetadata ? jobPrimaryKeys : schemaPrimaryKeys;
-        return source == null ? null : copyPrimaryKey(source);
+    private Object resolveTableMetadataValue(
+            Object messageObject,
+            boolean useJobTableMetadata,
+            com.fasterxml.jackson.databind.JsonNode jobNode,
+            Object schemaValue,
+            JsonType jsonType,
+            String name) {
+        if (useJobTableMetadata) {
+            return evaluate(messageObject, ExpressionSpecNormalizer.constant(jobNode, jsonType), name);
+        }
+        return schemaValue;
+    }
+
+    private PrimaryKeyConfig resolvePrimaryKeysConfig(
+            boolean useJobTableMetadata,
+            PrimaryKeyConfig jobPrimaryKeys,
+            PrimaryKeyConfig schemaPrimaryKeys) {
+        return copyPrimaryKey(useJobTableMetadata ? jobPrimaryKeys : schemaPrimaryKeys);
     }
 
     private PrimaryKeyConfig copyPrimaryKey(PrimaryKeyConfig source) {
+        if (source == null) {
+            return null;
+        }
         PrimaryKeyConfig copy = new PrimaryKeyConfig();
         copy.mode = source.mode;
         copy.algorithm = source.algorithm;

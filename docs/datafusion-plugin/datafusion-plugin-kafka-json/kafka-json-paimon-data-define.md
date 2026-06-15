@@ -57,6 +57,7 @@
 | `PaimonTableConfig` | 单张目标表配置 | `columnsMapping` | `ExpressionSpec` | 每条 Kafka 消息解析 | 消息级 JMESPath，结果必须是对象数组或单层对象 |
 | `PaimonTableConfig` | 单张目标表配置 | `columns` | `List<ColumnConfig>` | 启动时加载，运行期只读 | Paimon 表字段定义与单条记录取值规则 |
 | `TableConfig` | 单张目标表配置 | `primaryKeys` | `PrimaryKeyConfig` | 启动时加载，运行期只读 | 普通字段主键或代理主键 |
+| `TableConfig` | 单张目标表配置 | `includeKafkaMetadataFields` | `Boolean` | 启动时加载，运行期只读 | 当前表是否补充 Kafka 元数据字段 |
 | `ResolvedTableWritePlan` | 单条消息解析后生成写入计划 | `tableConfig` | `ResolvedTableConfig` | 每条 Kafka 消息临时存在 | database、tableName、table schema、options 合并后的结果 |
 | `ResolvedTableWritePlan` | 单条消息解析后生成写入计划 | `records` | `List<Map<String, Object>>` | 每条 Kafka 消息临时存在 | 已按 `columns[].value` 抽取、默认值和代理主键处理后的记录 |
 
@@ -115,7 +116,6 @@
 | `connectType` | `String` | No | `S3` | 与现有 Paimon 插件保持一致 |
 | `schemaMismatchPolicy` | `String` | No | `SKIP` | 表结构不匹配策略，支持 `SKIP`、`FAIL` |
 | `recordErrorPolicy` | `String` | No | `SKIP` | 单条记录错误策略，支持 `SKIP`、`FAIL` |
-| `includeKafkaMetadataFields` | `Boolean` | No | `false` | 是否自动补充 Kafka topic、partition、offset 字段 |
 | `loadMode` | `String` | No | `APPEND` | 全局默认写入模式，支持 `APPEND`、`UPSERT`，表级 `loadMode` 可覆盖 |
 | `options` | `Map<String, String>` | Yes | 空 map | 全局 Paimon options，包含 catalog 连接参数和默认表 options |
 | `tables` | `List<PaimonTableConfig>` | Yes | 无 | 目标表解析配置 |
@@ -142,6 +142,7 @@
 | `createIfNotExists` | `ExpressionSpec` or boolean | No | `true` | 解析是否允许自动建表；常量可简写为布尔值，默认 `jsonType=BOOLEAN` |
 | `partitionKeys` | `ExpressionSpec` or array | No | 空列表 | 解析分区字段列表；常量可简写为字符串数组，默认 `jsonType=ARRAY` |
 | `primaryKeys` | `PrimaryKeyConfig` | Conditional | 无 | `UPSERT` 时必须配置普通主键或代理主键 |
+| `includeKafkaMetadataFields` | `Boolean` | No | `false` | 是否为当前表自动补充 `_kafka_topic`、`_kafka_partition`、`_kafka_offset` 字段和值 |
 
 #### 2.4.8 `ExpressionSpec`
 
@@ -192,6 +193,7 @@ Kafka 标准结构与 job.json 覆盖规则：
 - `schema.columns[]` 提供字段结构默认值。
 - `sink.tables[].table.database` 必须由 job 配置解析得到；Kafka `schema.table` 默认不承载目标 database。
 - `sink.tables[].table` 中除 `database` 外，`name/comment/createIfNotExists/partitionKeys/primaryKeys` 属于同一个 table 元数据段；job 配置任一字段时必须全部配置，并整段覆盖 `schema.table`。
+- `sink.tables[].table.includeKafkaMetadataFields` 是 job 表级静态开关，不参与 `schema.table` 覆盖规则。
 - job 不配置 table 元数据段时，全量使用 Kafka `schema.table`。
 - `sink.tables[].columns[]` 一旦配置就表示完整字段定义，不与 `schema.columns[]` 做局部合并；缺字段应视为配置缺失。
 - 真实 Paimon 表已存在时优先级最高，写入字段、类型转换和 NOT NULL 校验以真实 Paimon 表结构为准。
@@ -229,6 +231,7 @@ Kafka 标准结构与 job.json 覆盖规则：
 | `createIfNotExists` | `Boolean` | No | `true` | 是否允许自动建表 |
 | `partitionKeys` | `List<String>` | No | 空列表 | 分区字段 |
 | `primaryKeys` | `List<String>` | Conditional | 空列表 | 真实 Paimon 主键字段 |
+| `includeKafkaMetadataFields` | `Boolean` | No | `false` | 是否补充 Kafka 元数据字段 |
 | `columns` | `List<ResolvedColumnConfig>` | Yes | 无 | 解析后的 Paimon 字段 |
 | `options` | `Map<String, String>` | No | 空 map | 合并后的表 options |
 

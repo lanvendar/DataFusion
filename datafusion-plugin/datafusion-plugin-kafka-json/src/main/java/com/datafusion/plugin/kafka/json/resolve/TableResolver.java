@@ -12,7 +12,7 @@ import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
 import com.datafusion.plugin.kafka.json.expression.ExpressionEvaluator;
 import com.datafusion.plugin.kafka.json.expression.ExpressionSpec;
 import com.datafusion.plugin.kafka.json.expression.ExpressionSpecNormalizer;
-import com.datafusion.plugin.kafka.json.expression.JsonType;
+import com.datafusion.plugin.kafka.json.core.enums.JsonType;
 import com.datafusion.plugin.kafka.json.source.KafkaRecord;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -116,7 +116,8 @@ public class TableResolver {
             }
         }
         long skipped = skippedCount.incrementAndGet();
-        LOGGER.warn("Skip Kafka JSON message because target table name is empty, topic={}, partition={}, offset={}, skippedCount={}",
+        LOGGER.warn("Skip Kafka JSON message because schema.table.name is missing or no sink table matched, topic={}, partition={}, "
+                        + "offset={}, skippedCount={}",
                 record.topic, record.partition, record.offset, skipped);
         return Optional.empty();
     }
@@ -132,8 +133,8 @@ public class TableResolver {
 
     private Optional<ResolvedTableWritePlan> resolveTable(Object messageObject, PaimonTableConfig table, KafkaRecord kafkaRecord) {
         StandardSchema schema = standardSchemaParser.parse(messageObject);
-        String tableName = tableConfigResolver.resolveTableName(messageObject, table, schema);
-        if (TextUtils.isBlank(tableName)) {
+        String tableName = tableConfigResolver.resolveTableName(table);
+        if (!matchesTable(schema, tableName)) {
             return Optional.empty();
         }
         ResolvedTableConfig tableConfig = tableConfigResolver.resolve(messageObject, table, schema, tableName);
@@ -150,6 +151,41 @@ public class TableResolver {
         plan.partition = kafkaRecord.partition;
         plan.offset = kafkaRecord.offset;
         return Optional.of(plan);
+    }
+
+    private boolean matchesTable(StandardSchema schema, String tableName) {
+        if (TextUtils.isBlank(tableName)) {
+            return false;
+        }
+        String messageTableName = schema == null || schema.table == null ? null : stringValue(schema.table.name);
+        if (TextUtils.isBlank(messageTableName)) {
+            return enabledTableCount() == 1 && TableMetadataRules.canRouteWithoutSchemaTableName(singleEnabledTable());
+        }
+        return tableName.equals(messageTableName);
+    }
+
+    private int enabledTableCount() {
+        int count = 0;
+        for (PaimonTableConfig table : sink.tables) {
+            if (table != null && !Boolean.FALSE.equals(table.enabled)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private PaimonTableConfig singleEnabledTable() {
+        PaimonTableConfig matched = null;
+        for (PaimonTableConfig table : sink.tables) {
+            if (table == null || Boolean.FALSE.equals(table.enabled)) {
+                continue;
+            }
+            if (matched != null) {
+                return null;
+            }
+            matched = table;
+        }
+        return matched;
     }
 
     private List<Map<String, Object>> buildRecords(Object messageObject, PaimonTableConfig table, ResolvedTableConfig tableConfig,
@@ -179,7 +215,7 @@ public class TableResolver {
                 target.put(column.name, evaluate(source, valueSpec, "columns." + column.name));
             }
             appendProxyPrimaryKey(target, source, primaryKey);
-            if (Boolean.TRUE.equals(sink.includeKafkaMetadataFields)) {
+            if (Boolean.TRUE.equals(tableConfig.includeKafkaMetadataFields)) {
                 target.put(KAFKA_TOPIC_FIELD, kafkaRecord.topic);
                 target.put(KAFKA_PARTITION_FIELD, kafkaRecord.partition);
                 target.put(KAFKA_OFFSET_FIELD, kafkaRecord.offset);
@@ -245,6 +281,10 @@ public class TableResolver {
 
     private Object evaluate(Object input, ExpressionSpec spec, String name) {
         return expressionEvaluator.evaluate(input, spec, name);
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 
     private Object toJavaObject(JsonNode message) {

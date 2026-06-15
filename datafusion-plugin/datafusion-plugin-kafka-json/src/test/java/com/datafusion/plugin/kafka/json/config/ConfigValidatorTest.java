@@ -36,33 +36,48 @@ class ConfigValidatorTest {
     }
 
     /**
-     * 标准结构配置只配置 database 时允许复用 Kafka schema.table.
+     * 表配置必须静态声明 database 和 name.
      */
     @Test
-    void shouldAllowOnlyDatabaseInJobTableConfig() throws Exception {
+    void shouldRejectMissingStaticTableName() throws Exception {
         KafkaJsonPaimonJobConfig config = baseConfig();
         PaimonTableConfig table = config.sink.tables.get(0);
         table.table.name = null;
-        table.table.comment = null;
-        table.table.createIfNotExists = null;
-        table.table.partitionKeys = null;
-        table.table.primaryKeys = null;
+
+        KafkaJsonPaimonException exception = Assertions.assertThrows(KafkaJsonPaimonException.class,
+                () -> new ConfigValidator().validate(config));
+
+        Assertions.assertTrue(exception.getMessage().contains("sink.tables[].table.name"));
+    }
+
+    /**
+     * 真实表存在时允许只配置静态库表和字段映射.
+     */
+    @Test
+    void shouldAllowStaticTableIdentityWithoutCreateMetadata() throws Exception {
+        KafkaJsonPaimonJobConfig config = baseConfig();
+        config.sink.tables.get(0).table.comment = null;
+        config.sink.tables.get(0).table.createIfNotExists = null;
+        config.sink.tables.get(0).table.partitionKeys = null;
+        config.sink.tables.get(0).table.primaryKeys = null;
 
         Assertions.assertDoesNotThrow(() -> new ConfigValidator().validate(config));
     }
 
     /**
-     * job.json table 元数据一旦配置就必须配置完整当前段.
+     * job table 元数据启用整段覆盖时必须补齐建表关键配置.
      */
     @Test
-    void shouldRejectPartialJobTableMetadata() throws Exception {
+    void shouldRejectPartialJobTableMetadataOverride() throws Exception {
         KafkaJsonPaimonJobConfig config = baseConfig();
-        config.sink.tables.get(0).table.comment = null;
+        config.sink.loadMode = "UPSERT";
+        PaimonTableConfig table = config.sink.tables.get(0);
+        table.table.partitionKeys = null;
 
         KafkaJsonPaimonException exception = Assertions.assertThrows(KafkaJsonPaimonException.class,
                 () -> new ConfigValidator().validate(config));
 
-        Assertions.assertTrue(exception.getMessage().contains("sink.tables[].table.comment"));
+        Assertions.assertTrue(exception.getMessage().contains("partitionKeys"));
     }
 
     private KafkaJsonPaimonJobConfig baseConfig() throws Exception {

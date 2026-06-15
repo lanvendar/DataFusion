@@ -3,9 +3,10 @@ package com.datafusion.plugin.kafka.json.sink;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSinkConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.core.PaimonSchemaMismatchException;
+import com.datafusion.plugin.kafka.json.core.enums.PaimonTableSchemaStatus;
 import com.datafusion.plugin.kafka.json.core.enums.SchemaMismatchPolicy;
 import com.datafusion.plugin.kafka.json.expression.ExpressionSpecNormalizer;
-import com.datafusion.plugin.kafka.json.expression.JsonType;
+import com.datafusion.plugin.kafka.json.core.enums.JsonType;
 import com.datafusion.plugin.kafka.json.resolve.ResolvedTableWritePlan;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
 import org.apache.paimon.catalog.Catalog;
@@ -48,6 +49,11 @@ public class PaimonTableSchemaCache {
     private final Map<String, PaimonTableSchemaSnapshot> snapshots = new LinkedHashMap<>();
 
     /**
+     * Paimon 表结构状态缓存.
+     */
+    private final Map<String, PaimonTableSchemaStatus> statuses = new LinkedHashMap<>();
+
+    /**
      * 构造表结构缓存.
      *
      * @param sink sink 配置
@@ -67,6 +73,17 @@ public class PaimonTableSchemaCache {
      */
     public void put(String identifier, PaimonTableSchemaSnapshot snapshot) {
         snapshots.put(identifier, snapshot);
+        statuses.put(identifier, PaimonTableSchemaStatus.EXISTS);
+    }
+
+    /**
+     * 获取表结构状态.
+     *
+     * @param identifier 表标识
+     * @return 表结构状态
+     */
+    public PaimonTableSchemaStatus status(String identifier) {
+        return statuses.get(identifier);
     }
 
     /**
@@ -78,7 +95,7 @@ public class PaimonTableSchemaCache {
     public boolean validate(ResolvedTableWritePlan plan) {
         PaimonTableSchemaSnapshot snapshot = snapshots.get(plan.tableConfig.identifier());
         if (snapshot == null) {
-            return true;
+            return statuses.get(plan.tableConfig.identifier()) == PaimonTableSchemaStatus.MISSING_CONFIGURED;
         }
         try {
             PaimonTableSchemaValidator.validate(plan.tableConfig, snapshot);
@@ -118,10 +135,11 @@ public class PaimonTableSchemaCache {
         }
         Identifier identifier = Identifier.create(database, tableName);
         try {
-            snapshots.put(database + "." + tableName, new PaimonTableSchemaSnapshot(catalog.getTable(identifier)));
+            put(database + "." + tableName, new PaimonTableSchemaSnapshot(catalog.getTable(identifier)));
             LOGGER.info("Paimon table schema preloaded, identifier={}", identifier);
         } catch (Catalog.TableNotExistException e) {
-            LOGGER.info("Paimon table schema preload skipped because table does not exist, identifier={}", identifier);
+            statuses.put(database + "." + tableName, PaimonTableSchemaStatus.MISSING_CONFIGURED);
+            LOGGER.info("Paimon table schema marked missing because table does not exist, identifier={}", identifier);
         }
     }
 

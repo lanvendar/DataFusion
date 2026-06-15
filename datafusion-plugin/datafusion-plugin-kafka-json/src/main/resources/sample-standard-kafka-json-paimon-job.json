@@ -53,7 +53,21 @@
       {
         "enabled": true,
         "table": {
-          "database": "dw_dev"
+          "database": "dw_dev",
+          "name": "ods_standard_event",
+          "comment": "标准 Kafka JSON 样例表",
+          "createIfNotExists": true,
+          "includeKafkaMetadataFields": false,
+          "partitionKeys": [
+            "day_pt"
+          ],
+          "primaryKeys": {
+            "mode": "FIELDS",
+            "defaultValue": [
+              "day_pt",
+              "event_id"
+            ]
+          }
         },
         "columnsMapping": "data",
         "loadMode": "UPSERT",

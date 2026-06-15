@@ -1,5 +1,6 @@
 package com.datafusion.plugin.kafka.json.resolve;
 
+import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.TableConfig;
 
 /**
@@ -24,7 +25,22 @@ public final class TableMetadataRules {
         if (table == null) {
             return false;
         }
-        return table.name != null || table.comment != null || table.createIfNotExists != null || table.partitionKeys != null
+        return table.comment != null
+                || table.createIfNotExists != null
+                || table.partitionKeys != null
                 || table.primaryKeys != null;
+    }
+
+    /**
+     * 判断单表简化消息是否可以在没有 schema.table.name 时路由.
+     *
+     * @param tableConfig 表配置
+     * @return true 表示 job 已提供完整静态建表定义
+     */
+    public static boolean canRouteWithoutSchemaTableName(PaimonTableConfig tableConfig) {
+        if (tableConfig == null || tableConfig.table == null) {
+            return false;
+        }
+        return hasJobTableMetadata(tableConfig.table) && tableConfig.columns != null && !tableConfig.columns.isEmpty();
     }
 }

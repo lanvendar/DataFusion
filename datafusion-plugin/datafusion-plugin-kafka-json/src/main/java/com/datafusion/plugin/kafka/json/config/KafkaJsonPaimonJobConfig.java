@@ -216,11 +216,6 @@ public class KafkaJsonPaimonJobConfig implements Serializable {
         public String loadMode = "APPEND";
 
         /**
-         * 是否补充 Kafka 元数据字段.
-         */
-        public Boolean includeKafkaMetadataFields = false;
-
-        /**
          * 表结构不匹配处理策略.
          */
         public String schemaMismatchPolicy = "SKIP";
@@ -335,6 +330,11 @@ public class KafkaJsonPaimonJobConfig implements Serializable {
          * 主键配置.
          */
         public PrimaryKeyConfig primaryKeys;
+
+        /**
+         * 是否补充 Kafka 元数据字段.
+         */
+        public Boolean includeKafkaMetadataFields = false;
     }
 
     /**

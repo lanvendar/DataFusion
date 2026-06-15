@@ -57,6 +57,7 @@
           "name": "ods_generic_event",
           "comment": "通用 Kafka JSON 样例表",
           "createIfNotExists": true,
+          "includeKafkaMetadataFields": false,
           "partitionKeys": [
             "day_pt"
           ],

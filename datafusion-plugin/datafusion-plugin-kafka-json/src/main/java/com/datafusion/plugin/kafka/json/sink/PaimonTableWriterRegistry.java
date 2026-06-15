@@ -3,10 +3,13 @@ package com.datafusion.plugin.kafka.json.sink;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSinkConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.WriterConfig;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
+import com.datafusion.plugin.kafka.json.core.enums.PaimonTableSchemaStatus;
 import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
 import com.datafusion.plugin.kafka.json.core.enums.SchemaMismatchPolicy;
 import com.datafusion.plugin.kafka.json.resolve.ResolvedTableConfig;
 import com.datafusion.plugin.kafka.json.resolve.ResolvedTableWritePlan;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -24,6 +27,11 @@ import java.util.Map;
 public class PaimonTableWriterRegistry implements AutoCloseable {
 
     /**
+     * 日志对象.
+     */
+    private static final Logger LOGGER = LoggerFactory.getLogger(PaimonTableWriterRegistry.class);
+
+    /**
      * sink 配置.
      */
     private final PaimonSinkConfig sink;
@@ -37,6 +45,11 @@ public class PaimonTableWriterRegistry implements AutoCloseable {
      * 单条记录错误处理策略.
      */
     private final RecordErrorPolicy recordErrorPolicy;
+
+    /**
+     * 表结构不匹配处理策略.
+     */
+    private final SchemaMismatchPolicy schemaMismatchPolicy;
 
     /**
      * 表结构缓存.
@@ -63,7 +76,8 @@ public class PaimonTableWriterRegistry implements AutoCloseable {
         this.sink = sink;
         this.writerConfig = sink.writer == null ? new WriterConfig() : sink.writer;
         this.recordErrorPolicy = RecordErrorPolicy.parse(sink.recordErrorPolicy);
-        this.schemaCache = new PaimonTableSchemaCache(sink, SchemaMismatchPolicy.parse(sink.schemaMismatchPolicy));
+        this.schemaMismatchPolicy = SchemaMismatchPolicy.parse(sink.schemaMismatchPolicy);
+        this.schemaCache = new PaimonTableSchemaCache(sink, schemaMismatchPolicy);
         this.commitUser = commitUser;
     }
 
@@ -79,12 +93,17 @@ public class PaimonTableWriterRegistry implements AutoCloseable {
         if (!schemaCache.validate(plan)) {
             return;
         }
-        TableWriterHandle handle = writer(plan.tableConfig);
+        TableWriterHandle handle = writer(plan, schemaCache.status(plan.tableConfig.identifier()));
+        if (handle == null) {
+            return;
+        }
         if (!schemaCache.validate(plan)) {
             removeWriter(plan.tableConfig.identifier(), handle);
             return;
         }
-        handle.buffer.addAll(plan.records);
+        for (int i = 0; i < plan.records.size(); i++) {
+            handle.buffer.add(PaimonRecord.of(plan.records.get(i), plan.topic, plan.partition, plan.offset, i));
+        }
         long now = System.currentTimeMillis();
         if (handle.buffer.size() >= batchSize() || now - handle.lastFlushMs >= flushIntervalMs()) {
             flush(handle);
@@ -138,7 +157,8 @@ public class PaimonTableWriterRegistry implements AutoCloseable {
         }
     }
 
-    private TableWriterHandle writer(ResolvedTableConfig tableConfig) {
+    private TableWriterHandle writer(ResolvedTableWritePlan plan, PaimonTableSchemaStatus status) {
+        ResolvedTableConfig tableConfig = plan.tableConfig;
         String identifier = tableConfig.identifier();
         TableWriterHandle existing = writers.get(identifier);
         if (existing != null) {
@@ -148,11 +168,29 @@ public class PaimonTableWriterRegistry implements AutoCloseable {
             throw new KafkaJsonPaimonException("Too many open Paimon writers, maxOpenWriters=" + maxOpenWriters());
         }
         PaimonTableWriter writer = new PaimonTableWriter(sink.globalOptions(), tableConfig, recordErrorPolicy, commitUser);
-        writer.open();
-        schemaCache.put(identifier, writer.schemaSnapshot());
+        try {
+            if (status == PaimonTableSchemaStatus.MISSING_CONFIGURED) {
+                LOGGER.info("Paimon table is missing and will be created if allowed, identifier={}", identifier);
+            }
+            writer.open();
+            schemaCache.put(identifier, writer.schemaSnapshot());
+        } catch (RuntimeException e) {
+            return handleSchemaError(plan, writer, e);
+        }
         TableWriterHandle handle = new TableWriterHandle(writer);
         writers.put(identifier, handle);
         return handle;
+    }
+
+    private TableWriterHandle handleSchemaError(ResolvedTableWritePlan plan, PaimonTableWriter writer, RuntimeException e) {
+        closeQuietly(writer);
+        if (schemaMismatchPolicy == SchemaMismatchPolicy.FAIL) {
+            throw e;
+        }
+        LOGGER.warn("Skip Paimon records because table schema initialization failed, identifier={}, topic={}, partition={}, offset={}, "
+                        + "records={}, reason={}",
+                plan.tableConfig.identifier(), plan.topic, plan.partition, plan.offset, plan.records.size(), e.getMessage());
+        return null;
     }
 
     private void removeWriter(String identifier, TableWriterHandle handle) {
@@ -160,12 +198,20 @@ public class PaimonTableWriterRegistry implements AutoCloseable {
         handle.writer.close();
     }
 
+    private void closeQuietly(PaimonTableWriter writer) {
+        try {
+            writer.close();
+        } catch (RuntimeException ignore) {
+            // Ignore close failure after open failure.
+        }
+    }
+
     private void flush(TableWriterHandle handle) {
         if (handle.buffer.isEmpty()) {
             handle.lastFlushMs = System.currentTimeMillis();
             return;
         }
-        List<Map<String, Object>> records = new ArrayList<>(handle.buffer);
+        List<PaimonRecord> records = new ArrayList<>(handle.buffer);
         handle.buffer.clear();
         handle.writer.write(records);
         handle.lastFlushMs = System.currentTimeMillis();
@@ -196,7 +242,7 @@ public class PaimonTableWriterRegistry implements AutoCloseable {
         /**
          * 缓冲记录.
          */
-        private final List<Map<String, Object>> buffer = new ArrayList<>();
+        private final List<PaimonRecord> buffer = new ArrayList<>();
 
         /**
          * 最近 flush 时间.

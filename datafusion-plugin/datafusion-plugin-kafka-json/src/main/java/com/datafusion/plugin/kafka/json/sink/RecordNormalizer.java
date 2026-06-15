@@ -40,11 +40,11 @@ public final class RecordNormalizer {
      * @param recordErrorPolicy 单条记录错误处理策略
      * @return 归一化记录
      */
-    public static List<Map<String, Object>> normalize(List<Map<String, Object>> records, ResolvedTableConfig tableConfig,
+    public static List<PaimonRecord> normalize(List<PaimonRecord> records, ResolvedTableConfig tableConfig,
             RecordErrorPolicy recordErrorPolicy) {
-        List<Map<String, Object>> normalized = new ArrayList<>();
+        List<PaimonRecord> normalized = new ArrayList<>();
         for (int i = 0; i < records.size(); i++) {
-            Map<String, Object> normalizedRecord = normalizeRecord(records.get(i), tableConfig, i, recordErrorPolicy);
+            PaimonRecord normalizedRecord = normalizeRecord(records.get(i), tableConfig, recordErrorPolicy);
             if (normalizedRecord != null) {
                 normalized.add(normalizedRecord);
             }
@@ -52,17 +52,17 @@ public final class RecordNormalizer {
         return normalized;
     }
 
-    private static Map<String, Object> normalizeRecord(Map<String, Object> record, ResolvedTableConfig tableConfig, int recordIndex,
+    private static PaimonRecord normalizeRecord(PaimonRecord record, ResolvedTableConfig tableConfig,
             RecordErrorPolicy recordErrorPolicy) {
         Map<String, Object> normalized = new LinkedHashMap<>();
         for (ColumnConfig column : tableConfig.columns) {
             try {
-                normalized.put(column.name, normalizeValue(record, column));
+                normalized.put(column.name, normalizeValue(record.values, column));
             } catch (RuntimeException e) {
-                return handleRecordError(tableConfig, column.name, recordIndex, recordErrorPolicy, e);
+                return handleRecordError(tableConfig, record, column.name, recordErrorPolicy, e);
             }
         }
-        return normalized;
+        return PaimonRecord.of(normalized, record.topic, record.partition, record.offset, record.recordIndex);
     }
 
     private static Object normalizeValue(Map<String, Object> record, ColumnConfig column) {
@@ -73,13 +73,14 @@ public final class RecordNormalizer {
         return value;
     }
 
-    private static Map<String, Object> handleRecordError(ResolvedTableConfig tableConfig, String columnName, int recordIndex,
+    private static PaimonRecord handleRecordError(ResolvedTableConfig tableConfig, PaimonRecord record, String columnName,
             RecordErrorPolicy recordErrorPolicy, RuntimeException e) {
         if (recordErrorPolicy == RecordErrorPolicy.FAIL) {
             throw e;
         }
-        LOGGER.warn("Skip Paimon record because record error, identifier={}, column={}, recordIndex={}, reason={}",
-                tableConfig.identifier(), columnName, recordIndex, e.getMessage());
+        LOGGER.warn("Skip Paimon record because record error, identifier={}, topic={}, partition={}, offset={}, column={}, "
+                        + "recordIndex={}, reason={}",
+                tableConfig.identifier(), record.topic, record.partition, record.offset, columnName, record.recordIndex, e.getMessage());
         return null;
     }
 

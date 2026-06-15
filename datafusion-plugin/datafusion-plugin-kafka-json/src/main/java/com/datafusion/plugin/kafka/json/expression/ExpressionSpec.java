@@ -1,5 +1,7 @@
 package com.datafusion.plugin.kafka.json.expression;
 
+import com.datafusion.plugin.kafka.json.core.enums.JsonType;
+
 import java.io.Serializable;
 
 /**

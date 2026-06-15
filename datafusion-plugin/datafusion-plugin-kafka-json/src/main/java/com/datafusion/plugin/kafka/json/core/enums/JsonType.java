@@ -1,4 +1,4 @@
-package com.datafusion.plugin.kafka.json.expression;
+package com.datafusion.plugin.kafka.json.core.enums;
 
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
 import com.datafusion.plugin.kafka.json.util.TextUtils;

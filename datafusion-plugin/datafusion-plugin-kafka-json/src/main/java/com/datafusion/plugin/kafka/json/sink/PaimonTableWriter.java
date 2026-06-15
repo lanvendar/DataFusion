@@ -2,6 +2,7 @@ package com.datafusion.plugin.kafka.json.sink;
 
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
+import com.datafusion.plugin.kafka.json.core.enums.LoadMode;
 import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
 import com.datafusion.plugin.kafka.json.resolve.ResolvedTableConfig;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
@@ -132,16 +133,17 @@ public class PaimonTableWriter implements AutoCloseable {
      * @param records 记录列表
      * @return 成功写入条数
      */
-    public int write(List<Map<String, Object>> records) {
-        List<Map<String, Object>> normalizedRecords = RecordNormalizer.normalize(records, tableConfig, recordErrorPolicy);
+    public int write(List<PaimonRecord> records) {
+        List<PaimonRecord> normalizedRecords = RecordNormalizer.normalize(records, tableConfig, recordErrorPolicy);
         int written = 0;
         for (int i = 0; i < normalizedRecords.size(); i++) {
-            InternalRow row = convertByPaimonRowType(normalizedRecords.get(i), i);
+            PaimonRecord record = normalizedRecords.get(i);
+            InternalRow row = convertByPaimonRowType(record);
             if (row == null) {
                 continue;
             }
             try {
-                if (writeRecord(row, i)) {
+                if (writeRecord(row, record)) {
                     written++;
                 }
             } catch (Exception e) {
@@ -205,11 +207,24 @@ public class PaimonTableWriter implements AutoCloseable {
         try {
             return catalog.getTable(tableIdentifier);
         } catch (TableNotExistException e) {
-            if (!Boolean.TRUE.equals(tableConfig.createIfNotExists)) {
-                throw new KafkaJsonPaimonException("Paimon table does not exist: " + tableIdentifier);
-            }
+            validateCreateTableSchema(tableIdentifier);
             catalog.createTable(tableIdentifier, schema(), true);
             return catalog.getTable(tableIdentifier);
+        }
+    }
+
+    private void validateCreateTableSchema(Identifier tableIdentifier) {
+        if (!Boolean.TRUE.equals(tableConfig.createIfNotExists)) {
+            throw new KafkaJsonPaimonException("Paimon table does not exist: " + tableIdentifier);
+        }
+        if (tableConfig.columns == null || tableConfig.columns.isEmpty()) {
+            throw new KafkaJsonPaimonException("Paimon create table columns is required: " + tableIdentifier);
+        }
+        if (tableConfig.partitionKeys == null || tableConfig.partitionKeys.isEmpty()) {
+            throw new KafkaJsonPaimonException("Paimon create table partitionKeys is required: " + tableIdentifier);
+        }
+        if (tableConfig.loadMode == LoadMode.UPSERT && (tableConfig.primaryKeys == null || tableConfig.primaryKeys.isEmpty())) {
+            throw new KafkaJsonPaimonException("Paimon create table primaryKeys is required for UPSERT: " + tableIdentifier);
         }
     }
 
@@ -231,12 +246,12 @@ public class PaimonTableWriter implements AutoCloseable {
         return builder.build();
     }
 
-    private GenericRow convertByPaimonRowType(Map<String, Object> record, int recordIndex) {
+    private GenericRow convertByPaimonRowType(PaimonRecord record) {
         GenericRow row = new GenericRow(rowType.getFieldCount());
         try {
             for (int i = 0; i < rowType.getFieldCount(); i++) {
                 DataField field = rowType.getField(i);
-                Object value = PaimonValueConverter.convert(record.get(field.name()), field.type());
+                Object value = PaimonValueConverter.convert(record.values.get(field.name()), field.type());
                 if (value == null && !field.type().isNullable()) {
                     throw new KafkaJsonPaimonException("Required Paimon column is empty: " + field.name());
                 }
@@ -247,13 +262,14 @@ public class PaimonTableWriter implements AutoCloseable {
             if (recordErrorPolicy == RecordErrorPolicy.FAIL) {
                 throw e;
             }
-            LOGGER.warn("Skip Paimon record because value conversion failed, identifier={}, recordIndex={}, reason={}",
-                    tableConfig.identifier(), recordIndex, e.getMessage());
+            LOGGER.warn("Skip Paimon record because value conversion failed, identifier={}, topic={}, partition={}, offset={}, "
+                            + "recordIndex={}, reason={}",
+                    tableConfig.identifier(), record.topic, record.partition, record.offset, record.recordIndex, e.getMessage());
             return null;
         }
     }
 
-    private boolean writeRecord(InternalRow row, int recordIndex) throws Exception {
+    private boolean writeRecord(InternalRow row, PaimonRecord record) throws Exception {
         try {
             if (isDynamicBucketTable()) {
                 write.write(row, 0);
@@ -265,8 +281,8 @@ public class PaimonTableWriter implements AutoCloseable {
             if (recordErrorPolicy == RecordErrorPolicy.FAIL) {
                 throw e;
             }
-            LOGGER.warn("Skip Paimon record because write failed, identifier={}, recordIndex={}, reason={}",
-                    tableConfig.identifier(), recordIndex, e.getMessage());
+            LOGGER.warn("Skip Paimon record because write failed, identifier={}, topic={}, partition={}, offset={}, recordIndex={}, reason={}",
+                    tableConfig.identifier(), record.topic, record.partition, record.offset, record.recordIndex, e.getMessage());
             return false;
         }
     }

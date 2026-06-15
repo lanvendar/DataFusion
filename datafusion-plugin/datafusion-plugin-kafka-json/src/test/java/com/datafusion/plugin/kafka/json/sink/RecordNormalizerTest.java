@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * RecordNormalizer 单元测试.
@@ -28,11 +27,12 @@ class RecordNormalizerTest {
         tableConfig.tableName = "ods_test";
         tableConfig.columns.add(column("category_name", false));
 
-        List<Map<String, Object>> records = RecordNormalizer.normalize(List.of(Map.of()), tableConfig, RecordErrorPolicy.SKIP);
+        List<PaimonRecord> records = RecordNormalizer.normalize(List.of(PaimonRecord.of(null, "topic-a", 0, 10L, 0)),
+                tableConfig, RecordErrorPolicy.SKIP);
 
         Assertions.assertEquals(1, records.size());
-        Assertions.assertTrue(records.get(0).containsKey("category_name"));
-        Assertions.assertNull(records.get(0).get("category_name"));
+        Assertions.assertTrue(records.get(0).values.containsKey("category_name"));
+        Assertions.assertNull(records.get(0).values.get("category_name"));
     }
 
     private ColumnConfig column(String name, boolean nullable) {
