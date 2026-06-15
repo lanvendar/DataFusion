@@ -22,7 +22,7 @@ public class ResolvedTableWritePlan implements Serializable {
      */
     private static final long serialVersionUID = 1L;
 
-     /**
+    /**
      * 目标表配置.
      */
     public PaimonTableConfig tableConfig = new PaimonTableConfig();
