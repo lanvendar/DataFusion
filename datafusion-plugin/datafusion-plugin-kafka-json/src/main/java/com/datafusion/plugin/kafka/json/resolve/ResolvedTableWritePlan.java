@@ -31,6 +31,11 @@ public class ResolvedTableWritePlan implements Serializable {
     public List<Map<String, Object>> records = new ArrayList<>();
 
     /**
+     * columnsMapping 解析后的源记录.
+     */
+    public List<Map<String, Object>> sourceRecords = new ArrayList<>();
+
+    /**
      * Kafka topic.
      */
     public String topic;

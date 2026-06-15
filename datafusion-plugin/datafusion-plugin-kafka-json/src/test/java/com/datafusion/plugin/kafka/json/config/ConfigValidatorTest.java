@@ -6,6 +6,7 @@ import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSi
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PrimaryKeyConfig;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
+import com.datafusion.plugin.kafka.json.core.SystemFieldNames;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -78,6 +79,38 @@ class ConfigValidatorTest {
                 () -> new ConfigValidator().validate(config));
 
         Assertions.assertTrue(exception.getMessage().contains("partitionKeys"));
+    }
+
+    /**
+     * PROXY 主键自动字段不能和用户字段重名.
+     */
+    @Test
+    void shouldRejectUserColumnConflictingWithProxyPrimaryKey() throws Exception {
+        KafkaJsonPaimonJobConfig config = baseConfig();
+        PaimonTableConfig table = config.sink.tables.get(0);
+        table.table.primaryKeys.mode = "PROXY";
+        table.columns.add(column(SystemFieldNames.PROXY_PRIMARY_KEY_FIELD, "VARCHAR", false));
+
+        KafkaJsonPaimonException exception = Assertions.assertThrows(KafkaJsonPaimonException.class,
+                () -> new ConfigValidator().validate(config));
+
+        Assertions.assertTrue(exception.getMessage().contains(SystemFieldNames.PROXY_PRIMARY_KEY_FIELD));
+    }
+
+    /**
+     * Kafka 元数据自动字段不能和用户字段重名.
+     */
+    @Test
+    void shouldRejectUserColumnConflictingWithKafkaMetadataField() throws Exception {
+        KafkaJsonPaimonJobConfig config = baseConfig();
+        PaimonTableConfig table = config.sink.tables.get(0);
+        table.table.includeKafkaMetadataFields = true;
+        table.columns.add(column(SystemFieldNames.KAFKA_TOPIC_FIELD, "VARCHAR", false));
+
+        KafkaJsonPaimonException exception = Assertions.assertThrows(KafkaJsonPaimonException.class,
+                () -> new ConfigValidator().validate(config));
+
+        Assertions.assertTrue(exception.getMessage().contains(SystemFieldNames.KAFKA_TOPIC_FIELD));
     }
 
     private KafkaJsonPaimonJobConfig baseConfig() throws Exception {

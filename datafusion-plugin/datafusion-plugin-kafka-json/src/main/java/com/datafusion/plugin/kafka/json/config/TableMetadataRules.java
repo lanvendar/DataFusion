@@ -1,4 +1,4 @@
-package com.datafusion.plugin.kafka.json.resolve;
+package com.datafusion.plugin.kafka.json.config;
 
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.TableConfig;

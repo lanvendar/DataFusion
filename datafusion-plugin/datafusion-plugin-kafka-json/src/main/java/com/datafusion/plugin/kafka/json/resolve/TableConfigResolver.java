@@ -4,7 +4,9 @@ import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnCo
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSinkConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PrimaryKeyConfig;
+import com.datafusion.plugin.kafka.json.config.TableMetadataRules;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
+import com.datafusion.plugin.kafka.json.core.SystemFieldNames;
 import com.datafusion.plugin.kafka.json.core.enums.LoadMode;
 import com.datafusion.plugin.kafka.json.core.enums.PrimaryKeyMode;
 import com.datafusion.plugin.kafka.json.core.enums.ProxyPrimaryKeyType;
@@ -50,12 +52,12 @@ class TableConfigResolver {
 
     ResolvedTableConfig resolve(Object messageObject, PaimonTableConfig table, StandardSchema schema, String tableName) {
         ResolvedTableConfig config = new ResolvedTableConfig();
-        boolean useJobTableMetadata = TableMetadataRules.hasJobTableMetadata(table.table);
-        StandardSchema.StandardTableSchema schemaTable = schema == null ? null : schema.table;
         config.database = requiredString(evaluate(messageObject, ExpressionSpecNormalizer.constant(table.table.database, JsonType.STRING),
                 "sink.tables[].table.database"), "sink.tables[].table.database");
         config.tableName = tableName;
         config.loadMode = LoadMode.parse(table.loadMode, LoadMode.parse(sink.loadMode, LoadMode.APPEND));
+        boolean useJobTableMetadata = TableMetadataRules.hasJobTableMetadata(table.table);
+        StandardSchema.StandardTableSchema schemaTable = schema == null ? null : schema.table;
         config.tableComment = stringValue(resolveTableMetadataValue(messageObject, useJobTableMetadata, table.table.comment,
                 schemaTable == null ? null : schemaTable.comment, JsonType.STRING, "sink.tables[].table.comment"));
         Object createIfNotExists = resolveTableMetadataValue(messageObject, useJobTableMetadata, table.table.createIfNotExists,
@@ -132,7 +134,7 @@ class TableConfigResolver {
 
     private ColumnConfig kafkaTopicColumn() {
         ColumnConfig column = new ColumnConfig();
-        column.name = TableResolver.KAFKA_TOPIC_FIELD;
+        column.name = SystemFieldNames.KAFKA_TOPIC_FIELD;
         column.dataType = "VARCHAR";
         column.length = 512;
         column.nullable = false;
@@ -142,7 +144,7 @@ class TableConfigResolver {
 
     private ColumnConfig kafkaPartitionColumn() {
         ColumnConfig column = new ColumnConfig();
-        column.name = TableResolver.KAFKA_PARTITION_FIELD;
+        column.name = SystemFieldNames.KAFKA_PARTITION_FIELD;
         column.dataType = "INT";
         column.nullable = false;
         column.comment = "Kafka partition";
@@ -151,7 +153,7 @@ class TableConfigResolver {
 
     private ColumnConfig kafkaOffsetColumn() {
         ColumnConfig column = new ColumnConfig();
-        column.name = TableResolver.KAFKA_OFFSET_FIELD;
+        column.name = SystemFieldNames.KAFKA_OFFSET_FIELD;
         column.dataType = "BIGINT";
         column.nullable = false;
         column.comment = "Kafka offset";

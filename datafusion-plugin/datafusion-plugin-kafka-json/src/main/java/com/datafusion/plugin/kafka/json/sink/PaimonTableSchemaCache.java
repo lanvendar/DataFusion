@@ -1,22 +1,36 @@
 package com.datafusion.plugin.kafka.json.sink;
 
+import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSinkConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
+import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PrimaryKeyConfig;
 import com.datafusion.plugin.kafka.json.core.PaimonSchemaMismatchException;
-import com.datafusion.plugin.kafka.json.core.enums.PaimonTableSchemaStatus;
-import com.datafusion.plugin.kafka.json.core.enums.SchemaMismatchPolicy;
-import com.datafusion.plugin.kafka.json.expression.ExpressionSpecNormalizer;
+import com.datafusion.plugin.kafka.json.core.SystemFieldNames;
 import com.datafusion.plugin.kafka.json.core.enums.JsonType;
+import com.datafusion.plugin.kafka.json.core.enums.PaimonTableSchemaStatus;
+import com.datafusion.plugin.kafka.json.core.enums.PrimaryKeyMode;
+import com.datafusion.plugin.kafka.json.core.enums.ProxyPrimaryKeyType;
+import com.datafusion.plugin.kafka.json.core.enums.SchemaMismatchPolicy;
+import com.datafusion.plugin.kafka.json.expression.ExpressionEvaluator;
+import com.datafusion.plugin.kafka.json.expression.ExpressionSpec;
+import com.datafusion.plugin.kafka.json.expression.ExpressionSpecNormalizer;
+import com.datafusion.plugin.kafka.json.resolve.ProxyPrimaryKeyGenerator;
 import com.datafusion.plugin.kafka.json.resolve.ResolvedTableWritePlan;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
 import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
 import org.apache.paimon.catalog.Identifier;
+import org.apache.paimon.types.DataField;
+import org.apache.paimon.types.DataType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -42,6 +56,11 @@ public class PaimonTableSchemaCache {
      * 表结构不匹配处理策略.
      */
     private final SchemaMismatchPolicy schemaMismatchPolicy;
+
+    /**
+     * 表达式执行器.
+     */
+    private final ExpressionEvaluator expressionEvaluator = new ExpressionEvaluator();
 
     /**
      * Paimon 真实表结构缓存.
@@ -97,6 +116,9 @@ public class PaimonTableSchemaCache {
         if (snapshot == null) {
             return statuses.get(plan.tableConfig.identifier()) == PaimonTableSchemaStatus.MISSING_CONFIGURED;
         }
+        if (applyExistingSchemaWhenColumnsOmitted(plan, snapshot)) {
+            return true;
+        }
         try {
             PaimonTableSchemaValidator.validate(plan.tableConfig, snapshot);
             return true;
@@ -109,6 +131,131 @@ public class PaimonTableSchemaCache {
                     plan.tableConfig.identifier(), plan.topic, plan.partition, plan.offset, plan.records.size(), e.getMessage());
             return false;
         }
+    }
+
+    private boolean applyExistingSchemaWhenColumnsOmitted(ResolvedTableWritePlan plan, PaimonTableSchemaSnapshot snapshot) {
+        if (hasUserColumns(plan)) {
+            return false;
+        }
+        plan.tableConfig.columns = snapshot.fields().values().stream()
+                .map(this::snapshotColumn)
+                .toList();
+        plan.tableConfig.primaryKeys = new ArrayList<>(snapshot.primaryKeys());
+        plan.tableConfig.partitionKeys = new ArrayList<>(snapshot.partitionKeys());
+        plan.records = remapRecords(plan, snapshot);
+        LOGGER.info("Use existing Paimon table schema as write schema, identifier={}, fields={}",
+                plan.tableConfig.identifier(), plan.tableConfig.columns.size());
+        return true;
+    }
+
+    private boolean hasUserColumns(ResolvedTableWritePlan plan) {
+        if (plan.tableConfig.columns == null || plan.tableConfig.columns.isEmpty()) {
+            return false;
+        }
+        return plan.tableConfig.columns.stream().anyMatch(column -> !isGeneratedColumn(column.name));
+    }
+
+    private boolean isGeneratedColumn(String name) {
+        return SystemFieldNames.PROXY_PRIMARY_KEY_FIELD.equals(name)
+                || SystemFieldNames.KAFKA_TOPIC_FIELD.equals(name)
+                || SystemFieldNames.KAFKA_PARTITION_FIELD.equals(name)
+                || SystemFieldNames.KAFKA_OFFSET_FIELD.equals(name);
+    }
+
+    private ColumnConfig snapshotColumn(DataField field) {
+        ColumnConfig column = new ColumnConfig();
+        column.name = field.name();
+        column.dataType = normalizedType(field.type());
+        column.nullable = field.type().isNullable();
+        column.comment = field.description();
+        return column;
+    }
+
+    private String normalizedType(DataType type) {
+        String sqlType = type.asSQLString().toUpperCase(Locale.ROOT);
+        if (sqlType.startsWith("VARCHAR")) {
+            return "VARCHAR";
+        }
+        if (sqlType.startsWith("CHAR")) {
+            return "STRING";
+        }
+        if (sqlType.startsWith("TIMESTAMP")) {
+            return "TIMESTAMP";
+        }
+        if (sqlType.startsWith("DECIMAL")) {
+            return "DECIMAL";
+        }
+        return sqlType;
+    }
+
+    private List<Map<String, Object>> remapRecords(ResolvedTableWritePlan plan, PaimonTableSchemaSnapshot snapshot) {
+        List<Map<String, Object>> sourceRecords = plan.sourceRecords == null || plan.sourceRecords.isEmpty()
+                ? plan.records : plan.sourceRecords;
+        List<Map<String, Object>> remapped = new ArrayList<>();
+        for (Map<String, Object> source : sourceRecords) {
+            Map<String, Object> target = new LinkedHashMap<>();
+            for (DataField field : snapshot.fields().values()) {
+                target.put(field.name(), snapshotValue(plan, source, field.name()));
+            }
+            appendProxyPrimaryKeyIfNeeded(plan, target, source, snapshot);
+            remapped.add(target);
+        }
+        return remapped;
+    }
+
+    private Object snapshotValue(ResolvedTableWritePlan plan, Map<String, Object> source, String fieldName) {
+        if (Boolean.TRUE.equals(plan.tableConfig.includeKafkaMetadataFields)) {
+            if (SystemFieldNames.KAFKA_TOPIC_FIELD.equals(fieldName)) {
+                return plan.topic;
+            }
+            if (SystemFieldNames.KAFKA_PARTITION_FIELD.equals(fieldName)) {
+                return plan.partition;
+            }
+            if (SystemFieldNames.KAFKA_OFFSET_FIELD.equals(fieldName)) {
+                return plan.offset;
+            }
+        }
+        return source == null ? null : source.get(fieldName);
+    }
+
+    private void appendProxyPrimaryKeyIfNeeded(ResolvedTableWritePlan plan, Map<String, Object> target, Map<String, Object> source,
+            PaimonTableSchemaSnapshot snapshot) {
+        PrimaryKeyConfig primaryKey = plan.tableConfig.primaryKeysConfig;
+        if (primaryKey == null || PrimaryKeyMode.parse(primaryKey.mode) != PrimaryKeyMode.PROXY) {
+            return;
+        }
+        if (!snapshot.fields().containsKey(SystemFieldNames.PROXY_PRIMARY_KEY_FIELD.toLowerCase(Locale.ROOT))) {
+            return;
+        }
+        List<String> fields = stringList(expressionEvaluator.evaluate(source, primaryKeySpec(primaryKey),
+                "sink.tables[].table.primaryKeys"), "sink.tables[].table.primaryKeys");
+        ProxyPrimaryKeyType type = ProxyPrimaryKeyType.parse(primaryKey.algorithm);
+        target.put(SystemFieldNames.PROXY_PRIMARY_KEY_FIELD, ProxyPrimaryKeyGenerator.generate(target, fields, type));
+    }
+
+    private ExpressionSpec primaryKeySpec(PrimaryKeyConfig primaryKey) {
+        ExpressionSpec spec = new ExpressionSpec();
+        spec.path = primaryKey.path;
+        spec.defaultValue = primaryKey.defaultValue;
+        spec.jsonType = "ARRAY";
+        return spec;
+    }
+
+    private List<String> stringList(Object value, String name) {
+        if (value == null) {
+            return new ArrayList<>();
+        }
+        if (!(value instanceof Collection<?> collection)) {
+            throw new PaimonSchemaMismatchException(name + " must be string array");
+        }
+        List<String> values = new ArrayList<>();
+        for (Object item : collection) {
+            if (item == null || TextUtils.isBlank(String.valueOf(item))) {
+                throw new PaimonSchemaMismatchException(name + " must not contain blank item");
+            }
+            values.add(String.valueOf(item));
+        }
+        return values;
     }
 
     private void preload() {

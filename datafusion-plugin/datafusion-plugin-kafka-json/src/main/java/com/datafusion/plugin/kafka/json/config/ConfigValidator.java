@@ -1,7 +1,7 @@
 package com.datafusion.plugin.kafka.json.config;
 
-import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.KafkaSourceConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
+import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.KafkaSourceConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSinkConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PrimaryKeyConfig;
@@ -9,6 +9,7 @@ import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.RuntimeC
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.TableConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.WriterConfig;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
+import com.datafusion.plugin.kafka.json.core.SystemFieldNames;
 import com.datafusion.plugin.kafka.json.core.enums.CheckpointMode;
 import com.datafusion.plugin.kafka.json.core.enums.DeploymentMode;
 import com.datafusion.plugin.kafka.json.core.enums.ExecutionMode;
@@ -21,7 +22,6 @@ import com.datafusion.plugin.kafka.json.core.enums.SchemaMismatchPolicy;
 import com.datafusion.plugin.kafka.json.core.enums.StateBackendType;
 import com.datafusion.plugin.kafka.json.expression.ExpressionSpecNormalizer;
 import com.datafusion.plugin.kafka.json.core.enums.JsonType;
-import com.datafusion.plugin.kafka.json.resolve.TableMetadataRules;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
 
 import java.util.HashSet;
@@ -179,6 +179,30 @@ public class ConfigValidator {
                 throw new KafkaJsonPaimonException("sink.tables[].columns[].scale must not be less than 0");
             }
         }
+        validateReservedColumns(table, names);
+    }
+
+    private void validateReservedColumns(PaimonTableConfig table, Set<String> columnNames) {
+        if (isProxyPrimaryKey(table.table.primaryKeys) && columnNames.contains(SystemFieldNames.PROXY_PRIMARY_KEY_FIELD)) {
+            throw new KafkaJsonPaimonException("Reserved proxy primary key column conflicts with sink column: "
+                    + SystemFieldNames.PROXY_PRIMARY_KEY_FIELD);
+        }
+        if (!Boolean.TRUE.equals(table.table.includeKafkaMetadataFields)) {
+            return;
+        }
+        validateReservedColumn(columnNames, SystemFieldNames.KAFKA_TOPIC_FIELD);
+        validateReservedColumn(columnNames, SystemFieldNames.KAFKA_PARTITION_FIELD);
+        validateReservedColumn(columnNames, SystemFieldNames.KAFKA_OFFSET_FIELD);
+    }
+
+    private void validateReservedColumn(Set<String> columnNames, String fieldName) {
+        if (columnNames.contains(fieldName)) {
+            throw new KafkaJsonPaimonException("Reserved Kafka metadata column conflicts with sink column: " + fieldName);
+        }
+    }
+
+    private boolean isProxyPrimaryKey(PrimaryKeyConfig primaryKey) {
+        return primaryKey != null && PrimaryKeyMode.parse(primaryKey.mode) == PrimaryKeyMode.PROXY;
     }
 
     private void validatePrimaryKey(TableConfig table, LoadMode loadMode) {

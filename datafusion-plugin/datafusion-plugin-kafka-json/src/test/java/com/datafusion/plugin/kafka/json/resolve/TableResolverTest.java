@@ -5,6 +5,7 @@ import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnCo
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSinkConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PrimaryKeyConfig;
+import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
 import com.datafusion.plugin.kafka.json.source.KafkaRecord;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Assertions;
@@ -259,6 +260,34 @@ class TableResolverTest {
         Assertions.assertEquals("topic-a", plan.get().records.get(0).get(TableResolver.KAFKA_TOPIC_FIELD));
         Assertions.assertEquals(0, plan.get().records.get(0).get(TableResolver.KAFKA_PARTITION_FIELD));
         Assertions.assertEquals(10L, plan.get().records.get(0).get(TableResolver.KAFKA_OFFSET_FIELD));
+    }
+
+    /**
+     * recordErrorPolicy=SKIP 时 columnsMapping 顶层类型错误会跳过消息.
+     */
+    @Test
+    void shouldSkipInvalidTopLevelColumnsMappingWhenPolicySkip() throws Exception {
+        PaimonSinkConfig sink = baseSink();
+        sink.recordErrorPolicy = "SKIP";
+
+        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("""
+                {"schema":{"table":{"name":"ods_test"}},"data":"not-object"}
+                """), record());
+
+        Assertions.assertTrue(plan.isEmpty());
+    }
+
+    /**
+     * recordErrorPolicy=FAIL 时 columnsMapping 顶层类型错误会抛出异常.
+     */
+    @Test
+    void shouldFailInvalidTopLevelColumnsMappingWhenPolicyFail() throws Exception {
+        PaimonSinkConfig sink = baseSink();
+        sink.recordErrorPolicy = "FAIL";
+
+        Assertions.assertThrows(KafkaJsonPaimonException.class, () -> new TableResolver(sink).resolve(json("""
+                {"schema":{"table":{"name":"ods_test"}},"data":"not-object"}
+                """), record()));
     }
 
     private PaimonSinkConfig baseSink() throws Exception {

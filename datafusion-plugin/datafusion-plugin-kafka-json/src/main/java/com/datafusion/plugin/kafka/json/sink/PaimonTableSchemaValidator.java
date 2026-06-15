@@ -2,6 +2,7 @@ package com.datafusion.plugin.kafka.json.sink;
 
 import com.datafusion.plugin.kafka.json.core.PaimonSchemaMismatchException;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
+import com.datafusion.plugin.kafka.json.core.SystemFieldNames;
 import com.datafusion.plugin.kafka.json.core.enums.LoadMode;
 import com.datafusion.plugin.kafka.json.core.enums.PrimaryKeyMode;
 import com.datafusion.plugin.kafka.json.resolve.ResolvedTableConfig;
@@ -162,7 +163,7 @@ public final class PaimonTableSchemaValidator {
         if (tableConfig.loadMode != LoadMode.UPSERT) {
             return;
         }
-        String proxyField = "_id_";
+        String proxyField = SystemFieldNames.PROXY_PRIMARY_KEY_FIELD;
         if (!snapshot.fields().containsKey(proxyField.toLowerCase(Locale.ROOT))) {
             throw new PaimonSchemaMismatchException("Paimon table lacks proxy primary key field: " + proxyField);
         }

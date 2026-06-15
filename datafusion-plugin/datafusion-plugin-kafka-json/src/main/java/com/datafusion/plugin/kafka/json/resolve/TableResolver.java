@@ -5,7 +5,9 @@ import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnCo
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSinkConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PrimaryKeyConfig;
+import com.datafusion.plugin.kafka.json.config.TableMetadataRules;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
+import com.datafusion.plugin.kafka.json.core.SystemFieldNames;
 import com.datafusion.plugin.kafka.json.core.enums.PrimaryKeyMode;
 import com.datafusion.plugin.kafka.json.core.enums.ProxyPrimaryKeyType;
 import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
@@ -44,17 +46,17 @@ public class TableResolver {
     /**
      * Kafka topic 字段名.
      */
-    public static final String KAFKA_TOPIC_FIELD = "_kafka_topic";
+    public static final String KAFKA_TOPIC_FIELD = SystemFieldNames.KAFKA_TOPIC_FIELD;
 
     /**
      * Kafka partition 字段名.
      */
-    public static final String KAFKA_PARTITION_FIELD = "_kafka_partition";
+    public static final String KAFKA_PARTITION_FIELD = SystemFieldNames.KAFKA_PARTITION_FIELD;
 
     /**
      * Kafka offset 字段名.
      */
-    public static final String KAFKA_OFFSET_FIELD = "_kafka_offset";
+    public static final String KAFKA_OFFSET_FIELD = SystemFieldNames.KAFKA_OFFSET_FIELD;
 
     /**
      * sink 配置.
@@ -106,11 +108,13 @@ public class TableResolver {
      */
     public Optional<ResolvedTableWritePlan> resolve(JsonNode message, KafkaRecord record) {
         Object messageObject = toJavaObject(message);
+        StandardSchema schema = standardSchemaParser.parse(messageObject);
+        ResolveContext context = buildResolveContext();
         for (PaimonTableConfig table : sink.tables) {
             if (table == null || Boolean.FALSE.equals(table.enabled)) {
                 continue;
             }
-            Optional<ResolvedTableWritePlan> plan = resolveTable(messageObject, table, record);
+            Optional<ResolvedTableWritePlan> plan = resolveTable(messageObject, table, schema, context, record);
             if (plan.isPresent()) {
                 return plan;
             }
@@ -131,76 +135,70 @@ public class TableResolver {
         return skippedCount.get();
     }
 
-    private Optional<ResolvedTableWritePlan> resolveTable(Object messageObject, PaimonTableConfig table, KafkaRecord kafkaRecord) {
-        StandardSchema schema = standardSchemaParser.parse(messageObject);
+    private Optional<ResolvedTableWritePlan> resolveTable(Object messageObject, PaimonTableConfig table, StandardSchema schema,
+            ResolveContext context, KafkaRecord kafkaRecord) {
         String tableName = tableConfigResolver.resolveTableName(table);
-        if (!matchesTable(schema, tableName)) {
+        if (!matchesTable(schema, tableName, context)) {
             return Optional.empty();
         }
         ResolvedTableConfig tableConfig = tableConfigResolver.resolve(messageObject, table, schema, tableName);
-        List<Map<String, Object>> records = buildRecords(messageObject, table, tableConfig, kafkaRecord);
-        if (records.isEmpty()) {
+        RecordBuildResult records = buildRecords(messageObject, table, tableConfig, kafkaRecord);
+        if (records.targetRecords.isEmpty()) {
             LOGGER.warn("Skip Kafka JSON message because no valid records resolved, identifier={}, topic={}, partition={}, offset={}",
                     tableConfig.identifier(), kafkaRecord.topic, kafkaRecord.partition, kafkaRecord.offset);
             return Optional.empty();
         }
         ResolvedTableWritePlan plan = new ResolvedTableWritePlan();
         plan.tableConfig = tableConfig;
-        plan.records = records;
+        plan.records = records.targetRecords;
+        plan.sourceRecords = records.sourceRecords;
         plan.topic = kafkaRecord.topic;
         plan.partition = kafkaRecord.partition;
         plan.offset = kafkaRecord.offset;
         return Optional.of(plan);
     }
 
-    private boolean matchesTable(StandardSchema schema, String tableName) {
+    private boolean matchesTable(StandardSchema schema, String tableName, ResolveContext context) {
         if (TextUtils.isBlank(tableName)) {
             return false;
         }
         String messageTableName = schema == null || schema.table == null ? null : stringValue(schema.table.name);
         if (TextUtils.isBlank(messageTableName)) {
-            return enabledTableCount() == 1 && TableMetadataRules.canRouteWithoutSchemaTableName(singleEnabledTable());
+            return context.enabledTableCount == 1 && TableMetadataRules.canRouteWithoutSchemaTableName(context.singleEnabledTable);
         }
         return tableName.equals(messageTableName);
     }
 
-    private int enabledTableCount() {
+    private ResolveContext buildResolveContext() {
+        ResolveContext context = new ResolveContext();
         int count = 0;
+        PaimonTableConfig matched = null;
         for (PaimonTableConfig table : sink.tables) {
             if (table != null && !Boolean.FALSE.equals(table.enabled)) {
                 count++;
+                matched = count == 1 ? table : null;
             }
         }
-        return count;
+        context.enabledTableCount = count;
+        context.singleEnabledTable = count == 1 ? matched : null;
+        return context;
     }
 
-    private PaimonTableConfig singleEnabledTable() {
-        PaimonTableConfig matched = null;
-        for (PaimonTableConfig table : sink.tables) {
-            if (table == null || Boolean.FALSE.equals(table.enabled)) {
-                continue;
-            }
-            if (matched != null) {
-                return null;
-            }
-            matched = table;
-        }
-        return matched;
-    }
-
-    private List<Map<String, Object>> buildRecords(Object messageObject, PaimonTableConfig table, ResolvedTableConfig tableConfig,
+    private RecordBuildResult buildRecords(Object messageObject, PaimonTableConfig table, ResolvedTableConfig tableConfig,
             KafkaRecord kafkaRecord) {
         Object mapped = evaluate(messageObject, ExpressionSpecNormalizer.path(table.columnsMapping, JsonType.ANY, null),
                 "sink.tables[].columnsMapping");
         List<Map<String, Object>> sourceRecords = normalizeRecordSet(mapped, tableConfig, kafkaRecord);
-        List<Map<String, Object>> targetRecords = new ArrayList<>();
+        RecordBuildResult result = new RecordBuildResult();
         for (int i = 0; i < sourceRecords.size(); i++) {
-            Map<String, Object> target = mapRecord(sourceRecords.get(i), tableConfig, tableConfig.primaryKeysConfig, kafkaRecord, i);
+            Map<String, Object> source = sourceRecords.get(i);
+            Map<String, Object> target = mapRecord(source, tableConfig, tableConfig.primaryKeysConfig, kafkaRecord, i);
             if (target != null) {
-                targetRecords.add(target);
+                result.sourceRecords.add(source);
+                result.targetRecords.add(target);
             }
         }
-        return targetRecords;
+        return result;
     }
 
     private Map<String, Object> mapRecord(Map<String, Object> source, ResolvedTableConfig tableConfig, PrimaryKeyConfig primaryKey,
@@ -249,7 +247,8 @@ public class TableResolver {
             }
             return records;
         }
-        throw new KafkaJsonPaimonException("columnsMapping result must be object or array object: " + tableConfig.identifier());
+        handleRecordSetError(tableConfig, kafkaRecord, -1, "columnsMapping result must be object or array object");
+        return List.of();
     }
 
     private void handleRecordSetError(ResolvedTableConfig tableConfig, KafkaRecord kafkaRecord, int recordIndex, String reason) {
@@ -322,5 +321,19 @@ public class TableResolver {
 
     private boolean isSystemColumn(String name) {
         return KAFKA_TOPIC_FIELD.equals(name) || KAFKA_PARTITION_FIELD.equals(name) || KAFKA_OFFSET_FIELD.equals(name);
+    }
+
+    private static final class ResolveContext {
+
+        private int enabledTableCount;
+
+        private PaimonTableConfig singleEnabledTable;
+    }
+
+    private static final class RecordBuildResult {
+
+        private final List<Map<String, Object>> sourceRecords = new ArrayList<>();
+
+        private final List<Map<String, Object>> targetRecords = new ArrayList<>();
     }
 }

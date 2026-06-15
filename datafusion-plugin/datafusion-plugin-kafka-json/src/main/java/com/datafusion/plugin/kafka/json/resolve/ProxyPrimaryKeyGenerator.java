@@ -1,6 +1,7 @@
 package com.datafusion.plugin.kafka.json.resolve;
 
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
+import com.datafusion.plugin.kafka.json.core.SystemFieldNames;
 import com.datafusion.plugin.kafka.json.core.enums.ProxyPrimaryKeyType;
 
 import java.nio.charset.StandardCharsets;
@@ -23,7 +24,7 @@ public final class ProxyPrimaryKeyGenerator {
     /**
      * 代理主键字段名.
      */
-    public static final String FIELD_NAME = "_id_";
+    public static final String FIELD_NAME = SystemFieldNames.PROXY_PRIMARY_KEY_FIELD;
 
     /**
      * 拼接分隔符.
