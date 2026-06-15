@@ -136,13 +136,14 @@ public class PaimonTableWriter implements AutoCloseable {
         List<Map<String, Object>> normalizedRecords = RecordNormalizer.normalize(records, tableConfig, recordErrorPolicy);
         int written = 0;
         for (int i = 0; i < normalizedRecords.size(); i++) {
-            InternalRow row = toRow(normalizedRecords.get(i), i);
+            InternalRow row = convertByPaimonRowType(normalizedRecords.get(i), i);
             if (row == null) {
                 continue;
             }
             try {
-                writeRecord(row);
-                written++;
+                if (writeRecord(row, i)) {
+                    written++;
+                }
             } catch (Exception e) {
                 throw new KafkaJsonPaimonException("Failed to write Paimon record: " + tableConfig.identifier(), e);
             }
@@ -230,12 +231,16 @@ public class PaimonTableWriter implements AutoCloseable {
         return builder.build();
     }
 
-    private GenericRow toRow(Map<String, Object> record, int recordIndex) {
+    private GenericRow convertByPaimonRowType(Map<String, Object> record, int recordIndex) {
         GenericRow row = new GenericRow(rowType.getFieldCount());
         try {
             for (int i = 0; i < rowType.getFieldCount(); i++) {
                 DataField field = rowType.getField(i);
-                row.setField(i, PaimonValueConverter.convert(record.get(field.name()), field.type()));
+                Object value = PaimonValueConverter.convert(record.get(field.name()), field.type());
+                if (value == null && !field.type().isNullable()) {
+                    throw new KafkaJsonPaimonException("Required Paimon column is empty: " + field.name());
+                }
+                row.setField(i, value);
             }
             return row;
         } catch (RuntimeException e) {
@@ -248,12 +253,22 @@ public class PaimonTableWriter implements AutoCloseable {
         }
     }
 
-    private void writeRecord(InternalRow row) throws Exception {
-        if (isDynamicBucketTable()) {
-            write.write(row, 0);
-            return;
+    private boolean writeRecord(InternalRow row, int recordIndex) throws Exception {
+        try {
+            if (isDynamicBucketTable()) {
+                write.write(row, 0);
+                return true;
+            }
+            write.write(row);
+            return true;
+        } catch (RuntimeException e) {
+            if (recordErrorPolicy == RecordErrorPolicy.FAIL) {
+                throw e;
+            }
+            LOGGER.warn("Skip Paimon record because write failed, identifier={}, recordIndex={}, reason={}",
+                    tableConfig.identifier(), recordIndex, e.getMessage());
+            return false;
         }
-        write.write(row);
     }
 
     private boolean isDynamicBucketTable() {

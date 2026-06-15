@@ -1,6 +1,5 @@
 package com.datafusion.plugin.kafka.json.sink;
 
-import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
 import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.ColumnConfig;
 import com.datafusion.plugin.kafka.json.resolve.ResolvedTableConfig;
@@ -34,7 +33,7 @@ public final class RecordNormalizer {
     }
 
     /**
-     * 按字段顺序、默认值、format 和非空约束归一化记录.
+     * 按字段顺序、默认值和 format 归一化记录.
      *
      * @param records 原始记录
      * @param tableConfig 目标表配置
@@ -58,20 +57,12 @@ public final class RecordNormalizer {
         Map<String, Object> normalized = new LinkedHashMap<>();
         for (ColumnConfig column : tableConfig.columns) {
             try {
-                normalized.put(column.name, normalizeRequiredValue(record, column));
+                normalized.put(column.name, normalizeValue(record, column));
             } catch (RuntimeException e) {
                 return handleRecordError(tableConfig, column.name, recordIndex, recordErrorPolicy, e);
             }
         }
         return normalized;
-    }
-
-    private static Object normalizeRequiredValue(Map<String, Object> record, ColumnConfig column) {
-        Object value = normalizeValue(record, column);
-        if (isRequiredButEmpty(column, value)) {
-            throw new KafkaJsonPaimonException("Required column is empty: " + column.name);
-        }
-        return value;
     }
 
     private static Object normalizeValue(Map<String, Object> record, ColumnConfig column) {
@@ -80,10 +71,6 @@ public final class RecordNormalizer {
             value = formatValue(column, String.valueOf(value));
         }
         return value;
-    }
-
-    private static boolean isRequiredButEmpty(ColumnConfig column, Object value) {
-        return isEmpty(value) && Boolean.FALSE.equals(column.nullable);
     }
 
     private static Map<String, Object> handleRecordError(ResolvedTableConfig tableConfig, String columnName, int recordIndex,

@@ -179,18 +179,24 @@
 
 `columns[].value.defaultValue` 是列值兜底值。第一版不再额外提供 `columns[].defaultValue`，避免同一默认值语义出现两份配置。
 
-Kafka 标准结构与 job.json 覆盖合并优先级：
+Kafka 标准结构与 job.json 覆盖规则：
 
 ```text
-内置默认值 < Kafka JSON schema.table/schema.columns < job.json sink.tables[].table/sink.tables[].columns
+表级元数据: job.json 只配置 database 时全量使用 Kafka JSON schema.table；job.json 配置任一 table 元数据字段时必须完整配置当前段并整段覆盖 schema.table
+字段定义: job.json sink.tables[].columns[] 存在时全量使用 job 定义；不存在时全量使用 Kafka JSON schema.columns[]
 ```
 
-合并规则：
+解析规则：
 
 - `schema.table` 提供表名、表注释、是否自动建表、分区字段和主键配置的默认值。
 - `schema.columns[]` 提供字段结构默认值。
-- `sink.tables[].table` 按字段覆盖 `schema.table`，其中 `table.primaryKeys` 覆盖 `schema.table.primaryKeys`。
-- `sink.tables[].columns[]` 按 `name` 覆盖 `schema.columns[]` 的同名字段；配置中新出现的列会加入最终 schema。
+- `sink.tables[].table.database` 必须由 job 配置解析得到；Kafka `schema.table` 默认不承载目标 database。
+- `sink.tables[].table` 中除 `database` 外，`name/comment/createIfNotExists/partitionKeys/primaryKeys` 属于同一个 table 元数据段；job 配置任一字段时必须全部配置，并整段覆盖 `schema.table`。
+- job 不配置 table 元数据段时，全量使用 Kafka `schema.table`。
+- `sink.tables[].columns[]` 一旦配置就表示完整字段定义，不与 `schema.columns[]` 做局部合并；缺字段应视为配置缺失。
+- 真实 Paimon 表已存在时优先级最高，写入字段、类型转换和 NOT NULL 校验以真实 Paimon 表结构为准。
+- 真实 Paimon 表不存在时，若 job 配置了 `columns[]`，按 job 完整字段定义建表。
+- 真实 Paimon 表不存在且 job 未配置 `columns[]` 时，按 Kafka `schema.columns[]` 建表；这种模式要求第一条用于建表的 Kafka JSON schema 准确。
 - `columns[].value` 未配置时仍默认从单条 record 按列名取值。
 
 #### 2.4.10 `PrimaryKeyConfig`

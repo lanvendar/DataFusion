@@ -4,7 +4,7 @@
 
 ## 1. Capability
 
-- Capability: 从 Kafka 消费 JSON 消息，通过 `columnsMapping` 的消息级 JMESPath 生成记录数组，优先复用 Kafka JSON 中的标准 `schema.table` / `schema.columns`，再用 `job.json` 中的 `tables[].table{}` / `tables[].columns[]` 覆盖默认结构，最终写入 Paimon。
+- Capability: 从 Kafka 消费 JSON 消息，通过 `columnsMapping` 的消息级 JMESPath 生成记录数组，表级元数据优先复用 Kafka JSON 中的标准 `schema.table`；`job.json` 除 `database` 外一旦配置 table 元数据就按整段覆盖，字段定义在 `job.json` 配置 `columns[]` 时全量使用 job 定义，否则全量使用 Kafka `schema.columns`，最终写入 Paimon。
 - Module: `datafusion-plugin/datafusion-plugin-kafka-json`
 - Module boundary: 该模块命名带 `datafusion-plugin` 前缀，定位为通用 Kafka JSON 解析插件，不绑定 OilChem 或 `schema + data` 固定协议。
 - Java backend package: `com.datafusion.plugin.kafka.json`
@@ -20,7 +20,7 @@
 | 消费 Kafka 消息 | Kafka topic | Flink `KafkaSource<String>` | `JsonMessageParser` | 原始 JSON -> Jackson `JsonNode` | 不要求固定 envelope |
 | 表路由解析 | `JsonNode` + `sink.tables[]` | `TableResolver` | `PaimonTableConfig` | 命中的目标表配置 | 使用 `table.name.path` 读取消息表名；取不到时使用 `defaultValue`；最终仍为空则过滤消息；按 `tables[]` 顺序匹配，第一版一条消息只写入第一张命中表 |
 | 解析记录数组 | Kafka `JsonNode` + `columnsMapping` | `ExpressionEvaluator` | record nodes | `Array<Object>` | `columnsMapping.path` 是消息级 JMESPath，结果支持对象数组或单层对象，单层对象自动包装为一条记录 |
-| 解析目标表结构 | Kafka `JsonNode` + `PaimonTableConfig` | `TableResolver` | `ResolvedTableConfig` | database/tableName/table metadata/columns/options | 标准结构以 Kafka `schema.table` / `schema.columns` 为默认源，job.json 以 `table{}` / `columns[]` 覆盖默认值 |
+| 解析目标表结构 | Kafka `JsonNode` + `PaimonTableConfig` | `TableResolver` | `ResolvedTableConfig` | database/tableName/table metadata/columns/options | `table.database` 来自 job；其它 table 元数据在 job `table{}` 和 Kafka `schema.table` 之间整段二选一；字段定义在 job `columns[]` 和 Kafka `schema.columns[]` 之间二选一 |
 | 解析单条记录 | record `JsonNode` + `columns[]` | `RecordMapper` | `Map<String, Object>` | 写入记录 | 每列按 `columns[].value` 取值和兜底 |
 | 生成代理主键 | mapped record + `PrimaryKeyConfig` | `PrimaryKeyResolver` | mapped record | `_id_` | `PROXY` 模式自动补充固定代理主键列；`mode` 未配置时默认 `FIELDS` |
 | 初始化或复用 writer | `ResolvedTableConfig` | `PaimonTableWriterRegistry` | `PaimonTableWriter` | 按 `database.table` 缓存 | 启动预加载真实 Paimon schema，运行期校验当前目标结构 |
@@ -30,7 +30,7 @@
 
 ## 3. job.json Contract
 
-`job.json` 是通用插件的覆盖配置源。Kafka 消息可携带标准结构 `schema.table` / `schema.columns` 作为默认 schema，job.json 只覆盖需要变更的字段。
+`job.json` 是通用插件的覆盖配置源。Kafka 消息可携带标准结构 `schema.table` / `schema.columns` 作为默认 schema。`table.database` 必须由 job 定义；其它 table 元数据不能局部覆盖，job 中一旦配置 `name/comment/createIfNotExists/partitionKeys/primaryKeys` 任一字段，就必须配置完整当前段。字段定义同样不能局部覆盖，job 中一旦配置 `columns[]` 就必须是完整字段定义。
 
 顶层结构如下：
 
@@ -55,7 +55,7 @@
 | `sink.tables` | Yes | 目标表数组，每个元素定义路由、表结构、字段取值和写入策略 |
 | `sink.tables[].columnsMapping` | Yes | 消息级 JMESPath，结果必须是待映射的对象数组或单层对象 |
 | `sink.tables[].table` | No | 表级覆盖配置；未配置时优先读取 Kafka `schema.table` |
-| `sink.tables[].columns` | No | 字段覆盖配置；未配置时优先读取 Kafka `schema.columns` |
+| `sink.tables[].columns` | No | 完整字段定义；未配置时读取 Kafka `schema.columns` |
 | `sink.loadMode` | No | 全局默认写入模式，支持 `APPEND`、`UPSERT`，表级 `loadMode` 可覆盖 |
 | `sink.writer` | No | Paimon writer 缓冲、flush 和缓存控制；新插件只支持 `writer`，不兼容旧字段 `write` |
 
@@ -240,35 +240,36 @@ OilChem 样例配置骨架：
 }
 ```
 
-当 `table.name.defaultValue`、`table.comment.defaultValue`、`partitionKeys.defaultValue` 都固定且作业只写一张表时，Kafka 消息可以逐步简化到只保留 `columnsMapping.path` 能取到的记录数组。`columnsMapping.path` 也可以使用 JMESPath 投影复杂 JSON，例如把 `data[].{today: today, day_pt: day_pt}` 转成标准行数组。如果 `sink.tables[]` 配置多张表，建议保留 `schema.table.name` 或等价表名字段，用于多表路由、日志和排障。
+当 job.json 已完整配置 table 元数据和 columns 定义且作业只写一张表时，Kafka 消息可以逐步简化到只保留 `columnsMapping.path` 能取到的记录数组。`columnsMapping.path` 也可以使用 JMESPath 投影复杂 JSON，例如把 `data[].{today: today, day_pt: day_pt}` 转成标准行数组。如果 `sink.tables[]` 配置多张表，建议保留 `schema.table.name` 或等价表名字段，用于多表路由、日志和排障。
 
-标准结构合并优先级：
+标准结构解析规则：
 
 ```text
-内置默认值 < Kafka JSON schema.table/schema.columns < job.json sink.tables[].table/sink.tables[].columns
+表级元数据: job.json 只配置 database 时全量使用 Kafka JSON schema.table；job.json 配置任一 table 元数据字段时必须完整配置当前段并整段覆盖 schema.table
+字段定义: job.json sink.tables[].columns[] 存在时全量使用 job 定义；不存在时全量使用 Kafka JSON schema.columns[]
 ```
 
-表级字段合并规则：
+表级字段规则：
 
 - `table.database`: job.json 必须能解析出最终 database；Kafka `schema.table` 默认不承载 database。
-- `table.name`: job.json `table.name` 覆盖 Kafka `schema.table.name`；最终为空时过滤消息。
-- `table.comment`: job.json `table.comment` 覆盖 Kafka `schema.table.comment`。
-- `table.createIfNotExists`: job.json `table.createIfNotExists` 覆盖 Kafka `schema.table.createIfNotExists`；默认 `true`。
-- `table.partitionKeys`: job.json `table.partitionKeys` 覆盖 Kafka `schema.table.partitionKeys`；最终按分区规则校验。
-- `table.primaryKeys`: job.json `table.primaryKeys` 覆盖 Kafka `schema.table.primaryKeys`；未配置 `mode` 时默认 `FIELDS`；`defaultValue` 是主键字段数组。
+- `table.name/comment/createIfNotExists/partitionKeys/primaryKeys`: 除 `database` 外属于同一个 table 元数据段；job.json 任一字段出现时必须全部出现，并整段覆盖 Kafka `schema.table`。
+- job.json 不配置 table 元数据段时，全量使用 Kafka `schema.table`；`table.name` 最终为空时过滤消息。
+- `table.createIfNotExists` 未解析到值时默认 `true`；`table.primaryKeys.mode` 未配置时默认 `FIELDS`；`defaultValue` 是主键字段数组。
 
-字段合并规则：
+字段定义规则：
 
-- Kafka `schema.columns[]` 提供默认字段结构，job.json `columns[]` 按 `name` 覆盖同名字段。
-- job.json `columns[]` 中出现的新字段会加入最终 schema。
-- 同名字段覆盖字段类型、长度、精度、小数位、nullable、comment、format、value 等配置。
+- Kafka `schema.columns[]` 可以提供标准结构字段定义。
+- job.json `columns[]` 一旦配置就表示完整字段定义，不与 Kafka `schema.columns[]` 做局部合并。
+- 真实 Paimon 表已存在时优先级最高，写入字段、类型转换和 NOT NULL 校验以真实 Paimon 表结构为准。
+- 真实 Paimon 表不存在时，若 job 配置了 `columns[]`，按 job 完整字段定义建表。
+- 真实 Paimon 表不存在且 job 未配置 `columns[]` 时，按 Kafka `schema.columns[]` 建表；这种模式要求第一条用于建表的 Kafka JSON schema 准确。
 - `columns[].value` 未配置时仍默认按列名从单条 record 中取值。
 
 `columnsMapping.path` 与 `columns[].value.path` 的上下文不同：
 
 - `columnsMapping.path` 在整条 Kafka JSON 上求值，目标是生成 `Array<Object>` 或单层 `Object`；单层对象自动包装为一条记录。
 - `columns[].value.path` 在单条 record 上求值，目标是生成单列值。
-- `table.*` 和 `columns[]` 可以共享 Kafka 标准结构中的 `schema.table` / `schema.columns`，job.json 中显式配置的值优先覆盖 Kafka 消息中的默认值。
+- `table.database` 来自 job；其它 `table.*` 元数据可以共享 Kafka 标准结构中的 `schema.table`，也可以由 job 整段覆盖；`columns[]` 是完整字段定义，不能只写局部字段覆盖 Kafka `schema.columns[]`。
 
 因此 `data[].today` 这类表达式适合放在 `columnsMapping.path` 的投影里，不建议直接作为列值表达式；列值表达式应保持相对于单条 record，例如 `today`。
 

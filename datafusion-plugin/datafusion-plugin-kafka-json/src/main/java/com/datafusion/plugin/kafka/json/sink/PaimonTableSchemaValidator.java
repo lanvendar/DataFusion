@@ -104,30 +104,19 @@ public final class PaimonTableSchemaValidator {
      */
     public static DataType paimonType(ColumnConfig field) {
         String type = TextUtils.upper(field.dataType, "STRING");
-        DataType dataType;
-        if ("STRING".equals(type) || "JSON".equals(type)) {
-            dataType = DataTypes.STRING();
-        } else if ("VARCHAR".equals(type)) {
-            dataType = DataTypes.VARCHAR(field.length == null ? 255 : field.length);
-        } else if ("INT".equals(type) || "INTEGER".equals(type)) {
-            dataType = DataTypes.INT();
-        } else if ("BIGINT".equals(type) || "LONG".equals(type)) {
-            dataType = DataTypes.BIGINT();
-        } else if ("DOUBLE".equals(type)) {
-            dataType = DataTypes.DOUBLE();
-        } else if ("FLOAT".equals(type)) {
-            dataType = DataTypes.FLOAT();
-        } else if ("DECIMAL".equals(type)) {
-            dataType = DataTypes.DECIMAL(field.precision == null ? 18 : field.precision, field.scale == null ? 4 : field.scale);
-        } else if ("BOOLEAN".equals(type)) {
-            dataType = DataTypes.BOOLEAN();
-        } else if ("DATE".equals(type)) {
-            dataType = DataTypes.DATE();
-        } else if ("TIMESTAMP".equals(type) || "DATETIME".equals(type)) {
-            dataType = DataTypes.TIMESTAMP();
-        } else {
-            dataType = DataTypes.STRING();
-        }
+        DataType dataType = switch (type) {
+            case "STRING", "JSON" -> DataTypes.STRING();
+            case "VARCHAR" -> DataTypes.VARCHAR(field.length == null ? 255 : field.length);
+            case "INT", "INTEGER" -> DataTypes.INT();
+            case "BIGINT", "LONG" -> DataTypes.BIGINT();
+            case "DOUBLE" -> DataTypes.DOUBLE();
+            case "FLOAT" -> DataTypes.FLOAT();
+            case "DECIMAL" -> DataTypes.DECIMAL(field.precision == null ? 18 : field.precision, field.scale == null ? 4 : field.scale);
+            case "BOOLEAN" -> DataTypes.BOOLEAN();
+            case "DATE" -> DataTypes.DATE();
+            case "TIMESTAMP", "DATETIME" -> DataTypes.TIMESTAMP();
+            default -> DataTypes.STRING();
+        };
         return dataType.copy(!Boolean.FALSE.equals(field.nullable));
     }
 

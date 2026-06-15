@@ -28,7 +28,11 @@ class TableResolverTest {
     @Test
     void shouldUseTableNameDefaultWhenPathMissed() throws Exception {
         PaimonSinkConfig sink = baseSink();
-        sink.tables.get(0).table.name = JacksonUtils.str2JsonNode("{\"path\":\"schema.table.name\",\"defaultValue\":\"fallback_table\"}");
+        PaimonTableConfig table = sink.tables.get(0);
+        table.table.name = JacksonUtils.str2JsonNode("{\"path\":\"schema.table.name\",\"defaultValue\":\"fallback_table\"}");
+        table.table.comment = JacksonUtils.str2JsonNode("\"fallback comment\"");
+        table.table.createIfNotExists = JacksonUtils.str2JsonNode("true");
+        table.table.primaryKeys = primaryKeys("day_pt");
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("{\"schema\":{},\"data\":[{\"today\":\"2026-06-12\"}]}"),
                 record());
@@ -44,7 +48,12 @@ class TableResolverTest {
     @Test
     void shouldSkipMessageWhenTableNameIsEmpty() throws Exception {
         PaimonSinkConfig sink = baseSink();
-        sink.tables.get(0).table.name = JacksonUtils.str2JsonNode("{\"path\":\"schema.table.name\"}");
+        PaimonTableConfig table = sink.tables.get(0);
+        table.table.name = null;
+        table.table.comment = null;
+        table.table.createIfNotExists = null;
+        table.table.partitionKeys = null;
+        table.table.primaryKeys = null;
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("{\"schema\":{},\"data\":[{\"today\":\"2026-06-12\"}]}"),
                 record());
@@ -75,6 +84,7 @@ class TableResolverTest {
         PaimonSinkConfig sink = baseSink();
         sink.loadMode = "UPSERT";
         PaimonTableConfig table = sink.tables.get(0);
+        useFullJobTableMetadata(table);
         table.table.primaryKeys = new PrimaryKeyConfig();
         table.table.primaryKeys.mode = "PROXY";
         table.table.primaryKeys.algorithm = "SHA-256";
@@ -96,6 +106,7 @@ class TableResolverTest {
         PaimonSinkConfig sink = baseSink();
         sink.loadMode = "UPSERT";
         PaimonTableConfig table = sink.tables.get(0);
+        useFullJobTableMetadata(table);
         table.table.primaryKeys = new PrimaryKeyConfig();
         table.table.primaryKeys.mode = "PROXY";
         table.table.primaryKeys.defaultValue = List.of("day_pt", "today");
@@ -115,6 +126,10 @@ class TableResolverTest {
         PaimonSinkConfig sink = baseSink();
         PaimonTableConfig table = sink.tables.get(0);
         table.table.name = null;
+        table.table.comment = null;
+        table.table.createIfNotExists = null;
+        table.table.partitionKeys = null;
+        table.table.primaryKeys = null;
         table.columns.clear();
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("""
@@ -130,13 +145,17 @@ class TableResolverTest {
     }
 
     /**
-     * job.json 字段配置按字段名覆盖 Kafka 标准 schema 字段.
+     * job.json 一旦配置 columns[] 就按完整字段定义处理.
      */
     @Test
-    void shouldOverrideKafkaSchemaColumnByJobColumn() throws Exception {
+    void shouldUseJobColumnsAsCompleteDefinition() throws Exception {
         PaimonSinkConfig sink = baseSink();
         PaimonTableConfig table = sink.tables.get(0);
         table.table.name = null;
+        table.table.comment = null;
+        table.table.createIfNotExists = null;
+        table.table.partitionKeys = null;
+        table.table.primaryKeys = null;
         table.columns.clear();
         table.columns.add(column("today", "VARCHAR", false));
         table.columns.get(0).length = 64;
@@ -148,6 +167,7 @@ class TableResolverTest {
                 """), record());
 
         Assertions.assertTrue(plan.isPresent());
+        Assertions.assertEquals(1, plan.get().tableConfig.columns.size());
         Assertions.assertEquals(64, plan.get().tableConfig.columns.get(0).length);
         Assertions.assertFalse(plan.get().tableConfig.columns.get(0).nullable);
     }
@@ -160,6 +180,7 @@ class TableResolverTest {
         PaimonSinkConfig sink = baseSink();
         sink.loadMode = "UPSERT";
         PaimonTableConfig table = sink.tables.get(0);
+        useFullJobTableMetadata(table);
         table.table.primaryKeys = new PrimaryKeyConfig();
         table.table.primaryKeys.defaultValue = List.of("day_pt", "today");
 
@@ -179,6 +200,10 @@ class TableResolverTest {
         sink.loadMode = "UPSERT";
         PaimonTableConfig table = sink.tables.get(0);
         table.table.name = null;
+        table.table.comment = null;
+        table.table.createIfNotExists = null;
+        table.table.partitionKeys = null;
+        table.table.primaryKeys = null;
 
         Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("""
                 {"schema":{"table":{"name":"ods_from_schema","partitionKeys":["day_pt"],
@@ -190,14 +215,40 @@ class TableResolverTest {
         Assertions.assertEquals(List.of("day_pt", "today"), plan.get().tableConfig.primaryKeys);
     }
 
+    /**
+     * job.json 配置 table 元数据时按整段覆盖 Kafka schema.table.
+     */
+    @Test
+    void shouldUseJobTableMetadataAsCompleteDefinition() throws Exception {
+        PaimonSinkConfig sink = baseSink();
+        PaimonTableConfig table = sink.tables.get(0);
+        useFullJobTableMetadata(table);
+        table.table.primaryKeys = primaryKeys("day_pt");
+
+        Optional<ResolvedTableWritePlan> plan = new TableResolver(sink).resolve(json("""
+                {"schema":{"table":{"name":"ods_from_schema","comment":"schema comment","partitionKeys":["schema_pt"],
+                "primaryKeys":{"defaultValue":["schema_pt"]}}},
+                "data":[{"today":"2026-06-12","day_pt":"2026-06-12"}]}
+                """), record());
+
+        Assertions.assertTrue(plan.isPresent());
+        Assertions.assertEquals("ods_test", plan.get().tableConfig.tableName);
+        Assertions.assertEquals("job comment", plan.get().tableConfig.tableComment);
+        Assertions.assertEquals(List.of("day_pt"), plan.get().tableConfig.partitionKeys);
+        Assertions.assertEquals(List.of("day_pt"), plan.get().tableConfig.primaryKeys);
+    }
+
     private PaimonSinkConfig baseSink() throws Exception {
         PaimonSinkConfig sink = new PaimonSinkConfig();
         sink.options.put("warehouse", "file:///tmp/paimon");
         PaimonTableConfig table = new PaimonTableConfig();
         table.table.database = JacksonUtils.str2JsonNode("\"dw_dev\"");
         table.table.name = JacksonUtils.str2JsonNode("\"ods_test\"");
+        table.table.comment = JacksonUtils.str2JsonNode("\"job comment\"");
+        table.table.createIfNotExists = JacksonUtils.str2JsonNode("true");
         table.columnsMapping = JacksonUtils.str2JsonNode("\"data\"");
         table.table.partitionKeys = JacksonUtils.str2JsonNode("[\"day_pt\"]");
+        table.table.primaryKeys = primaryKeys("day_pt");
         table.columns.add(column("today", "VARCHAR", false));
         table.columns.add(column("day_pt", "DATE", false));
         sink.tables.add(table);
@@ -210,6 +261,23 @@ class TableResolverTest {
         column.dataType = dataType;
         column.nullable = nullable;
         return column;
+    }
+
+    private void useFullJobTableMetadata(PaimonTableConfig table) throws Exception {
+        table.table.comment = JacksonUtils.str2JsonNode("\"job comment\"");
+        table.table.createIfNotExists = JacksonUtils.str2JsonNode("true");
+        if (table.table.name == null) {
+            table.table.name = JacksonUtils.str2JsonNode("\"ods_test\"");
+        }
+        if (table.table.partitionKeys == null) {
+            table.table.partitionKeys = JacksonUtils.str2JsonNode("[\"day_pt\"]");
+        }
+    }
+
+    private PrimaryKeyConfig primaryKeys(String... fields) {
+        PrimaryKeyConfig primaryKeys = new PrimaryKeyConfig();
+        primaryKeys.defaultValue = List.of(fields);
+        return primaryKeys;
     }
 
     private JsonNode json(String text) throws Exception {

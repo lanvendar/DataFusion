@@ -21,6 +21,7 @@ import com.datafusion.plugin.kafka.json.core.enums.SchemaMismatchPolicy;
 import com.datafusion.plugin.kafka.json.core.enums.StateBackendType;
 import com.datafusion.plugin.kafka.json.expression.ExpressionSpecNormalizer;
 import com.datafusion.plugin.kafka.json.expression.JsonType;
+import com.datafusion.plugin.kafka.json.resolve.TableMetadataRules;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
 
 import java.util.HashSet;
@@ -146,17 +147,42 @@ public class ConfigValidator {
         if (table == null) {
             throw new KafkaJsonPaimonException("sink.tables[].table is required");
         }
+        validateRequiredExpression(table.database, "sink.tables[].table.database");
         validateExpression(table.database, JsonType.STRING, false, "sink.tables[].table.database");
+        validateTableMetadataCompleteness(table);
         validateExpression(table.name, JsonType.STRING, false, "sink.tables[].table.name");
         validateExpression(table.comment, JsonType.STRING, false, "sink.tables[].table.comment");
         validateExpression(table.createIfNotExists, JsonType.BOOLEAN, false, "sink.tables[].table.createIfNotExists");
         validateExpression(table.partitionKeys, JsonType.ARRAY, false, "sink.tables[].table.partitionKeys");
     }
 
+    private void validateTableMetadataCompleteness(TableConfig table) {
+        // database is target-side routing config. Other table metadata keys are a complete section:
+        // either define all of them in job.json, or omit the whole section and use Kafka schema.table.
+        if (!TableMetadataRules.hasJobTableMetadata(table)) {
+            return;
+        }
+        requireTableMetadata(table.name, "sink.tables[].table.name");
+        requireTableMetadata(table.comment, "sink.tables[].table.comment");
+        requireTableMetadata(table.createIfNotExists, "sink.tables[].table.createIfNotExists");
+        requireTableMetadata(table.partitionKeys, "sink.tables[].table.partitionKeys");
+        if (table.primaryKeys == null) {
+            throw new KafkaJsonPaimonException("sink.tables[].table.primaryKeys is required when job table metadata is configured");
+        }
+    }
+
+    private void requireTableMetadata(com.fasterxml.jackson.databind.JsonNode node, String name) {
+        if (node == null || node.isNull()) {
+            throw new KafkaJsonPaimonException(name + " is required when job table metadata is configured");
+        }
+    }
+
     private void validateColumns(PaimonTableConfig table) {
         if (table.columns == null) {
             return;
         }
+        // 一旦 job.json 配置了 columns[]，就表示使用 job 里的完整表字段定义，
+        // 而不是和 Kafka schema.columns 做局部拼接。
         Set<String> names = new HashSet<>();
         for (ColumnConfig column : table.columns) {
             if (column == null || TextUtils.isBlank(column.name)) {

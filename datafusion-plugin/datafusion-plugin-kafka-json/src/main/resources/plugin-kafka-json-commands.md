@@ -129,4 +129,4 @@ timestamp
 
 `UPSERT` + 主键或代理主键可以提升失败重放时的幂等性；`APPEND` 表在 Paimon commit 成功但 Kafka offset checkpoint 未完成时可能重复写入。
 
-`sink.tables[].table` 是表级覆盖结构，默认会合并 Kafka 消息里的 `schema.table`；`sink.tables[].columns[]` 默认会合并 `schema.columns[]`。`table.primaryKeys.mode` 未配置时默认 `FIELDS`，`table.primaryKeys.defaultValue` 是主键字段数组，`PROXY` 模式下默认算法是 `UUID`。
+`sink.tables[].table.database` 必须由 job 配置解析得到；其它 table 元数据字段如果在 job 中出现任意一个，就必须完整配置 `name/comment/createIfNotExists/partitionKeys/primaryKeys` 并整段覆盖 Kafka 消息里的 `schema.table`。真实 Paimon 表已存在时优先级最高，写入字段、类型转换和 NOT NULL 校验都以真实表结构为准；表不存在时优先使用 job `columns[]` 建表，job 未配置 `columns[]` 时才使用 Kafka `schema.columns[]`，此时第一条 Kafka schema 必须准确。`table.primaryKeys.mode` 未配置时默认 `FIELDS`，`table.primaryKeys.defaultValue` 是主键字段数组，`PROXY` 模式下默认算法是 `UUID`。
