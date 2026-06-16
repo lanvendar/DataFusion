@@ -46,7 +46,7 @@
               "write-buffer-size": "128mb",
               "file.format": "parquet"
             },
-            "table": "ods_shys_gb_maintable_2lflp",
+            "table": "ods_shys_gb_main_table_2lflp",
             "tableComment": "管报主模型表|候选键:entity,scenario,version,year,period,account,product,type,misc,material,icproduct,object,icbu,bu,item,interco,flow",
             "loadMode": "UPSERT",
             "batchSize": 1000,

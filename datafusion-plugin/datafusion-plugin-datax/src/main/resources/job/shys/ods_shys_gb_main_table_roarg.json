@@ -46,7 +46,7 @@
               "write-buffer-size": "128mb",
               "file.format": "parquet"
             },
-            "table": "ods_shys_gb_maintable_roarg",
+            "table": "ods_shys_gb_main_table_roarg",
             "tableComment": "成本主模型表|候选键:year,period,scenario,version,entity,product,material,account,type,flow,trail,object,bu,mix,misc,item",
             "loadMode": "UPSERT",
             "batchSize": 1000,
