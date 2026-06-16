@@ -1,0 +1,22 @@
+{
+  "pluginName": "DataX LOCAL 模板",
+  "pluginType": "DATAX",
+  "runMode": "LOCAL",
+  "description": "DataX 本地执行配置模板",
+  "isTemplate": true,
+  "env": {
+    "resourcesRoot": "/opt/datafusion/plugins/datax",
+    "dataxHome": "/opt/datafusion/plugins/datax/datax",
+    "dataxJar": "/opt/datafusion/plugins/datax/datax/lib/datax-bundle-0.0.1.jar",
+    "javaBin": "java",
+    "logLevel": "INFO",
+    "logMaxSize": "100MB",
+    "logMaxIndex": 100,
+    "writeJobFilePermissions": "OWNER_READ,OWNER_WRITE",
+    "env": {},
+    "jvmOptions": [
+      "--add-opens",
+      "java.base/java.lang=ALL-UNNAMED"
+    ]
+  }
+}

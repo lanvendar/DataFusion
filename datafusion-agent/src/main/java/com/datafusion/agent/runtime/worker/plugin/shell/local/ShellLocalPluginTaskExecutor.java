@@ -52,7 +52,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
     /**
      * Local template path.
      */
-    private static final String LOCAL_TEMPLATE_PATH = "templates/shell/shell-local.yml";
+    private static final String LOCAL_TEMPLATE_PATH = "plugins/shell/templates/shell-local-runtime.yml";
 
     /**
      * agent 配置.

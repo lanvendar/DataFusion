@@ -1,0 +1,35 @@
+{
+  "pluginName": "DataX K8S 模板",
+  "pluginType": "DATAX",
+  "runMode": "K8S",
+  "description": "DataX Kubernetes 执行配置模板",
+  "isTemplate": true,
+  "env": {
+    "logLevel": "INFO",
+    "logMaxSize": "100MB",
+    "logMaxIndex": 100,
+    "env": {
+      "TZ": "Asia/Shanghai"
+    },
+    "jvmOptions": [
+      "--add-opens",
+      "java.base/java.lang=ALL-UNNAMED"
+    ],
+    "kubernetes": {
+      "namespace": "default",
+      "image": "",
+      "imagePullPolicy": "IfNotPresent",
+      "backoffLimit": 0,
+      "ttlSecondsAfterFinished": 86400,
+      "jobNamePrefix": "df-datax-",
+      "secretNamePrefix": "df-datax-job-",
+      "collectLogsOnFinish": true,
+      "deleteJobOnFinish": false,
+      "labels": {},
+      "annotations": {},
+      "env": {},
+      "nodeSelector": {},
+      "resources": {}
+    }
+  }
+}

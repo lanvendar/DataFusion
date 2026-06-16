@@ -45,7 +45,7 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
     /**
      * Local template path.
      */
-    private static final String LOCAL_TEMPLATE_PATH = "templates/datax/datax-local.yml";
+    private static final String LOCAL_TEMPLATE_PATH = "plugins/datax/templates/datax-local-runtime.yml";
 
     /**
      * State store.

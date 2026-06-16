@@ -1,0 +1,43 @@
+{
+    "name": "paimonwriter",
+    "parameter": {
+        "connectType": "S3",
+        "options": {
+            "warehouse": "",
+            "catalogType": "filesystem",
+            "database": "",
+            "endpoint": "",
+            "region": "us-east-1",
+            "accessKey": "",
+            "accessKeyRef": "",
+            "secretKey": "",
+            "secretKeyRef": "",
+            "pathStyleAccess": true,
+            "sslEnabled": false,
+            "hadoop.fs.s3a.connection.maximum": "100",
+            "bucket": "1",
+            "bucket-key": "",
+            "file.format": "parquet"
+        },
+        "table": "",
+        "tableComment": "",
+        "loadMode": "APPEND",
+        "batchSize": 1000,
+        "overwritePartition": {
+            "enabled": false,
+            "partition": {
+            }
+        },
+        "primaryKey": "",
+        "primaryKeyMode": "FIELDS",
+        "primaryKeyAlgorithm": "UUID",
+        "partitionKey": "",
+        "column": [
+            {
+                "name": "",
+                "type": "varchar",
+                "comment": ""
+            }
+        ]
+    }
+}

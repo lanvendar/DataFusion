@@ -1,0 +1,16 @@
+{
+  "pluginName": "Shell LOCAL 模板",
+  "pluginType": "SHELL",
+  "runMode": "LOCAL",
+  "description": "Shell 本地执行配置模板",
+  "isTemplate": true,
+  "env": {
+    "command": "sh",
+    "args": [
+      "-c"
+    ],
+    "env": {},
+    "workDir": "",
+    "pluginLogUri": ""
+  }
+}

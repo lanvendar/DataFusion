@@ -19,7 +19,7 @@ class TemplateSpecRendererTest {
     @Test
     void shouldRenderShellLocalProcessSpec() {
         TemplateSpecRenderer renderer = new TemplateSpecRenderer();
-        LocalProcessSpec spec = renderer.renderYaml("templates/shell/shell-local.yml", Map.of(
+        LocalProcessSpec spec = renderer.renderYaml("plugins/shell/templates/shell-local-runtime.yml", Map.of(
                 "workDir", "/tmp",
                 "command", TemplateYamlFragments.listItems(java.util.List.of("bash", "-lc", "echo ok"), 2),
                 "env", TemplateYamlFragments.mapEntries(Map.of("A", "B"), 2),
@@ -37,7 +37,7 @@ class TemplateSpecRendererTest {
     @Test
     void shouldRenderDataxLocalProcessSpec() {
         TemplateSpecRenderer renderer = new TemplateSpecRenderer();
-        LocalProcessSpec spec = renderer.renderYaml("templates/datax/datax-local.yml", Map.ofEntries(
+        LocalProcessSpec spec = renderer.renderYaml("plugins/datax/templates/datax-local-runtime.yml", Map.ofEntries(
                 Map.entry("workDir", "/tmp/datax-work"),
                 Map.entry("javaBin", "java"),
                 Map.entry("jvmOptions", TemplateYamlFragments.listItems(java.util.List.of("-Xmx1g"), 2)),

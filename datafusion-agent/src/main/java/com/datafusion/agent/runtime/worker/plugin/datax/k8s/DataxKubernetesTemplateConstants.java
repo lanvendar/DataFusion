@@ -12,7 +12,7 @@ public final class DataxKubernetesTemplateConstants {
     /**
      * Classpath template location.
      */
-    public static final String TEMPLATE_PATH = "templates/datax/datax-k8s-job.yml";
+    public static final String TEMPLATE_PATH = "plugins/datax/templates/datax-k8s-runtime.yml";
 
     /**
      * DataX Job secret key.
