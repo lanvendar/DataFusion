@@ -23,8 +23,8 @@ DataX LOCAL / K8S 的静态结构均由 YAML 模板管理：
 
 | runMode | 模板 | 渲染产物 |
 |---------|------|----------|
-| `LOCAL` | `datafusion-agent/src/main/resources/templates/datax/datax-local.yml` | `LocalProcessSpec` |
-| `K8S` | `datafusion-agent/src/main/resources/templates/datax/datax-k8s-job.yml` | Kubernetes manifest |
+| `LOCAL` | `datafusion-agent/src/main/resources/plugins/datax/templates/datax-local-runtime.yml` | `LocalProcessSpec` |
+| `K8S` | `datafusion-agent/src/main/resources/plugins/datax/templates/datax-k8s-runtime.yml` | Kubernetes manifest |
 
 `jobJsonMountPath=/datafusion/job/job.json`、`containerName=datax`、`DATAX_HOME=/opt/datafusion/datax` 等 K8S 结构常量由模板和 `DataxKubernetesTemplateConstants` 维护。
 
@@ -231,7 +231,7 @@ LOCAL 示例：
 | `PluginConfigEntity.runMode` -> `TaskRequest.pluginParam.runMode` | Manager 必须在 `TaskStorageImpl.toPluginData` 中注入 | Agent 收不到 `runMode` 时提交失败，不使用默认运行模式 |
 | `TaskRequest.pluginParam` + `TaskRequest.taskData` -> `DataxExecutionParam` | `taskData` 覆盖任务级字段，`pluginParam` 提供插件级字段；缺失字段只使用代码内协议默认值 | `jobJson` 不写日志 |
 | `DataxExecutionParam` -> LOCAL job file | `jobJson` 写入 `${modules}/datax-work/{date}/{flowInstanceId}/{taskInstanceId}/{jobName}` | 文件权限按 `writeJobFilePermissions` 设置 |
-| `DataxExecutionParam` -> LOCAL `LocalProcessSpec` | 渲染 `templates/datax/datax-local.yml` | 模板保存命令静态骨架，动态值只来自 `pluginParam/taskData` 和 Agent 生成路径 |
+| `DataxExecutionParam` -> LOCAL `LocalProcessSpec` | 渲染 `plugins/datax/templates/datax-local-runtime.yml` | 模板保存命令静态骨架，动态值只来自 `pluginParam/taskData` 和 Agent 生成路径 |
 | `DataxExecutionParam` -> K8S Secret | `jobJson` 或 `jobFileName` 对应内容写入 Secret key `job.json` 并挂载到 `jobJsonMountPath` | DataX JSON 可能含密码，默认不用 ConfigMap |
 | `DataxExecutionParam` -> K8S Job | 渲染固定模板并提交 `Secret + batch/v1 Job` | Job name 需满足 DNS-1123，过长时 hash 截断 |
 | K8S submit result -> `WorkerTaskExecutionState.pluginParam._runtime` | 写入 `DataxKubernetesRuntimeRef` | 支持 Agent 重启后继续接管 |

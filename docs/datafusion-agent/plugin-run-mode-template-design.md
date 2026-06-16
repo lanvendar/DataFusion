@@ -32,16 +32,19 @@ TaskRequest(pluginParam, taskData)
 模板文件放在：
 
 ```text
-datafusion-agent/src/main/resources/templates/{plugin}/
+datafusion-agent/src/main/resources/plugins/{plugin}/templates/
 ```
+
+运行模板命名为 `{plugin}-{runMode}-runtime.yml`，对应的 Manager 插件配置模板命名为
+`{plugin}-{runMode}-plugin-config.json`。
 
 已定义模板：
 
 | pluginType | runMode | 模板 | 渲染产物 |
 |------------|---------|------|----------|
-| `SHELL` | `LOCAL` | `templates/shell/shell-local.yml` | `LocalProcessSpec` |
-| `DATAX` | `LOCAL` | `templates/datax/datax-local.yml` | `LocalProcessSpec` |
-| `DATAX` | `K8S` | `templates/datax/datax-k8s-job.yml` | Kubernetes YAML |
+| `SHELL` | `LOCAL` | `plugins/shell/templates/shell-local-runtime.yml` | `LocalProcessSpec` |
+| `DATAX` | `LOCAL` | `plugins/datax/templates/datax-local-runtime.yml` | `LocalProcessSpec` |
+| `DATAX` | `K8S` | `plugins/datax/templates/datax-k8s-runtime.yml` | Kubernetes YAML |
 
 Shell 第一版只有 `LOCAL`，实现按 `shell.local` 包归类；只有出现第二种 Shell 运行模式时，才引入类似 DataX 的 runner 分发抽象。
 

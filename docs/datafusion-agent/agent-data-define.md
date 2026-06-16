@@ -154,7 +154,7 @@ appId:{appId}|workId:{workId}|status:{StatusEnum.name}
 }
 ```
 
-`SHELL + LOCAL` 运行时必须先渲染 `templates/shell/shell-local.yml` 得到 `LocalProcessSpec`，再由 `ShellLocalPluginTaskExecutor` 启动本地进程。`command/args/env/workDir/pluginLogUri` 的动态值只来自 `pluginParam` 和 `taskData`；`stdout/stderr` 路径由 Agent 根据 `modules/storage.logsDir/flowInstanceId/taskInstanceId` 生成。
+`SHELL + LOCAL` 运行时必须先渲染 `plugins/shell/templates/shell-local-runtime.yml` 得到 `LocalProcessSpec`，再由 `ShellLocalPluginTaskExecutor` 启动本地进程。`command/args/env/workDir/pluginLogUri` 的动态值只来自 `pluginParam` 和 `taskData`；`stdout/stderr` 路径由 Agent 根据 `modules/storage.logsDir/flowInstanceId/taskInstanceId` 生成。
 
 ## 7. 复用对象
 
