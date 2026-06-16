@@ -29,6 +29,8 @@
             }
         },
         "primaryKey": "",
+        "primaryKeyMode": "FIELDS",
+        "primaryKeyAlgorithm": "UUID",
         "partitionKey": "",
         "column": [
             {
