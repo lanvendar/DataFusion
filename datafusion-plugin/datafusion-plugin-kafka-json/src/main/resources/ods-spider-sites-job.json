@@ -11,7 +11,7 @@
       "dw-web-spider-paimon-test"
     ],
     "groupId": "dw-web-spider-paimon-test11",
-    "startingOffsets": "earliest",
+    "startingOffsets": "group-offsets",
     "properties": {
       "client.id": "sh-web-spider",
       "security.protocol": "SASL_SSL",
@@ -140,6 +140,120 @@
             "defaultValue": [
               "day_pt",
               "currency_pair"
+            ]
+          }
+        },
+        "loadMode": "UPSERT",
+        "options": {
+          "bucket": "1",
+          "write-buffer-size": "128mb",
+          "file.format": "parquet"
+        },
+        "columnsMapping": "data"
+      },
+      {
+        "enabled": true,
+        "table": {
+          "database": "dw_dev",
+          "name": "ods_spider_baiinfo_product_price",
+          "comment": "百川盈孚产品价格",
+          "createIfNotExists": true,
+          "includeKafkaMetadataFields": false,
+          "partitionKeys": [
+            "day_pt"
+          ],
+          "primaryKeys": {
+            "mode": "FIELDS",
+            "defaultValue": [
+              "product_id",
+              "price_date"
+            ]
+          }
+        },
+        "loadMode": "UPSERT",
+        "options": {
+          "bucket": "1",
+          "write-buffer-size": "128mb",
+          "file.format": "parquet"
+        },
+        "columnsMapping": "data"
+      },
+      {
+        "enabled": true,
+        "table": {
+          "database": "dw_dev",
+          "name": "ods_spider_jlc_product_price",
+          "comment": "金联创产品价格数据",
+          "createIfNotExists": true,
+          "includeKafkaMetadataFields": false,
+          "partitionKeys": [
+            "day_pt"
+          ],
+          "primaryKeys": {
+            "mode": "PROXY",
+            "defaultValue": [
+              "section",
+              "product_name",
+              "region",
+              "price_type",
+              "enterprise_name",
+              "price_date"
+            ]
+          }
+        },
+        "loadMode": "UPSERT",
+        "options": {
+          "bucket": "1",
+          "write-buffer-size": "128mb",
+          "file.format": "parquet"
+        },
+        "columnsMapping": "data"
+      },
+      {
+        "enabled": true,
+        "table": {
+          "database": "dw_dev",
+          "name": "ods_spider_platts_product_price",
+          "comment": "Platts产品价格数据",
+          "createIfNotExists": true,
+          "includeKafkaMetadataFields": false,
+          "partitionKeys": [
+            "day_pt"
+          ],
+          "primaryKeys": {
+            "mode": "FIELDS",
+            "defaultValue": [
+              "symbol",
+              "price_date"
+            ]
+          }
+        },
+        "loadMode": "UPSERT",
+        "options": {
+          "bucket": "1",
+          "write-buffer-size": "128mb",
+          "file.format": "parquet"
+        },
+        "columnsMapping": "data"
+      },
+      {
+        "enabled": true,
+        "table": {
+          "database": "dw_dev",
+          "name": "ods_spider_sci99_product_price",
+          "comment": "卓创资讯产品价格数据",
+          "createIfNotExists": true,
+          "includeKafkaMetadataFields": false,
+          "partitionKeys": [
+            "day_pt"
+          ],
+          "primaryKeys": {
+            "mode": "FIELDS",
+            "defaultValue": [
+              "data_type_id",
+              "data_item_type_id",
+              "data_item_id",
+              "price_date"
             ]
           }
         },
