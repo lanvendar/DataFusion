@@ -12,9 +12,9 @@
     <packaging>pom</packaging>
 
     <modules>
+        <module>datafusion-common-data</module>
         <module>datafusion-common</module>
         <module>datafusion-common-spring</module>
-        <module>datafusion-common-data</module>
         <module>datafusion-datasource</module>
         <module>datafusion-manager</module>
         <module>datafusion-plugin</module>
