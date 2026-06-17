@@ -3,19 +3,19 @@ spring:
     nacos:
       config:
         enabled: true
-        server-addr: 10.197.12.1:8848
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
         encode: UTF-8
-        timeout: 35000
-        namespace: 9001ba0a-8080-4695-bb72-2fab8a1927d1
+        timeout: ${NACOS_CONFIG_TIMEOUT:10000}
+        namespace: ${NACOS_NAMESPACE:}
         file-extension: yaml
-        username: nacos
-        password: nacos
-        group: dev
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
       discovery:
         enabled: true
         register-enabled: true
-        server-addr: 10.197.12.1:8848
-        namespace: 9001ba0a-8080-4695-bb72-2fab8a1927d1
-        group: dev
-        username: nacos
-        password: nacos
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}

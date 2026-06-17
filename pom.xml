@@ -130,7 +130,7 @@
         <maven.surefire.plugin.version>3.2.5</maven.surefire.plugin.version>
         <maven.shade.plugin.version>3.6.0</maven.shade.plugin.version>
         <maven.checkstyle.plugin.version>3.6.0</maven.checkstyle.plugin.version>
-        <checkstyle.version>13.0.0</checkstyle.version>
+        <checkstyle.version>12.3.1</checkstyle.version>
     </properties>
 
     <!-- jar包版本管理 -->

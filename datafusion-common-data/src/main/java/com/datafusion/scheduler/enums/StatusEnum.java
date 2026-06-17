@@ -90,13 +90,9 @@ public enum StatusEnum {
      * 重启中.
      */
     RESTARTING("50", StatusPhaseEnum.RUNNING, EnableState.TASK_ENABLED),
-    /**
-     * 重试中(过渡状态:有锁/异步).
-     */
+    // 重试中(过渡状态:有锁/异步).
     //RETRYING("60", StatusPhaseEnum.RUNNING, EnableState.TASK_ENABLED),
-    /**
-     * 重试失败(内部状态).
-     */
+    // 重试失败(内部状态).
     //RETRY_FAILURE("62", StatusPhaseEnum.FAILURE, EnableState.TASK_ENABLED),
     /**
      * 失败转移.
