@@ -1,4 +1,5 @@
-FROM eclipse-temurin:17-jre
+# FROM eclipse-temurin:17-jre
+FROM jsessh-registry.cn-shanghai.cr.aliyuncs.com/base-images/java_17:latest
 
 ENV TZ=Asia/Shanghai \
     DATAFUSION_MODULES=/opt/datafusion \
