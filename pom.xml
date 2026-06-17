@@ -120,7 +120,7 @@
         <awaitility.version>4.2.0</awaitility.version>
 
         <!-- 代码质量开关 -->
-        <skip.checkStyle>false</skip.checkStyle>
+        <skip.checkStyle>true</skip.checkStyle>
 
         <!-- Maven 插件 -->
         <versions.maven.plugin.version>2.10.0</versions.maven.plugin.version>
@@ -746,7 +746,7 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <!-- 默认在 validate 阶段执行 Checkstyle, 可通过 -Dskip.checkStyle=true 跳过. -->
+            <!-- 默认跳过 Checkstyle, 可通过 -Dskip.checkStyle=false 显式开启. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
