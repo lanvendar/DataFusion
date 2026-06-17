@@ -13,7 +13,7 @@ import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStateStore;
+import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStore;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -50,7 +50,7 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
     /**
      * State store.
      */
-    private final WorkerTaskExecutionStateStore stateStore;
+    private final WorkerTaskExecutionStore stateStore;
 
     /**
      * Template renderer.
@@ -70,7 +70,7 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
      * @param templateRenderer template renderer
      * @param watcherExecutor watcher executor
      */
-    public LocalDataxTaskRunner(DataxJobFileService jobFileService, WorkerTaskExecutionStateStore stateStore,
+    public LocalDataxTaskRunner(DataxJobFileService jobFileService, WorkerTaskExecutionStore stateStore,
             TemplateSpecRenderer templateRenderer, @Qualifier("agentTaskPool") Executor watcherExecutor) {
         this.jobFileService = jobFileService;
         this.stateStore = stateStore;
@@ -144,7 +144,7 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
                 Map.entry("logFile", param.getLogFile().toString()),
                 Map.entry("logMaxSize", param.getLogMaxSize()),
                 Map.entry("logMaxIndex", String.valueOf(param.getLogMaxIndex())),
-                Map.entry("logbackConfigFile", Path.of(param.getDataxHome(), "conf", "logback.xml").toString()),
+                Map.entry("logbackConfigFile", required(param.getLogbackConfigFile(), "logbackConfigFile不能为空")),
                 Map.entry("dataxJar", required(param.getDataxJar(), "dataxJar不能为空")),
                 Map.entry("jobFile", jobFile.toString()),
                 Map.entry("dataxArgs", TemplateYamlFragments.listItems(param.getDataxArgs(), 2)),
@@ -194,7 +194,7 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
         CompletableFuture.runAsync(() -> {
             try {
                 int exitCode = process.waitFor();
-                WorkerTaskExecutionState state = stateStore.read(taskInstanceId).orElse(null);
+                WorkerTaskExecutionState state = stateStore.readState(taskInstanceId).orElse(null);
                 if (state == null || state.getStatus() != null && state.getStatus().isFinalState()) {
                     return;
                 }
@@ -202,7 +202,7 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
                 state.setStatus(exitCode == 0 ? StatusEnum.RUN_SUCCESS : StatusEnum.RUN_FAILURE);
                 state.setResult(resultJson("LOCAL DataX process exited, exitCode=" + exitCode,
                         state.getLogPath(), exitCode));
-                stateStore.record(state);
+                stateStore.saveState(state);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.warn("LOCAL DataX watcher interrupted, taskInstanceId={}", taskInstanceId, e);

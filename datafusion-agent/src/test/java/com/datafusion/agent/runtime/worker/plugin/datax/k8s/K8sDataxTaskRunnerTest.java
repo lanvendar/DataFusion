@@ -2,6 +2,7 @@ package com.datafusion.agent.runtime.worker.plugin.datax.k8s;
 
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
+import com.datafusion.agent.runtime.worker.plugin.datax.DataxParamResolver;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
@@ -35,7 +36,7 @@ class K8sDataxTaskRunnerTest {
     @Test
     void shouldReturnStoppingBeforeKubernetesJobActuallyExits() {
         FakeKubernetesClient client = new FakeKubernetesClient();
-        K8sDataxTaskRunner runner = new K8sDataxTaskRunner(client, properties());
+        K8sDataxTaskRunner runner = runner(client);
 
         TaskResult result = runner.stop(request(), state(StatusEnum.RUNNING));
 
@@ -46,7 +47,7 @@ class K8sDataxTaskRunnerTest {
     @Test
     void shouldReturnFinalStopStateOnlyAfterStatusMappingBecomesFinal() {
         FakeKubernetesClient client = new FakeKubernetesClient();
-        K8sDataxTaskRunner runner = new K8sDataxTaskRunner(client, properties());
+        K8sDataxTaskRunner runner = runner(client);
 
         client.status = StatusEnum.STOPPING;
         TaskResult stopping = runner.finish(request(), state(StatusEnum.STOPPING));
@@ -64,25 +65,35 @@ class K8sDataxTaskRunnerTest {
         return properties;
     }
 
+    private K8sDataxTaskRunner runner(FakeKubernetesClient client) {
+        AgentProperties properties = properties();
+        return new K8sDataxTaskRunner(client, properties, new DataxParamResolver(properties));
+    }
+
     private TaskRequest request() {
+        ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
+        pluginParam.put("runMode", "K8S");
+        ObjectNode pluginKubernetes = OBJECT_MAPPER.createObjectNode();
+        pluginKubernetes.put("namespace", "df");
+        pluginKubernetes.put("image", "datafusion/datax:latest");
+        pluginKubernetes.put("collectLogsOnFinish", false);
+        pluginParam.set("kubernetes", pluginKubernetes);
+        ObjectNode taskData = OBJECT_MAPPER.createObjectNode();
+        taskData.set("jobJson", OBJECT_MAPPER.createObjectNode());
         TaskRequest request = new TaskRequest();
         request.setFlowInstanceId("flow-1");
         request.setTaskInstanceId("task-1");
         request.setTaskName("DataX");
+        request.setPluginParam(pluginParam);
+        request.setTaskData(taskData);
         return request;
     }
 
     private WorkerTaskExecutionState state(StatusEnum status) {
-        ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.set(DataxExecutionParam.RUNTIME_FIELD, OBJECT_MAPPER.valueToTree(runtimeRef()));
         return WorkerTaskExecutionState.builder()
-                .flowInstanceId("flow-1")
                 .taskInstanceId("task-1")
-                .pluginType("DATAX")
-                .runMode("K8S")
                 .appId("df-datax-task-1")
                 .status(status)
-                .pluginParam(pluginParam)
                 .build();
     }
 

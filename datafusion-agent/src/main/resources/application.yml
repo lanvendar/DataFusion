@@ -17,7 +17,7 @@ datafusion:
       heartbeat-interval-ms: 15000
     storage:
       logs-dir: logs
-      task-status-dir: task-status
+      task-runtime-dir: task-runtime
     task-pool:
       core-pool-size: 8
       max-pool-size: 16

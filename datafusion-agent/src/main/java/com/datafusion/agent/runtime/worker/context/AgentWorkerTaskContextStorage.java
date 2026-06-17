@@ -3,8 +3,9 @@ package com.datafusion.agent.runtime.worker.context;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.worker.context.RunningTaskContext;
 import com.datafusion.scheduler.worker.context.WorkerTaskContextStorage;
+import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStateStore;
+import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStore;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.Map;
@@ -32,14 +33,14 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
     /**
      * 任务执行状态存储.
      */
-    private final WorkerTaskExecutionStateStore stateStore;
+    private final WorkerTaskExecutionStore stateStore;
 
     /**
      * 构造函数.
      *
      * @param stateStore 任务执行状态存储
      */
-    public AgentWorkerTaskContextStorage(WorkerTaskExecutionStateStore stateStore) {
+    public AgentWorkerTaskContextStorage(WorkerTaskExecutionStore stateStore) {
         this.stateStore = stateStore;
     }
 
@@ -50,8 +51,8 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
         if (context != null) {
             return context;
         }
-        return stateStore.read(taskInstanceId)
-                .map(this::toContext)
+        return stateStore.readState(taskInstanceId)
+                .map(state -> toContext(stateStore.readSnapshot(taskInstanceId).orElse(null), state))
                 .map(restored -> {
                     contextMap.put(key, restored);
                     return restored;
@@ -87,54 +88,42 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
     }
 
     private void recordContext(RunningTaskContext context) {
-        WorkerTaskExecutionState state = WorkerTaskExecutionState.builder()
+        WorkerTaskExecutionSnap snapshot = WorkerTaskExecutionSnap.builder()
                 .flowInstanceId(context.getFlowInstanceId())
                 .taskInstanceId(context.getTaskInstanceId())
+                .taskName(context.getTaskName())
                 .pluginType(context.getPluginType())
                 .runMode(resolveRunMode(context))
+                .taskData(context.getTaskData())
+                .pluginParam(context.getPluginParam())
+                .build();
+        if (stateStore.readSnapshot(context.getTaskInstanceId()).isEmpty()) {
+            stateStore.saveSnapshot(snapshot);
+        }
+
+        WorkerTaskExecutionState state = WorkerTaskExecutionState.builder()
+                .taskInstanceId(context.getTaskInstanceId())
                 .appId(context.getAppId())
                 .logPath(context.getLogPath())
                 .status(context.getTaskState())
-                .taskData(context.getTaskData())
-                .pluginParam(context.getPluginParam())
                 .result(context.getResult())
                 .build();
         mergeExistingState(state);
         if (shouldRecord(context, state)) {
-            stateStore.record(state);
+            stateStore.saveState(state);
         }
     }
 
     private void mergeExistingState(WorkerTaskExecutionState state) {
-        stateStore.read(state.getTaskInstanceId()).ifPresent(existing -> {
-            if (state.getFlowInstanceId() == null) {
-                state.setFlowInstanceId(existing.getFlowInstanceId());
-            }
-            if (state.getPluginType() == null) {
-                state.setPluginType(existing.getPluginType());
-            }
-            if (state.getRunMode() == null) {
-                state.setRunMode(existing.getRunMode());
-            }
+        stateStore.readState(state.getTaskInstanceId()).ifPresent(existing -> {
             if (state.getAppId() == null) {
                 state.setAppId(existing.getAppId());
             }
             if (state.getLogPath() == null) {
                 state.setLogPath(existing.getLogPath());
             }
-            if (state.getWorkId() == null) {
-                state.setWorkId(existing.getWorkId());
-            }
             if (state.getExitCode() == null) {
                 state.setExitCode(existing.getExitCode());
-            }
-            if (state.getPluginParam() == null) {
-                state.setPluginParam(existing.getPluginParam());
-            } else if (existing.getPluginParam() != null && existing.getPluginParam().isObject()
-                    && state.getPluginParam().isObject() && existing.getPluginParam().hasNonNull("_runtime")
-                    && !state.getPluginParam().hasNonNull("_runtime")) {
-                ((com.fasterxml.jackson.databind.node.ObjectNode) state.getPluginParam())
-                        .set("_runtime", existing.getPluginParam().get("_runtime"));
             }
         });
     }
@@ -146,17 +135,12 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
     }
 
     private String stateSign(WorkerTaskExecutionState state) {
-        return safeText(state.getFlowInstanceId()) + '|'
-                + safeText(state.getTaskInstanceId()) + '|'
-                + safeText(state.getPluginType()) + '|'
-                + safeText(state.getRunMode()) + '|'
+        return safeText(state.getTaskInstanceId()) + '|'
                 + safeText(state.getAppId()) + '|'
                 + safeText(state.getLogPath()) + '|'
-                + safeText(state.getWorkId()) + '|'
                 + (state.getStatus() == null ? "" : state.getStatus().name()) + '|'
-                + jsonText(state.getResult()) + '|'
-                + String.valueOf(state.getTaskData()) + '|'
-                + String.valueOf(state.getPluginParam());
+                + String.valueOf(state.getExitCode()) + '|'
+                + jsonText(state.getResult());
     }
 
     private String safeText(String value) {
@@ -167,18 +151,21 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
         return value == null ? "" : value.toString();
     }
 
-    private RunningTaskContext toContext(WorkerTaskExecutionState state) {
+    private RunningTaskContext toContext(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
         RunningTaskContext context = new RunningTaskContext();
-        context.setFlowInstanceId(state.getFlowInstanceId());
         context.setTaskInstanceId(state.getTaskInstanceId());
-        context.setPluginType(state.getPluginType());
-        context.setRunMode(state.getRunMode());
         context.setAppId(state.getAppId());
         context.setLogPath(state.getLogPath());
         context.setTaskState(state.getStatus());
-        context.setTaskData(state.getTaskData());
-        context.setPluginParam(state.getPluginParam());
         context.setResult(state.getResult());
+        if (snapshot != null) {
+            context.setFlowInstanceId(snapshot.getFlowInstanceId());
+            context.setTaskName(snapshot.getTaskName());
+            context.setPluginType(snapshot.getPluginType());
+            context.setRunMode(snapshot.getRunMode());
+            context.setTaskData(snapshot.getTaskData());
+            context.setPluginParam(snapshot.getPluginParam());
+        }
         context.setSubmitted(true);
         context.setCreateTime(System.currentTimeMillis());
         context.setUpdateTime(System.currentTimeMillis());

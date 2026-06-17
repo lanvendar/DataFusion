@@ -1,12 +1,12 @@
 package com.datafusion.agent.runtime.worker.plugin.datax;
 
-import com.datafusion.agent.runtime.worker.plugin.datax.k8s.DataxKubernetesRuntimeRef;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
+import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStateStore;
+import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStore;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -44,7 +44,7 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
     /**
      * State store.
      */
-    private final WorkerTaskExecutionStateStore stateStore;
+    private final WorkerTaskExecutionStore stateStore;
 
     /**
      * Runner map.
@@ -58,7 +58,7 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
      * @param stateStore    state store
      * @param runners       runners
      */
-    public DataxPluginTaskExecutor(DataxParamResolver paramResolver, WorkerTaskExecutionStateStore stateStore,
+    public DataxPluginTaskExecutor(DataxParamResolver paramResolver, WorkerTaskExecutionStore stateStore,
             List<DataxTaskRunner> runners) {
         this.paramResolver = paramResolver;
         this.stateStore = stateStore;
@@ -84,13 +84,15 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
         DataxExecutionParam param = paramResolver.resolve(request);
         DataxTaskRunner runner = runner(param.getRunMode());
         DataxSubmitResult submitResult = runner.submit(request, param);
-        WorkerTaskExecutionState state = baseState(request, param, submitResult.getStatus())
+        stateStore.saveSnapshot(snapshot(request, param));
+        WorkerTaskExecutionState state = WorkerTaskExecutionState.builder()
+                .taskInstanceId(request.getTaskInstanceId())
                 .appId(submitResult.getAppId())
                 .logPath(submitResult.getLogPath())
+                .status(submitResult.getStatus())
                 .result(submitResult.getResult())
-                .pluginParam(mergedPluginParam(request.getPluginParam(), param, submitResult.getKubernetesRuntimeRef()))
                 .build();
-        stateStore.record(state);
+        stateStore.saveState(state);
         return TaskResult.builder()
                 .taskInstanceId(request.getTaskInstanceId())
                 .flowInstanceId(request.getFlowInstanceId())
@@ -137,23 +139,21 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     private WorkerTaskExecutionState currentState(TaskRequest request) {
-        return stateStore.read(request.getTaskInstanceId())
+        return stateStore.readState(request.getTaskInstanceId())
                 .orElseGet(() -> WorkerTaskExecutionState.builder()
-                        .flowInstanceId(request.getFlowInstanceId())
                         .taskInstanceId(request.getTaskInstanceId())
-                        .pluginType(request.getPluginType())
                         .appId(request.getAppId())
                         .status(request.getTaskState())
-                        .taskData(request.getTaskData())
-                        .pluginParam(request.getPluginParam())
                         .build());
     }
 
     private DataxRunMode resolveRunMode(TaskRequest request, WorkerTaskExecutionState state) {
-        if (state != null && state.getRunMode() != null) {
-            return DataxRunMode.parse(state.getRunMode());
+        JsonNode pluginParam = request.getPluginParam();
+        if (pluginParam == null && state != null) {
+            pluginParam = stateStore.readSnapshot(state.getTaskInstanceId())
+                    .map(WorkerTaskExecutionSnap::getPluginParam)
+                    .orElse(null);
         }
-        JsonNode pluginParam = state == null ? request.getPluginParam() : state.getPluginParam();
         return DataxRunMode.parse(pluginParam == null ? null : pluginParam.path("runMode").asText(null));
     }
 
@@ -163,43 +163,26 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
         next.setAppId(result.getAppId() == null ? next.getAppId() : result.getAppId());
         next.setLogPath(result.getLogPath() == null ? next.getLogPath() : result.getLogPath());
         next.setResult(result.getResult());
-        stateStore.record(next);
+        stateStore.saveState(next);
     }
 
-    private WorkerTaskExecutionState.WorkerTaskExecutionStateBuilder baseState(TaskRequest request,
-            DataxExecutionParam param, StatusEnum status) {
-        return WorkerTaskExecutionState.builder()
-                .taskInstanceId(request.getTaskInstanceId())
+    private WorkerTaskExecutionSnap snapshot(TaskRequest request, DataxExecutionParam param) {
+        return WorkerTaskExecutionSnap.builder()
                 .flowInstanceId(request.getFlowInstanceId())
+                .taskName(request.getTaskName())
                 .pluginType(PLUGIN_TYPE)
                 .runMode(param.getRunMode().name())
-                .status(status)
+                .taskInstanceId(request.getTaskInstanceId())
                 .taskData(request.getTaskData())
-                .pluginParam(request.getPluginParam());
+                .pluginParam(request.getPluginParam())
+                .build();
     }
 
     private JsonNode mergedPluginParam(JsonNode pluginParam, DataxExecutionParam param) {
-        DataxKubernetesRuntimeRef runtimeRef = param.getKubernetes() == null ? null : DataxKubernetesRuntimeRef.builder()
-                .namespace(param.getKubernetes().getNamespace())
-                .jobName(param.getKubernetes().getJobName())
-                .secretName(param.getKubernetes().getSecretName())
-                .podLabelSelector(param.getKubernetes().getPodLabelSelector())
-                .containerName(param.getKubernetes().getContainerName())
-                .logStorageUri(param.getKubernetes().getLogStorageUri())
-                .collectLogsOnFinish(param.getKubernetes().isCollectLogsOnFinish())
-                .deleteJobOnFinish(param.getKubernetes().isDeleteJobOnFinish())
-                .build();
-        return mergedPluginParam(pluginParam, param, runtimeRef);
-    }
-
-    private JsonNode mergedPluginParam(JsonNode pluginParam, DataxExecutionParam param,
-            DataxKubernetesRuntimeRef runtimeRef) {
         ObjectNode merged = pluginParam != null && pluginParam.isObject()
                 ? pluginParam.deepCopy() : OBJECT_MAPPER.createObjectNode();
         merged.put("runMode", param.getRunMode().name());
-        if (runtimeRef != null && param.getRunMode() == DataxRunMode.K8S) {
-            merged.set(DataxExecutionParam.RUNTIME_FIELD, OBJECT_MAPPER.valueToTree(runtimeRef));
-        }
         return merged;
     }
+
 }

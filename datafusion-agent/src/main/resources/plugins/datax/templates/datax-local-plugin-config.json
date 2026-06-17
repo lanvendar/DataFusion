@@ -8,6 +8,7 @@
     "resourcesRoot": "/opt/datafusion/plugins/datax",
     "dataxHome": "/opt/datafusion/plugins/datax/datax",
     "dataxJar": "/opt/datafusion/plugins/datax/datax/lib/datax-bundle-0.0.1.jar",
+    "logbackConfigFile": "/opt/datafusion/plugins/datax/datax/conf/logback.xml",
     "javaBin": "java",
     "logLevel": "INFO",
     "logMaxSize": "100MB",

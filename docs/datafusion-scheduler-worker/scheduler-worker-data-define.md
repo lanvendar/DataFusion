@@ -58,18 +58,21 @@
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `result` | `JsonNode` | 可选 | 最近结构化结果 |
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `createTime` | `Long` | 必填 | 上下文创建时间 |
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `updateTime` | `Long` | 必填 | 上下文更新时间 |
-| `WorkerTaskExecutionState` | `Internal` | worker 任务执行状态 envelope | `flowInstanceId` | `String` | 可选 | 流程实例 ID |
-| `WorkerTaskExecutionState` | `Internal` | worker 任务执行状态 envelope | `taskInstanceId` | `String` | 必填 | 任务实例 ID |
-| `WorkerTaskExecutionState` | `Internal` | worker 任务执行状态 envelope | `pluginType` | `String` | 可选 | 插件类型 |
-| `WorkerTaskExecutionState` | `Internal` | worker 任务执行状态 envelope | `runMode` | `String` | 可选 | 终端运行模式 |
-| `WorkerTaskExecutionState` | `Internal` | worker 任务执行状态 envelope | `appId` | `String` | 可选 | 终端任务 ID |
-| `WorkerTaskExecutionState` | `Internal` | worker 任务执行状态 envelope | `logPath` | `String` | 可选 | agent 管理的本地日志路径或可被 manager 读取的日志入口 |
-| `WorkerTaskExecutionState` | `Internal` | worker 任务执行状态 envelope | `workId` | `String` | 可选 | worker 节点 ID |
-| `WorkerTaskExecutionState` | `Internal` | worker 任务执行状态 envelope | `status` | `StatusEnum` | 可选 | 最近任务状态 |
-| `WorkerTaskExecutionState` | `Internal` | worker 任务执行状态 envelope | `taskData` | `JsonNode` | 可选 | 渲染后的任务执行数据 |
-| `WorkerTaskExecutionState` | `Internal` | worker 任务执行状态 envelope | `pluginParam` | `JsonNode` | 可选 | 插件参数 |
-| `WorkerTaskExecutionState` | `Internal` | worker 任务执行状态 envelope | `exitCode` | `Integer` | 可选 | 本地进程退出码 |
-| `WorkerTaskExecutionState` | `Internal` | worker 任务执行状态 envelope | `result` | `JsonNode` | 可选 | 执行说明、错误信息或插件返回摘要 |
+| `WorkerTaskExecutionSnap` | `Internal` | worker 任务提交快照 | `flowInstanceId` | `String` | 可选 | 流程实例 ID |
+| `WorkerTaskExecutionSnap` | `Internal` | worker 任务提交快照 | `taskInstanceId` | `String` | 必填 | 任务实例 ID |
+| `WorkerTaskExecutionSnap` | `Internal` | worker 任务提交快照 | `taskName` | `String` | 可选 | 任务名称 |
+| `WorkerTaskExecutionSnap` | `Internal` | worker 任务提交快照 | `pluginType` | `String` | 必填 | 插件类型 |
+| `WorkerTaskExecutionSnap` | `Internal` | worker 任务提交快照 | `runMode` | `String` | 可选 | 终端运行模式 |
+| `WorkerTaskExecutionSnap` | `Internal` | worker 任务提交快照 | `workId` | `String` | 可选 | worker 节点 ID |
+| `WorkerTaskExecutionSnap` | `Internal` | worker 任务提交快照 | `taskData` | `JsonNode` | 可选 | 渲染后的任务执行数据 |
+| `WorkerTaskExecutionSnap` | `Internal` | worker 任务提交快照 | `pluginParam` | `JsonNode` | 可选 | 插件参数 |
+| `WorkerTaskExecutionState` | `Internal` | worker 任务运行态 envelope | `taskInstanceId` | `String` | 必填 | 任务实例 ID |
+| `WorkerTaskExecutionState` | `Internal` | worker 任务运行态 envelope | `appId` | `String` | 可选 | 终端任务 ID |
+| `WorkerTaskExecutionState` | `Internal` | worker 任务运行态 envelope | `logPath` | `String` | 可选 | agent 管理的本地日志路径或可被 manager 读取的日志入口 |
+| `WorkerTaskExecutionState` | `Internal` | worker 任务运行态 envelope | `status` | `StatusEnum` | 可选 | 最近任务状态 |
+| `WorkerTaskExecutionState` | `Internal` | worker 任务运行态 envelope | `exitCode` | `Integer` | 可选 | 本地进程退出码 |
+| `WorkerTaskExecutionState` | `Internal` | worker 任务运行态 envelope | `updateTime` | `Long` | 可选 | 状态更新时间 |
+| `WorkerTaskExecutionState` | `Internal` | worker 任务运行态 envelope | `result` | `JsonNode` | 可选 | 执行说明、错误信息或插件返回摘要 |
 
 ## 4. API 数据映射
 
@@ -84,8 +87,9 @@
 | `PluginTaskExecutor.submitTask` -> `TaskResult` | 插件返回执行结果 | worker 统一补齐 `taskInstanceId/flowInstanceId/taskName/submitMode` |
 | `RunningTaskContext` -> `TaskResult` | 重复请求返回最近结果或当前状态 | 已有终态时直接返回终态；运行中按 `submitMode` 返回 `RUNNING` 或 `SUBMIT_SUCCESS` |
 | `TaskResult` -> `TaskResultReporter.report` | worker 异步上报 manager/master | 上报实现位于 `datafusion-agent`，worker 只调用接口 |
-| `RunningTaskContext` -> `WorkerTaskExecutionState` | agent 侧运行时实现转换 | 用于任务执行状态存储和恢复上报计划 |
-| `WorkerTaskExecutionState` -> `PluginRunModeStateMapping` | 状态刷新计划调用插件状态映射 | 按 `pluginType + runMode` 映射为 `StatusEnum` |
+| `RunningTaskContext` -> `WorkerTaskExecutionSnap` | agent 侧运行时实现转换 | 用于保存提交快照和恢复上下文 |
+| `RunningTaskContext` -> `WorkerTaskExecutionState` | agent 侧运行时实现转换 | 用于保存持续刷新的运行态 |
+| `WorkerTaskExecutionSnap + WorkerTaskExecutionState` -> `PluginRunModeStateMapping` | 状态刷新计划先按 `snap.pluginType + snap.runMode` 路由，再调用状态映射 | `mapState` 只接收 `WorkerTaskExecutionState`；需要恢复上下文的实现自行读取提交快照 |
 
 ## 6. 枚举 / JSON / 特殊字段
 
@@ -95,8 +99,8 @@
 | `taskState` | 不涉及 | `StatusEnum` | 使用 common-data 调度状态 | 提交响应只能返回 `RUNNING` 或 `SUBMIT_SUCCESS` |
 | `taskData` | 不涉及 | `JsonNode` | manager/master 传入，worker 不解析结构 | 插件自行解释 |
 | `pluginParam` | 不涉及 | `JsonNode` | manager/master 传入，worker 不解析结构 | 插件自行解释 |
-| `runMode` | 状态存储 | `String` | 插件自行解释 | 终端运行模式大类，状态映射按 `pluginType + runMode` 路由 |
-| `appId` | 状态存储 | `String` | 插件自行解释 | 终端任务 ID，不再区分本地进程 ID 和第三方任务 ID 字段 |
+| `runMode` | 提交快照 | `String` | 插件自行解释 | 终端运行模式大类，状态映射按 `pluginType + runMode` 路由 |
+| `appId` | 运行态存储 | `String` | 插件自行解释 | 终端任务 ID，不再区分本地进程 ID 和第三方任务 ID 字段 |
 | `logPath` | 结果/状态存储 | `String` | agent/plugin 写入 | 优先表示 agent 本地日志路径；外部日志 URI 应放入 `result.pluginLogUri` |
 | `result` | 结果/状态存储 | `JsonNode` | 插件写入 JSON 对象 | 推荐结构见下方 `TaskResultResult`；不得写入密码、完整 job JSON 或大体积日志正文 |
 
@@ -143,5 +147,5 @@
 | `SubmitModeEnum` | `datafusion-common-data` | 提交模式枚举 | 区分同步提交和异步提交 |
 | `datafusion-plugin-api` | `datafusion-plugin-api` | 插件 API 依赖 | worker 侧插件执行器可复用插件接口和模型 |
 | `PluginTaskExecutor` / `PluginRunModeStateMapping` | `datafusion-scheduler-worker` | 插件 SPI | 插件执行和状态映射 |
-| `WorkerTaskExecutionState` / `WorkerTaskExecutionStateStore` | `datafusion-scheduler-worker` | 状态 SPI | 状态 envelope 和存储接口 |
+| `WorkerTaskExecutionSnap` / `WorkerTaskExecutionState` / `WorkerTaskExecutionStore` | `datafusion-scheduler-worker` | 状态 SPI | 提交快照、运行态 envelope 和存储接口 |
 | `TaskResultReporter` | `datafusion-scheduler-worker` | 上报 SPI | 结果上报端口 |

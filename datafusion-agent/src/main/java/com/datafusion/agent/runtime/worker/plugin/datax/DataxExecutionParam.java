@@ -22,11 +22,6 @@ import java.util.Map;
 public class DataxExecutionParam {
 
     /**
-     * Runtime marker field name.
-     */
-    public static final String RUNTIME_FIELD = "_runtime";
-
-    /**
      * Run mode.
      */
     private DataxRunMode runMode;
@@ -90,6 +85,11 @@ public class DataxExecutionParam {
      * DataX bundle jar.
      */
     private String dataxJar;
+
+    /**
+     * DataX logback config file.
+     */
+    private String logbackConfigFile;
 
     /**
      * Java binary.

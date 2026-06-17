@@ -9,8 +9,9 @@ import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
+import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStateStore;
+import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStore;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
@@ -62,7 +63,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
     /**
      * 任务执行状态存储.
      */
-    private final WorkerTaskExecutionStateStore stateStore;
+    private final WorkerTaskExecutionStore stateStore;
 
     /**
      * Template renderer.
@@ -82,7 +83,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
      * @param templateRenderer 模板渲染器
      * @param watcherExecutor 进程监听线程池
      */
-    public ShellLocalPluginTaskExecutor(AgentProperties properties, WorkerTaskExecutionStateStore stateStore,
+    public ShellLocalPluginTaskExecutor(AgentProperties properties, WorkerTaskExecutionStore stateStore,
             TemplateSpecRenderer templateRenderer, @Qualifier("agentTaskPool") Executor watcherExecutor) {
         this.properties = properties;
         this.stateStore = stateStore;
@@ -118,7 +119,8 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                     .logPath(logDir.toString())
                     .result(resultJson("LOCAL shell task submitted", spec.getPluginLogUri(), logDir.toString(), null))
                     .build();
-            stateStore.record(state);
+            stateStore.saveSnapshot(snapshot(request));
+            stateStore.saveState(state);
             watchExit(process, state);
             return TaskResult.builder()
                     .taskInstanceId(request.getTaskInstanceId())
@@ -255,15 +257,16 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
         CompletableFuture.runAsync(() -> {
             try {
                 int exitCode = process.waitFor();
-                WorkerTaskExecutionState latestState = stateStore.read(state.getTaskInstanceId()).orElse(state);
+                WorkerTaskExecutionState latestState = stateStore.readState(state.getTaskInstanceId()).orElse(state);
                 if (latestState.getStatus() != null && latestState.getStatus().isFinalState()) {
                     return;
                 }
                 latestState.setExitCode(exitCode);
-                latestState.setStatus(exitCode == 0 ? StatusEnum.RUN_SUCCESS : StatusEnum.RUN_FAILURE);
+                latestState.setStatus(hasLiveDescendant(process) ? StatusEnum.RUNNING
+                        : exitCode == 0 ? StatusEnum.RUN_SUCCESS : StatusEnum.RUN_FAILURE);
                 latestState.setResult(resultJson("LOCAL process exited, exitCode=" + exitCode,
                         stateRequest(latestState), latestState.getLogPath(), exitCode));
-                stateStore.record(latestState);
+                stateStore.saveState(latestState);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.warn("LOCAL process watcher interrupted, taskInstanceId={}", state.getTaskInstanceId(), e);
@@ -272,27 +275,34 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     private void recordControlResult(TaskRequest request, StatusEnum status, JsonNode result) {
-        WorkerTaskExecutionState state = stateStore.read(request.getTaskInstanceId())
+        WorkerTaskExecutionState state = stateStore.readState(request.getTaskInstanceId())
                 .orElseGet(() -> baseState(request, status).build());
         state.setStatus(status);
         state.setResult(result);
-        stateStore.record(state);
+        stateStore.saveState(state);
     }
 
     private WorkerTaskExecutionState.WorkerTaskExecutionStateBuilder baseState(TaskRequest request, StatusEnum status) {
         return WorkerTaskExecutionState.builder()
                 .taskInstanceId(request.getTaskInstanceId())
+                .appId(request.getAppId())
+                .status(status);
+    }
+
+    private WorkerTaskExecutionSnap snapshot(TaskRequest request) {
+        return WorkerTaskExecutionSnap.builder()
                 .flowInstanceId(request.getFlowInstanceId())
+                .taskInstanceId(request.getTaskInstanceId())
+                .taskName(request.getTaskName())
                 .pluginType(request.getPluginType())
                 .runMode(ShellLocalRunModeStateMapping.RUN_MODE)
-                .appId(request.getAppId())
-                .status(status)
                 .taskData(request.getTaskData())
-                .pluginParam(request.getPluginParam());
+                .pluginParam(request.getPluginParam())
+                .build();
     }
 
     private StatusEnum queryLocalState(TaskRequest request) {
-        return stateStore.read(request.getTaskInstanceId())
+        return stateStore.readState(request.getTaskInstanceId())
                 .map(WorkerTaskExecutionState::getStatus)
                 .orElse(StatusEnum.UNKNOWN);
     }
@@ -373,10 +383,17 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
     private TaskRequest stateRequest(WorkerTaskExecutionState state) {
         TaskRequest request = new TaskRequest();
         request.setTaskInstanceId(state.getTaskInstanceId());
-        request.setFlowInstanceId(state.getFlowInstanceId());
-        request.setPluginType(state.getPluginType());
-        request.setPluginParam(state.getPluginParam());
-        request.setTaskData(state.getTaskData());
+        stateStore.readSnapshot(state.getTaskInstanceId()).ifPresent(snapshot -> {
+            request.setFlowInstanceId(snapshot.getFlowInstanceId());
+            request.setTaskName(snapshot.getTaskName());
+            request.setPluginType(snapshot.getPluginType());
+            request.setPluginParam(snapshot.getPluginParam());
+            request.setTaskData(snapshot.getTaskData());
+        });
         return request;
+    }
+
+    private boolean hasLiveDescendant(Process process) {
+        return process.toHandle().descendants().anyMatch(ProcessHandle::isAlive);
     }
 }

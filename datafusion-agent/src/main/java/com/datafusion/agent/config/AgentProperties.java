@@ -120,9 +120,9 @@ public class AgentProperties {
         private String logsDir = "logs";
 
         /**
-         * 任务状态目录名.
+         * 任务运行态目录名.
          */
-        private String taskStatusDir = "task-status";
+        private String taskRuntimeDir = "task-runtime";
     }
 
     /**

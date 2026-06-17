@@ -5,8 +5,9 @@ import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
+import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStateStore;
+import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStore;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
@@ -37,7 +38,7 @@ public class AgentTaskStateReportScheduler {
     /**
      * 任务执行状态存储.
      */
-    private final WorkerTaskExecutionStateStore stateStore;
+    private final WorkerTaskExecutionStore stateStore;
 
     /**
      * 任务结果上报器.
@@ -79,7 +80,7 @@ public class AgentTaskStateReportScheduler {
      * @param refreshIntervalMs 刷新间隔
      * @param unknownThreshold  UNKNOWN 推进阈值
      */
-    public AgentTaskStateReportScheduler(WorkerTaskExecutionStateStore stateStore, TaskResultReporter resultReporter,
+    public AgentTaskStateReportScheduler(WorkerTaskExecutionStore stateStore, TaskResultReporter resultReporter,
             ScheduledExecutorService scheduler, List<PluginRunModeStateMapping> stateMappings, long refreshIntervalMs,
             int unknownThreshold) {
         this.stateStore = stateStore;
@@ -104,7 +105,7 @@ public class AgentTaskStateReportScheduler {
     }
 
     private void refreshStates() {
-        for (WorkerTaskExecutionState state : stateStore.listRecords()) {
+        for (WorkerTaskExecutionState state : stateStore.listListeningStates()) {
             try {
                 refreshState(state);
             } catch (Exception e) {
@@ -114,15 +115,17 @@ public class AgentTaskStateReportScheduler {
     }
 
     private void refreshState(WorkerTaskExecutionState state) {
+        WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(state.getTaskInstanceId()).orElse(null);
         if (state.getStatus() != null && state.getStatus().isFinalState()) {
-            resultReporter.report(toTaskResult(state));
+            resultReporter.report(toTaskResult(snapshot, state));
             queryFailureCountMap.remove(state.getTaskInstanceId());
             return;
         }
-        PluginRunModeStateMapping mapping = stateMapping(state);
+        PluginRunModeStateMapping mapping = stateMapping(snapshot);
         if (mapping == null) {
             log.warn("未匹配到插件运行模式状态映射, taskInstanceId={}, pluginType={}, runMode={}",
-                    state.getTaskInstanceId(), state.getPluginType(), state.getRunMode());
+                    state.getTaskInstanceId(), snapshot == null ? null : snapshot.getPluginType(),
+                    snapshot == null ? null : snapshot.getRunMode());
             return;
         }
         StatusEnum mappedStatus = mapping.mapState(state);
@@ -132,16 +135,19 @@ public class AgentTaskStateReportScheduler {
         }
         if (nextStatus != state.getStatus()) {
             state.setStatus(nextStatus);
-            stateStore.record(state);
+            stateStore.saveState(state);
         }
-        resultReporter.report(toTaskResult(state));
+        resultReporter.report(toTaskResult(snapshot, state));
         if (nextStatus.isFinalState()) {
             queryFailureCountMap.remove(state.getTaskInstanceId());
         }
     }
 
-    private PluginRunModeStateMapping stateMapping(WorkerTaskExecutionState state) {
-        return stateMappingMap.get(mappingKey(state.getPluginType(), resolveRunMode(state.getRunMode())));
+    private PluginRunModeStateMapping stateMapping(WorkerTaskExecutionSnap snapshot) {
+        if (snapshot == null) {
+            return null;
+        }
+        return stateMappingMap.get(mappingKey(snapshot.getPluginType(), resolveRunMode(snapshot.getRunMode())));
     }
 
     private String resolveRunMode(String runMode) {
@@ -163,10 +169,11 @@ public class AgentTaskStateReportScheduler {
         return StatusEnum.UNKNOWN;
     }
 
-    private TaskResult toTaskResult(WorkerTaskExecutionState state) {
+    private TaskResult toTaskResult(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
         return TaskResult.builder()
                 .taskInstanceId(state.getTaskInstanceId())
-                .flowInstanceId(state.getFlowInstanceId())
+                .flowInstanceId(snapshot == null ? null : snapshot.getFlowInstanceId())
+                .taskName(snapshot == null ? null : snapshot.getTaskName())
                 .taskState(state.getStatus())
                 .appId(state.getAppId())
                 .logPath(state.getLogPath())

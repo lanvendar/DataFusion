@@ -51,6 +51,7 @@ class DataxParamResolverTest {
         assertEquals("/opt/plugins", param.getResourcesRoot());
         assertEquals("/opt/plugins/datax", param.getDataxHome());
         assertEquals("/opt/plugins/datax/lib/datax-bundle-0.0.1.jar", param.getDataxJar());
+        assertEquals("/opt/plugins/datax/conf/logback.xml", param.getLogbackConfigFile());
         assertEquals("/usr/bin/java", param.getJavaBin());
         assertEquals("WARN", param.getLogLevel());
     }

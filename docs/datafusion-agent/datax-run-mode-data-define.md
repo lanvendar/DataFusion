@@ -16,7 +16,7 @@ DataX 的 LOCAL / K8S 运行参数不定义在 `datafusion-agent/src/main/resour
 |------|------|------|
 | `AgentProperties` | `modules` | Agent 模块根目录，用于拼出本地 work/log/state 路径 |
 | `AgentProperties.Storage` | `logsDir` | Agent 本地日志目录名 |
-| `AgentProperties.Storage` | `taskStatusDir` | Agent 本地 `.state` 目录名 |
+| `AgentProperties.Storage` | `taskRuntimeDir` | Agent 本地 `task-runtime` 目录名 |
 | `AgentProperties.Kubernetes` | `apiServer`, `token`, `tokenFile`, `caCertFile` | 仅用于 Fabric8 Kubernetes client 连接集群；不是 DataX Job 参数 |
 
 DataX LOCAL / K8S 的静态结构均由 YAML 模板管理：
@@ -40,6 +40,7 @@ DataX LOCAL / K8S 的静态结构均由 YAML 模板管理：
 | `resourcesRoot` | `String` | LOCAL 条件必填 | 无 | DataX 插件资源根目录，通常包含 `datax/`、`job/` |
 | `dataxHome` | `String` | LOCAL 条件必填 | `${resourcesRoot}/datax` | DataX home；`resourcesRoot` 为空时不会自动推导 |
 | `dataxJar` | `String` | LOCAL 条件必填 | `${dataxHome}/lib/datax-bundle-0.0.1.jar` | DataX bundle jar；`dataxHome` 为空时不会自动推导 |
+| `logbackConfigFile` | `String` | LOCAL 条件必填 | `${dataxHome}/conf/logback.xml` | DataX LOCAL 模式 logback 配置文件；`dataxHome` 为空时不会自动推导 |
 | `javaBin` | `String` | 否 | `java` | LOCAL 模式启动 DataX 使用的 Java 命令 |
 | `logLevel` | `String` | 否 | `INFO` | DataX 日志级别 |
 | `logMaxSize` | `String` | 否 | `100MB` | DataX logback 单文件滚动大小 |
@@ -112,6 +113,7 @@ LOCAL 示例：
   "resourcesRoot": "/opt/datafusion/plugins/datax",
   "dataxHome": "/opt/datafusion/plugins/datax/datax",
   "dataxJar": "/opt/datafusion/plugins/datax/datax/lib/datax-bundle-0.0.1.jar",
+  "logbackConfigFile": "/opt/datafusion/plugins/datax/datax/conf/logback.xml",
   "javaBin": "/usr/bin/java",
   "logLevel": "INFO"
 }
@@ -206,7 +208,7 @@ LOCAL 示例：
 | `DataxRunMode` | 运行模式枚举 | `LOCAL`, `K8S` | enum | 请求解析后固定 | Agent 内部大小写归一 |
 | `DataxExecutionParam` | 提交前归一化参数 | `runMode`, `jobName`, `jobJson`, `jobFileName`, `jobPath`, `logDir`, `workDir`, `env`, `jvmOptions`, `kubernetes` | Java object | 单次任务 | 从 `pluginParam` 和 `taskData` 归一化；不读取 `datafusion.agent.datax.*` |
 | `DataxKubernetesParam` | K8S 提交参数 | `namespace`, `jobName`, `secretName`, `image`, `labels`, `annotations`, `resources` | Java object | 单次任务 | 由 `pluginParam.kubernetes` 和 `taskData.kubernetes` 派生 |
-| `DataxKubernetesRuntimeRef` | K8S 接管参数 | `namespace`, `jobName`, `secretName`, `podLabelSelector`, `containerName`, `logStorageUri`, `collectLogsOnFinish`, `deleteJobOnFinish` | Java object | 提交后到 `finishTask` | 写入 `.state`，用于 Agent 重启后继续查询、停止、强杀和清理 |
+| `DataxKubernetesRuntimeRef` | K8S 接管参数 | `namespace`, `jobName`, `secretName`, `podLabelSelector`, `containerName`, `logStorageUri`, `collectLogsOnFinish`, `deleteJobOnFinish` | Java object | 单次状态查询或控制命令 | 由 `.snap` 中的 `pluginParam/taskData` 和 `.state.appId` 重建，用于查询、停止、强杀和清理 |
 | `LocalProcessSpec` | LOCAL 模板渲染产物 | `kind`, `workDir`, `command`, `env`, `stdout`, `stderr`, `pluginLogUri` | Java object | 单次提交 | Shell / DataX LOCAL 共用；Runner 只按 spec 启动本地进程 |
 | `DataxTaskRunner` | 运行模式分派 | `runMode()` | interface | Spring Bean | LOCAL / K8S Runner 实现同一接口 |
 | `DataxSubmitResult` | Runner 提交返回 | `status`, `appId`, `logPath`, `result`, `kubernetesRuntimeRef` | Java object | 单次提交 | 由 `DataxPluginTaskExecutor` 转为 `TaskResult`；K8S runtime ref 用于持久化接管信息 |
@@ -215,14 +217,13 @@ LOCAL 示例：
 
 | 字段 / 枚举 | 所属对象 | 值 | 存储类型 | 转换规则 | 说明 |
 |-------------|----------|----|----------|----------|------|
-| `pluginType` | `WorkerTaskExecutionState` | `DATAX` | String | 固定大写 | DataX 插件路由键 |
-| `runMode` | `WorkerTaskExecutionState` | `LOCAL`, `K8S` | String | 由 `DataxExecutionParam.runMode` 写入 | 状态映射按 `DATAX + runMode` 选择 |
+| `pluginType` | `WorkerTaskExecutionSnap` | `DATAX` | String | 固定大写 | DataX 插件路由键 |
+| `runMode` | `WorkerTaskExecutionSnap` | `LOCAL`, `K8S` | String | 由 `DataxExecutionParam.runMode` 写入 | 状态映射按 `DATAX + runMode` 选择 |
 | `appId` | `WorkerTaskExecutionState` | LOCAL: pid；K8S: Job name | String | Runner 提交后写入 | 终端任务 ID |
 | `logPath` | `WorkerTaskExecutionState` | Agent 本地日志目录 | String | Runner 提交后写入 | Agent 重启后周期上报仍保留日志入口；第三方日志 URI 写入 `TaskResult.result.pluginLogUri` |
 | `status` | `WorkerTaskExecutionState` | `RUNNING`, `RUN_SUCCESS`, `RUN_FAILURE`, `STOPPING`, `STOP_SUCCESS`, `KILLING`, `KILLED`, `UNKNOWN` | `StatusEnum` | LOCAL 由退出码映射；K8S 由 Job status 和 Pod 退出状态映射 | 不新增 Agent 私有状态 |
 | `exitCode` | `WorkerTaskExecutionState` | 整数或空 | Integer | LOCAL watcher 写入 | K8S 不写入 |
 | `result` | `WorkerTaskExecutionState` | JSON 对象 | JsonNode | Runner / 状态映射写入 | 不包含完整 job JSON 和密码 |
-| `_runtime` | `WorkerTaskExecutionState.pluginParam` | `DataxKubernetesRuntimeRef` 或空 | JsonNode | K8S 提交成功后写入 | 仅写入本地 `.state`，不回写 Manager 插件配置 |
 
 ## 8. 层间转换
 
@@ -234,7 +235,7 @@ LOCAL 示例：
 | `DataxExecutionParam` -> LOCAL `LocalProcessSpec` | 渲染 `plugins/datax/templates/datax-local-runtime.yml` | 模板保存命令静态骨架，动态值只来自 `pluginParam/taskData` 和 Agent 生成路径 |
 | `DataxExecutionParam` -> K8S Secret | `jobJson` 或 `jobFileName` 对应内容写入 Secret key `job.json` 并挂载到 `jobJsonMountPath` | DataX JSON 可能含密码，默认不用 ConfigMap |
 | `DataxExecutionParam` -> K8S Job | 渲染固定模板并提交 `Secret + batch/v1 Job` | Job name 需满足 DNS-1123，过长时 hash 截断 |
-| K8S submit result -> `WorkerTaskExecutionState.pluginParam._runtime` | 写入 `DataxKubernetesRuntimeRef` | 支持 Agent 重启后继续接管 |
+| K8S submit result -> `WorkerTaskExecutionState.appId` | 写入 Kubernetes Job name | `.snap` 保留重建 `DataxKubernetesRuntimeRef` 所需参数，支持 Agent 重启后继续接管 |
 | LOCAL 退出码 -> `StatusEnum` | `0 -> RUN_SUCCESS`，非 `0 -> RUN_FAILURE` | stop/kill 已写终态时 watcher 不覆盖 |
 | K8S Job / Pod status -> `StatusEnum` | `Complete -> RUN_SUCCESS`，`Failed -> RUN_FAILURE`，`active > 0 -> RUNNING`，stop 后 Pod 全部退出 -> `STOP_SUCCESS`，kill 后 Pod 全部退出 -> `KILLED`，找不到且未终态 -> `UNKNOWN` | stop/kill 发起删除后先写 `STOPPING` / `KILLING` |
 
@@ -282,7 +283,7 @@ LOCAL 示例：
 |------|------|------|
 | `TaskRequest` / `TaskResult` | `datafusion-common-data` | Agent 与 Manager 的任务控制报文 |
 | `PluginTaskExecutor` / `PluginRunModeStateMapping` | `datafusion-scheduler-worker` | DataX 执行器与状态映射 SPI |
-| `WorkerTaskExecutionState` / `WorkerTaskExecutionStateStore` | `datafusion-scheduler-worker` | Agent 本地状态记录 |
+| `WorkerTaskExecutionState` / `WorkerTaskExecutionStore` | `datafusion-scheduler-worker` | Agent 本地状态记录 |
 | `AgentTaskStateReportScheduler` | `datafusion-agent` | 周期刷新并上报 DataX 状态 |
 | `DataxJsonService` / `DataxJsonVo` | `datafusion-manager` | 生成标准 DataX job JSON |
 | `datafusion-plugin-datax` resources | `datafusion-plugin` | LOCAL 模式 DataX bundle、job 示例和 K8S 镜像构建输入 |

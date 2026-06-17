@@ -3,6 +3,7 @@ package com.datafusion.agent.runtime.worker.plugin.datax.k8s;
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.PluginResultJson;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
+import com.datafusion.agent.runtime.worker.plugin.datax.DataxParamResolver;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxRunMode;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxSubmitResult;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxTaskRunner;
@@ -10,7 +11,6 @@ import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
 
@@ -29,14 +29,14 @@ import java.nio.file.Path;
 public class K8sDataxTaskRunner implements DataxTaskRunner {
 
     /**
-     * Object mapper.
-     */
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-    /**
      * Kubernetes client.
      */
     private final DataxKubernetesClient kubernetesClient;
+
+    /**
+     * Parameter resolver.
+     */
+    private final DataxParamResolver paramResolver;
 
     /**
      * Agent properties.
@@ -48,10 +48,13 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
      *
      * @param kubernetesClient Kubernetes client
      * @param properties       agent properties
+     * @param paramResolver    parameter resolver
      */
-    public K8sDataxTaskRunner(DataxKubernetesClient kubernetesClient, AgentProperties properties) {
+    public K8sDataxTaskRunner(DataxKubernetesClient kubernetesClient, AgentProperties properties,
+            DataxParamResolver paramResolver) {
         this.kubernetesClient = kubernetesClient;
         this.properties = properties;
+        this.paramResolver = paramResolver;
     }
 
     @Override
@@ -81,21 +84,21 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
 
     @Override
     public TaskResult stop(TaskRequest request, WorkerTaskExecutionState state) {
-        DataxKubernetesRuntimeRef runtimeRef = runtimeRef(state);
+        DataxKubernetesRuntimeRef runtimeRef = runtimeRef(request, state);
         kubernetesClient.stop(runtimeRef, false);
         return result(request, state, StatusEnum.STOPPING, "K8S DataX stop requested");
     }
 
     @Override
     public TaskResult kill(TaskRequest request, WorkerTaskExecutionState state) {
-        DataxKubernetesRuntimeRef runtimeRef = runtimeRef(state);
+        DataxKubernetesRuntimeRef runtimeRef = runtimeRef(request, state);
         kubernetesClient.stop(runtimeRef, true);
         return result(request, state, StatusEnum.KILLING, "K8S DataX kill requested");
     }
 
     @Override
     public TaskResult finish(TaskRequest request, WorkerTaskExecutionState state) {
-        DataxKubernetesRuntimeRef runtimeRef = runtimeRef(state);
+        DataxKubernetesRuntimeRef runtimeRef = runtimeRef(request, state);
         StatusEnum status = kubernetesClient.queryStatus(runtimeRef, state == null ? null : state.getStatus());
         if (!status.isFinalState()) {
             return result(request, state, status, "K8S DataX task is not finished");
@@ -131,7 +134,7 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
     private TaskResult result(TaskRequest request, WorkerTaskExecutionState state, StatusEnum status, String message,
             String collectedLogPath) {
         String agentLogPath = firstText(collectedLogPath, state == null ? null : state.getLogPath());
-        DataxKubernetesRuntimeRef runtimeRef = state == null ? null : runtimeRef(state);
+        DataxKubernetesRuntimeRef runtimeRef = state == null ? null : runtimeRef(request, state);
         return TaskResult.builder()
                 .taskInstanceId(request.getTaskInstanceId())
                 .flowInstanceId(request.getFlowInstanceId())
@@ -143,13 +146,21 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
                 .build();
     }
 
-    private DataxKubernetesRuntimeRef runtimeRef(WorkerTaskExecutionState state) {
-        if (state == null || state.getPluginParam() == null
-                || !state.getPluginParam().hasNonNull(DataxExecutionParam.RUNTIME_FIELD)) {
+    private DataxKubernetesRuntimeRef runtimeRef(TaskRequest request, WorkerTaskExecutionState state) {
+        if (state == null || state.getAppId() == null) {
             throw new IllegalArgumentException("K8S DataX runtime ref不存在");
         }
-        return OBJECT_MAPPER.convertValue(
-                state.getPluginParam().get(DataxExecutionParam.RUNTIME_FIELD), DataxKubernetesRuntimeRef.class);
+        DataxExecutionParam param = paramResolver.resolve(request);
+        return DataxKubernetesRuntimeRef.builder()
+                .namespace(param.getKubernetes().getNamespace())
+                .jobName(state.getAppId())
+                .secretName(param.getKubernetes().getSecretName())
+                .podLabelSelector(param.getKubernetes().getPodLabelSelector())
+                .containerName(param.getKubernetes().getContainerName())
+                .logStorageUri(param.getKubernetes().getLogStorageUri())
+                .collectLogsOnFinish(param.getKubernetes().isCollectLogsOnFinish())
+                .deleteJobOnFinish(param.getKubernetes().isDeleteJobOnFinish())
+                .build();
     }
 
     private String pluginLogUri(DataxKubernetesRuntimeRef runtimeRef) {

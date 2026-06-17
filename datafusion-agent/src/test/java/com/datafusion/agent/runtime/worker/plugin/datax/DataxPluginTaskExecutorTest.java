@@ -2,11 +2,12 @@ package com.datafusion.agent.runtime.worker.plugin.datax;
 
 import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.agent.config.AgentProperties;
-import com.datafusion.agent.runtime.worker.InMemoryWorkerTaskExecutionStateStore;
+import com.datafusion.agent.runtime.worker.InMemoryWorkerTaskExecutionStore;
 import com.datafusion.agent.runtime.worker.plugin.datax.k8s.DataxKubernetesRuntimeRef;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -32,21 +33,23 @@ class DataxPluginTaskExecutorTest {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Test
-    void shouldPersistKubernetesRuntimeRefFromSubmitResult() {
-        InMemoryWorkerTaskExecutionStateStore stateStore = new InMemoryWorkerTaskExecutionStateStore();
+    void shouldPersistSnapshotAndStateFromSubmitResult() {
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         DataxPluginTaskExecutor executor = new DataxPluginTaskExecutor(new DataxParamResolver(new AgentProperties()),
                 stateStore, List.of(new FakeK8sRunner()));
 
         TaskResult result = executor.submitTask(request());
 
-        WorkerTaskExecutionState state = stateStore.read("task-1").orElseThrow();
+        WorkerTaskExecutionSnap snap = stateStore.readSnapshot("task-1").orElseThrow();
+        WorkerTaskExecutionState state = stateStore.readState("task-1").orElseThrow();
         assertEquals(StatusEnum.RUNNING, result.getTaskState());
-        assertEquals(result.getAppId(), state.getPluginParam().path(DataxExecutionParam.RUNTIME_FIELD)
-                .path("jobName").asText());
+        assertEquals("flow-1", snap.getFlowInstanceId());
+        assertEquals(DataxPluginTaskExecutor.PLUGIN_TYPE, snap.getPluginType());
+        assertEquals(DataxRunMode.K8S.name(), snap.getRunMode());
+        assertEquals("K8S", snap.getPluginParam().path("runMode").asText());
+        assertEquals(result.getAppId(), state.getAppId());
         assertEquals(result.getLogPath(), state.getLogPath());
-        assertTrue(state.getPluginParam().hasNonNull(DataxExecutionParam.RUNTIME_FIELD));
-        assertTrue(state.getPluginParam().path(DataxExecutionParam.RUNTIME_FIELD)
-                .path("collectLogsOnFinish").asBoolean());
+        assertTrue(snap.getPluginParam().path("kubernetes").path("collectLogsOnFinish").asBoolean());
     }
 
     private TaskRequest request() {

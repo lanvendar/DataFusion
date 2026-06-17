@@ -73,7 +73,8 @@ Shell 第一版只有 `LOCAL`，实现按 `shell.local` 包归类；只有出现
 
 - `SHELL + LOCAL`：`command` 可来自 `pluginParam.command` 或 `taskData.command`；`taskData` 覆盖任务级参数。
 - `DATAX + LOCAL`：`jobJson`、`jobPath`、`jobFileName` 至少一个必填；渲染为本地 DataX 进程。
-- `DATAX + K8S`：镜像由 `pluginParam.kubernetes.image` 或 `taskData.kubernetes.image` 提供；运行引用写入 `.state.pluginParam._runtime`。
+- `DATAX + K8S`：镜像由 `pluginParam.kubernetes.image` 或 `taskData.kubernetes.image` 提供；运行引用由 `.snap`
+  参数和 `.state.appId` 重建。
 
 ## 错误处理
 

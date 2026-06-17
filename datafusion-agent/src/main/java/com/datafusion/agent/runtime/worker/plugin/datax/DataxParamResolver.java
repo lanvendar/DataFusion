@@ -139,6 +139,10 @@ public class DataxParamResolver {
         if (isBlank(dataxJar) && !isBlank(dataxHome)) {
             dataxJar = Path.of(dataxHome, "lib", "datax-bundle-0.0.1.jar").toString();
         }
+        String logbackConfigFile = text(pluginParam, "logbackConfigFile");
+        if (isBlank(logbackConfigFile) && !isBlank(dataxHome)) {
+            logbackConfigFile = Path.of(dataxHome, "conf", "logback.xml").toString();
+        }
         validateJobSource(taskData, runMode);
         DataxKubernetesParam kubernetes = runMode == DataxRunMode.K8S ? resolveKubernetes(request, taskData,
                 pluginParam) : null;
@@ -157,6 +161,7 @@ public class DataxParamResolver {
                 .resourcesRoot(resourcesRoot)
                 .dataxHome(dataxHome)
                 .dataxJar(dataxJar)
+                .logbackConfigFile(logbackConfigFile)
                 .javaBin(defaultText(text(pluginParam, "javaBin"), DEFAULT_JAVA_BIN))
                 .logFile(logDir.resolve(jobName + ".log"))
                 .logLevel(defaultText(text(pluginParam, "logLevel"), DEFAULT_LOG_LEVEL))
