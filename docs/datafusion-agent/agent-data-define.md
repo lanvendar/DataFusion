@@ -114,7 +114,7 @@ ${modules}/task-runtime/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
 }
 ```
 
-`{taskInstanceId}.log` 是任务运行态流水，由显式 writer 写入，不使用 Logback `SiftingAppender` 按任务动态分流：
+`{taskInstanceId}.log` 是任务状态变化流水，由显式 writer 写入，不使用 Logback `SiftingAppender` 按任务动态分流：
 
 ```text
 2026-06-16 20:01:01.123 | RUNNING | appId=123 | message=submit success
@@ -128,8 +128,8 @@ ${modules}/task-runtime/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
 - `.snap` 只保存提交快照和插件配置参数，不保存运行时观测字段。
 - `.state` 只保存通用运行态，不回写 `taskData` / `pluginParam`，也不保存插件私有运行对象。
 - `logPath` 统一表示 agent 管理的本地日志路径；第三方日志 URI 放在 `TaskResult.result` 的结构化 JSON 中。
-- `{taskInstanceId}.log` 记录状态变更、进程观测和控制命令流水；全局 agent 日志通过 MDC 中的 `taskInsId` 关联检索。
-- `finishTask` 确认终态后删除该任务的 `.state` / `.snap` / `.log`，停止该任务的状态上报计划。
+- `{taskInstanceId}.log` 只在状态变化时追加记录；全局 agent 日志通过 MDC 中的 `taskInsId` 关联检索。
+- `finishTask` 确认终态后删除该任务的 `.state` / `.snap`，停止该任务的状态上报计划，保留 `.log` 便于排查。
 
 ## 6. 插件通信契约
 

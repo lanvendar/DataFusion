@@ -145,7 +145,7 @@ ${modules}/task-runtime/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
     {taskInstanceId}.log
 ```
 
-`.snap` 保存提交快照，`.state` 保存运行态，`.log` 保存状态变更和进程观测流水。任务级 `.log` 由显式
+`.snap` 保存提交快照，`.state` 保存运行态，`.log` 只保存状态变化流水。任务级 `.log` 由显式
 writer 写入，不使用 Logback `SiftingAppender` 按 `taskInstanceId` 动态创建 appender；全局 agent 日志
 仍通过 MDC 中的 `taskInsId` 进行检索关联。
 
