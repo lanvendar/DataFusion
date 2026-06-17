@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: datafusion-manager-lb
+  namespace: datafusion
+  annotations:
+    metallb.io/allow-shared-ip: dev-db-vip
+  labels:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: manager
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 172.26.185.215
+  externalTrafficPolicy: Cluster
+  selector:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: manager
+  ports:
+    - name: http
+      port: 30081
+      targetPort: http
+      protocol: TCP

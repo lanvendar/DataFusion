@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: datafusion-web-lb
+  namespace: datafusion
+  annotations:
+    metallb.io/allow-shared-ip: dev-db-vip
+  labels:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: web
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 172.26.185.215
+  externalTrafficPolicy: Cluster
+  selector:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: 30080
+      targetPort: http
+      protocol: TCP

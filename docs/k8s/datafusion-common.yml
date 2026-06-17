@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datafusion-env
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion
+data:
+  TZ: "Asia/Shanghai"
+  DATAFUSION_ENV: "test"
+  DATAFUSION_MODULES: "/opt/datafusion"
+  JAVA_OPTS: "-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
+
+  # Workloads map DATAFUSION_ENV to SPRING_PROFILES_ACTIVE.
+  # Nacos profile config dataId defaults to ${spring.application.name}-${DATAFUSION_ENV}.yaml.
+  NACOS_CONFIG_ENABLED: "true"
+  NACOS_DISCOVERY_ENABLED: "true"
+  NACOS_DISCOVERY_REGISTER_ENABLED: "true"
+  NACOS_SERVER_ADDR: "nacos.datafusion.svc.cluster.local:8848"
+  NACOS_CONFIG_TIMEOUT: "10000"
+  NACOS_CONFIG_FILE_EXTENSION: "yaml"
+  NACOS_NAMESPACE: "55af8b89-a24c-421b-9e1f-7c50c26e4901"
+  NACOS_GROUP: "DEFAULT_GROUP"
+
+  # Agent calls Manager through this service name when not relying on external discovery.
+  DATAFUSION_MANAGER_URL: "http://datafusion-manager:8080"
+
+  # Manager application.yml externalized defaults.
+  SKYWALKING_GRAPHQL_URL: "http://skywalking-oap.default.svc.cluster.local:12800/graphql"
+  DATAFUSION_GIT_BRANCH: "main"
+  DATAFUSION_ETL_HOLOGRES_DATASOURCE_ID: "00000000-0000-0000-0000-000000000001"
+  DATAFUSION_ETL_MAXCOMPUTE_DATASOURCE_ID: "00000000-0000-0000-0000-000000000001"
+  DATAFUSION_ETL_REQUIRED_REPO_PATH: ""
+  DATAFUSION_ETL_ALLOWED_PATHS: ""
+  DATAFUSION_ETL_LOCAL_REPO_BASE_DIR_LINUX: "/opt/datafusion/etl"
+  DATAFUSION_ETL_LOCAL_GIT_REPO_BASE_DIR_LINUX: "/opt/datafusion/git"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: datafusion-secret
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion
+type: Opaque
+stringData:
+  NACOS_USERNAME: "nacos"
+  NACOS_PASSWORD: "nacos"
+  DATAFUSION_GIT_URL: ""
+  DATAFUSION_GIT_USERNAME: ""
+  DATAFUSION_GIT_PASSWORD: ""

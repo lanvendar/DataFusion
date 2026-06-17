@@ -2,18 +2,22 @@ spring:
   cloud:
     nacos:
       config:
-        enabled: true
+        enabled: ${NACOS_CONFIG_ENABLED:true}
         server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
         encode: UTF-8
         timeout: ${NACOS_CONFIG_TIMEOUT:10000}
         namespace: ${NACOS_NAMESPACE:}
-        file-extension: yaml
+        file-extension: ${NACOS_CONFIG_FILE_EXTENSION:yaml}
         username: ${NACOS_USERNAME:nacos}
         password: ${NACOS_PASSWORD:nacos}
         group: ${NACOS_GROUP:DEFAULT_GROUP}
+        extension-configs:
+          - data-id: ${NACOS_CONFIG_DATA_ID:datafusion-agent-${DATAFUSION_ENV:test}}
+            group: ${NACOS_GROUP:DEFAULT_GROUP}
+            refresh: true
       discovery:
-        enabled: true
-        register-enabled: true
+        enabled: ${NACOS_DISCOVERY_ENABLED:true}
+        register-enabled: ${NACOS_DISCOVERY_REGISTER_ENABLED:true}
         server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
         namespace: ${NACOS_NAMESPACE:}
         group: ${NACOS_GROUP:DEFAULT_GROUP}

@@ -1,0 +1,40 @@
+---
+# k8s 的 cephfs 基础设施一般手工执行
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: rook-cephfs-retain
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: rook-ceph.cephfs.csi.ceph.com
+parameters:
+  clusterID: rook-ceph
+  csi.storage.k8s.io/controller-expand-secret-name: rook-csi-cephfs-provisioner
+  csi.storage.k8s.io/controller-expand-secret-namespace: rook-ceph
+  csi.storage.k8s.io/node-stage-secret-name: rook-csi-cephfs-node
+  csi.storage.k8s.io/node-stage-secret-namespace: rook-ceph
+  csi.storage.k8s.io/provisioner-secret-name: rook-csi-cephfs-provisioner
+  csi.storage.k8s.io/provisioner-secret-namespace: rook-ceph
+  fsName: shared
+  pool: shared-data0
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
+
+---
+# k8s 的 cephfs 基础设施一般手工执行
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: datafusion-shared-data
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: shared-storage
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: rook-cephfs-retain
+  resources:
+    requests:
+      storage: 100Gi
