@@ -9,7 +9,7 @@ name varchar(200) NULL, -- 数据源名称
 host varchar(200) NOT NULL, -- 数据源主机名
 port int4 NOT NULL, -- 数据源端口
 username varchar(64) NULL, -- 数据源用户
-"password" varchar(64) NULL, -- 数据源密码
+"password" varchar(255) NULL, -- 数据源密码
 database_type varchar(10) NULL, -- 数据库类型
 schema_name varchar(32) NULL, -- 数据库空间名称,等价于catlog_name
 database_name varchar(32) NULL, -- 数据库名称
