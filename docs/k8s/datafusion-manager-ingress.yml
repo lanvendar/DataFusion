@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: datafusion-manager
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: manager
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: sz-dev-datafusion
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: datafusion-manager
+                port:
+                  number: 8080
+          - path: /actuator/health
+            pathType: Exact
+            backend:
+              service:
+                name: datafusion-manager
+                port:
+                  number: 8080
+  tls:
+    - hosts:
+        - sz-dev-datafusion
+      secretName: indusmind-me-wildcard-tls

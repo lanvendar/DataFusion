@@ -13,6 +13,8 @@
 - `datafusion-manager-lb.yml`: Manager 外部访问 `LoadBalancer`，端口 30081
 - `datafusion-agent-lb.yml`: Agent 外部访问 `LoadBalancer`，端口 30082
 - `datafusion-web-lb.yml`: Web 外部访问 `LoadBalancer`，端口 30080
+- `datafusion-manager-ingress.yml`: Manager 外部访问 `Ingress`，域名 `sz-dev-datafusion`
+- `datafusion-web-ingress.yml`: Web 外部访问 `Ingress`，域名 `sz-dev-datafusion-web`
 
 ## 部署前必须调整
 
@@ -57,6 +59,12 @@
    - `metallb.io/allow-shared-ip` 默认是 `dev-db-vip`。
    - 如集群 VIP 或共享 IP 标识不同，需要同步修改三个 LoadBalancer 文件。
 
+8. 如需通过 Ingress 外部访问，确认 Ingress 配置：
+   - `datafusion-web-ingress.yml` 默认域名是 `sz-dev-datafusion-web`，后端服务是 `datafusion-web:80`。
+   - `datafusion-manager-ingress.yml` 默认域名是 `sz-dev-datafusion`，后端服务是 `datafusion-manager:8080`。
+   - `ingressClassName` 默认是 `nginx`。
+   - TLS Secret 默认是 `datafusion-web-tls` 和 `datafusion-manager-tls`，需要按集群实际证书修改或删除 `tls` 段。
+
 ## DataX K8s 任务权限
 
 Agent 里的 DataX K8s runner 会通过 Fabric8 client 创建 `Secret` 和 `batch/v1 Job`，并查询 Pod 状态与日志。当前 Role 只授权 `datafusion` 命名空间。
@@ -75,6 +83,8 @@ kubectl apply -f docs/k8s/datafusion-web.yml
 kubectl apply -f docs/k8s/datafusion-manager-lb.yml
 kubectl apply -f docs/k8s/datafusion-agent-lb.yml
 kubectl apply -f docs/k8s/datafusion-web-lb.yml
+kubectl apply -f docs/k8s/datafusion-manager-ingress.yml
+kubectl apply -f docs/k8s/datafusion-web-ingress.yml
 kubectl -n datafusion get pods,svc,pvc
 ```
 

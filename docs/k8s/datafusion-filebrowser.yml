@@ -1,0 +1,141 @@
+# datafusion-filebrowser.yml 手工创建,未纳入流水线
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: datafusion-filebrowser-config
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion-filebrowser
+    app.kubernetes.io/component: filebrowser
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: rook-ceph-block-1r
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: datafusion-filebrowser
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion-filebrowser
+    app.kubernetes.io/component: filebrowser
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: datafusion-filebrowser
+      app.kubernetes.io/component: filebrowser
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: datafusion-filebrowser
+        app.kubernetes.io/component: filebrowser
+    spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: filebrowser
+          image: filebrowser/filebrowser:v2.63.15
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          args:
+            - --address
+            - 0.0.0.0
+            - --port
+            - "80"
+            - --root
+            - /srv
+            - --database
+            - /database/filebrowser.db
+          ports:
+            - name: http
+              containerPort: 80
+          volumeMounts:
+            - name: shared-data
+              mountPath: /srv
+            - name: filebrowser-config
+              mountPath: /database
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: shared-data
+          persistentVolumeClaim:
+            claimName: datafusion-shared-data
+        - name: filebrowser-config
+          persistentVolumeClaim:
+            claimName: datafusion-filebrowser-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: datafusion-filebrowser
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion-filebrowser
+    app.kubernetes.io/component: filebrowser
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: datafusion-filebrowser
+    app.kubernetes.io/component: filebrowser
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: datafusion-filebrowser
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion-filebrowser
+    app.kubernetes.io/component: filebrowser
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  ingressClassName: dev-nginx
+  rules:
+    - host: sz-dev-filebrowser.indusmind.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: datafusion-filebrowser
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - sz-dev-filebrowser.indusmind.me
+      secretName: indusmind-me-wildcard-tls

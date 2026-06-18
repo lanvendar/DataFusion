@@ -8,7 +8,7 @@ ENV TZ=Asia/Shanghai \
 
 WORKDIR /opt/datafusion-manager
 
-RUN mkdir -p /opt/datafusion/logs \
+RUN mkdir -p /opt/datafusion/logs/datafusion-manager \
     /opt/datafusion/task-runtime \
     /opt/datafusion-manager
 

@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: datafusion-web
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: web
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: sz-dev-datafusion-web
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: datafusion-web
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - sz-dev-datafusion-web
+      secretName: indusmind-me-wildcard-tls
