@@ -4,7 +4,7 @@ FROM jsessh-registry.cn-shanghai.cr.aliyuncs.com/base-images/java_17:latest
 ENV TZ=Asia/Shanghai \
     DATAFUSION_MODULES=/opt/datafusion \
     SPRING_PROFILES_ACTIVE=standalone,local \
-    JAVA_OPTS=""
+    JAVA_OPTS="-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8"
 
 WORKDIR /opt/datafusion-agent
 

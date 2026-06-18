@@ -17,7 +17,7 @@ data:
   DATAFUSION_ENV: "test"
   DATAFUSION_MODULES: "/opt/datafusion"
   DATAFUSION_INIT_OVERWRITE: "false"
-  JAVA_OPTS: "-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
+  JAVA_OPTS: "-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8 -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
 
   # Workloads map DATAFUSION_ENV to SPRING_PROFILES_ACTIVE.
   # Nacos profile config dataId defaults to ${spring.application.name}-${DATAFUSION_ENV}.yaml.
