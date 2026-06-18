@@ -30,6 +30,7 @@
    - `NACOS_GROUP` 需要与目标 Nacos 配置分组一致。
    - `NACOS_CONFIG_DATA_ID` 在 Manager/Agent 的 Deployment 中分别默认为 `datafusion-manager-$(SPRING_PROFILES_ACTIVE)` 和 `datafusion-agent-$(SPRING_PROFILES_ACTIVE)`。
    - `DATAFUSION_MANAGER_URL` 默认指向集群内 Service: `http://datafusion-manager:8080`。
+   - `DATAFUSION_INIT_OVERWRITE` 默认是 `false`，initContainer 只从镜像内置 `/opt/datafusion-builtin` 补齐 PVC 缺失文件；改为 `true` 时会覆盖 PVC 中已有文件。
    - `SKYWALKING_GRAPHQL_URL`、`DATAFUSION_ETL_*` 按实际外部依赖调整。
 
 3. 替换 `datafusion-secret` 中的敏感值：

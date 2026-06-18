@@ -8,8 +8,8 @@ ENV TZ=Asia/Shanghai \
 
 WORKDIR /opt/datafusion-manager
 
-RUN mkdir -p /opt/datafusion/logs/datafusion-manager \
-    /opt/datafusion/task-runtime \
+RUN mkdir -p /opt/datafusion-builtin/logs/datafusion-manager \
+    /opt/datafusion-builtin/task-runtime \
     /opt/datafusion-manager
 
 COPY target/datafusion-manager-*.jar /opt/datafusion-manager/datafusion-manager.jar

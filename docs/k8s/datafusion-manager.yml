@@ -37,6 +37,29 @@ spec:
         app.kubernetes.io/component: manager
     spec:
       terminationGracePeriodSeconds: 60
+      initContainers:
+        - name: seed-datafusion-shared-data
+          image: datafusion-manager:1.0.0
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: datafusion-env
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              mkdir -p \
+                /opt/datafusion/logs/datafusion-manager \
+                /opt/datafusion/task-runtime
+              if [ "${DATAFUSION_INIT_OVERWRITE:-false}" = "true" ]; then
+                cp -a /opt/datafusion-builtin/. /opt/datafusion/
+              else
+                cp -an /opt/datafusion-builtin/. /opt/datafusion/
+              fi
+          volumeMounts:
+            - name: datafusion-shared-data
+              mountPath: /opt/datafusion/
       containers:
         - name: datafusion-manager
           image: datafusion-manager:1.0.0

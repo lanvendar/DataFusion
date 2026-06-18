@@ -8,14 +8,14 @@ ENV TZ=Asia/Shanghai \
 
 WORKDIR /opt/datafusion-agent
 
-RUN mkdir -p /opt/datafusion/logs/datafusion-agent \
-    /opt/datafusion/plugins/datax \
-    /opt/datafusion/plugins/shell \
-    /opt/datafusion/task-runtime \
+RUN mkdir -p /opt/datafusion-builtin/logs/datafusion-agent \
+    /opt/datafusion-builtin/plugins/datax \
+    /opt/datafusion-builtin/plugins/shell \
+    /opt/datafusion-builtin/task-runtime \
     /opt/datafusion-agent
 
-COPY src/main/resources/plugins/datax/ /opt/datafusion/plugins/datax/
-COPY src/main/resources/plugins/shell/ /opt/datafusion/plugins/shell/
+COPY src/main/resources/plugins/datax/ /opt/datafusion-builtin/plugins/datax/
+COPY src/main/resources/plugins/shell/ /opt/datafusion-builtin/plugins/shell/
 COPY target/datafusion-agent-*.jar /opt/datafusion-agent/datafusion-agent.jar
 
 EXPOSE 8081
