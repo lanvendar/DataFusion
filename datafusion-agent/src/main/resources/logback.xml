@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration scan="true" scanPeriod="60 seconds" debug="false">
     <property name="APP_NAME" value="datafusion-agent"/>
-    <property name="LOG_PATH" value="${LOG_PATH:-/datafusion/agent/logs}"/>
+    <property name="LOG_PATH" value="${LOG_PATH:-/opt/datafusion/logs/datafusion-agent}"/>
     <property name="LOG_PATTERN"
               value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [%method,%line] [%X{workerId}][%X{taskInsId}] - %msg%n"/>
 

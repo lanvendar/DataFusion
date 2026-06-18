@@ -156,6 +156,8 @@ spec:
                   key: DATAFUSION_ENV
             - name: NACOS_CONFIG_DATA_ID
               value: datafusion-agent-$(SPRING_PROFILES_ACTIVE)
+            - name: LOG_PATH
+              value: /opt/datafusion/logs/datafusion-agent
             - name: DATAFUSION_AGENT_WORKER_IP
               valueFrom:
                 fieldRef:
