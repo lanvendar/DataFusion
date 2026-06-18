@@ -1,4 +1,4 @@
-FROM node:22-alpine AS build
+FROM jsessh-registry.cn-shanghai.cr.aliyuncs.com/base-images/node:22-alpine AS build
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ ENV VITE_API_TARGET=${VITE_API_TARGET}
 
 RUN npm run build
 
-FROM nginx:1.27-alpine
+FROM jsessh-registry.cn-shanghai.cr.aliyuncs.com/base-images/nginx:1.27-alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
