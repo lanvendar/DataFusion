@@ -12,7 +12,7 @@ ENV VITE_API_TARGET=${VITE_API_TARGET}
 
 RUN npm run build
 
-FROM jsessh-registry.cn-shanghai.cr.aliyuncs.com/base-images/nginx:1.27-alpine
+FROM jsessh-registry.cn-shanghai.cr.aliyuncs.com/base-images/nginx:1.28.3
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
