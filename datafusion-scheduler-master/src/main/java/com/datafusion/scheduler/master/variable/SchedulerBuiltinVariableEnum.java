@@ -1,12 +1,12 @@
-package com.datafusion.common.variable.builtin;
+package com.datafusion.scheduler.master.variable;
 
 /**
- * 内置变量枚举.
+ * 调度内置变量枚举.
  *
  * <p>
- * 统一管理 DataFusion 内置变量：
+ * 统一管理 Scheduler 运行期内置变量：
  * <ul>
- *   <li>paramKey：系统内置变量编码，如 _now_time_</li>
+ *   <li>paramKey：系统变量目录编码，如 _now_time_</li>
  *   <li>paramName：表达式中使用的变量名，如 now_time</li>
  * </ul>
  *
@@ -14,7 +14,7 @@ package com.datafusion.common.variable.builtin;
  * @version 1.0.0, 2026/06/20
  * @since 2026/06/20
  */
-public enum BuiltinVariableEnum {
+public enum SchedulerBuiltinVariableEnum {
 
     /**
      * 当前时间（毫秒）.
@@ -71,7 +71,7 @@ public enum BuiltinVariableEnum {
      */
     private final String paramName;
 
-    BuiltinVariableEnum(String paramKey, String paramName) {
+    SchedulerBuiltinVariableEnum(String paramKey, String paramName) {
         this.paramKey = paramKey;
         this.paramName = paramName;
     }
@@ -100,11 +100,11 @@ public enum BuiltinVariableEnum {
      * @param paramKey 参数键
      * @return 枚举值
      */
-    public static BuiltinVariableEnum getByParamKey(String paramKey) {
+    public static SchedulerBuiltinVariableEnum getByParamKey(String paramKey) {
         if (paramKey == null) {
             return null;
         }
-        for (BuiltinVariableEnum variable : values()) {
+        for (SchedulerBuiltinVariableEnum variable : values()) {
             if (variable.getParamKey().equals(paramKey)) {
                 return variable;
             }
@@ -118,11 +118,11 @@ public enum BuiltinVariableEnum {
      * @param paramName 参数名
      * @return 枚举值
      */
-    public static BuiltinVariableEnum getByParamName(String paramName) {
+    public static SchedulerBuiltinVariableEnum getByParamName(String paramName) {
         if (paramName == null) {
             return null;
         }
-        for (BuiltinVariableEnum variable : values()) {
+        for (SchedulerBuiltinVariableEnum variable : values()) {
             if (variable.getParamName().equals(paramName)) {
                 return variable;
             }

@@ -2,16 +2,16 @@ package com.datafusion.scheduler.master.task.handler;
 
 import com.datafusion.scheduler.enums.ActionType;
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.common.variable.builtin.BuiltinVariableEnum;
 import com.datafusion.scheduler.master.actor.ActorSysContext;
 import com.datafusion.scheduler.master.event.GlobalEventOperator;
-import com.datafusion.scheduler.master.param.PlaceholderContext;
-import com.datafusion.scheduler.master.param.builtin.BuiltinParamResolver;
 import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.TaskMsg;
 import com.datafusion.scheduler.master.task.model.TaskInfo;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
 import com.datafusion.scheduler.master.task.storage.TaskStorage;
+import com.datafusion.scheduler.master.variable.PlaceholderContext;
+import com.datafusion.scheduler.master.variable.SchedulerBuiltinVariableEnum;
+import com.datafusion.scheduler.master.variable.SchedulerVariableResolver;
 import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.Variable;
 import lombok.extern.slf4j.Slf4j;
@@ -31,9 +31,9 @@ import java.util.Map;
 public class TaskInitMsgHandler extends AbstractTaskMsgHandler {
 
     /**
-     * 内置参数解析器.
+     * 调度变量解析器.
      */
-    private final BuiltinParamResolver builtinParamResolver = new BuiltinParamResolver();
+    private final SchedulerVariableResolver schedulerVariableResolver = new SchedulerVariableResolver();
 
     /**
      * 构造函数.
@@ -130,7 +130,7 @@ public class TaskInitMsgHandler extends AbstractTaskMsgHandler {
                 .scheduleTime(scheduleTime)
                 .variables(result.getVars())
                 .build();
-        builtinParamResolver.resolveBuiltinParams(context);
+        schedulerVariableResolver.resolveBuiltinVariables(context);
         return result;
     }
 
@@ -164,8 +164,8 @@ public class TaskInitMsgHandler extends AbstractTaskMsgHandler {
         if (variable == null || variable.getType() != null) {
             return false;
         }
-        return BuiltinVariableEnum.getByParamName(name) != null
-                || BuiltinVariableEnum.getByParamName(variable.getName()) != null;
+        return SchedulerBuiltinVariableEnum.getByParamName(name) != null
+                || SchedulerBuiltinVariableEnum.getByParamName(variable.getName()) != null;
     }
 
     /**

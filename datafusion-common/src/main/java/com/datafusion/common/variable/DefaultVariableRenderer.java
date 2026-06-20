@@ -1,9 +1,7 @@
 package com.datafusion.common.variable;
 
-import com.datafusion.common.variable.builtin.BuiltinVariableResolver;
-import com.datafusion.common.variable.builtin.VariableRenderContext;
 import com.datafusion.common.variable.engine.AviatorExpressionEngine;
-import com.datafusion.common.variable.engine.BuiltinTimeExpressionEngine;
+import com.datafusion.common.variable.engine.BuiltinFunctionEngine;
 import com.datafusion.common.variable.engine.PlaceholderEngine;
 import com.datafusion.common.variable.engine.VariableRenderEngine;
 
@@ -11,23 +9,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 变量渲染门面.
+ * 默认变量渲染器.
  *
  * @author lanvendar
  * @version 1.0.0, 2026/06/20
  * @since 2026/06/20
  */
-public class VariableRenderFacade {
+public class DefaultVariableRenderer implements VariableRenderer {
 
     /**
      * tokenizer.
      */
     private final PlaceholderTokenizer tokenizer = new PlaceholderTokenizer();
-
-    /**
-     * 内置变量解析器.
-     */
-    private final BuiltinVariableResolver builtinVariableResolver = new BuiltinVariableResolver();
 
     /**
      * 引擎列表.
@@ -37,24 +30,17 @@ public class VariableRenderFacade {
     /**
      * 构造函数.
      */
-    public VariableRenderFacade() {
+    public DefaultVariableRenderer() {
         engines.add(new VariableRenderEngine());
-        engines.add(new BuiltinTimeExpressionEngine());
+        engines.add(new BuiltinFunctionEngine());
         engines.add(new AviatorExpressionEngine());
     }
 
-    /**
-     * 渲染文本.
-     *
-     * @param value   文本
-     * @param context 渲染上下文
-     * @return 渲染结果
-     */
+    @Override
     public String render(String value, VariableRenderContext context) {
         if (value == null || value.isEmpty()) {
             return value;
         }
-        builtinVariableResolver.resolveBuiltinVariables(context);
         List<PlaceholderToken> tokens = tokenizer.scan(value);
         if (tokens.isEmpty()) {
             return value;
@@ -73,7 +59,7 @@ public class VariableRenderFacade {
     /**
      * 渲染 token.
      *
-     * @param token token
+     * @param token   token
      * @param context 上下文
      * @return 渲染结果
      */

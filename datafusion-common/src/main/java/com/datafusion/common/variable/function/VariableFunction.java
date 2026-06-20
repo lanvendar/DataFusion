@@ -1,17 +1,17 @@
 package com.datafusion.common.variable.function;
 
-import com.datafusion.common.variable.builtin.VariableRenderContext;
+import com.datafusion.common.variable.VariableRenderContext;
 
 import java.util.List;
 
 /**
- * 内置函数接口.
+ * 变量函数接口.
  *
  * @author lanvendar
  * @version 1.0.0, 2026/06/20
  * @since 2026/06/20
  */
-public interface BuiltinFunc {
+public interface VariableFunction {
 
     /**
      * 函数名.

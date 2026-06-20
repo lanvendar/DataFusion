@@ -265,16 +265,12 @@ datafusion-common-data/src/main/java/com/datafusion/scheduler/model/Variable.jav
 
 `common.variable` 不再另起一套变量值模型，避免 `Variable`、`VariableValue`、`VariableDefinition` 多套对象互转。
 
-建议分包：
+建议包结构：
 
 | 包 | 职责 |
 |----|------|
-| `common.variable.token` | 扫描 `#(var)`、`#func(...)`、`#expr(...)` token |
-| `common.variable.parser` | 解析函数参数、字符串字面量、转义和逗号 |
-| `common.variable.context` | 定义通用渲染上下文，变量字段使用 `Map<String, Variable>` |
-| `common.variable.engine` | 定义变量、函数、表达式渲染引擎接口 |
+| `common.variable` | token 扫描、函数参数解析、渲染上下文、渲染器、引擎接口和通用引擎实现 |
 | `common.variable.function` | 定义函数接口、函数注册表接口，以及 `day` / `timestamp` 的通用实现 |
-| `common.variable.render` | 定义通用渲染门面接口和无领域编排骨架 |
 
 调度模块提供具体实现：
 
@@ -287,8 +283,8 @@ datafusion-scheduler-master/src/main/java/com/datafusion/scheduler/master/variab
 - 将调度上下文转换为 `common.variable` 的渲染上下文。
 - 注入 `schedule_time`、`biz_align`、`event_align` 等调度内置变量。
 - 维护调度领域变量目录枚举。
-- 注册并调用 `common.variable.function` 提供的通用 `day` / `timestamp` 函数。
-- 保证 `FlowInstance`、`TaskInstance` 读取统一求值结果，不再各自实现时间解析。
+- 调用 `common.variable` 提供的通用 renderer 和 `day` / `timestamp` 函数。
+- 保证 `FlowInstance`、`TaskInstance` 只读取统一求值结果，不再各自实现时间解析或兜底计算。
 
 ## 12. 推荐分层
 
@@ -318,22 +314,24 @@ datafusion-scheduler-master/src/main/java/com/datafusion/scheduler/master/variab
 
 | 对象 | 所属模块 | 职责 |
 |------|----------|------|
-| `VariableRenderContext` | `datafusion-common` | 通用渲染上下文，持有 `Map<String, Variable>` 和默认时间戳 |
+| `VariableRenderContext` | `datafusion-common` | 通用渲染上下文，只持有 `Map<String, Variable>` |
+| `SqlVariableRenderContext` | `datafusion-common` | SQL 模板变量渲染上下文，持有 `templateSqlTime` |
 | `VariableResolver` | `datafusion-common` | 定义变量环境预处理接口，不包含调度实现 |
 | `SchedulerBuiltinTimeResolver` | `datafusion-scheduler-master` | 统一解析 `schedule_time`、`biz_align`、`event_align` 和派生时间 |
 | `SchedulerVariableResolver` | `datafusion-scheduler-master` | 编排调度内置变量解析并写回变量环境 |
-| `PlaceholderContext` | `datafusion-scheduler-master` | 承载 `scheduleTime` 和变量环境，不再放 `biz/event` 定制字段 |
+| `PlaceholderContext` | `datafusion-scheduler-master` | 继承 `VariableRenderContext`，承载 `scheduleTime`，不再放 `biz/event` 定制字段 |
 
 约束：
 
 - `datafusion-common` 只定义 `VariableResolver` 接口，不内置调度变量解析实现。
 - `SchedulerVariableResolver` 不直接散写 `biz/event` 两套时间计算逻辑，应委托 `SchedulerBuiltinTimeResolver`。
-- `FlowInstance` 和 `TaskInstance` 只读取统一求值结果。
-- `FlowInstance` 和 `TaskInstance` 不维护自己的 `parseLong` 或 align 逻辑。
+- `FlowInstance` 和 `TaskInstance` 只读取统一求值结果，不在缺少 `event_time` 时基于 `schedule_time` 和 `event_align` 兜底计算。
+- `FlowInstance` 和 `TaskInstance` 不持有 `SchedulerBuiltinTimeResolver`。
 - 派生变量由解析器生成并覆盖同名输入。
 - 变量字段统一使用 `Map<String, Variable>`，其中 `Variable` 来自 `datafusion-common-data`。
-- 通用上下文中的默认时间字段命名为 `defaultTimeMillis`，Scheduler 适配层负责把 `scheduleTime` 映射过去。
-- `defaultTimeMillis` 的类型是毫秒时间戳 `Long`，不是格式化字符串。
+- `VariableRenderContext` 基类只保留变量环境，默认时间由子类提供。
+- `PlaceholderContext` 通过继承关系直接作为通用渲染上下文使用，并将 `scheduleTime` 暴露为默认时间语义。
+- `SqlVariableRenderContext.templateSqlTime` 的类型是毫秒时间戳 `Long`，不是格式化字符串。
 - common 日期函数默认格式化输出使用 Java 24 小时制格式 `yyyyMMddHHmmss`；文档或 SQL 语境中的 `yyyyMMddHH24mmss` 语义等价，落到 Java 实现时使用 `yyyyMMddHHmmss`。
 
 ### 12.3 Token 扫描层
@@ -363,21 +361,22 @@ Token 扫描层负责从普通 SQL、JSON、文本中识别 `#...` 片段。
 
 | 对象 | 所属模块 | 职责 |
 |------|----------|------|
-| `PlaceholderEngine` | `datafusion-common` | 渲染引擎接口 |
-| `VariableRenderEngine` | `datafusion-scheduler-master` | 渲染 `#(var)`，按 `Map<String, Variable>` 查值 |
-| `BuiltinFunctionEngine` | `datafusion-scheduler-master` | 渲染 `#day(...)`、`#timestamp(...)` 等函数 |
-| `AviatorExpressionEngine` | `datafusion-scheduler-master` | 渲染 `#expr(...)` |
+| `PlaceholderEngine` | `datafusion-common` / `common.variable.engine` | 渲染引擎接口 |
+| `VariableRenderEngine` | `datafusion-common` / `common.variable.engine` | 渲染 `#(var)`，按 `Map<String, Variable>` 查值 |
+| `BuiltinFunctionEngine` | `datafusion-common` / `common.variable.engine` | 渲染 `#day(...)`、`#timestamp(...)` 等函数 |
+| `DefaultVariableRenderer` | `datafusion-common` | 编排 tokenizer 和通用 engine，支持构造期追加领域 engine |
+| `AviatorExpressionEngine` | `datafusion-common` / `common.variable.engine` | 渲染 `#expr(...)` |
 | `VariableFunction` | `datafusion-common` | 函数接口 |
 | `VariableFunctionRegistry` | `datafusion-common` | 函数注册表接口 |
 | `DayVariableFunction` | `datafusion-common` | `day` 通用函数实现，只处理入参值、offset、suffix、pattern |
 | `TimestampVariableFunction` | `datafusion-common` | `timestamp` 通用函数实现，只处理入参值到毫秒时间戳的转换 |
-| `SchedulerVariableFunctionRegistry` | `datafusion-scheduler-master` | 注册调度场景可用函数，默认复用 common 的 `day` / `timestamp` |
 
 约束：
 
 - 引擎由门面类在构造期固定。
 - 不暴露运行期全局可变 `addHandler`。
 - `BuiltinFunctionEngine` 只负责函数 token 分发，具体函数逻辑由 `VariableFunction` 实现。
+- `DefaultVariableRenderer` 默认包含 `VariableRenderEngine`、`BuiltinFunctionEngine` 和 `AviatorExpressionEngine`。
 - `DayVariableFunction`、`TimestampVariableFunction` 不依赖 `SchedulerBuiltinVariableEnum`。
 - `DayVariableFunction`、`TimestampVariableFunction` 可以被 scheduler variable 和 JFinal SQL 模板共同复用。
 - `AviatorExpressionEngine` 使用独立变量环境，不直接暴露 `Variable` 对象。
@@ -393,8 +392,7 @@ Token 扫描层负责从普通 SQL、JSON、文本中识别 `#...` 片段。
 ```text
 SchedulerVariableFacade.render(text, placeholderContext)
   -> SchedulerVariableResolver.resolve(placeholderContext)
-  -> build VariableRenderContext
-  -> VariableRenderer.render(text, context)
+  -> VariableRenderer.render(text, placeholderContext)
   -> PlaceholderTokenizer.scan(text)
   -> for each token:
        find engine
@@ -435,17 +433,22 @@ SchedulerVariableFacade.render(text, placeholderContext)
 
 | 文件 | 说明 |
 |------|------|
-| `common/variable/token/PlaceholderTokenizer.java` | 扫描 token |
-| `common/variable/token/PlaceholderToken.java` | token 数据对象 |
-| `common/variable/parser/FunctionArgumentParser.java` | 函数参数解析 |
-| `common/variable/context/VariableRenderContext.java` | 通用上下文 |
-| `common/variable/resolver/VariableResolver.java` | 变量环境预处理接口 |
+| `common/variable/PlaceholderTokenizer.java` | 扫描 token |
+| `common/variable/PlaceholderToken.java` | token 数据对象 |
+| `common/variable/VariableRenderContext.java` | 通用上下文 |
+| `common/variable/SqlVariableRenderContext.java` | SQL 模板变量渲染上下文 |
+| `common/variable/VariableResolver.java` | 变量环境预处理接口 |
+| `common/variable/DefaultVariableRenderer.java` | 默认渲染器 |
+| `common/variable/engine/FunctionArgumentParser.java` | 函数参数解析 |
 | `common/variable/engine/PlaceholderEngine.java` | 引擎接口 |
+| `common/variable/engine/VariableRenderEngine.java` | 变量渲染引擎 |
+| `common/variable/engine/BuiltinFunctionEngine.java` | 函数分发引擎 |
+| `common/variable/engine/AviatorExpressionEngine.java` | Aviator 表达式引擎 |
 | `common/variable/function/VariableFunction.java` | 函数接口 |
 | `common/variable/function/VariableFunctionRegistry.java` | 函数注册表接口 |
 | `common/variable/function/DayVariableFunction.java` | `day` 通用函数 |
 | `common/variable/function/TimestampVariableFunction.java` | `timestamp` 通用函数 |
-| `common/variable/render/VariableRenderer.java` | 渲染门面接口 |
+| `common/variable/VariableRenderer.java` | 渲染门面接口 |
 
 验收：
 
@@ -499,9 +502,10 @@ SchedulerVariableFacade.render(text, placeholderContext)
 改造内容：
 
 - `SchedulerVariableFacade` 改为 token 扫描和 engine 分发。
-- 新增或迁移 `VariableRenderEngine` 到 scheduler variable 包。
-- 新增或迁移 `BuiltinFunctionEngine` 到 scheduler variable 包。
-- scheduler variable 包注册并调用 common 的 `DayVariableFunction`、`TimestampVariableFunction`。
+- 调度侧 `SchedulerVariableFacade` 使用 common 的 `DefaultVariableRenderer`。
+- common 的 `DefaultVariableRenderer` 默认注册 `VariableRenderEngine`、`BuiltinFunctionEngine`
+  和 `AviatorExpressionEngine`。
+- scheduler variable 包直接使用 common 的 `DefaultVariableRenderer`，并复用 common 的 `DayVariableFunction`、`TimestampVariableFunction`。
 - 删除旧 `VarPlaceholderHandler`、`ExpPlaceholderHandler`、`PropertyPlaceholderHelper` 和旧 `exp/func` 函数体系。
 - 将后续内置函数扩展入口抽象为 `datafusion-common` 下的 `VariableFunction` / `VariableFunctionRegistry` 接口；无领域函数可放 common，调度专属函数放 scheduler variable 包。
 
@@ -526,8 +530,8 @@ SchedulerVariableFacade.render(text, placeholderContext)
 - `DateCalDirective` 复用 common 的 `DayVariableFunction` 或同一底层日期函数计算逻辑。
 - SQL 模板不再保留旧四参顺序。
 - SQL 模板不复用 scheduler 内置变量，不自动注入 `now_time`、`now_date`、`biz_time`、`biz_date`、`event_time`、`event_date`、`schedule_time`、`biz_align`、`event_align`。
-- SQL 模板调用 common 日期函数时，无参 `#day()` 的 `defaultTimeMillis` 使用当前系统时间。
-- Scheduler 调用 common 日期函数时，无参 `#day()` 的 `defaultTimeMillis` 使用 `PlaceholderContext.scheduleTime`。
+- SQL 模板调用 common 日期函数时，无参 `#day()` 的默认时间使用 `SqlVariableRenderContext.templateSqlTime`。
+- Scheduler 调用 common 日期函数时，无参 `#day()` 的默认时间使用 `PlaceholderContext.scheduleTime`。
 
 统一规则：
 

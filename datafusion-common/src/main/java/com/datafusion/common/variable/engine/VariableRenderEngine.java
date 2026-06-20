@@ -1,9 +1,8 @@
 package com.datafusion.common.variable.engine;
 
-import com.datafusion.common.variable.builtin.VariableRenderContext;
 import com.datafusion.common.variable.PlaceholderToken;
 import com.datafusion.common.variable.PlaceholderTokenType;
-import com.datafusion.common.variable.VariableUtils;
+import com.datafusion.common.variable.VariableRenderContext;
 
 /**
  * 变量渲染引擎.
@@ -29,7 +28,7 @@ public class VariableRenderEngine implements PlaceholderEngine {
         if (token == null || context == null || context.getVariables() == null) {
             return token == null ? null : token.getRawText();
         }
-        String value = VariableUtils.value(context.getVariables().get(token.getName()));
+        String value = context.getVariableValue(token.getName());
         return value == null ? token.getRawText() : value;
     }
 }

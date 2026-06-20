@@ -1,27 +1,22 @@
-package com.datafusion.common.variable.builtin;
+package com.datafusion.scheduler.master.variable;
 
 import com.datafusion.common.date.DateCalUtil;
 import com.datafusion.common.date.DateTimeStamp;
 import com.datafusion.common.enums.TimeAlignmentEnum;
-import com.datafusion.common.variable.VariableUtils;
+import com.datafusion.common.variable.function.AbstractTimeVariableFunction;
 import com.datafusion.scheduler.model.Variable;
 
 import java.util.Date;
 import java.util.Map;
 
 /**
- * 内置时间变量求值工具.
+ * 调度内置时间变量求值器.
  *
  * @author lanvendar
  * @version 1.0.0, 2026/06/20
  * @since 2026/06/20
  */
-public class BuiltinTimeParams {
-
-    /**
-     * 默认日期格式.
-     */
-    public static final String DEFAULT_PATTERN = "yyyyMMddHHmmss";
+public class SchedulerBuiltinTimeResolver {
 
     /**
      * 默认时间对齐格式.
@@ -39,7 +34,7 @@ public class BuiltinTimeParams {
         if (fallbackScheduleTime != null) {
             return fallbackScheduleTime;
         }
-        return parseLong(variableValue(variables, BuiltinVariableEnum.SCHEDULE_TIME));
+        return parseLong(variableValue(variables, SchedulerBuiltinVariableEnum.SCHEDULE_TIME));
     }
 
     /**
@@ -49,7 +44,7 @@ public class BuiltinTimeParams {
      * @return 业务时间对齐格式
      */
     public String bizAlign(Map<String, Variable> variables) {
-        return alignOrDefault(variableValue(variables, BuiltinVariableEnum.BIZ_ALIGN));
+        return alignOrDefault(variableValue(variables, SchedulerBuiltinVariableEnum.BIZ_ALIGN));
     }
 
     /**
@@ -59,7 +54,7 @@ public class BuiltinTimeParams {
      * @return 事件时间对齐格式
      */
     public String eventAlign(Map<String, Variable> variables) {
-        return alignOrDefault(variableValue(variables, BuiltinVariableEnum.EVENT_ALIGN));
+        return alignOrDefault(variableValue(variables, SchedulerBuiltinVariableEnum.EVENT_ALIGN));
     }
 
     /**
@@ -112,22 +107,7 @@ public class BuiltinTimeParams {
         if (timestamp == null) {
             return null;
         }
-        return DateCalUtil.format(new Date(timestamp), DEFAULT_PATTERN);
-    }
-
-    /**
-     * 按指定格式格式化时间.
-     *
-     * @param timestamp 时间戳
-     * @param pattern   日期格式
-     * @return 格式化后的时间
-     */
-    public String formatTime(Long timestamp, String pattern) {
-        if (timestamp == null) {
-            return null;
-        }
-        String resolvedPattern = pattern == null || pattern.trim().isEmpty() ? DEFAULT_PATTERN : pattern;
-        return DateCalUtil.format(new Date(timestamp), resolvedPattern);
+        return DateCalUtil.format(new Date(timestamp), AbstractTimeVariableFunction.DEFAULT_PATTERN);
     }
 
     /**
@@ -154,11 +134,12 @@ public class BuiltinTimeParams {
      * @param variable  内置变量
      * @return 变量值
      */
-    private String variableValue(Map<String, Variable> variables, BuiltinVariableEnum variable) {
+    private String variableValue(Map<String, Variable> variables, SchedulerBuiltinVariableEnum variable) {
         if (variables == null) {
             return null;
         }
-        return VariableUtils.value(variables.get(variable.getParamName()));
+        Variable target = variables.get(variable.getParamName());
+        return target == null ? null : target.getValue();
     }
 
     /**

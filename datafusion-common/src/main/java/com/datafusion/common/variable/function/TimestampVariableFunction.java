@@ -1,17 +1,17 @@
 package com.datafusion.common.variable.function;
 
-import com.datafusion.common.variable.builtin.VariableRenderContext;
+import com.datafusion.common.variable.VariableRenderContext;
 
 import java.util.List;
 
 /**
- * timestamp 内置函数.
+ * timestamp 变量函数.
  *
  * @author lanvendar
  * @version 1.0.0, 2026/06/20
  * @since 2026/06/20
  */
-public class TimestampBuiltinFunc extends AbstractTimeBuiltinFunc {
+public class TimestampVariableFunction extends AbstractTimeVariableFunction {
 
     @Override
     public String name() {

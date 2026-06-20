@@ -1,9 +1,8 @@
 package com.datafusion.scheduler.master.task.model;
 
 import cn.hutool.core.collection.CollectionUtil;
-import com.datafusion.common.variable.builtin.BuiltinVariableEnum;
-import com.datafusion.common.variable.builtin.BuiltinTimeParams;
 import com.datafusion.scheduler.enums.StatusEnum;
+import com.datafusion.scheduler.master.variable.SchedulerBuiltinVariableEnum;
 import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.PluginData;
 import com.datafusion.scheduler.model.TaskResult;
@@ -11,7 +10,6 @@ import com.datafusion.scheduler.model.Variable;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -24,11 +22,6 @@ import java.util.Set;
  */
 @Data
 public class TaskInstance {
-
-    /**
-     * 内置时间变量求值工具.
-     */
-    private static final BuiltinTimeParams BUILTIN_TIME_PARAMS = new BuiltinTimeParams();
 
     /**
      * 默认重试次数.
@@ -171,21 +164,7 @@ public class TaskInstance {
      * @return 事件时间
      */
     public Long eventTime() {
-        Long eventTime = null;
-        if (this.getTaskParam() != null) {
-            Map<String, Variable> vars = taskParam.getVars();
-            if (vars != null) {
-                Variable v = vars.get(BuiltinVariableEnum.EVENT_TIME.getParamName());
-                if (v != null) {
-                    eventTime = BUILTIN_TIME_PARAMS.parseLong(v.getValue());
-                    if (eventTime != null) {
-                        return eventTime;
-                    }
-                }
-                return alignedEventTime();
-            }
-        }
-        return eventTime;
+        return longValue(SchedulerBuiltinVariableEnum.EVENT_TIME);
     }
 
     /**
@@ -194,56 +173,39 @@ public class TaskInstance {
      * @return 时间段
      */
     public String eventSegment() {
-        String eventSegment = null;
-        if (this.getTaskParam() != null) {
-            Map<String, Variable> vars = taskParam.getVars();
-            if (vars != null) {
-                Variable v = vars.get(BuiltinVariableEnum.EVENT_ALIGN.getParamName());
-                if (v != null) {
-                    eventSegment = v.getValue();
-                    return eventSegment;
-                }
-            }
-        }
-        return eventSegment;
+        return stringValue(SchedulerBuiltinVariableEnum.EVENT_ALIGN);
     }
 
     /**
-     * 根据调度时间和事件对齐格式计算事件时间.
+     * 获取长整型变量值.
      *
-     * @return 事件时间
+     * @param variable 内置变量
+     * @return 长整型变量值
      */
-    private Long alignedEventTime() {
-        Long scheduleTime = scheduleTime();
-        if (scheduleTime == null) {
+    private Long longValue(SchedulerBuiltinVariableEnum variable) {
+        String value = stringValue(variable);
+        if (value == null || value.trim().isEmpty()) {
             return null;
         }
-        return BUILTIN_TIME_PARAMS.eventTime(toCommonVariables(), scheduleTime);
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**
-     * 获取调度时间.
+     * 获取字符串变量值.
      *
-     * @return 调度时间
+     * @param variable 内置变量
+     * @return 字符串变量值
      */
-    private Long scheduleTime() {
-        if (this.getTaskParam() == null || taskParam.getVars() == null) {
+    private String stringValue(SchedulerBuiltinVariableEnum variable) {
+        if (taskParam == null || taskParam.getVars() == null) {
             return null;
         }
-        Variable scheduleTime = taskParam.getVars().get(BuiltinVariableEnum.SCHEDULE_TIME.getParamName());
-        if (scheduleTime == null || scheduleTime.getValue() == null || scheduleTime.getValue().trim().isEmpty()) {
-            return null;
-        }
-        return BUILTIN_TIME_PARAMS.parseLong(scheduleTime.getValue());
-    }
-
-    /**
-     * 转换为通用变量映射.
-     *
-     * @return 通用变量映射
-     */
-    private Map<String, Variable> toCommonVariables() {
-        return taskParam == null ? null : taskParam.getVars();
+        Variable value = taskParam.getVars().get(variable.getParamName());
+        return value == null ? null : value.getValue();
     }
 
     /**

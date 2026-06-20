@@ -1,8 +1,8 @@
 package com.datafusion.common.variable.engine;
 
-import com.datafusion.common.variable.builtin.VariableRenderContext;
 import com.datafusion.common.variable.PlaceholderToken;
 import com.datafusion.common.variable.PlaceholderTokenType;
+import com.datafusion.common.variable.VariableRenderContext;
 
 /**
  * Aviator 表达式引擎占位.

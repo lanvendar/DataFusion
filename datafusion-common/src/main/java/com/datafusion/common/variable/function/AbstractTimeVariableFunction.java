@@ -1,27 +1,24 @@
 package com.datafusion.common.variable.function;
 
 import com.datafusion.common.date.DateCalUtil;
-import com.datafusion.common.variable.builtin.BuiltinVariableEnum;
-import com.datafusion.common.variable.builtin.VariableRenderContext;
-import com.datafusion.common.variable.builtin.BuiltinTimeParams;
-import com.datafusion.common.variable.VariableUtils;
+import com.datafusion.common.variable.VariableRenderContext;
 
 import java.util.Date;
 import java.util.List;
 
 /**
- * 时间内置函数抽象类.
+ * 时间变量函数抽象类.
  *
  * @author lanvendar
  * @version 1.0.0, 2026/06/20
  * @since 2026/06/20
  */
-public abstract class AbstractTimeBuiltinFunc implements BuiltinFunc {
+public abstract class AbstractTimeVariableFunction implements VariableFunction {
 
     /**
-     * 时间求值工具.
+     * 默认日期格式.
      */
-    protected final BuiltinTimeParams timeParams = new BuiltinTimeParams();
+    public static final String DEFAULT_PATTERN = "yyyyMMddHHmmss";
 
     /**
      * 获取参数.
@@ -53,18 +50,12 @@ public abstract class AbstractTimeBuiltinFunc implements BuiltinFunc {
      * @return 基础日期
      */
     protected Date resolveBaseDate(String base, VariableRenderContext context) {
-        if (base == null || base.trim().isEmpty()) {
-            Long scheduleTime = context == null ? null : context.getScheduleTime();
-            return scheduleTime == null ? null : new Date(scheduleTime);
-        }
-        String trimmedBase = base.trim();
-        String value = resolveBaseValue(trimmedBase, context);
+        String value = resolveBaseValue(base, context);
         if (value == null || value.trim().isEmpty()) {
             return null;
         }
-        BuiltinVariableEnum builtinVariable = BuiltinVariableEnum.getByParamName(trimmedBase);
-        if (isTimestampVariable(builtinVariable) || isTimestampLiteral(value)) {
-            Long baseTime = timeParams.parseLong(value);
+        if (isTimestampLiteral(value)) {
+            Long baseTime = parseLong(value);
             return baseTime == null ? null : new Date(baseTime);
         }
         return DateCalUtil.checkStringDate(value);
@@ -78,15 +69,38 @@ public abstract class AbstractTimeBuiltinFunc implements BuiltinFunc {
      * @return 基础时间戳
      */
     protected Long resolveBaseTime(String base, VariableRenderContext context) {
-        if (base == null || base.trim().isEmpty()) {
-            return context == null ? null : context.getScheduleTime();
-        }
         String value = resolveBaseValue(base, context);
-        Long parsed = timeParams.parseLong(value);
-        if (parsed != null) {
-            return parsed;
+        return parseLong(value);
+    }
+
+    /**
+     * 格式化时间.
+     *
+     * @param timestamp 时间戳
+     * @return 格式化后的时间
+     */
+    public String formatTime(Long timestamp) {
+        if (timestamp == null) {
+            return null;
         }
-        return null;
+        return DateCalUtil.format(new Date(timestamp), DEFAULT_PATTERN);
+    }
+
+    /**
+     * 解析长整型.
+     *
+     * @param value 文本值
+     * @return 长整型
+     */
+    public Long parseLong(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**
@@ -98,29 +112,17 @@ public abstract class AbstractTimeBuiltinFunc implements BuiltinFunc {
      */
     private String resolveBaseValue(String base, VariableRenderContext context) {
         if (base == null || base.trim().isEmpty()) {
-            return context == null || context.getScheduleTime() == null ? null : String.valueOf(context.getScheduleTime());
+            Long defaultTimeMillis = context == null ? null : context.getDefaultTimeMillis();
+            return defaultTimeMillis == null ? null : String.valueOf(defaultTimeMillis);
         }
         String trimmed = base.trim();
         if (context != null && context.getVariables() != null) {
-            String value = VariableUtils.value(context.getVariables().get(trimmed));
+            String value = context.getVariableValue(trimmed);
             if (value != null) {
                 return value;
             }
         }
         return trimmed;
-    }
-
-    /**
-     * 判断是否是时间戳变量.
-     *
-     * @param builtinVariable 内置变量
-     * @return 是否是时间戳变量
-     */
-    private boolean isTimestampVariable(BuiltinVariableEnum builtinVariable) {
-        return BuiltinVariableEnum.NOW_TIME == builtinVariable
-                || BuiltinVariableEnum.SCHEDULE_TIME == builtinVariable
-                || BuiltinVariableEnum.BIZ_TIME == builtinVariable
-                || BuiltinVariableEnum.EVENT_TIME == builtinVariable;
     }
 
     /**

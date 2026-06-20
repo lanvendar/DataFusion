@@ -1,7 +1,7 @@
 package com.datafusion.common.variable.engine;
 
-import com.datafusion.common.variable.builtin.VariableRenderContext;
 import com.datafusion.common.variable.PlaceholderToken;
+import com.datafusion.common.variable.VariableRenderContext;
 
 /**
  * 占位符渲染引擎.
@@ -30,7 +30,7 @@ public interface PlaceholderEngine {
     /**
      * 渲染 token.
      *
-     * @param token token
+     * @param token   token
      * @param context 上下文
      * @return 渲染结果
      */

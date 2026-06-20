@@ -9,8 +9,8 @@ import com.datafusion.scheduler.master.flow.FlowMsg;
 import com.datafusion.scheduler.master.flow.model.FlowInfo;
 import com.datafusion.scheduler.master.flow.model.FlowInstance;
 import com.datafusion.scheduler.master.flow.storage.FlowStorage;
-import com.datafusion.scheduler.master.param.PlaceholderContext;
-import com.datafusion.scheduler.master.param.builtin.BuiltinParamResolver;
+import com.datafusion.scheduler.master.variable.PlaceholderContext;
+import com.datafusion.scheduler.master.variable.SchedulerVariableResolver;
 import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.Variable;
 import lombok.extern.slf4j.Slf4j;
@@ -32,9 +32,9 @@ import java.util.function.Supplier;
 public class FlowInitMsgHandler extends AbstractFlowMsgHandler {
 
     /**
-     * 内置参数解析器.
+     * 调度变量解析器.
      */
-    private final BuiltinParamResolver builtinParamResolver = new BuiltinParamResolver();
+    private final SchedulerVariableResolver schedulerVariableResolver = new SchedulerVariableResolver();
 
     /**
      * 构造函数.
@@ -139,7 +139,7 @@ public class FlowInitMsgHandler extends AbstractFlowMsgHandler {
                 .scheduleTime(scheduleTime)
                 .variables(paramData.getVars())
                 .build();
-        builtinParamResolver.resolveBuiltinParams(context);
+        schedulerVariableResolver.resolveBuiltinVariables(context);
     }
 
     /**

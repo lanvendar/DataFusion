@@ -9,12 +9,12 @@ import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.master.actor.ActorSysContext;
 import com.datafusion.scheduler.master.event.GlobalEventOperator;
 import com.datafusion.scheduler.master.flow.FlowMsg;
-import com.datafusion.scheduler.master.param.PlaceholderContext;
-import com.datafusion.scheduler.master.param.PlaceholderFacade;
 import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.TaskMsg;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
 import com.datafusion.scheduler.master.task.storage.TaskStorage;
+import com.datafusion.scheduler.master.variable.PlaceholderContext;
+import com.datafusion.scheduler.master.variable.SchedulerVariableFacade;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.Variable;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -150,7 +150,7 @@ public class TaskSubmitMsgHandler extends AbstractTaskMsgHandler {
         PlaceholderContext context = PlaceholderContext.builder()
                 .variables(copyVars(taskIns))
                 .build();
-        String renderedDefinition = PlaceholderFacade.getInstance().replacePlaceholders(definitionText, context);
+        String renderedDefinition = SchedulerVariableFacade.getInstance().replacePlaceholders(definitionText, context);
         return JacksonUtils.tryStr2JsonNode(renderedDefinition);
     }
 

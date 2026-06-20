@@ -59,26 +59,56 @@ public class PlaceholderToken {
         this.endIndex = endIndex;
     }
 
+    /**
+     * 获取 token 类型.
+     *
+     * @return token 类型
+     */
     public PlaceholderTokenType getType() {
         return type;
     }
 
+    /**
+     * 获取函数名或变量名.
+     *
+     * @return 函数名或变量名
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * 获取原始文本.
+     *
+     * @return 原始文本
+     */
     public String getRawText() {
         return rawText;
     }
 
+    /**
+     * 获取参数文本.
+     *
+     * @return 参数文本
+     */
     public String getArgumentsText() {
         return argumentsText;
     }
 
+    /**
+     * 获取起始下标.
+     *
+     * @return 起始下标
+     */
     public int getStartIndex() {
         return startIndex;
     }
 
+    /**
+     * 获取结束下标.
+     *
+     * @return 结束下标
+     */
     public int getEndIndex() {
         return endIndex;
     }

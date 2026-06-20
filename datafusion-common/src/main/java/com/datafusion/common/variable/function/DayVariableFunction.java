@@ -1,20 +1,19 @@
 package com.datafusion.common.variable.function;
 
 import com.datafusion.common.date.DateCalUtil;
-import com.datafusion.common.variable.builtin.VariableRenderContext;
-import com.datafusion.common.variable.builtin.BuiltinTimeParams;
+import com.datafusion.common.variable.VariableRenderContext;
 
 import java.util.Date;
 import java.util.List;
 
 /**
- * day 内置函数.
+ * day 变量函数.
  *
  * @author lanvendar
  * @version 1.0.0, 2026/06/20
  * @since 2026/06/20
  */
-public class DayBuiltinFunc extends AbstractTimeBuiltinFunc {
+public class DayVariableFunction extends AbstractTimeVariableFunction {
 
     @Override
     public String name() {
@@ -29,7 +28,7 @@ public class DayBuiltinFunc extends AbstractTimeBuiltinFunc {
         String base = argument(arguments, 0);
         String offset = null;
         String suffix = null;
-        String pattern = BuiltinTimeParams.DEFAULT_PATTERN;
+        String pattern = DEFAULT_PATTERN;
         if (arguments.size() == 2) {
             String second = argument(arguments, 1);
             if (DateCalUtil.isOffsetExp(second)) {
