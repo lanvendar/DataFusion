@@ -47,8 +47,15 @@ public abstract class AbstractDateBuiltinFunc implements BuiltinFunc {
                     // now_time / now_date -> 系统当前时间
                     baseDate = new Date(System.currentTimeMillis());
                     break;
+                case SCHEDULE_TIME:
+                    if (scheduleTime != null) {
+                        baseDate = new Date(scheduleTime);
+                    }
+                    break;
                 case BIZ_TIME:
                 case BIZ_DATE:
+                case EVENT_TIME:
+                case EVENT_DATE:
                     // biz_time / biz_date
                     if (align != null && !align.isEmpty()) {
                         // 有对齐格式 -> 按对齐格式返回

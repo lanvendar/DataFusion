@@ -87,6 +87,7 @@ public class VariableInfoServiceImpl extends ServiceImpl<VariableInfoMapper, Var
         entity.setType(TYPE_CUSTOM);
         entity.setValueType(dto.getValueType());
         entity.setValue(dto.getValue());
+        entity.setRemark(dto.getRemark());
 
         Date now = new Date();
         entity.setCreator(HttpUtils.getCurrentUserName());
@@ -124,6 +125,9 @@ public class VariableInfoServiceImpl extends ServiceImpl<VariableInfoMapper, Var
             }
             if (dto.getValue() != null) {
                 entity.setValue(dto.getValue());
+            }
+            if (dto.getRemark() != null) {
+                entity.setRemark(dto.getRemark());
             }
         }
 
@@ -206,6 +210,7 @@ public class VariableInfoServiceImpl extends ServiceImpl<VariableInfoMapper, Var
         dto.setType(entity.getType());
         dto.setValueType(entity.getValueType());
         dto.setValue(entity.getValue());
+        dto.setRemark(entity.getRemark());
         dto.setCreator(entity.getCreator());
         dto.setUpdater(entity.getUpdater());
         dto.setCreateTime(entity.getCreateTime());

@@ -21,11 +21,12 @@ code varchar(255) NOT NULL, -- 变量编码
 "type" varchar(50) NOT NULL, -- 变量类型:CUSTOM(自定义);SYSTEM(系统全局)
 value_type varchar(255) NOT NULL, -- 变量值类型
 value text NULL, -- 值
+remark text NULL, -- 参数备注
 creator varchar(100) NOT NULL, -- 创建人
 updater varchar(100) NOT NULL, -- 修改人
 create_time timestamp(6) NOT NULL, -- 创建时间
 update_time timestamp(6) NOT NULL, -- 修改时间
-CONSTRAINT variable_info_pkey PRIMARY KEY (id)
+CONSTRAINT system_variable_info_pkey PRIMARY KEY (id)
 );
 
 -- Column comments
@@ -35,6 +36,7 @@ COMMENT ON COLUMN system_variable_info."name" IS '变量名称';
 COMMENT ON COLUMN system_variable_info."type" IS '变量类型:CUSTOM(自定义);SYSTEM(系统全局)';
 COMMENT ON COLUMN system_variable_info.value_type IS '变量值类型';
 COMMENT ON COLUMN system_variable_info.value IS '值';
+COMMENT ON COLUMN system_variable_info.remark IS '参数备注';
 COMMENT ON COLUMN system_variable_info.creator IS '创建人';
 COMMENT ON COLUMN system_variable_info.updater IS '修改人';
 COMMENT ON COLUMN system_variable_info.create_time IS '创建时间';
@@ -49,8 +51,9 @@ COMMENT ON COLUMN system_variable_info.update_time IS '修改时间';
 | `code` | `code` | `String` | 是 | 无 | 变量编码，当前由 Service 层保证唯一           |
 | `name` | `name` | `String` | 否 | 无 | 变量名称                             |
 | `type` | `type` | `String` | 是 | 新增时固定为 `CUSTOM` | 变量类型，当前取值为 `CUSTOM` / `SYSTEM`   |
-| `value_type` | `valueType` | `String` | 是 | 无 | 值类型，当前取值为 `STRING` / `EXPRESSION` |
+| `value_type` | `valueType` | `String` | 是 | 无 | 值类型，当前取值为 `STRING` / `LONG` / `EXPRESSION` |
 | `value` | `value` | `String` | 否 | 无 | 变量值                              |
+| `remark` | `remark` | `String` | 否 | 无 | 参数备注，可用于说明内置变量含义或枚举可选值 |
 | `creator` | `creator` | `String` | 是 | 当前用户 | 创建人，继承自 `BaseEntity`             |
 | `updater` | `updater` | `String` | 是 | 当前用户 | 修改人，继承自 `BaseEntity`             |
 | `create_time` | `createTime` | `Date` | 是 | 当前时间 | 创建时间，继承自 `BaseEntity`            |
@@ -66,6 +69,7 @@ COMMENT ON COLUMN system_variable_info.update_time IS '修改时间';
 | `type` | `type` | `String` | `@TableField("type")` | 变量类型 |
 | `valueType` | `value_type` | `String` | `@TableField("value_type")` | 值类型 |
 | `value` | `value` | `String` | `@TableField("value")` | 变量值 |
+| `remark` | `remark` | `String` | `@TableField("remark")` | 参数备注 |
 | `creator` | `creator` | `String` | 继承字段 | 创建人 |
 | `updater` | `updater` | `String` | 继承字段 | 修改人 |
 | `createTime` | `create_time` | `Date` | 继承字段 | 创建时间 |
@@ -83,17 +87,20 @@ COMMENT ON COLUMN system_variable_info.update_time IS '修改时间';
 | `VariableInfoSaveDto` | `Request` | 新增变量 | `name` | `String` | `@NotBlank` | 变量名称 |
 | `VariableInfoSaveDto` | `Request` | 新增变量 | `valueType` | `String` | `@NotBlank` | 值类型 |
 | `VariableInfoSaveDto` | `Request` | 新增变量 | `value` | `String` | 无 | 变量值 |
+| `VariableInfoSaveDto` | `Request` | 新增变量 | `remark` | `String` | 无 | 参数备注 |
 | `VariableInfoUpdateDto` | `Request` | 修改变量 | `id` | `UUID` | `@NotNull` | 变量 ID |
 | `VariableInfoUpdateDto` | `Request` | 修改变量 | `code` | `String` | 非空时合并 | `SYSTEM` 类型忽略 |
 | `VariableInfoUpdateDto` | `Request` | 修改变量 | `name` | `String` | 非空时合并 | `SYSTEM` 类型忽略 |
 | `VariableInfoUpdateDto` | `Request` | 修改变量 | `valueType` | `String` | 非空时合并 | `SYSTEM` 类型忽略 |
 | `VariableInfoUpdateDto` | `Request` | 修改变量 | `value` | `String` | 非 `null` 时合并 | `SYSTEM` 和 `CUSTOM` 均可修改 |
+| `VariableInfoUpdateDto` | `Request` | 修改变量 | `remark` | `String` | 非 `null` 时合并 | `SYSTEM` 类型忽略 |
 | `VariableInfoDto` | `Response` | 查询响应 | `id` | `UUID` | 无 | 主键 |
 | `VariableInfoDto` | `Response` | 查询响应 | `code` | `String` | 无 | 变量编码 |
 | `VariableInfoDto` | `Response` | 查询响应 | `name` | `String` | 无 | 变量名称 |
 | `VariableInfoDto` | `Response` | 查询响应 | `type` | `String` | 无 | 变量类型 |
 | `VariableInfoDto` | `Response` | 查询响应 | `valueType` | `String` | 无 | 值类型 |
 | `VariableInfoDto` | `Response` | 查询响应 | `value` | `String` | 无 | 变量值 |
+| `VariableInfoDto` | `Response` | 查询响应 | `remark` | `String` | 无 | 参数备注 |
 | `VariableInfoDto` | `Response` | 查询响应 | `creator` | `String` | 无 | 创建人 |
 | `VariableInfoDto` | `Response` | 查询响应 | `updater` | `String` | 无 | 修改人 |
 | `VariableInfoDto` | `Response` | 查询响应 | `createTime` | `Date` | 无 | 创建时间 |
@@ -114,8 +121,8 @@ COMMENT ON COLUMN system_variable_info.update_time IS '修改时间';
 
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
-| `VariableInfoSaveDto` -> `VariableInfoEntity` | 复制 `code`、`name`、`valueType`、`value` | `id` 使用 `UUID.nameUUIDFromBytes(code.getBytes())`；`type` 固定 `CUSTOM`；审计字段由 Service 设置 |
-| `VariableInfoUpdateDto` -> existing `VariableInfoEntity` | 按变量类型合并字段 | `SYSTEM` 仅合并非 `null` 的 `value`；`CUSTOM` 合并非空字符串字段和非 `null` 的 `value` |
+| `VariableInfoSaveDto` -> `VariableInfoEntity` | 复制 `code`、`name`、`valueType`、`value`、`remark` | `id` 使用 `UUID.nameUUIDFromBytes(code.getBytes())`；`type` 固定 `CUSTOM`；审计字段由 Service 设置 |
+| `VariableInfoUpdateDto` -> existing `VariableInfoEntity` | 按变量类型合并字段 | `SYSTEM` 仅合并非 `null` 的 `value`；`CUSTOM` 合并非空字符串字段和非 `null` 的 `value`、`remark` |
 | `VariableInfoEntity` -> `VariableInfoDto` | 字段逐一复制 | 无 |
 | `VariableInfoQueryDto` -> `LambdaQueryWrapper` | `name/code` 使用 `like`，`type/valueType` 使用 `eq` | 默认 `createTime desc` |
 
@@ -124,8 +131,42 @@ COMMENT ON COLUMN system_variable_info.update_time IS '修改时间';
 | 字段 | 存储类型 | Java 类型 | 转换规则 | 说明 |
 |------|----------|-----------|----------|------|
 | `type` | `varchar(50)` | `String` | 无转换 | 当前约定取值 `CUSTOM` / `SYSTEM`，未定义枚举 |
-| `valueType` | `varchar(255)` | `String` | 无转换 | 当前约定取值 `STRING` / `EXPRESSION`，未定义枚举 |
+| `valueType` | `varchar(255)` | `String` | 无转换 | 当前约定取值 `STRING` / `LONG` / `EXPRESSION`，未定义枚举 |
 | `id` | `uuid` | `UUID` | 新增时由 `code` 生成 | 修改 `code` 后 `id` 不重新生成 |
+
+### 6.1 内置时间变量备注约定
+
+内置时间变量在 `system_variable_info` 中作为变量目录和前端提示使用。`code` 使用内置程序参数键，`name` 使用用户表达式参数名，运行期真实值由调度上下文派生。
+
+| code | name | valueType | 默认 value | remark 要求 |
+|------|------|-----------|------------|-------------|
+| `_now_time_` | `now_time` | `LONG` | 无 | 当前系统时间，格式为毫秒时间戳，例如 `1772012833904`。 |
+| `_now_date_` | `now_date` | `STRING` | 无 | 当前系统日期，格式为 `yyyyMMddHHmmss`，例如 `20260620100353`。 |
+| `_schedule_time_` | `schedule_time` | `LONG` | 无 | 原始调度时间，格式为毫秒时间戳，例如 `1772012833904`。 |
+| `_biz_align_` | `biz_align` | `STRING` | `original` | 业务时间对齐方式，格式为小写下划线编码。枚举格式见本节后续说明。 |
+| `_biz_time_` | `biz_time` | `LONG` | 无 | 业务时间，格式为毫秒时间戳；由 `schedule_time` 按 `biz_align` 对齐后生成。 |
+| `_biz_date_` | `biz_date` | `STRING` | 无 | 业务日期，格式为 `yyyyMMddHHmmss`；由 `biz_time` 格式化后生成。 |
+| `_event_align_` | `event_align` | `STRING` | `original` | 事件时间对齐方式，格式为小写下划线编码。枚举格式见本节后续说明。 |
+| `_event_time_` | `event_time` | `LONG` | 无 | 事件匹配时间，格式为毫秒时间戳；由 `schedule_time` 按 `event_align` 对齐后生成。 |
+| `_event_date_` | `event_date` | `STRING` | 无 | 事件日期，格式为 `yyyyMMddHHmmss`；由 `event_time` 格式化后生成。 |
+
+`_biz_align_` 和 `_event_align_` 复用同一套 `TimeAlignmentEnum` 枚举。基础枚举值包括：
+
+```text
+original,
+minute_5, minute_10, minute_15, minute_30,
+hour_1,
+day_1,
+month_1, month_3,
+year_1,
+month_end, year_end
+```
+
+后缀规则：
+
+- `_next`: 取下一周期边界，例如 `day_1_next` 表示下一天零点。
+- `_add_8`: 在对齐结果上增加 8 小时时区偏移，例如 `hour_1_add_8`。
+- `_next_add_8`: 先取下一周期边界，再增加 8 小时时区偏移，例如 `month_1_next_add_8`。
 
 ## 7. 复用对象
 

@@ -45,4 +45,10 @@ public class VariableInfoEntity extends BaseIdEntity {
      */
     @TableField("value")
     private String value;
+
+    /**
+     * 参数备注.
+     */
+    @TableField("remark")
+    private String remark;
 }

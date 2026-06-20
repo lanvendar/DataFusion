@@ -31,9 +31,9 @@ public class VariableInfoSaveDto {
     private String name;
 
     /**
-     * 值类型: STRING / EXPRESSION.
+     * 值类型: STRING / LONG / EXPRESSION.
      */
-    @Schema(name = "valueType", description = "值类型: STRING / EXPRESSION")
+    @Schema(name = "valueType", description = "值类型: STRING / LONG / EXPRESSION")
     @NotBlank(message = "值类型不能为空")
     private String valueType;
 
@@ -42,4 +42,10 @@ public class VariableInfoSaveDto {
      */
     @Schema(name = "value", description = "值")
     private String value;
+
+    /**
+     * 参数备注.
+     */
+    @Schema(name = "remark", description = "参数备注")
+    private String remark;
 }

@@ -1,17 +1,16 @@
 package com.datafusion.scheduler.master.flow.handler;
 
-import com.datafusion.common.date.DateTimeStamp;
 import com.datafusion.common.exception.CommonException;
 import com.datafusion.scheduler.enums.ActionType;
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.enums.VarType;
 import com.datafusion.scheduler.master.actor.ActorSysContext;
 import com.datafusion.scheduler.master.event.GlobalEventOperator;
 import com.datafusion.scheduler.master.flow.FlowMsg;
 import com.datafusion.scheduler.master.flow.model.FlowInfo;
 import com.datafusion.scheduler.master.flow.model.FlowInstance;
 import com.datafusion.scheduler.master.flow.storage.FlowStorage;
-import com.datafusion.scheduler.master.param.builtin.BuiltinParamEnum;
+import com.datafusion.scheduler.master.param.PlaceholderContext;
+import com.datafusion.scheduler.master.param.builtin.BuiltinParamResolver;
 import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.Variable;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +30,12 @@ import java.util.function.Supplier;
  */
 @Slf4j
 public class FlowInitMsgHandler extends AbstractFlowMsgHandler {
+
+    /**
+     * 内置参数解析器.
+     */
+    private final BuiltinParamResolver builtinParamResolver = new BuiltinParamResolver();
+
     /**
      * 构造函数.
      *
@@ -110,9 +115,7 @@ public class FlowInitMsgHandler extends AbstractFlowMsgHandler {
         //设置流程图
         //flowIns.setFlowDag(info.getFlowDag());
         ParamData flowParamData = copyParamData(flowInfo.getFlowParam());
-        //设置必要的业务时间，date需要为新的对象，避免与info中的BizDate共享
-        //TODO 流程上是否需要参数，参数在业务任务中已经配置，流程是否只需要把scheduleTime传递给业务时间就够了？
-        setBizDateInVars(flowParamData, flowIns.getScheduleTime());
+        resolveBuiltinVars(flowParamData, flowIns.getScheduleTime());
         flowIns.setFlowParam(flowParamData);
         // 设置依赖事件ID和事件ID
         setField(flowIns::setDepEventIds, flowInfo::getDepEventIds, "depEventIds不能为空");
@@ -123,31 +126,20 @@ public class FlowInitMsgHandler extends AbstractFlowMsgHandler {
     }
 
     /**
-     * 设置BizDate参数,根据调度时间设置流程的业务时间.
+     * 解析内置时间变量.
      *
      * @param paramData    参数对象
      * @param scheduleTime 调度时间
      */
-    private void setBizDateInVars(ParamData paramData, long scheduleTime) {
+    private void resolveBuiltinVars(ParamData paramData, long scheduleTime) {
         if (paramData.getVars() == null) {
             paramData.setVars(new HashMap<>());
         }
-        Map<String, Variable> vars = paramData.getVars();
-        // 设置业务时间变量
-        if (null == vars.get(BuiltinParamEnum.BIZ_DATE.getParamName())) {
-            Variable bizDate = new Variable();
-            bizDate.setName(BuiltinParamEnum.BIZ_DATE.getParamName());
-            bizDate.setType(VarType.IN);
-            bizDate.setValue(String.valueOf(scheduleTime));
-            vars.put(BuiltinParamEnum.BIZ_DATE.getParamName(), bizDate);
-        }
-        // 根据对齐时间设置业务时间
-        Variable bizDateAlign = vars.get(BuiltinParamEnum.BIZ_DATE_ALIGN.getParamName());
-        if (null != bizDateAlign) {
-            Variable bizDate = vars.get(BuiltinParamEnum.BIZ_DATE.getParamName());
-            Long time = DateTimeStamp.getTimeFromNature(scheduleTime, bizDateAlign.getValue());
-            bizDate.setValue(String.valueOf(time));
-        }
+        PlaceholderContext context = PlaceholderContext.builder()
+                .scheduleTime(scheduleTime)
+                .variables(paramData.getVars())
+                .build();
+        builtinParamResolver.resolveBuiltinParams(context);
     }
 
     /**

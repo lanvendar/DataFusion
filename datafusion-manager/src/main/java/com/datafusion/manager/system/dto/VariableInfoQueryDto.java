@@ -33,8 +33,8 @@ public class VariableInfoQueryDto {
     private String type;
 
     /**
-     * 值类型过滤: STRING / EXPRESSION.
+     * 值类型过滤: STRING / LONG / EXPRESSION.
      */
-    @Schema(name = "valueType", description = "值类型过滤: STRING / EXPRESSION")
+    @Schema(name = "valueType", description = "值类型过滤: STRING / LONG / EXPRESSION")
     private String valueType;
 }

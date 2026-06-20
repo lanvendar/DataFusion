@@ -24,11 +24,6 @@ public class PlaceholderContext {
     private Long scheduleTime;
 
     /**
-     * 业务日期对齐格式.
-     */
-    private String bizDateAlign;
-
-    /**
      * 变量映射.
      * key: 变量名, value: Variable对象
      */

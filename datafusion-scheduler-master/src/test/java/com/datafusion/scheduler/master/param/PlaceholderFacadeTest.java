@@ -34,9 +34,10 @@ public class PlaceholderFacadeTest {
     @Test
     public void testBuiltinParamResolver_BizDateWithAlign() {
         Map<String, Variable> variables = new HashMap<>();
+        variables.put(BuiltinParamEnum.BIZ_ALIGN.getParamName(),
+                createVariable(BuiltinParamEnum.BIZ_ALIGN.getParamName(), "day_1"));
         PlaceholderContext context = PlaceholderContext.builder()
                 .scheduleTime(TEST_SCHEDULE_TIME)
-                .bizDateAlign("day_1")
                 .variables(variables)
                 .build();
 
@@ -54,7 +55,6 @@ public class PlaceholderFacadeTest {
         Map<String, Variable> variables = new HashMap<>();
         PlaceholderContext context = PlaceholderContext.builder()
                 .scheduleTime(TEST_SCHEDULE_TIME)
-                .bizDateAlign(null)
                 .variables(variables)
                 .build();
 
@@ -70,9 +70,12 @@ public class PlaceholderFacadeTest {
     @Test
     public void testBuiltinParamResolver_AllParams() {
         Map<String, Variable> variables = new HashMap<>();
+        variables.put(BuiltinParamEnum.BIZ_ALIGN.getParamName(),
+                createVariable(BuiltinParamEnum.BIZ_ALIGN.getParamName(), "day_1"));
+        variables.put(BuiltinParamEnum.EVENT_ALIGN.getParamName(),
+                createVariable(BuiltinParamEnum.EVENT_ALIGN.getParamName(), "hour_1"));
         PlaceholderContext context = PlaceholderContext.builder()
                 .scheduleTime(TEST_SCHEDULE_TIME)
-                .bizDateAlign("day_1")
                 .variables(variables)
                 .build();
 
@@ -81,15 +84,23 @@ public class PlaceholderFacadeTest {
 
         assertNotNull(context.getVariables().get(BuiltinParamEnum.NOW_TIME.getParamName()));
         assertNotNull(context.getVariables().get(BuiltinParamEnum.NOW_DATE.getParamName()));
+        assertNotNull(context.getVariables().get(BuiltinParamEnum.SCHEDULE_TIME.getParamName()));
+        assertNotNull(context.getVariables().get(BuiltinParamEnum.BIZ_ALIGN.getParamName()));
         assertNotNull(context.getVariables().get(BuiltinParamEnum.BIZ_TIME.getParamName()));
         assertNotNull(context.getVariables().get(BuiltinParamEnum.BIZ_DATE.getParamName()));
-        assertNotNull(context.getVariables().get(BuiltinParamEnum.BIZ_DATE_ALIGN.getParamName()));
+        assertNotNull(context.getVariables().get(BuiltinParamEnum.EVENT_ALIGN.getParamName()));
+        assertNotNull(context.getVariables().get(BuiltinParamEnum.EVENT_TIME.getParamName()));
+        assertNotNull(context.getVariables().get(BuiltinParamEnum.EVENT_DATE.getParamName()));
 
         log.info("NOW_TIME: {}", context.getVariables().get(BuiltinParamEnum.NOW_TIME.getParamName()).getValue());
         log.info("NOW_DATE: {}", context.getVariables().get(BuiltinParamEnum.NOW_DATE.getParamName()).getValue());
+        log.info("SCHEDULE_TIME: {}", context.getVariables().get(BuiltinParamEnum.SCHEDULE_TIME.getParamName()).getValue());
+        log.info("BIZ_ALIGN: {}", context.getVariables().get(BuiltinParamEnum.BIZ_ALIGN.getParamName()).getValue());
         log.info("BIZ_TIME: {}", context.getVariables().get(BuiltinParamEnum.BIZ_TIME.getParamName()).getValue());
         log.info("BIZ_DATE: {}", context.getVariables().get(BuiltinParamEnum.BIZ_DATE.getParamName()).getValue());
-        log.info("BIZ_DATE_ALIGN: {}", context.getVariables().get(BuiltinParamEnum.BIZ_DATE_ALIGN.getParamName()).getValue());
+        log.info("EVENT_ALIGN: {}", context.getVariables().get(BuiltinParamEnum.EVENT_ALIGN.getParamName()).getValue());
+        log.info("EVENT_TIME: {}", context.getVariables().get(BuiltinParamEnum.EVENT_TIME.getParamName()).getValue());
+        log.info("EVENT_DATE: {}", context.getVariables().get(BuiltinParamEnum.EVENT_DATE.getParamName()).getValue());
     }
 
     // ==================== VarPlaceholderHandler 测试 ====================
@@ -101,7 +112,6 @@ public class PlaceholderFacadeTest {
 
         PlaceholderContext context = PlaceholderContext.builder()
                 .scheduleTime(TEST_SCHEDULE_TIME)
-                .bizDateAlign(null)
                 .variables(variables)
                 .build();
 
@@ -119,7 +129,6 @@ public class PlaceholderFacadeTest {
 
         PlaceholderContext context = PlaceholderContext.builder()
                 .scheduleTime(TEST_SCHEDULE_TIME)
-                .bizDateAlign(null)
                 .variables(variables)
                 .build();
 
@@ -132,7 +141,6 @@ public class PlaceholderFacadeTest {
     public void testVarPlaceholderHandler_NoVariable() {
         PlaceholderContext context = PlaceholderContext.builder()
                 .scheduleTime(TEST_SCHEDULE_TIME)
-                .bizDateAlign(null)
                 .variables(new HashMap<>())
                 .build();
 
@@ -150,7 +158,6 @@ public class PlaceholderFacadeTest {
 
         PlaceholderContext context = PlaceholderContext.builder()
                 .scheduleTime(TEST_SCHEDULE_TIME)
-                .bizDateAlign(null)
                 .variables(variables)
                 .build();
 
@@ -169,7 +176,6 @@ public class PlaceholderFacadeTest {
         Map<String, Variable> variables = new HashMap<>();
         PlaceholderContext context = PlaceholderContext.builder()
                 .scheduleTime(TEST_SCHEDULE_TIME)
-                .bizDateAlign(null)
                 .variables(variables)
                 .build();
 
@@ -182,7 +188,6 @@ public class PlaceholderFacadeTest {
         Map<String, Variable> variables = new HashMap<>();
         PlaceholderContext context = PlaceholderContext.builder()
                 .scheduleTime(TEST_SCHEDULE_TIME)
-                .bizDateAlign(null)
                 .variables(variables)
                 .build();
 
@@ -195,7 +200,6 @@ public class PlaceholderFacadeTest {
         Map<String, Variable> variables = new HashMap<>();
         PlaceholderContext context = PlaceholderContext.builder()
                 .scheduleTime(TEST_SCHEDULE_TIME)
-                .bizDateAlign(null)
                 .variables(variables)
                 .build();
 

@@ -1,5 +1,7 @@
 package com.datafusion.scheduler.master.flow.model;
 
+import com.datafusion.common.date.DateTimeStamp;
+import com.datafusion.common.enums.TimeAlignmentEnum;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.master.flow.enums.FlowTypeEnum;
 import com.datafusion.scheduler.master.param.builtin.BuiltinParamEnum;
@@ -92,8 +94,7 @@ public class FlowInstance implements Comparable<FlowInstance> {
     //endregion
 
     /**
-     * 获取事件时间,目前事件时间与业务开始时间一致.
-     * TODO 若没有后期是否就是 scheduleTime.
+     * 获取事件时间.
      *
      * @return 事件时间
      */
@@ -102,11 +103,12 @@ public class FlowInstance implements Comparable<FlowInstance> {
         if (this.getFlowParam() != null) {
             Map<String, Variable> vars = flowParam.getVars();
             if (vars != null) {
-                Variable v = vars.get(BuiltinParamEnum.BIZ_DATE.getParamName());
+                Variable v = vars.get(BuiltinParamEnum.EVENT_TIME.getParamName());
                 if (v != null) {
                     eventTime = Long.parseLong(v.getValue());
                     return eventTime;
                 }
+                return alignedEventTime();
             }
         }
         return eventTime;
@@ -114,7 +116,6 @@ public class FlowInstance implements Comparable<FlowInstance> {
 
     /**
      * 获取事件时间周期.
-     * TODO 若没有后期是否可以自动计算.
      *
      * @return 时间段
      */
@@ -123,7 +124,7 @@ public class FlowInstance implements Comparable<FlowInstance> {
         if (this.getFlowParam() != null) {
             Map<String, Variable> vars = flowParam.getVars();
             if (vars != null) {
-                Variable v = vars.get(BuiltinParamEnum.BIZ_DATE_ALIGN.getParamName());
+                Variable v = vars.get(BuiltinParamEnum.EVENT_ALIGN.getParamName());
                 if (v != null) {
                     eventSegment = String.valueOf(v.getValue());
                     return eventSegment;
@@ -131,6 +132,25 @@ public class FlowInstance implements Comparable<FlowInstance> {
             }
         }
         return eventSegment;
+    }
+
+    /**
+     * 根据调度时间和事件对齐格式计算事件时间.
+     *
+     * @return 事件时间
+     */
+    private Long alignedEventTime() {
+        if (scheduleTime == null) {
+            return null;
+        }
+        String align = eventSegment();
+        if (align == null || TimeAlignmentEnum.ORIGINAL.getCode().equals(align)) {
+            return scheduleTime;
+        }
+        if (TimeAlignmentEnum.getByCode(align) == null) {
+            return scheduleTime;
+        }
+        return DateTimeStamp.getTime(scheduleTime, align);
     }
 
     @Override

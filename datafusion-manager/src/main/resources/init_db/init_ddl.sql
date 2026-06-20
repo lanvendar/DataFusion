@@ -843,7 +843,7 @@ plugins varchar(256) NULL, -- 组件类型列表，逗号分隔
 register_time timestamp(6) NULL, -- 注册时间
 last_heartbeat_time timestamp(6) NULL, -- 最近心跳时间
 is_active int2 NOT NULL, -- 是否有效：1-有效 0-无效
-remark varchar(255) NULL, -- 资源说明
+remark text NULL, -- 资源说明
 creator varchar(100) NOT NULL, -- 创建人
 updater varchar(100) NOT NULL, -- 修改人
 create_time timestamp(6) NOT NULL, -- 创建时间
@@ -885,6 +885,7 @@ code varchar(255) NOT NULL, -- 变量编码
 "type" varchar(50) NOT NULL, -- 变量类型:CUSTOM(自定义);SYSTEM(系统全局)
 value_type varchar(255) NOT NULL, -- 变量值类型
 value text NULL, -- 值
+remark text NULL, -- 参数备注
 creator varchar(100) NOT NULL, -- 创建人
 updater varchar(100) NOT NULL, -- 修改人
 create_time timestamp(6) NOT NULL, -- 创建时间
@@ -892,13 +893,14 @@ update_time timestamp(6) NOT NULL, -- 修改时间
 CONSTRAINT system_variable_info_pkey PRIMARY KEY (id)
 );
 
--- Column comments
+COMMENT ON TABLE system_variable_info IS '系统变量表';
 
 COMMENT ON COLUMN system_variable_info.code IS '变量编码';
 COMMENT ON COLUMN system_variable_info."name" IS '变量名称';
 COMMENT ON COLUMN system_variable_info."type" IS '变量类型:CUSTOM(自定义);SYSTEM(系统全局)';
 COMMENT ON COLUMN system_variable_info.value_type IS '变量值类型';
 COMMENT ON COLUMN system_variable_info.value IS '值';
+COMMENT ON COLUMN system_variable_info.remark IS '参数备注';
 COMMENT ON COLUMN system_variable_info.creator IS '创建人';
 COMMENT ON COLUMN system_variable_info.updater IS '修改人';
 COMMENT ON COLUMN system_variable_info.create_time IS '创建时间';

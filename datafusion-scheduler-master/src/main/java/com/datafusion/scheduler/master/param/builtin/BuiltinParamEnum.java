@@ -14,13 +14,9 @@ package com.datafusion.scheduler.master.param.builtin;
  * 业务规则：
  * <ul>
  *   <li>now_time / now_date：返回当前系统时间</li>
- *   <li>biz_time：返回传入的业务时间参数</li>
- *   <li>biz_date：
- *     <ul>
- *       <li>有对齐格式(biz_date_align)：按对齐格式返回</li>
- *       <li>无对齐格式：直接使用 biz_time 的值</li>
- *     </ul>
- *   </li>
+ *   <li>schedule_time：返回当前流程实例的原始调度时间</li>
+ *   <li>biz_time / biz_date：由 schedule_time 按 biz_align 派生</li>
+ *   <li>event_time / event_date：由 schedule_time 按 event_align 派生，event_align 默认为 original</li>
  * </ul>
  *
  * @author lanvendar
@@ -41,22 +37,41 @@ public enum BuiltinParamEnum {
     NOW_DATE("_now_date_", "now_date"),
 
     /**
+     * 原始调度时间（毫秒）.
+     */
+    SCHEDULE_TIME("_schedule_time_", "schedule_time"),
+
+    /**
+     * 业务时间对齐格式.
+     * 枚举值：参见 TimeAlignmentEnum.
+     */
+    BIZ_ALIGN("_biz_align_", "biz_align"),
+
+    /**
      * 业务时间（毫秒）.
      */
     BIZ_TIME("_biz_time_", "biz_time"),
 
     /**
      * 业务日期（yyyyMMddHHmmss）.
-     * 有对齐格式(biz_date_align)：按对齐格式返回
-     * 无对齐格式：直接使用 biz_time 的值
      */
     BIZ_DATE("_biz_date_", "biz_date"),
 
     /**
-     * 业务日期对齐格式.
-     * 枚举值：参见 TimeAlignmentEnum
+     * 事件时间对齐格式.
+     * 枚举值：参见 TimeAlignmentEnum.
      */
-    BIZ_DATE_ALIGN("_biz_date_align_", "biz_date_align");
+    EVENT_ALIGN("_event_align_", "event_align"),
+
+    /**
+     * 事件时间（毫秒）.
+     */
+    EVENT_TIME("_event_time_", "event_time"),
+
+    /**
+     * 事件日期（yyyyMMddHHmmss）.
+     */
+    EVENT_DATE("_event_date_", "event_date");
 
     /**
      * 内置参数名(内置程序使用,可读可写).

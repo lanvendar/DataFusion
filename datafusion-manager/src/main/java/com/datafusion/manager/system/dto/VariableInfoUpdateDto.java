@@ -39,7 +39,7 @@ public class VariableInfoUpdateDto {
     /**
      * 值类型(SYSTEM类型忽略).
      */
-    @Schema(name = "valueType", description = "值类型: STRING / EXPRESSION(SYSTEM类型忽略)")
+    @Schema(name = "valueType", description = "值类型: STRING / LONG / EXPRESSION(SYSTEM类型忽略)")
     private String valueType;
 
     /**
@@ -47,4 +47,10 @@ public class VariableInfoUpdateDto {
      */
     @Schema(name = "value", description = "值(SYSTEM和CUSTOM均可修改)")
     private String value;
+
+    /**
+     * 参数备注(SYSTEM类型忽略).
+     */
+    @Schema(name = "remark", description = "参数备注(SYSTEM类型忽略)")
+    private String remark;
 }

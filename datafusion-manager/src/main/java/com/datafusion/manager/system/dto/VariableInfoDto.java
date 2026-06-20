@@ -42,9 +42,9 @@ public class VariableInfoDto {
     private String type;
 
     /**
-     * 值类型: STRING / EXPRESSION.
+     * 值类型: STRING / LONG / EXPRESSION.
      */
-    @Schema(name = "valueType", description = "值类型: STRING / EXPRESSION")
+    @Schema(name = "valueType", description = "值类型: STRING / LONG / EXPRESSION")
     private String valueType;
 
     /**
@@ -52,6 +52,12 @@ public class VariableInfoDto {
      */
     @Schema(name = "value", description = "值")
     private String value;
+
+    /**
+     * 参数备注.
+     */
+    @Schema(name = "remark", description = "参数备注")
+    private String remark;
 
     /**
      * 创建人.

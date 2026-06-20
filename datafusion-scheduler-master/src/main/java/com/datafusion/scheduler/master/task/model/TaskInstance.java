@@ -1,6 +1,8 @@
 package com.datafusion.scheduler.master.task.model;
 
 import cn.hutool.core.collection.CollectionUtil;
+import com.datafusion.common.date.DateTimeStamp;
+import com.datafusion.common.enums.TimeAlignmentEnum;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.master.param.builtin.BuiltinParamEnum;
 import com.datafusion.scheduler.model.ParamData;
@@ -160,8 +162,7 @@ public class TaskInstance {
     private Boolean isAble = true;
 
     /**
-     * 获取事件时间,目前事件时间与业务开始时间一致.
-     * TODO 若没有后期是否就是 scheduleTime.
+     * 获取事件时间.
      *
      * @return 事件时间
      */
@@ -170,11 +171,14 @@ public class TaskInstance {
         if (this.getTaskParam() != null) {
             Map<String, Variable> vars = taskParam.getVars();
             if (vars != null) {
-                Variable v = vars.get(BuiltinParamEnum.BIZ_DATE.getParamName());
+                Variable v = vars.get(BuiltinParamEnum.EVENT_TIME.getParamName());
                 if (v != null) {
-                    eventTime = Long.parseLong(v.getValue());
-                    return eventTime;
+                    eventTime = parseLong(v.getValue());
+                    if (eventTime != null) {
+                        return eventTime;
+                    }
                 }
+                return alignedEventTime();
             }
         }
         return eventTime;
@@ -182,7 +186,6 @@ public class TaskInstance {
 
     /**
      * 获取事件时间周期.
-     * TODO 若没有后期是否可以自动计算.
      *
      * @return 时间段
      */
@@ -191,14 +194,67 @@ public class TaskInstance {
         if (this.getTaskParam() != null) {
             Map<String, Variable> vars = taskParam.getVars();
             if (vars != null) {
-                Variable v = vars.get(BuiltinParamEnum.BIZ_DATE_ALIGN.getParamName());
+                Variable v = vars.get(BuiltinParamEnum.EVENT_ALIGN.getParamName());
                 if (v != null) {
-                    eventSegment = String.valueOf(v.getValue());
+                    eventSegment = v.getValue();
                     return eventSegment;
                 }
             }
         }
         return eventSegment;
+    }
+
+    /**
+     * 根据调度时间和事件对齐格式计算事件时间.
+     *
+     * @return 事件时间
+     */
+    private Long alignedEventTime() {
+        Long scheduleTime = scheduleTime();
+        if (scheduleTime == null) {
+            return null;
+        }
+        String align = eventSegment();
+        if (align == null || align.trim().isEmpty() || TimeAlignmentEnum.ORIGINAL.getCode().equals(align)) {
+            return scheduleTime;
+        }
+        if (TimeAlignmentEnum.getByCode(align) == null) {
+            return scheduleTime;
+        }
+        return DateTimeStamp.getTime(scheduleTime, align);
+    }
+
+    /**
+     * 获取调度时间.
+     *
+     * @return 调度时间
+     */
+    private Long scheduleTime() {
+        if (this.getTaskParam() == null || taskParam.getVars() == null) {
+            return null;
+        }
+        Variable scheduleTime = taskParam.getVars().get(BuiltinParamEnum.SCHEDULE_TIME.getParamName());
+        if (scheduleTime == null || scheduleTime.getValue() == null || scheduleTime.getValue().trim().isEmpty()) {
+            return null;
+        }
+        return parseLong(scheduleTime.getValue());
+    }
+
+    /**
+     * 解析长整型.
+     *
+     * @param value 文本
+     * @return 长整型
+     */
+    private Long parseLong(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**

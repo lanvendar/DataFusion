@@ -87,7 +87,7 @@ public class ExpPlaceholderUtils {
                 if (builtinFunc != null) {
                     return builtinFunc.call(
                             context.getScheduleTime(),
-                            context.getBizDateAlign(),
+                            null,
                             resolvedArgs);
                 } else {
                     return null;
