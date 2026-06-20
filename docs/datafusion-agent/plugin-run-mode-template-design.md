@@ -43,7 +43,7 @@ datafusion-agent/src/main/resources/plugins/{plugin}/templates/
 | pluginType | runMode | 模板 | 渲染产物 |
 |------------|---------|------|----------|
 | `SHELL` | `LOCAL` | `plugins/shell/templates/shell-local-runtime.yml` | `LocalProcessSpec` |
-| `DATAX` | `LOCAL` | `plugins/datax/templates/datax-local-runtime.yml` | `LocalProcessSpec` |
+| `DATAX` | `LOCAL` | `plugins/datax/templates/datax-local-runtime.yml` | `LocalShellProcess` |
 | `DATAX` | `K8S` | `plugins/datax/templates/datax-k8s-runtime.yml` | Kubernetes YAML |
 
 Shell 第一版只有 `LOCAL`，实现按 `shell.local` 包归类；只有出现第二种 Shell 运行模式时，才引入类似 DataX 的 runner 分发抽象。
@@ -56,23 +56,26 @@ Shell 第一版只有 `LOCAL`，实现按 `shell.local` 包归类；只有出现
 
 ## ExecutionSpec
 
-`LocalProcessSpec` 是本地进程执行计划：
+`LocalProcessSpec` / `LocalShellProcess` 是本地进程执行计划。Shell LOCAL 使用完整的
+`LocalProcessSpec`；DataX LOCAL 只使用 `LocalShellProcess.kind` 和 `LocalShellProcess.command`，
+工作目录、标准输出和 DataX 日志文件由 Agent 生成：
 
 | 字段 | 说明 |
 |------|------|
-| `kind` | 固定 `LocalProcessSpec` |
+| `kind` | 固定执行计划类型，例如 `LocalProcessSpec` 或 `LocalShellProcess` |
 | `workDir` | 工作目录 |
 | `command` | 完整命令行，第一项为可执行文件 |
 | `env` | 环境变量 |
 | `stdout` / `stderr` | 标准输出和错误日志文件 |
-| `pluginLogUri` | 插件第三方日志入口 |
+| `pluginLogUri` | 插件日志入口，可以是插件本地日志文件、外部日志 URI 或运行时日志 URI |
 
 `KubernetesManifestSpec` 第一版不新增 Java DTO，渲染结果是 Kubernetes YAML 字符串，由 Fabric8 提交。
 
 ## 插件规则
 
 - `SHELL + LOCAL`：`command` 可来自 `pluginParam.command` 或 `taskData.command`；`taskData` 覆盖任务级参数。
-- `DATAX + LOCAL`：`jobJson`、`jobPath`、`jobFileName` 至少一个必填；渲染为本地 DataX 进程。
+- `DATAX + LOCAL`：`pluginParam.jobFile` 非空时复制为本次任务 `job.json`；否则由 `taskData.jobJson`
+  或 `deepMerge(pluginParam.defaultTaskData, taskData)` 生成 `job.json`，再渲染为本地 DataX 进程。
 - `DATAX + K8S`：镜像由 `pluginParam.kubernetes.image` 或 `taskData.kubernetes.image` 提供；运行引用由 `.snap`
   参数和 `.state.appId` 重建。
 

@@ -38,7 +38,6 @@ class TemplateSpecRendererTest {
     void shouldRenderDataxLocalProcessSpec() {
         TemplateSpecRenderer renderer = new TemplateSpecRenderer();
         LocalProcessSpec spec = renderer.renderYaml("plugins/datax/templates/datax-local-runtime.yml", Map.ofEntries(
-                Map.entry("workDir", "/tmp/datax-work"),
                 Map.entry("javaBin", "java"),
                 Map.entry("jvmOptions", TemplateYamlFragments.listItems(java.util.List.of("-Xmx1g"), 2)),
                 Map.entry("dataxHome", "/opt/datax"),
@@ -46,18 +45,18 @@ class TemplateSpecRendererTest {
                 Map.entry("logFile", "/tmp/datax.log"),
                 Map.entry("logMaxSize", "100MB"),
                 Map.entry("logMaxIndex", "100"),
-                Map.entry("logbackConfigFile", "/opt/datax/conf/logback.xml"),
+                Map.entry("logConfigFile", "/opt/datax/conf/logback.xml"),
                 Map.entry("dataxJar", "/opt/datax/lib/datax-bundle.jar"),
-                Map.entry("jobFile", "/tmp/job.json"),
-                Map.entry("dataxArgs", TemplateYamlFragments.listItems(java.util.List.of("-Dfoo=bar"), 2)),
-                Map.entry("env", TemplateYamlFragments.mapEntries(Map.of("BIZ_DATE", "20260609"), 2)),
-                Map.entry("stdout", "/tmp/stdout.log"),
-                Map.entry("stderr", "/tmp/stderr.log")
+                Map.entry("mainClass", "com.alibaba.datax.core.Engine"),
+                Map.entry("jobMode", "standalone"),
+                Map.entry("jobId", "-1"),
+                Map.entry("jobFile", "/tmp/job.json")
         ), LocalProcessSpec.class);
 
+        assertEquals("LocalShellProcess", spec.getKind());
         assertEquals("java", spec.getCommand().get(0));
+        assertTrue(spec.getCommand().contains("-Xmx1g"));
         assertTrue(spec.getCommand().contains("com.alibaba.datax.core.Engine"));
-        assertEquals("20260609", spec.getEnv().get("BIZ_DATE"));
-        assertEquals("INFO", spec.getEnv().get("DATAX_LOG_LEVEL"));
+        assertTrue(spec.getCommand().contains("/tmp/job.json"));
     }
 }

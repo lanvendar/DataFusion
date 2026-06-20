@@ -4,10 +4,11 @@
   "runMode": "K8S",
   "description": "DataX Kubernetes 执行配置模板",
   "isTemplate": true,
-  "env": {
+  "pluginParam": {
     "logLevel": "INFO",
     "logMaxSize": "100MB",
     "logMaxIndex": 100,
+    "jobId": -1,
     "env": {
       "TZ": "Asia/Shanghai"
     },
@@ -15,14 +16,31 @@
       "--add-opens",
       "java.base/java.lang=ALL-UNNAMED"
     ],
+    "defaultTaskData": {
+      "job": {
+        "setting": {
+          "speed": {
+            "channel": 1
+          },
+          "errorLimit": {
+            "record": 0
+          }
+        },
+        "reader": {},
+        "writer": {}
+      }
+    },
     "kubernetes": {
-      "namespace": "default",
+      "namespace": "datafusion",
       "image": "",
       "imagePullPolicy": "IfNotPresent",
+      "serviceAccountName": "",
       "backoffLimit": 0,
+      "activeDeadlineSeconds": null,
       "ttlSecondsAfterFinished": 86400,
       "jobNamePrefix": "df-datax-",
       "secretNamePrefix": "df-datax-job-",
+      "logStorageUri": "",
       "collectLogsOnFinish": true,
       "deleteJobOnFinish": false,
       "labels": {},

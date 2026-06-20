@@ -8,11 +8,11 @@ ENV TZ=Asia/Shanghai \
 
 WORKDIR /opt/datafusion-agent
 
-RUN mkdir -p /opt/datafusion-builtin/logs/datafusion-agent \
+RUN mkdir -p /opt/datafusion-agent \
     /opt/datafusion-builtin/plugins/datax \
     /opt/datafusion-builtin/plugins/shell \
-    /opt/datafusion-builtin/task-runtime \
-    /opt/datafusion-agent
+    /opt/datafusion/logs/datafusion-agent \
+    /opt/datafusion/task-runtime
 
 COPY src/main/resources/plugins/datax/ /opt/datafusion-builtin/plugins/datax/
 COPY src/main/resources/plugins/shell/ /opt/datafusion-builtin/plugins/shell/

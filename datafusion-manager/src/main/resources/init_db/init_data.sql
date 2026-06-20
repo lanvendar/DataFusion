@@ -34,3 +34,138 @@ value = EXCLUDED.value,
 remark = EXCLUDED.remark,
 updater = EXCLUDED.updater,
 update_time = CURRENT_TIMESTAMP;
+
+-- 系统插件配置模板
+INSERT INTO system_plugin_config
+(id, plugin_name, plugin_type, run_mode, description, plugin_param, is_template, is_del, creator, updater, create_time,
+ update_time, tenant_id)
+VALUES
+('81deb2e9-2c69-33d0-917a-dded2e73ce6d'::uuid, 'DataX LOCAL 模板', 'DATAX', 'LOCAL',
+ 'DataX 本地执行配置模板',
+ '{
+   "javaBin": "java",
+   "dataxHome": "/opt/datafusion-builtin/plugins/datax",
+   "dataxJar": "/opt/datafusion-builtin/plugins/datax/lib/datax-bundle-0.0.1.jar",
+   "jobFile": "",
+   "logConfigFile": "/opt/datafusion-builtin/plugins/datax/conf/logback.xml",
+   "logLevel": "INFO",
+   "logMaxSize": "100MB",
+   "logMaxIndex": 100,
+   "mainClass": "com.alibaba.datax.core.Engine",
+   "jvmOptions": [
+     "--add-opens",
+     "java.base/java.lang=ALL-UNNAMED"
+   ],
+   "jobId": -1,
+   "jobMode": "standalone",
+   "defaultTaskData": {
+     "job": {
+       "setting": {
+         "speed": {
+           "channel": 1
+         },
+         "errorLimit": {
+           "record": 0
+         }
+       },
+       "reader": {},
+       "writer": {}
+     }
+   }
+ }'::jsonb,
+ true, 0, 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+ '00000000-0000-0000-0000-000000000001'::uuid),
+('e9f668d7-7d7c-30e3-9143-3c5ab6019eb1'::uuid, 'DataX K8S 模板', 'DATAX', 'K8S',
+ 'DataX Kubernetes 执行配置模板',
+ '{
+	   "logLevel": "INFO",
+	   "logMaxSize": "100MB",
+	   "logMaxIndex": 100,
+	   "jobId": -1,
+	   "env": {
+	     "TZ": "Asia/Shanghai"
+	   },
+   "jvmOptions": [
+	     "--add-opens",
+	     "java.base/java.lang=ALL-UNNAMED"
+	   ],
+	   "defaultTaskData": {
+	     "job": {
+	       "setting": {
+	         "speed": {
+	           "channel": 1
+	         },
+	         "errorLimit": {
+	           "record": 0
+	         }
+	       },
+	       "reader": {},
+	       "writer": {}
+	     }
+	   },
+	   "kubernetes": {
+	     "namespace": "datafusion",
+	     "image": "",
+	     "imagePullPolicy": "IfNotPresent",
+	     "serviceAccountName": "",
+	     "backoffLimit": 0,
+	     "activeDeadlineSeconds": null,
+	     "ttlSecondsAfterFinished": 86400,
+	     "jobNamePrefix": "df-datax-",
+	     "secretNamePrefix": "df-datax-job-",
+	     "logStorageUri": "",
+	     "collectLogsOnFinish": true,
+     "deleteJobOnFinish": false,
+     "labels": {},
+     "annotations": {},
+     "env": {},
+     "nodeSelector": {},
+     "resources": {}
+   }
+ }'::jsonb,
+ true, 0, 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+ '00000000-0000-0000-0000-000000000001'::uuid),
+('82a2e64f-47cb-3545-96f1-be547a1f5253'::uuid, 'Shell LOCAL 模板', 'SHELL', 'LOCAL',
+ 'Shell 本地执行配置模板',
+ '{
+   "command": "sh",
+   "args": [
+     "-c"
+   ],
+   "env": {},
+   "workDir": "",
+   "pluginLogUri": ""
+ }'::jsonb,
+ true, 0, 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+ '00000000-0000-0000-0000-000000000001'::uuid)
+ON CONFLICT (id) DO UPDATE SET
+plugin_name = EXCLUDED.plugin_name,
+plugin_type = EXCLUDED.plugin_type,
+run_mode = EXCLUDED.run_mode,
+description = EXCLUDED.description,
+plugin_param = EXCLUDED.plugin_param,
+is_template = EXCLUDED.is_template,
+is_del = EXCLUDED.is_del,
+updater = EXCLUDED.updater,
+update_time = CURRENT_TIMESTAMP,
+tenant_id = EXCLUDED.tenant_id;
+
+-- 系统任务类型默认插件绑定
+INSERT INTO system_task_type_config
+(id, task_type, default_plugin_id, plugin_type, creator, updater, create_time, update_time, tenant_id)
+VALUES
+('d2f6659e-562a-350e-b926-d7812852e23d'::uuid, 'DATAX',
+ '81deb2e9-2c69-33d0-917a-dded2e73ce6d'::uuid, 'DATAX',
+ 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+ '00000000-0000-0000-0000-000000000001'::uuid),
+('28d568b3-892d-3e36-b283-3542693a1062'::uuid, 'SHELL',
+ '82a2e64f-47cb-3545-96f1-be547a1f5253'::uuid, 'SHELL',
+ 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+ '00000000-0000-0000-0000-000000000001'::uuid)
+ON CONFLICT (id) DO UPDATE SET
+task_type = EXCLUDED.task_type,
+default_plugin_id = EXCLUDED.default_plugin_id,
+plugin_type = EXCLUDED.plugin_type,
+updater = EXCLUDED.updater,
+update_time = CURRENT_TIMESTAMP,
+tenant_id = EXCLUDED.tenant_id;

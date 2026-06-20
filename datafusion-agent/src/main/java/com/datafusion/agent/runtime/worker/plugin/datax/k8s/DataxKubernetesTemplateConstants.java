@@ -25,6 +25,16 @@ public final class DataxKubernetesTemplateConstants {
     public static final String JOB_JSON_MOUNT_PATH = "/datafusion/job/job.json";
 
     /**
+     * Job JSON mount directory inside container.
+     */
+    public static final String JOB_JSON_MOUNT_DIR = "/datafusion/job";
+
+    /**
+     * DataX log file inside container.
+     */
+    public static final String DATAX_LOG_FILE = "/datafusion/logs/datax.log";
+
+    /**
      * Main DataX container name.
      */
     public static final String CONTAINER_NAME = "datax";

@@ -8,7 +8,6 @@ import lombok.Data;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 /**
  * DataX normalized execution parameter.
@@ -32,49 +31,24 @@ public class DataxExecutionParam {
     private String flowInstanceId;
 
     /**
-     * Task instance ID.
-     */
-    private String taskInstanceId;
-
-    /**
-     * Job file name.
-     */
-    private String jobName;
-
-    /**
      * Inline DataX job JSON.
      */
     private JsonNode jobJson;
 
     /**
-     * Original plugin parameter snapshot.
+     * Effective DataX task data.
      */
-    private JsonNode pluginParam;
+    private JsonNode effectiveTaskData;
 
     /**
-     * Existing job file name under resources job directory.
+     * Existing DataX job file path from plugin parameter.
      */
-    private String jobFileName;
-
-    /**
-     * Existing local job path.
-     */
-    private String jobPath;
-
-    /**
-     * Local log directory.
-     */
-    private Path logDir;
+    private String jobFile;
 
     /**
      * Local work directory.
      */
     private Path workDir;
-
-    /**
-     * DataX resources root.
-     */
-    private String resourcesRoot;
 
     /**
      * DataX home.
@@ -90,6 +64,21 @@ public class DataxExecutionParam {
      * DataX logback config file.
      */
     private String logbackConfigFile;
+
+    /**
+     * DataX main class.
+     */
+    private String mainClass;
+
+    /**
+     * DataX job mode.
+     */
+    private String jobMode;
+
+    /**
+     * DataX job ID.
+     */
+    private String jobId;
 
     /**
      * Java binary.
@@ -122,22 +111,10 @@ public class DataxExecutionParam {
     private String writeJobFilePermissions;
 
     /**
-     * Environment variables.
-     */
-    @Builder.Default
-    private Map<String, String> env = Collections.emptyMap();
-
-    /**
      * JVM options.
      */
     @Builder.Default
     private List<String> jvmOptions = Collections.emptyList();
-
-    /**
-     * DataX engine arguments.
-     */
-    @Builder.Default
-    private List<String> dataxArgs = Collections.emptyList();
 
     /**
      * Kubernetes parameter.

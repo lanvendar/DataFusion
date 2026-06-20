@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,16 +36,20 @@ class DataxKubernetesTemplateRendererTest {
         assertTrue(yaml.contains("image: \"datafusion/datax:latest\""));
         assertTrue(yaml.contains("DATAX_JOB_FILE"));
         assertTrue(yaml.contains("/datafusion/job/job.json"));
+        assertTrue(yaml.contains("DATAX_JOB_ID"));
+        assertTrue(yaml.contains("JAVA_OPTS"));
+        assertTrue(yaml.contains("--add-opens java.base/java.lang=ALL-UNNAMED"));
         assertTrue(yaml.contains("\"cpu\": \"1\""));
     }
 
     private DataxExecutionParam param() {
         return DataxExecutionParam.builder()
                 .flowInstanceId("flow-1")
-                .taskInstanceId("task-1")
                 .logLevel("INFO")
                 .logMaxSize("100MB")
                 .logMaxIndex(100)
+                .jobId("-1")
+                .jvmOptions(List.of("--add-opens", "java.base/java.lang=ALL-UNNAMED"))
                 .kubernetes(kubernetes())
                 .build();
     }

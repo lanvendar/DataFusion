@@ -4,20 +4,35 @@
   "runMode": "LOCAL",
   "description": "DataX 本地执行配置模板",
   "isTemplate": true,
-  "env": {
-    "resourcesRoot": "/opt/datafusion/plugins/datax",
-    "dataxHome": "/opt/datafusion/plugins/datax/datax",
-    "dataxJar": "/opt/datafusion/plugins/datax/datax/lib/datax-bundle-0.0.1.jar",
-    "logbackConfigFile": "/opt/datafusion/plugins/datax/datax/conf/logback.xml",
+  "pluginParam": {
     "javaBin": "java",
+    "dataxHome": "/opt/datafusion-builtin/plugins/datax",
+    "dataxJar": "/opt/datafusion-builtin/plugins/datax/lib/datax-bundle-0.0.1.jar",
+    "jobFile": "",
+    "logConfigFile": "/opt/datafusion-builtin/plugins/datax/conf/logback.xml",
     "logLevel": "INFO",
     "logMaxSize": "100MB",
     "logMaxIndex": 100,
-    "writeJobFilePermissions": "OWNER_READ,OWNER_WRITE",
-    "env": {},
+    "mainClass": "com.alibaba.datax.core.Engine",
     "jvmOptions": [
       "--add-opens",
       "java.base/java.lang=ALL-UNNAMED"
-    ]
+    ],
+    "jobId": -1,
+    "jobMode": "standalone",
+    "defaultTaskData": {
+      "job": {
+        "setting": {
+          "speed": {
+            "channel": 1
+          },
+          "errorLimit": {
+            "record": 0
+          }
+        },
+        "reader": {},
+        "writer": {}
+      }
+    }
   }
 }

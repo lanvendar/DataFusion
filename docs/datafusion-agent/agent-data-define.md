@@ -127,13 +127,15 @@ ${modules}/task-runtime/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
 - `appId` 统一表示终端任务 ID；`SHELL + LOCAL` 中 `appId=pid`。
 - `.snap` 只保存提交快照和插件配置参数，不保存运行时观测字段。
 - `.state` 只保存通用运行态，不回写 `taskData` / `pluginParam`，也不保存插件私有运行对象。
-- `logPath` 统一表示 agent 管理的本地日志路径；第三方日志 URI 放在 `TaskResult.result` 的结构化 JSON 中。
+- `logPath` 统一表示当前任务的主要日志入口；插件运行产物和插件日志优先放入
+  `${modules}/task-runtime/...` 并同步到 `TaskResult.result.pluginLogUri`。
+- `TaskResult.result.agentLogPath` 只表示 agent 自身日志或状态入口，指向 `/opt/datafusion/datafusion-agent/...` 一类 agent 管理路径。
 - `{taskInstanceId}.log` 只在状态变化时追加记录；全局 agent 日志通过 MDC 中的 `taskInsId` 关联检索。
 - `finishTask` 确认终态后删除该任务的 `.state` / `.snap`，停止该任务的状态上报计划，保留 `.log` 便于排查。
 
 ## 6. 插件通信契约
 
-插件必须显式定义 `TaskRequest.taskData`、`TaskRequest.pluginParam` 和 `TaskResult.result` 的 JSON 结构。`TaskResult.logPath` 保留给 agent 管理的本地日志入口；第三方系统日志、对象存储日志和脚本自定义日志放入 `result.pluginLogUri`。
+插件必须显式定义 `TaskRequest.taskData`、`TaskRequest.pluginParam` 和 `TaskResult.result` 的 JSON 结构。`TaskResult.logPath` 保留给当前任务主要日志入口；插件日志、本地采集日志、第三方系统日志、对象存储日志和脚本自定义日志放入 `result.pluginLogUri`。
 
 ### 6.1 SHELL LOCAL
 
@@ -148,7 +150,7 @@ ${modules}/task-runtime/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
 | `args` | `List<String>` | 否 | 空 | 命令参数 |
 | `workDir` | `String` | 否 | agent 当前工作目录 | 进程工作目录 |
 | `env` | `Object<String,String>` | 否 | 空 | 环境变量 |
-| `pluginLogUri` | `String` | 否 | 空 | 脚本自身写入的第三方日志 URI，仅透传到 `result` |
+| `pluginLogUri` | `String` | 否 | 空 | 脚本自身写入的插件日志入口，仅透传到 `result` |
 
 `taskData`:
 
@@ -156,7 +158,7 @@ ${modules}/task-runtime/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
 |------|------|------|--------|------|
 | `args` | `List<String>` | 否 | 空 | 任务级参数；后续实现可追加或覆盖 `pluginParam.args` |
 | `env` | `Object<String,String>` | 否 | 空 | 任务级环境变量；后续实现可覆盖 `pluginParam.env` |
-| `pluginLogUri` | `String` | 否 | 空 | 本任务第三方日志 URI |
+| `pluginLogUri` | `String` | 否 | 空 | 本任务插件日志入口 |
 
 `TaskResult.result`:
 

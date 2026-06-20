@@ -45,18 +45,34 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
     private final DataxKubernetesTemplateRenderer templateRenderer;
 
     /**
-     * Agent properties.
+     * Complete condition type.
      */
-    private final AgentProperties properties;
+    private static final String COMPLETE_CONDITION = "Complete";
+
+    /**
+     * Failed condition type.
+     */
+    private static final String FAILED_CONDITION = "Failed";
+
+    /**
+     * Running pod phase.
+     */
+    private static final String RUNNING_PHASE = "Running";
+
+    /**
+     * Pending pod phase.
+     */
+    private static final String PENDING_PHASE = "Pending";
 
     /**
      * Constructor.
      *
-     * @param properties agent properties
+     * @param properties       agent properties
+     * @param jobFileService   job file service
+     * @param templateRenderer YAML template renderer
      */
     public Fabric8DataxKubernetesClient(AgentProperties properties, DataxJobFileService jobFileService,
             DataxKubernetesTemplateRenderer templateRenderer) {
-        this.properties = properties;
         this.jobFileService = jobFileService;
         this.templateRenderer = templateRenderer;
         Config config = config(properties.getKubernetes());
@@ -83,22 +99,7 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
 
     @Override
     public void stop(DataxKubernetesRuntimeRef runtimeRef, boolean forcibly) {
-        if (forcibly) {
-            client.batch()
-                    .v1()
-                    .jobs()
-                    .inNamespace(runtimeRef.getNamespace())
-                    .withName(runtimeRef.getJobName())
-                    .withGracePeriod(0L)
-                    .delete();
-            return;
-        }
-        client.batch()
-                .v1()
-                .jobs()
-                .inNamespace(runtimeRef.getNamespace())
-                .withName(runtimeRef.getJobName())
-                .delete();
+        deleteJob(runtimeRef, forcibly);
     }
 
     @Override
@@ -106,45 +107,27 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
         if (localState != null && localState.isFinalState()) {
             return localState;
         }
-        Job job = client.batch()
-                .v1()
-                .jobs()
-                .inNamespace(runtimeRef.getNamespace())
-                .withName(runtimeRef.getJobName())
-                .get();
-        if (localState == StatusEnum.STOPPING || localState == StatusEnum.KILLING) {
-            if (podsRunning(runtimeRef)) {
-                return localState;
-            }
-            return localState == StatusEnum.STOPPING ? StatusEnum.STOP_SUCCESS : StatusEnum.KILLED;
+        if (isTerminatingState(localState)) {
+            return podsRunning(runtimeRef) ? localState : terminalControlState(localState);
         }
+        Job job = job(runtimeRef);
         if (job == null || job.getStatus() == null) {
             return StatusEnum.UNKNOWN;
         }
-        if (hasCondition(job, "Complete")) {
+        if (hasCondition(job, COMPLETE_CONDITION)) {
             return StatusEnum.RUN_SUCCESS;
         }
-        if (hasCondition(job, "Failed")) {
+        if (hasCondition(job, FAILED_CONDITION)) {
             return StatusEnum.RUN_FAILURE;
         }
-        Integer active = job.getStatus().getActive();
-        return active != null && active > 0 ? StatusEnum.RUNNING : StatusEnum.UNKNOWN;
+        return isActive(job) ? StatusEnum.RUNNING : StatusEnum.UNKNOWN;
     }
 
     @Override
     public String collectLogs(DataxKubernetesRuntimeRef runtimeRef) {
-        List<Pod> pods = client.pods()
-                .inNamespace(runtimeRef.getNamespace())
-                .withLabel(DataxK8sNameGenerator.TASK_LABEL, labelValueFromSelector(runtimeRef.getPodLabelSelector()))
-                .list()
-                .getItems();
         StringBuilder builder = new StringBuilder();
-        for (Pod pod : pods) {
-            String log = client.pods()
-                    .inNamespace(runtimeRef.getNamespace())
-                    .withName(pod.getMetadata().getName())
-                    .inContainer(runtimeRef.getContainerName())
-                    .getLog();
+        for (Pod pod : pods(runtimeRef)) {
+            String log = podLog(runtimeRef, pod);
             builder.append("===== pod: ").append(pod.getMetadata().getName()).append(" =====")
                     .append(System.lineSeparator())
                     .append(log == null ? "" : log)
@@ -156,22 +139,13 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
     @Override
     public void cleanup(DataxKubernetesRuntimeRef runtimeRef) {
         if (runtimeRef.isDeleteJobOnFinish()) {
-            client.batch()
-                    .v1()
-                    .jobs()
-                    .inNamespace(runtimeRef.getNamespace())
-                    .withName(runtimeRef.getJobName())
-                    .delete();
+            deleteJob(runtimeRef, false);
         }
-        client.secrets()
-                .inNamespace(runtimeRef.getNamespace())
-                .withName(runtimeRef.getSecretName())
-                .delete();
+        deleteSecret(runtimeRef);
     }
 
     private Config config(AgentProperties.Kubernetes kubernetes) {
-        if (isBlank(kubernetes.getApiServer()) && isBlank(kubernetes.getToken())
-                && !exists(kubernetes.getTokenFile()) && !exists(kubernetes.getCaCertFile())) {
+        if (!hasCustomConfig(kubernetes)) {
             return null;
         }
         ConfigBuilder builder = new ConfigBuilder();
@@ -193,6 +167,62 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
         return builder.build();
     }
 
+    private Job job(DataxKubernetesRuntimeRef runtimeRef) {
+        return client.batch()
+                .v1()
+                .jobs()
+                .inNamespace(runtimeRef.getNamespace())
+                .withName(runtimeRef.getJobName())
+                .get();
+    }
+
+    private List<Pod> pods(DataxKubernetesRuntimeRef runtimeRef) {
+        return client.pods()
+                .inNamespace(runtimeRef.getNamespace())
+                .withLabel(DataxK8sNameGenerator.TASK_LABEL, labelValueFromSelector(runtimeRef.getPodLabelSelector()))
+                .list()
+                .getItems();
+    }
+
+    private String podLog(DataxKubernetesRuntimeRef runtimeRef, Pod pod) {
+        return client.pods()
+                .inNamespace(runtimeRef.getNamespace())
+                .withName(pod.getMetadata().getName())
+                .inContainer(runtimeRef.getContainerName())
+                .getLog();
+    }
+
+    private void deleteJob(DataxKubernetesRuntimeRef runtimeRef, boolean forcibly) {
+        if (forcibly) {
+            client.batch()
+                    .v1()
+                    .jobs()
+                    .inNamespace(runtimeRef.getNamespace())
+                    .withName(runtimeRef.getJobName())
+                    .withGracePeriod(0L)
+                    .delete();
+            return;
+        }
+        client.batch()
+                .v1()
+                .jobs()
+                .inNamespace(runtimeRef.getNamespace())
+                .withName(runtimeRef.getJobName())
+                .delete();
+    }
+
+    private void deleteSecret(DataxKubernetesRuntimeRef runtimeRef) {
+        client.secrets()
+                .inNamespace(runtimeRef.getNamespace())
+                .withName(runtimeRef.getSecretName())
+                .delete();
+    }
+
+    private boolean hasCustomConfig(AgentProperties.Kubernetes kubernetes) {
+        return !isBlank(kubernetes.getApiServer()) || !isBlank(kubernetes.getToken())
+                || exists(kubernetes.getTokenFile()) || exists(kubernetes.getCaCertFile());
+    }
+
     private boolean hasCondition(Job job, String type) {
         List<JobCondition> conditions = job.getStatus().getConditions();
         if (conditions == null) {
@@ -203,15 +233,28 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
     }
 
     private boolean podsRunning(DataxKubernetesRuntimeRef runtimeRef) {
-        return client.pods()
-                .inNamespace(runtimeRef.getNamespace())
-                .withLabel(DataxK8sNameGenerator.TASK_LABEL, labelValueFromSelector(runtimeRef.getPodLabelSelector()))
-                .list()
-                .getItems()
-                .stream()
-                .anyMatch(pod -> pod.getStatus() != null
-                        && ("Running".equals(pod.getStatus().getPhase())
-                        || "Pending".equals(pod.getStatus().getPhase())));
+        return pods(runtimeRef).stream().anyMatch(this::podRunning);
+    }
+
+    private boolean podRunning(Pod pod) {
+        if (pod.getStatus() == null) {
+            return false;
+        }
+        String phase = pod.getStatus().getPhase();
+        return RUNNING_PHASE.equals(phase) || PENDING_PHASE.equals(phase);
+    }
+
+    private boolean isTerminatingState(StatusEnum localState) {
+        return localState == StatusEnum.STOPPING || localState == StatusEnum.KILLING;
+    }
+
+    private StatusEnum terminalControlState(StatusEnum localState) {
+        return localState == StatusEnum.STOPPING ? StatusEnum.STOP_SUCCESS : StatusEnum.KILLED;
+    }
+
+    private boolean isActive(Job job) {
+        Integer active = job.getStatus().getActive();
+        return active != null && active > 0;
     }
 
     private void ensureImage(DataxKubernetesParam kubernetes) {
@@ -221,9 +264,6 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
     }
 
     private String jobContent(DataxExecutionParam param) {
-        if (param.getJobJson() != null) {
-            return param.getJobJson().isTextual() ? param.getJobJson().asText() : param.getJobJson().toString();
-        }
         try {
             return Files.readString(jobFileService.resolveJobFile(param), StandardCharsets.UTF_8);
         } catch (Exception e) {

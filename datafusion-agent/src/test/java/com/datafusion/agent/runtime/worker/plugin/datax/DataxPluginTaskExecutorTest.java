@@ -97,7 +97,7 @@ class DataxPluginTaskExecutorTest {
             return DataxSubmitResult.builder()
                     .status(StatusEnum.RUNNING)
                     .appId(runtimeRef.getJobName())
-                    .logPath(param.getLogDir().toString())
+                    .logPath(param.getWorkDir().toString())
                     .kubernetesRuntimeRef(runtimeRef)
                     .result(JacksonUtils.createObjectNode().put("message", "submitted"))
                     .build();

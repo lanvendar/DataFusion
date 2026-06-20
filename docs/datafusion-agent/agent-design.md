@@ -149,7 +149,9 @@ ${modules}/task-runtime/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
 writer 写入，不使用 Logback `SiftingAppender` 按 `taskInstanceId` 动态创建 appender；全局 agent 日志
 仍通过 MDC 中的 `taskInsId` 进行检索关联。
 
-`logPath` 只表示 agent 本地日志入口。三方日志、K8S/Yarn/Flink UI 或对象存储日志地址放入 `TaskResult.result.pluginLogUri`。
+`TaskResult.logPath` 表示当前任务的主要日志入口。插件运行产物和插件日志优先放入
+`${modules}/task-runtime/...` 并同步到 `TaskResult.result.pluginLogUri`；agent 自身日志或状态入口放入
+`TaskResult.result.agentLogPath`，只指向 `/opt/datafusion/datafusion-agent/...` 一类 agent 管理路径。
 
 ## 第一版范围
 

@@ -59,8 +59,10 @@ public class DataxKubernetesTemplateRenderer {
         values.put("namespace", quote(kubernetes.getNamespace()));
         values.put("secretName", quote(kubernetes.getSecretName()));
         values.put("jobName", quote(kubernetes.getJobName()));
+        values.put("jobSecretKey", DataxKubernetesTemplateConstants.JOB_SECRET_KEY);
         values.put("jobJsonBase64", quote(Base64.getEncoder()
                 .encodeToString(jobContent.getBytes(StandardCharsets.UTF_8))));
+        values.put("jobJsonMountDir", quote(DataxKubernetesTemplateConstants.JOB_JSON_MOUNT_DIR));
         values.put("labels", mapYaml(labels, 4));
         values.put("podLabels", mapYaml(labels, 8));
         values.put("annotations", mapYaml(annotations, 4));
@@ -113,10 +115,12 @@ public class DataxKubernetesTemplateRenderer {
         Map<String, String> env = new LinkedHashMap<>(kubernetes.getEnv());
         env.put("DATAX_HOME", kubernetes.getDataxHome());
         env.put("DATAX_JOB_FILE", kubernetes.getJobJsonMountPath());
-        env.put("DATAX_LOG_FILE", "/datafusion/logs/datax.log");
+        env.put("DATAX_LOG_FILE", DataxKubernetesTemplateConstants.DATAX_LOG_FILE);
         env.put("DATAX_LOG_LEVEL", param.getLogLevel());
         env.put("DATAX_LOG_MAX_SIZE", param.getLogMaxSize());
         env.put("DATAX_LOG_MAX_INDEX", String.valueOf(param.getLogMaxIndex()));
+        env.put("DATAX_JOB_ID", param.getJobId());
+        env.put("JAVA_OPTS", param.getJvmOptions() == null ? "" : String.join(" ", param.getJvmOptions()));
         StringBuilder builder = new StringBuilder();
         env.forEach((key, value) -> builder.append(spaces(indent))
                 .append("- name: ").append(quote(key)).append(System.lineSeparator())

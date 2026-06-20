@@ -43,14 +43,14 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
     private final DataxJobFileService jobFileService;
 
     /**
-     * Local template path.
-     */
-    private static final String LOCAL_TEMPLATE_PATH = "plugins/datax/templates/datax-local-runtime.yml";
-
-    /**
      * State store.
      */
     private final WorkerTaskExecutionStore stateStore;
+
+    /**
+     * Local template path.
+     */
+    private static final String LOCAL_TEMPLATE_PATH = "plugins/datax/templates/datax-local-runtime.yml";
 
     /**
      * Template renderer.
@@ -87,25 +87,25 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
     public DataxSubmitResult submit(TaskRequest request, DataxExecutionParam param) {
         try {
             Path jobFile = jobFileService.resolveJobFile(param);
-            Files.createDirectories(param.getLogDir());
+            Files.createDirectories(param.getWorkDir());
             LocalProcessSpec spec = localProcessSpec(param, jobFile);
             ProcessBuilder builder = new ProcessBuilder(spec.getCommand());
-            configureProcess(spec, builder);
-            builder.redirectOutput(Path.of(spec.getStdout()).toFile());
-            builder.redirectError(Path.of(spec.getStderr()).toFile());
+            configureProcess(param, builder);
+            builder.redirectOutput(ProcessBuilder.Redirect.appendTo(param.getLogFile().toFile()));
+            builder.redirectError(ProcessBuilder.Redirect.appendTo(param.getLogFile().toFile()));
             Process process = builder.start();
             String appId = String.valueOf(process.pid());
             watchExit(process, request.getTaskInstanceId());
             return DataxSubmitResult.builder()
                     .status(StatusEnum.RUNNING)
                     .appId(appId)
-                    .logPath(param.getLogDir().toString())
-                    .result(resultJson("LOCAL DataX task submitted", param.getLogDir().toString(), null))
+                    .logPath(param.getLogFile().toString())
+                    .result(resultJson("LOCAL DataX task submitted", param.getLogFile().toString(), null, null))
                     .build();
         } catch (Exception e) {
             return DataxSubmitResult.builder()
                     .status(StatusEnum.SUBMIT_FAILURE)
-                    .result(resultJson(e.getMessage(), null, null))
+                    .result(resultJson(e.getMessage(), null, null, null))
                     .build();
         }
     }
@@ -130,13 +130,12 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
                 .taskState(status == null ? StatusEnum.UNKNOWN : status)
                 .appId(request.getAppId())
                 .logPath(state == null ? null : state.getLogPath())
-                .result(resultJson("LOCAL DataX finish checked", state == null ? null : state.getLogPath(), null))
+                .result(resultJson("LOCAL DataX finish checked", state == null ? null : state.getLogPath(), null, null))
                 .build();
     }
 
     private LocalProcessSpec localProcessSpec(DataxExecutionParam param, Path jobFile) {
         Map<String, String> values = Map.ofEntries(
-                Map.entry("workDir", param.getWorkDir().toString()),
                 Map.entry("javaBin", param.getJavaBin()),
                 Map.entry("jvmOptions", TemplateYamlFragments.listItems(param.getJvmOptions(), 2)),
                 Map.entry("dataxHome", required(param.getDataxHome(), "dataxHome不能为空")),
@@ -144,13 +143,12 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
                 Map.entry("logFile", param.getLogFile().toString()),
                 Map.entry("logMaxSize", param.getLogMaxSize()),
                 Map.entry("logMaxIndex", String.valueOf(param.getLogMaxIndex())),
-                Map.entry("logbackConfigFile", required(param.getLogbackConfigFile(), "logbackConfigFile不能为空")),
+                Map.entry("logConfigFile", required(param.getLogbackConfigFile(), "logConfigFile不能为空")),
                 Map.entry("dataxJar", required(param.getDataxJar(), "dataxJar不能为空")),
-                Map.entry("jobFile", jobFile.toString()),
-                Map.entry("dataxArgs", TemplateYamlFragments.listItems(param.getDataxArgs(), 2)),
-                Map.entry("env", TemplateYamlFragments.mapEntries(param.getEnv(), 2)),
-                Map.entry("stdout", param.getLogDir().resolve("stdout.log").toString()),
-                Map.entry("stderr", param.getLogDir().resolve("stderr.log").toString())
+                Map.entry("mainClass", required(param.getMainClass(), "mainClass不能为空")),
+                Map.entry("jobMode", required(param.getJobMode(), "jobMode不能为空")),
+                Map.entry("jobId", required(param.getJobId(), "jobId不能为空")),
+                Map.entry("jobFile", jobFile.toString())
         );
         LocalProcessSpec spec = templateRenderer.renderYaml(LOCAL_TEMPLATE_PATH, values, LocalProcessSpec.class);
         if (spec.getCommand() == null || spec.getCommand().isEmpty()) {
@@ -159,13 +157,8 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
         return spec;
     }
 
-    private void configureProcess(LocalProcessSpec spec, ProcessBuilder builder) {
-        if (spec.getWorkDir() != null && !spec.getWorkDir().trim().isEmpty()) {
-            builder.directory(Path.of(spec.getWorkDir()).toFile());
-        }
-        if (spec.getEnv() != null) {
-            builder.environment().putAll(spec.getEnv());
-        }
+    private void configureProcess(DataxExecutionParam param, ProcessBuilder builder) {
+        builder.directory(param.getWorkDir().toFile());
     }
 
     private TaskResult stopProcess(TaskRequest request, WorkerTaskExecutionState state, boolean forcibly) {
@@ -186,7 +179,7 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
                 .appId(resolveAppId(request, state))
                 .logPath(state == null ? null : state.getLogPath())
                 .result(resultJson(handle == null ? "LOCAL DataX process not found" : "LOCAL DataX process stopped",
-                        state == null ? null : state.getLogPath(), null))
+                        state == null ? null : state.getLogPath(), null, null))
                 .build();
     }
 
@@ -200,8 +193,8 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
                 }
                 state.setExitCode(exitCode);
                 state.setStatus(exitCode == 0 ? StatusEnum.RUN_SUCCESS : StatusEnum.RUN_FAILURE);
-                state.setResult(resultJson("LOCAL DataX process exited, exitCode=" + exitCode,
-                        state.getLogPath(), exitCode));
+                state.setResult(resultJson("LOCAL DataX process exited, exitCode=" + exitCode, state.getLogPath(),
+                        null, exitCode));
                 stateStore.saveState(state);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -236,7 +229,8 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
         return value;
     }
 
-    private ObjectNode resultJson(String message, String agentLogPath, Integer exitCode) {
-        return PluginResultJson.build(message, "DATAX", DataxRunMode.LOCAL.name(), null, agentLogPath, exitCode);
+    private ObjectNode resultJson(String message, String pluginLogUri, String agentLogPath, Integer exitCode) {
+        return PluginResultJson.build(message, "DATAX", DataxRunMode.LOCAL.name(), pluginLogUri, agentLogPath,
+                exitCode);
     }
 }

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.HashSet;
 import java.util.Set;
@@ -22,6 +23,11 @@ import java.util.Set;
 public class DataxJobFileService {
 
     /**
+     * Local job file name.
+     */
+    private static final String LOCAL_JOB_FILE_NAME = "job.json";
+
+    /**
      * Object mapper.
      */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -35,25 +41,43 @@ public class DataxJobFileService {
     public Path resolveJobFile(DataxExecutionParam param) {
         try {
             Files.createDirectories(param.getWorkDir());
-            JsonNode jobJson = param.getJobJson();
+            Path targetJobFile = param.getWorkDir().resolve(LOCAL_JOB_FILE_NAME);
+            if (!isBlank(param.getJobFile())) {
+                copyJobFile(Path.of(param.getJobFile()), targetJobFile);
+                applyPermissions(targetJobFile, param.getWriteJobFilePermissions());
+                return targetJobFile;
+            }
+            JsonNode jobJson = firstNode(param.getJobJson(), param.getEffectiveTaskData());
             if (jobJson != null) {
-                Path jobFile = param.getWorkDir().resolve(safeFileName(param.getJobName(), "taskData.jobName"));
                 String content = jobJson.isTextual() ? jobJson.asText() : OBJECT_MAPPER.writeValueAsString(jobJson);
-                Files.writeString(jobFile, content, StandardCharsets.UTF_8);
-                applyPermissions(jobFile, param.getWriteJobFilePermissions());
-                return jobFile;
-            }
-            if (!isBlank(param.getJobPath())) {
-                return Path.of(param.getJobPath());
-            }
-            if (!isBlank(param.getJobFileName()) && !isBlank(param.getResourcesRoot())) {
-                return Path.of(param.getResourcesRoot(), "job", safeFileName(param.getJobFileName(),
-                        "taskData.jobFileName"));
+                Files.writeString(targetJobFile, content, StandardCharsets.UTF_8);
+                applyPermissions(targetJobFile, param.getWriteJobFilePermissions());
+                return targetJobFile;
             }
             throw new IllegalArgumentException("DataX job文件不存在");
         } catch (Exception e) {
             throw new IllegalStateException("准备DataX job文件失败: " + e.getMessage(), e);
         }
+    }
+
+    private void copyJobFile(Path source, Path target) throws java.io.IOException {
+        if (!Files.isRegularFile(source)) {
+            throw new IllegalArgumentException("DataX job文件不存在: " + source);
+        }
+        if (source.toAbsolutePath().normalize().equals(target.toAbsolutePath().normalize())) {
+            return;
+        }
+        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    private JsonNode firstNode(JsonNode first, JsonNode second) {
+        if (first != null && !first.isNull() && (!first.isObject() || !first.isEmpty())) {
+            return first;
+        }
+        if (second != null && !second.isNull() && (!second.isObject() || !second.isEmpty())) {
+            return second;
+        }
+        return null;
     }
 
     private void applyPermissions(Path file, String permissionText) {
@@ -79,14 +103,4 @@ public class DataxJobFileService {
         return value == null || value.trim().isEmpty();
     }
 
-    private String safeFileName(String value, String fieldName) {
-        if (isBlank(value)) {
-            throw new IllegalArgumentException(fieldName + "不能为空");
-        }
-        Path path = Path.of(value);
-        if (path.isAbsolute() || path.getNameCount() != 1 || value.contains("..")) {
-            throw new IllegalArgumentException(fieldName + "不能包含路径");
-        }
-        return value;
-    }
 }

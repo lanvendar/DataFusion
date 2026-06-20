@@ -6,6 +6,8 @@ import com.datafusion.agent.runtime.worker.plugin.datax.k8s.DataxKubernetesParam
 import com.datafusion.agent.runtime.worker.plugin.datax.k8s.DataxKubernetesTemplateConstants;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
@@ -32,14 +34,34 @@ public class DataxParamResolver {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 
     /**
-     * DataX work directory.
+     * Local job file name.
      */
-    private static final String WORK_DIR = "datax-work";
+    private static final String LOCAL_JOB_FILE_NAME = "job.json";
+
+    /**
+     * Local DataX log file name.
+     */
+    private static final String LOCAL_DATAX_LOG_FILE_NAME = "local-datax.log";
 
     /**
      * Default Java binary.
      */
     private static final String DEFAULT_JAVA_BIN = "java";
+
+    /**
+     * Default DataX main class.
+     */
+    private static final String DEFAULT_MAIN_CLASS = "com.alibaba.datax.core.Engine";
+
+    /**
+     * Default DataX job mode.
+     */
+    private static final String DEFAULT_JOB_MODE = "standalone";
+
+    /**
+     * Default DataX job ID.
+     */
+    private static final String DEFAULT_JOB_ID = "-1";
 
     /**
      * Default JVM options.
@@ -98,6 +120,11 @@ public class DataxParamResolver {
     private static final String DEFAULT_SECRET_NAME_PREFIX = "df-datax-job-";
 
     /**
+     * Object mapper.
+     */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    /**
      * Agent properties.
      */
     private final AgentProperties properties;
@@ -125,53 +152,43 @@ public class DataxParamResolver {
         JsonNode pluginParam = request.getPluginParam();
         DataxRunMode runMode = DataxRunMode.parse(text(pluginParam, "runMode"));
         String date = LocalDate.now().format(DATE_FORMATTER);
-        Path logDir = Path.of(properties.getModules(), properties.getStorage().getLogsDir(), date,
+        Path runtimeDir = Path.of(properties.getModules(), properties.getStorage().getTaskRuntimeDir(), date,
                 safePath(request.getFlowInstanceId()), safePath(request.getTaskInstanceId()));
-        Path workDir = Path.of(properties.getModules(), WORK_DIR, date,
-                safePath(request.getFlowInstanceId()), safePath(request.getTaskInstanceId()));
-        String jobName = defaultText(text(taskData, "jobName"), request.getTaskInstanceId() + ".json");
-        String resourcesRoot = text(pluginParam, "resourcesRoot");
+        JsonNode effectiveTaskData = effectiveTaskData(pluginParam, taskData);
         String dataxHome = text(pluginParam, "dataxHome");
-        if (isBlank(dataxHome) && !isBlank(resourcesRoot)) {
-            dataxHome = Path.of(resourcesRoot, "datax").toString();
-        }
         String dataxJar = text(pluginParam, "dataxJar");
         if (isBlank(dataxJar) && !isBlank(dataxHome)) {
             dataxJar = Path.of(dataxHome, "lib", "datax-bundle-0.0.1.jar").toString();
         }
-        String logbackConfigFile = text(pluginParam, "logbackConfigFile");
+        String logbackConfigFile = text(pluginParam, "logConfigFile");
         if (isBlank(logbackConfigFile) && !isBlank(dataxHome)) {
             logbackConfigFile = Path.of(dataxHome, "conf", "logback.xml").toString();
         }
-        validateJobSource(taskData, runMode);
+        validateJobSource(pluginParam, taskData, effectiveTaskData, runMode);
         DataxKubernetesParam kubernetes = runMode == DataxRunMode.K8S ? resolveKubernetes(request, taskData,
                 pluginParam) : null;
         validateKubernetes(kubernetes);
         return DataxExecutionParam.builder()
                 .runMode(runMode)
                 .flowInstanceId(request.getFlowInstanceId())
-                .taskInstanceId(request.getTaskInstanceId())
-                .jobName(jobName)
                 .jobJson(jobJson(taskData))
-                .pluginParam(pluginParam)
-                .jobFileName(text(taskData, "jobFileName"))
-                .jobPath(text(taskData, "jobPath"))
-                .logDir(logDir)
-                .workDir(workDir)
-                .resourcesRoot(resourcesRoot)
+                .effectiveTaskData(effectiveTaskData)
+                .jobFile(text(pluginParam, "jobFile"))
+                .workDir(runtimeDir)
                 .dataxHome(dataxHome)
                 .dataxJar(dataxJar)
                 .logbackConfigFile(logbackConfigFile)
+                .mainClass(defaultText(text(pluginParam, "mainClass"), DEFAULT_MAIN_CLASS))
+                .jobMode(defaultText(text(pluginParam, "jobMode"), DEFAULT_JOB_MODE))
+                .jobId(defaultText(text(pluginParam, "jobId"), DEFAULT_JOB_ID))
                 .javaBin(defaultText(text(pluginParam, "javaBin"), DEFAULT_JAVA_BIN))
-                .logFile(logDir.resolve(jobName + ".log"))
+                .logFile(runtimeDir.resolve(LOCAL_DATAX_LOG_FILE_NAME))
                 .logLevel(defaultText(text(pluginParam, "logLevel"), DEFAULT_LOG_LEVEL))
                 .logMaxSize(defaultText(text(pluginParam, "logMaxSize"), DEFAULT_LOG_MAX_SIZE))
                 .logMaxIndex(intValue(pluginParam, "logMaxIndex", DEFAULT_LOG_MAX_INDEX))
                 .writeJobFilePermissions(defaultText(text(pluginParam, "writeJobFilePermissions"),
                         DEFAULT_WRITE_JOB_FILE_PERMISSIONS))
-                .env(mergeMap(object(pluginParam, "env"), object(taskData, "env")))
-                .jvmOptions(mergeList(DEFAULT_JVM_OPTIONS, list(pluginParam, "jvmOptions"), list(taskData, "jvmOptions")))
-                .dataxArgs(list(taskData, "dataxArgs"))
+                .jvmOptions(listOrDefault(pluginParam, "jvmOptions", DEFAULT_JVM_OPTIONS))
                 .kubernetes(kubernetes)
                 .build();
     }
@@ -191,7 +208,7 @@ public class DataxParamResolver {
         Map<String, String> annotations = mergeMap(object(pluginKubernetes, "annotations"),
                 object(taskKubernetes, "annotations"));
         Map<String, String> env = mergeMap(object(pluginParam, "env"), object(pluginKubernetes, "env"),
-                object(taskData, "env"), object(taskKubernetes, "env"));
+                object(taskKubernetes, "env"));
         return DataxKubernetesParam.builder()
                 .namespace(namespace)
                 .image(firstText(text(taskKubernetes, "image"), text(pluginKubernetes, "image")))
@@ -226,13 +243,12 @@ public class DataxParamResolver {
                 .build();
     }
 
-    private void validateJobSource(JsonNode taskData, DataxRunMode runMode) {
-        if (jobJson(taskData) == null && isBlank(text(taskData, "jobPath")) && isBlank(text(taskData, "jobFileName"))) {
-            throw new IllegalArgumentException("taskData.jobJson、taskData.jobPath、taskData.jobFileName至少配置一个");
+    private void validateJobSource(JsonNode pluginParam, JsonNode taskData, JsonNode effectiveTaskData,
+            DataxRunMode runMode) {
+        if (!isBlank(text(pluginParam, "jobFile")) || jobJson(taskData) != null || !isEmptyObject(effectiveTaskData)) {
+            return;
         }
-        if (runMode == DataxRunMode.K8S && !isBlank(text(taskData, "jobPath"))) {
-            throw new IllegalArgumentException("taskData.jobPath仅支持LOCAL运行模式");
-        }
+        throw new IllegalArgumentException("pluginParam.jobFile、pluginParam.defaultTaskData、taskData.jobJson、taskData至少配置一个");
     }
 
     private void validateKubernetes(DataxKubernetesParam kubernetes) {
@@ -290,14 +306,12 @@ public class DataxParamResolver {
         return list;
     }
 
-    private List<String> mergeList(List<String> first, List<String> second, List<String> third) {
-        List<String> result = new ArrayList<>();
-        if (first != null) {
-            result.addAll(first);
+    private List<String> listOrDefault(JsonNode node, String field, List<String> defaultValue) {
+        JsonNode value = node == null ? null : node.get(field);
+        if (value == null || !value.isArray()) {
+            return new ArrayList<>(defaultValue);
         }
-        result.addAll(second);
-        result.addAll(third);
-        return result;
+        return list(node, field);
     }
 
     private Map<String, String> mergeMap(JsonNode... nodes) {
@@ -328,6 +342,42 @@ public class DataxParamResolver {
 
     private String defaultText(String value, String defaultValue) {
         return isBlank(value) ? defaultValue : value;
+    }
+
+    private JsonNode effectiveTaskData(JsonNode pluginParam, JsonNode taskData) {
+        JsonNode defaultTaskData = object(pluginParam, "defaultTaskData");
+        ObjectNode result = defaultTaskData == null ? OBJECT_MAPPER.createObjectNode() : defaultTaskData.deepCopy();
+        JsonNode overrideTaskData = taskDataOverride(taskData);
+        if (overrideTaskData != null && overrideTaskData.isObject()) {
+            deepMerge(result, overrideTaskData);
+        }
+        return result;
+    }
+
+    private JsonNode taskDataOverride(JsonNode taskData) {
+        if (taskData == null || !taskData.isObject()) {
+            return null;
+        }
+        ObjectNode override = taskData.deepCopy();
+        override.remove(List.of("jobJson", "jobName", "jobPath", "jobFileName", "env", "jvmOptions", "dataxArgs",
+                "kubernetes", "pluginLogUri"));
+        return override;
+    }
+
+    private void deepMerge(ObjectNode target, JsonNode override) {
+        override.properties().forEach(entry -> {
+            JsonNode current = target.get(entry.getKey());
+            JsonNode next = entry.getValue();
+            if (current != null && current.isObject() && next != null && next.isObject()) {
+                deepMerge((ObjectNode) current, next);
+            } else {
+                target.set(entry.getKey(), next);
+            }
+        });
+    }
+
+    private boolean isEmptyObject(JsonNode node) {
+        return node == null || node.isObject() && node.isEmpty();
     }
 
     private boolean isBlank(String value) {
