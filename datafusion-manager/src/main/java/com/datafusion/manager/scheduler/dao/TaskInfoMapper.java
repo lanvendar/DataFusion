@@ -33,4 +33,16 @@ public interface TaskInfoMapper extends BaseMapper<TaskInfoEntity> {
      * @return 任务信息列表
      */
     List<TaskInfoEntity> listByFlowId(@Param("flowId") UUID flowId);
+
+    /**
+     * 根据bizRef核心字段查询任务信息.
+     *
+     * @param system  来源系统
+     * @param bizType 业务类型
+     * @param bizKey  业务唯一键
+     * @return 任务信息
+     */
+    TaskInfoEntity getTaskInfoByBizRef(@Param("system") String system,
+                                       @Param("bizType") String bizType,
+                                       @Param("bizKey") String bizKey);
 }

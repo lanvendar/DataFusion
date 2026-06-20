@@ -1,0 +1,263 @@
+# task-definition-register 设计文档
+
+> 数据结构见 [task-definition-register-data-define.md](./task-definition-register-data-define.md)。本文定义 `TaskDefinitionRegister` 的接口职责、`sync_flag` 时序和 `definition.bizRef` 的使用边界。
+
+## 1. 设计目标
+
+- 为业务模块提供尽量简单的统一任务定义接入能力。
+- 用一个 `register` 接口替代业务侧区分 `add/update` 的心智负担。
+- 用一个 `markUnsynced` 接口显式通知 `sync_flag=false`。
+- 让调度侧只理解 `bizRef` 和调度属性，不理解复杂业务表结构。
+
+## 2. 现状问题
+
+当前调度域只有：
+
+- `POST /api/scheduler/task/add`
+- `POST /api/scheduler/task/update`
+
+现状不足：
+
+- 业务方需要知道自己是在新增还是更新。
+- `sync_flag` 只有字段，没有统一通知入口。
+- 业务身份定位分散，没有约定 `definition` 主结构。
+- 原生 DTO 混有调度编排字段，不适合业务域直接使用。
+
+## 3. 最终方案
+
+统一命名使用 `TaskDefinitionRegister`，但接口只保留两类动作：
+
+- `register`
+- `markUnsynced`
+
+调用关系：
+
+```text
+业务模块
+   |
+   +--> TaskDefinitionRegister.register
+   |         |
+   |         +--> 按 definition.bizRef 查找
+   |         +--> 不存在则新增
+   |         +--> 存在则更新
+   |         +--> 成功后 sync_flag=true
+   |         +--> 返回 taskId
+   |
+   +--> TaskDefinitionRegister.markUnsynced
+             |
+             +--> 按 bizRef 查找
+             +--> 只更新 sync_flag=false
+             +--> 返回 taskId
+```
+
+核心原则：
+
+- 业务方永远提交最新 `definition` 快照，而不是自己决定调用 `add` 还是 `update`。
+- `sync_flag` 的变化由接口显式驱动，不依赖调度侧猜测。
+- 调度侧只依赖 `definition.bizRef` 定位任务，不要求拆业务主键字段入表。
+
+## 4. `definition` 设计原则
+
+### 4.1 主结构
+
+`definition` 顶层只保留三个稳定概念：
+
+- `bizRef`
+- `data`
+- `options`
+
+其中：
+
+- `bizRef` 负责唯一定位
+- `data` 负责保存完整业务定义快照
+- `options` 负责可选扩展
+
+### 4.2 为什么不用一堆顶层业务字段
+
+因为业务对象可能来自一对多、多对多、多表聚合场景。调度不应该承担这些业务结构的建模成本。把复杂结构全部放进 `definition.data`，再抽一个轻量 `bizRef` 用于定位，会更稳。
+
+### 4.3 `bizRef` 的边界
+
+`bizRef` 不是完整业务数据，只是定位串。
+
+应该放：
+
+- 稳定身份字段
+- 稳定版本或分区字段
+
+不应该放：
+
+- 任务名称
+- 描述
+- 可编辑展示文案
+- 容易变化但不影响身份的业务属性
+
+## 5. `sync_flag` 语义与触发
+
+### 5.1 字段语义
+
+| 值 | 含义 |
+|----|------|
+| `true` | `scheduler_task_info.definition` 已与业务源一致 |
+| `false` | 业务源已变更，但最新 `definition` 尚未重新登记到调度 |
+
+### 5.2 接口触发规则
+
+| 接口 | 行为 | `sync_flag` 结果 |
+|------|------|------------------|
+| `register` | 提交最新 `definition` 快照 | `true` |
+| `markUnsynced` | 通知业务源已变化但未重新提交定义 | `false` |
+
+### 5.3 推荐触发时机
+
+主方案：
+
+- 业务主服务在事务提交成功后，主动调用 `markUnsynced`
+- 当业务侧生成最新调度定义并准备提交时，再调用 `register`
+
+补偿方案：
+
+- 可使用 outbox / MQ / 领域事件异步触发 `markUnsynced`
+- 定时 job 只做兜底对账，不作为主链路
+
+不建议的方案：
+
+- 让调度后台定时全表扫描业务表作为主机制
+
+原因是：
+
+- 成本高
+- 延迟大
+- 难以判断复杂聚合业务何时真正发生影响定义的变化
+
+## 6. `register` 行为
+
+### 6.1 幂等规则
+
+`register` 通过 `definition.bizRef` 判断新增还是更新：
+
+1. 查不到 `bizRef` 对应任务时，执行新增
+2. 查到对应任务时，执行更新
+3. 成功后统一返回 `taskId`
+
+业务侧不需要感知新增还是更新。
+
+### 6.2 更新边界
+
+`register` 允许更新：
+
+- `taskName`
+- `taskCode`
+- `description`
+- `taskTypeId`
+- `taskType`
+- `taskParam`
+- `definition`
+- `sourceRoute`
+
+典型请求主结构：
+
+```json
+{
+  "taskName": "Ingestion Task Definition",
+  "taskCode": "optional-task-code",
+  "description": "数据集成任务定义同步到调度",
+  "taskTypeId": "INGESTION_TASK",
+  "taskType": "INGESTION",
+  "definition": {
+    "bizRef": "bizref:v1:system=INGESTION:bizType=TASK_DEFINITION:bizKey=8f3c2c6a-7d2e-4c2b-a8c1-1b2f3d4e5f6a:versionId=v7",
+    "data": {
+      "taskId": "8f3c2c6a-7d2e-4c2b-a8c1-1b2f3d4e5f6a",
+      "projectId": "p001",
+      "jobId": "j002",
+      "versionId": "v7"
+    }
+  },
+  "taskParam": {
+    "submitter": "INGESTION"
+  },
+  "sourceRoute": "/ingestion/task-definition/detail/8f3c2c6a-7d2e-4c2b-a8c1-1b2f3d4e5f6a"
+}
+```
+
+`register` 不允许更新：
+
+- `pluginId`
+- `flowId`
+- `eventId`
+- `depEventIds`
+- `view`
+- `enabled`
+
+### 6.3 状态保护
+
+| 场景 | 处理规则 |
+|------|----------|
+| 未发布 | 允许 `register`，成功后 `sync_flag=true` |
+| 已发布 | 拒绝 `register` 更新定义 |
+
+说明:
+
+- 当前状态机不考虑“已启用但未发布”的独立场景。
+- `register` 不更新 `flowId`，因此任务是否绑定流程不作为定义更新的单独拦截条件。
+
+## 7. `markUnsynced` 行为
+
+`markUnsynced` 只做三件事：
+
+1. 根据 `bizRef` 查找调度任务
+2. 更新 `sync_flag=false`
+3. 可选更新 `source_route`
+
+典型请求主结构：
+
+```json
+{
+  "bizRef": "bizref:v1:system=INGESTION:bizType=TASK_DEFINITION:bizKey=8f3c2c6a-7d2e-4c2b-a8c1-1b2f3d4e5f6a:versionId=v7",
+  "sourceRoute": "/ingestion/task-definition/detail/8f3c2c6a-7d2e-4c2b-a8c1-1b2f3d4e5f6a",
+  "reason": "BUSINESS_DATA_CHANGED"
+}
+```
+
+它不做：
+
+- `definition` 更新
+- `taskParam` 更新
+- 调度编排属性更新
+
+因此它适合作为“业务数据已变脏”的轻量通知接口。
+
+## 8. 与现有执行链路的关系
+
+本方案不改运行期 master/worker 提交协议：
+
+- `TaskStorageImpl` 仍从 `scheduler_task_info.definition` 读取任务定义
+- `HttpMasterTaskOperator` 仍负责向 worker 发起 `/internal/scheduler/submitTask`
+- worker 仍消费转换后的 `TaskRequest`
+
+`TaskDefinitionRegister` 只负责维护定义快照和同步状态，不直接参与实例执行。
+
+## 9. 建议实现清单
+
+建议新增或改造以下内容：
+
+- `scheduler/service/TaskDefinitionRegisterService`
+  - 定义 `register` 和 `markUnsynced`
+- `scheduler/service/impl/TaskDefinitionRegisterServiceImpl`
+  - 实现 `bizRef` 提取、幂等查找、状态保护和 `sync_flag` 更新
+- `scheduler/controller/TaskDefinitionRegisterController`
+  - 暴露统一接口
+- `scheduler/dto`
+  - 新增 `TaskDefinitionRegisterDto`
+  - 新增 `TaskDefinitionRegisterResultDto`
+  - 新增 `TaskDefinitionMarkUnsyncedDto`
+  - 新增 `TaskDefinitionMarkUnsyncedResultDto`
+- `scheduler/dao/TaskInfoMapper`
+  - 新增按 `definition.bizRef` 查询方法
+
+## 10. 非目标
+
+- 不调整 worker 执行协议。
+- 不开放业务方直接维护流程绑定或事件编排。
+- 不要求调度侧理解业务多表主键结构。
+- 不要求业务方必须持久化 `taskId` 后再进行同步状态通知。

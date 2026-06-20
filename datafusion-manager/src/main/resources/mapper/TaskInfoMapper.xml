@@ -15,4 +15,16 @@
         order by create_time asc
     </select>
 
+    <select id="getTaskInfoByBizRef" resultType="com.datafusion.manager.scheduler.po.TaskInfoEntity">
+        select *
+        from scheduler_task_info
+        where definition is not null
+          and split_part(definition ->> 'bizRef', ':', 1) = 'bizref'
+          and split_part(definition ->> 'bizRef', ':', 2) = 'v1'
+          and split_part(definition ->> 'bizRef', ':', 3) = concat('system=', #{system})
+          and split_part(definition ->> 'bizRef', ':', 4) = concat('bizType=', #{bizType})
+          and split_part(definition ->> 'bizRef', ':', 5) = concat('bizKey=', #{bizKey})
+        limit 1
+    </select>
+
 </mapper>
