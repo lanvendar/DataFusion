@@ -232,9 +232,9 @@ public class TaskStorageImpl implements TaskStorage {
 
     private JsonNode pluginParam(PluginConfigEntity pluginConfig) {
         ObjectNode param;
-        JsonNode env = pluginConfig.getEnv();
-        if (env != null && env.isObject()) {
-            param = env.deepCopy();
+        JsonNode pluginParam = pluginConfig.getPluginParam();
+        if (pluginParam != null && pluginParam.isObject()) {
+            param = pluginParam.deepCopy();
         } else {
             param = OBJECT_MAPPER.createObjectNode();
         }

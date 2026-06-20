@@ -42,7 +42,7 @@ TaskTypeConfigController -> TaskTypeConfigService -> TaskTypeConfigMapper -> sys
 
 | 对象 | 关键字段 | 规则 |
 |------|----------|------|
-| 插件配置 | `pluginName`、`pluginType`、`runMode`、`description`、`env`、`isTemplate` | 描述插件身份、运行模式和配置模板；接口不修改 `isTemplate` |
+| 插件配置 | `pluginName`、`pluginType`、`runMode`、`description`、`pluginParam`、`isTemplate` | 描述插件身份、运行模式和配置模板；接口不修改 `isTemplate` |
 | 任务类型 | `taskType`、`defaultPluginId`、`pluginType` | 维护任务类型和默认执行插件绑定；`taskType` 新增后不修改 |
 | 租户 | `tenantId` | 当前使用固定默认租户，后续接入正式租户上下文 |
 
@@ -63,8 +63,27 @@ TaskTypeConfigController -> TaskTypeConfigService -> TaskTypeConfigMapper -> sys
 ## 集成点
 
 - `TaskInfoServiceImpl` 通过任务类型配置解析默认 `pluginId`。
-- 插件运行参数由 `system_plugin_config.env` 提供给调度任务的 `pluginParam`。
+- 插件运行参数由 `system_plugin_config.plugin_param` 提供给调度任务的 `pluginParam`。
 - 当前用户通过 `HttpUtils.getCurrentUserName()` 写入审计字段。
+
+## 初始化数据
+
+`init_data.sql` 初始化三条插件配置模板：
+
+| 插件配置 | 运行组合 | 说明 |
+|----------|----------|------|
+| `DataX LOCAL 模板` | `DATAX + LOCAL` | 作为 `DATAX` 任务类型默认插件 |
+| `DataX K8S 模板` | `DATAX + K8S` | 仅作为模板初始化；提交前需要补充 `kubernetes.image` |
+| `Shell LOCAL 模板` | `SHELL + LOCAL` | 作为 `SHELL` 任务类型默认插件 |
+
+`system_task_type_config` 只初始化当前 agent 已实现执行器的默认绑定：
+
+| 任务类型 | 默认插件 |
+|----------|----------|
+| `DATAX` | `DataX LOCAL 模板` |
+| `SHELL` | `Shell LOCAL 模板` |
+
+不初始化 `FLINK`、`SPARK`、`API` 或旧数据集成枚举中的非 agent 执行器类型，避免任务定义能创建但 worker 无法路由执行。
 
 ## 非目标
 
@@ -76,5 +95,5 @@ TaskTypeConfigController -> TaskTypeConfigService -> TaskTypeConfigMapper -> sys
 ## 风险
 
 - 当前固定默认租户只是本地调试兼容方案，正式多租户接入时需要替换。
-- `env` 是宽松 JSONB，必须由插件协议约定结构，否则会出现能存不能用。
+- `plugin_param` 是宽松 JSONB，必须由插件协议约定结构，否则会出现能存不能用。
 - 唯一性主要靠 Service 层校验，并发写入仍建议补数据库约束。

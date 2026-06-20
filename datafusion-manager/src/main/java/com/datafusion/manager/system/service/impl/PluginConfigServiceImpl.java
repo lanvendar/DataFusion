@@ -97,7 +97,7 @@ public class PluginConfigServiceImpl extends ServiceImpl<PluginConfigMapper, Plu
         entity.setPluginType(dto.getPluginType());
         entity.setRunMode(dto.getRunMode());
         entity.setDescription(dto.getDescription());
-        entity.setEnv(dto.getEnv());
+        entity.setPluginParam(dto.getPluginParam());
         entity.setIsTemplate(Boolean.FALSE);
         entity.setIsDel(IS_DEL_NORMAL);
         entity.setTenantId(tenantId);
@@ -122,7 +122,7 @@ public class PluginConfigServiceImpl extends ServiceImpl<PluginConfigMapper, Plu
         entity.setPluginType(dto.getPluginType());
         entity.setRunMode(dto.getRunMode());
         entity.setDescription(dto.getDescription());
-        entity.setEnv(dto.getEnv());
+        entity.setPluginParam(dto.getPluginParam());
         entity.setIsTemplate(Boolean.FALSE);
         entity.setIsDel(IS_DEL_NORMAL);
         entity.setTenantId(tenantId);
@@ -154,8 +154,8 @@ public class PluginConfigServiceImpl extends ServiceImpl<PluginConfigMapper, Plu
         if (dto.getDescription() != null) {
             entity.setDescription(dto.getDescription());
         }
-        if (dto.getEnv() != null) {
-            entity.setEnv(dto.getEnv());
+        if (dto.getPluginParam() != null) {
+            entity.setPluginParam(dto.getPluginParam());
         }
         fillUpdateAudit(entity);
 
@@ -356,7 +356,7 @@ public class PluginConfigServiceImpl extends ServiceImpl<PluginConfigMapper, Plu
         dto.setPluginType(entity.getPluginType());
         dto.setRunMode(entity.getRunMode());
         dto.setDescription(entity.getDescription());
-        dto.setEnv(entity.getEnv());
+        dto.setPluginParam(entity.getPluginParam());
         dto.setIsTemplate(entity.getIsTemplate());
         dto.setIsDel(entity.getIsDel());
         dto.setTenantId(entity.getTenantId());

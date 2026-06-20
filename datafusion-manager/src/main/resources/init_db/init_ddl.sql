@@ -915,7 +915,7 @@ plugin_name varchar(255) NOT NULL,
 plugin_type varchar(255) NOT NULL,
 run_mode varchar(255) NOT NULL,
 description varchar(255) NULL,
-env jsonb NULL,
+plugin_param jsonb NULL,
 is_template bool NOT NULL DEFAULT false,
 is_del int2 NOT NULL DEFAULT 0,
 creator varchar(100) NOT NULL,
@@ -932,7 +932,7 @@ COMMENT ON COLUMN system_plugin_config.plugin_name IS '插件名称';
 COMMENT ON COLUMN system_plugin_config.plugin_type IS '插件类型';
 COMMENT ON COLUMN system_plugin_config.run_mode IS '运行模式';
 COMMENT ON COLUMN system_plugin_config.description IS '描述';
-COMMENT ON COLUMN system_plugin_config.env IS '插件配置';
+COMMENT ON COLUMN system_plugin_config.plugin_param IS '插件配置';
 COMMENT ON COLUMN system_plugin_config.is_template IS '模板数据标记';
 COMMENT ON COLUMN system_plugin_config.is_del IS '删除状态：0-正常; 1-删除';
 COMMENT ON COLUMN system_plugin_config.creator IS '创建人';

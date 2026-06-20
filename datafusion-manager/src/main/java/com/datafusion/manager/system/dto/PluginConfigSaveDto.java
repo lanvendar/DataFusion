@@ -47,7 +47,7 @@ public class PluginConfigSaveDto {
     /**
      * 插件配置.
      */
-    @Schema(name = "env", description = "插件配置")
-    private JsonNode env;
+    @Schema(name = "pluginParam", description = "插件配置")
+    private JsonNode pluginParam;
 
 }

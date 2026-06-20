@@ -47,8 +47,8 @@ public class PluginConfigEntity extends BaseIdEntity {
     /**
      * 插件配置.
      */
-    @TableField(value = "env", typeHandler = JsonNodeTypeHandler.class)
-    private JsonNode env;
+    @TableField(value = "plugin_param", typeHandler = JsonNodeTypeHandler.class)
+    private JsonNode pluginParam;
 
     /**
      * 是否模板数据.
