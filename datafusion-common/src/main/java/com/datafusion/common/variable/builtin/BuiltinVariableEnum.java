@@ -1,33 +1,23 @@
-package com.datafusion.scheduler.master.param.builtin;
+package com.datafusion.common.variable.builtin;
 
 /**
- * 调度内置参数枚举.
+ * 内置变量枚举.
  *
  * <p>
- * 统一管理调度系统中的内置参数：
+ * 统一管理 DataFusion 内置变量：
  * <ul>
- *   <li>参数键（paramKey）：调度上下文中的参数键(内置程序使用,可读可写)，如 _now_time_</li>
- *   <li>参数名（paramName）：表达式中使用的参数名内置参数名(用户使用,只读)，如 now_date</li>
- * </ul>
- *
- * <p>
- * 业务规则：
- * <ul>
- *   <li>now_time / now_date：返回当前系统时间</li>
- *   <li>schedule_time：返回当前流程实例的原始调度时间</li>
- *   <li>biz_time / biz_date：由 schedule_time 按 biz_align 派生</li>
- *   <li>event_time / event_date：由 schedule_time 按 event_align 派生，event_align 默认为 original</li>
+ *   <li>paramKey：系统内置变量编码，如 _now_time_</li>
+ *   <li>paramName：表达式中使用的变量名，如 now_time</li>
  * </ul>
  *
  * @author lanvendar
- * @version 1.0.0, 2024/11/8
- * @since 2024/11/8
+ * @version 1.0.0, 2026/06/20
+ * @since 2026/06/20
  */
-public enum BuiltinParamEnum {
+public enum BuiltinVariableEnum {
 
     /**
      * 当前时间（毫秒）.
-     * 格式：毫秒时间戳，如 1772012833904
      */
     NOW_TIME("_now_time_", "now_time"),
 
@@ -43,7 +33,6 @@ public enum BuiltinParamEnum {
 
     /**
      * 业务时间对齐格式.
-     * 枚举值：参见 TimeAlignmentEnum.
      */
     BIZ_ALIGN("_biz_align_", "biz_align"),
 
@@ -59,7 +48,6 @@ public enum BuiltinParamEnum {
 
     /**
      * 事件时间对齐格式.
-     * 枚举值：参见 TimeAlignmentEnum.
      */
     EVENT_ALIGN("_event_align_", "event_align"),
 
@@ -74,24 +62,34 @@ public enum BuiltinParamEnum {
     EVENT_DATE("_event_date_", "event_date");
 
     /**
-     * 内置参数名(内置程序使用,可读可写).
+     * 内置变量编码.
      */
     private final String paramKey;
 
     /**
-     * 内置参数名(用户使用,只读).
+     * 表达式变量名.
      */
     private final String paramName;
 
-    BuiltinParamEnum(String paramKey, String paramName) {
+    BuiltinVariableEnum(String paramKey, String paramName) {
         this.paramKey = paramKey;
         this.paramName = paramName;
     }
 
+    /**
+     * 获取内置变量编码.
+     *
+     * @return 内置变量编码
+     */
     public String getParamKey() {
         return paramKey;
     }
 
+    /**
+     * 获取表达式变量名.
+     *
+     * @return 表达式变量名
+     */
     public String getParamName() {
         return paramName;
     }
@@ -102,13 +100,13 @@ public enum BuiltinParamEnum {
      * @param paramKey 参数键
      * @return 枚举值
      */
-    public static BuiltinParamEnum getByParamKey(String paramKey) {
+    public static BuiltinVariableEnum getByParamKey(String paramKey) {
         if (paramKey == null) {
             return null;
         }
-        for (BuiltinParamEnum param : values()) {
-            if (param.getParamKey().equals(paramKey)) {
-                return param;
+        for (BuiltinVariableEnum variable : values()) {
+            if (variable.getParamKey().equals(paramKey)) {
+                return variable;
             }
         }
         return null;
@@ -120,13 +118,13 @@ public enum BuiltinParamEnum {
      * @param paramName 参数名
      * @return 枚举值
      */
-    public static BuiltinParamEnum getByParamName(String paramName) {
+    public static BuiltinVariableEnum getByParamName(String paramName) {
         if (paramName == null) {
             return null;
         }
-        for (BuiltinParamEnum param : values()) {
-            if (param.getParamName().equals(paramName)) {
-                return param;
+        for (BuiltinVariableEnum variable : values()) {
+            if (variable.getParamName().equals(paramName)) {
+                return variable;
             }
         }
         return null;

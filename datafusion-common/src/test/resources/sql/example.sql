@@ -7,7 +7,7 @@ select * from table1 where id = '123' and age > 18 and day = '2020-01-01'
 
 #namespace("normal")
 #sql(id="key")
-select * from xxx where id = '#(id)' and age > #(age) and day = #day(day,'-2M', 'yyyy-MM-dd', 'MD')
+select * from xxx where id = '#(id)' and age > #(age) and day = #day(day,'-2M', 'MD', 'yyyy-MM-dd')
 #end
 
 #sql(id="key2")
@@ -83,8 +83,8 @@ entity_id in(
   #end
 #end
 )
-and id = '#(id)' and age > #(age) and day = '#day(day,'-2M', 'yyyMMdd','MS')' and long = '#(long)'
-and date = #day(day,0,'yyyy/MM/dd','MD')
+and id = '#(id)' and age > #(age) and day = '#day(day,'-2M','MS','yyyMMdd')' and long = '#(long)'
+and date = #day(day,0,'MD','yyyy/MM/dd')
 and date = #day()
 and date = #day(day)
 #end

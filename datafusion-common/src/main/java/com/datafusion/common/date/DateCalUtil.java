@@ -157,6 +157,54 @@ public class DateCalUtil {
     }
 
     /**
+     * 判断是否是日期偏移规则.
+     *
+     * @param offsetExp 日期偏移规则
+     * @return 是否是日期偏移规则
+     */
+    public static boolean isOffsetExp(String offsetExp) {
+        if (offsetExp == null || offsetExp.trim().isEmpty()) {
+            return false;
+        }
+        String resolvedOffsetExp = offsetExp.trim();
+        if (IS_NUMBER.matcher(resolvedOffsetExp).matches()) {
+            return true;
+        }
+        int length = resolvedOffsetExp.length();
+        if (length < 2) {
+            return false;
+        }
+        String offset = resolvedOffsetExp.substring(0, length - 1);
+        String timeType = resolvedOffsetExp.substring(length - 1);
+        return IS_NUMBER.matcher(offset).matches() && isOffsetTimeType(timeType);
+    }
+
+    /**
+     * 判断是否是日期结尾参数.
+     *
+     * @param suffixExp 日期结尾参数
+     * @return 是否是日期结尾参数
+     */
+    public static boolean isSuffixExp(String suffixExp) {
+        if (suffixExp == null) {
+            return false;
+        }
+        switch (suffixExp) {
+            case DAY_FUNC_PARAM_WS:
+            case DAY_FUNC_PARAM_WD:
+            case DAY_FUNC_PARAM_MS:
+            case DAY_FUNC_PARAM_MD:
+            case DAY_FUNC_PARAM_SS:
+            case DAY_FUNC_PARAM_SD:
+            case DAY_FUNC_PARAM_YS:
+            case DAY_FUNC_PARAM_YD:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
      * 根据指定的date字符串转换成Date，支持yyyy MM dd HH mm ss格式，且支持四种分隔符- / 空格 : 注意：必须以年月日时分秒排序，末尾可以省略 如 年月日时，但是头部不能省略 如 月日时.
      *
      * @param date 日期,默认格式 yyyyMMdd
@@ -219,6 +267,17 @@ public class DateCalUtil {
             }
         }
         return gc.getTime();
+    }
+
+    /**
+     * 判断是否是偏移时间单位.
+     *
+     * @param timeType 偏移时间单位
+     * @return 是否是偏移时间单位
+     */
+    private static boolean isOffsetTimeType(String timeType) {
+        return TIME_TYPE_D.equals(timeType) || TIME_TYPE_M.equals(timeType) || TIME_TYPE_Y.equals(timeType)
+                || TIME_TYPE_MN.equals(timeType) || TIME_TYPE_H.equals(timeType) || TIME_TYPE_S.equals(timeType);
     }
 
     /**

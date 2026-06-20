@@ -14,7 +14,7 @@ import java.util.Date;
 /**
  * #day 日期格式计算,默认返回日期格式 yyyyMMdd 对 {@link com.jfinal.template.ext.directive.DateDirective} 扩展.
  * <p>四种用法：</p>
- * <p>1：#day(createAt,'-2M', 'YYYYMM', 'ED') 根据createAt，按规则计算日期</p>
+ * <p>1：#day(createAt, '-2M', 'MD', 'yyyyMMdd') 根据 createAt，按规则计算日期</p>
  * <p>2：#day(createAt) 用默认 datePattern 配置，输出 createAt 变量中的日期值</p>
  * <p>3：#day(createAt, "yyyy-MM-dd") 用第二个参数指定的 datePattern，输出 createAt 变量中的日期值</p>
  * <p>4：#day() 用默认 datePattern 配置，输出 “当前” 日期值</p>
@@ -40,14 +40,14 @@ public class DateCalDirective extends Directive {
     private Expr ruleExpr;
 
     /**
-     * 日期格式. {@link DateCalUtil}
-     */
-    private Expr patternExpr;
-
-    /**
      * 日期结尾参数. {@link DateCalUtil}
      */
     private Expr suffixExpr;
+
+    /**
+     * 日期格式. {@link DateCalUtil}
+     */
+    private Expr patternExpr;
 
     /**
      * 默认日期格式.
@@ -75,16 +75,18 @@ public class DateCalDirective extends Directive {
         } else if (paraNum == 2) {
             dateExpr = exprList.getExpr(0);
             ruleExpr = exprList.getExpr(1);
+            suffixExpr = null;
             patternExpr = null;
         } else if (paraNum == 3) {
             dateExpr = exprList.getExpr(0);
             ruleExpr = exprList.getExpr(1);
+            suffixExpr = null;
             patternExpr = exprList.getExpr(2);
         } else if (paraNum == 4) {
             dateExpr = exprList.getExpr(0);
             ruleExpr = exprList.getExpr(1);
-            patternExpr = exprList.getExpr(2);
-            suffixExpr = exprList.getExpr(3);
+            suffixExpr = exprList.getExpr(2);
+            patternExpr = exprList.getExpr(3);
         } else {
             throw new ParseException("Wrong number parameter of #day directive, two parameters allowed at most",
                     location);
@@ -103,14 +105,24 @@ public class DateCalDirective extends Directive {
             date = DateCalUtil.checkStringDate((dateExpr.eval(scope).toString()));
         }
         if (ruleExpr != null) {
-            offset = ruleExpr.eval(scope).toString();
-        }
-        if (patternExpr != null) {
-            pattern = patternExpr.eval(scope).toString();
+            String second = ruleExpr.eval(scope).toString();
+            if (patternExpr == null && suffixExpr == null && !DateCalUtil.isOffsetExp(second)) {
+                pattern = second;
+            } else {
+                offset = second;
+            }
         }
         String suffix = null;
         if (suffixExpr != null) {
             suffix = suffixExpr.eval(scope).toString();
+        }
+        if (patternExpr != null) {
+            String third = patternExpr.eval(scope).toString();
+            if (DateCalUtil.isSuffixExp(third)) {
+                suffix = third;
+            } else {
+                pattern = third;
+            }
         }
 
         String writeDate = DateCalUtil.calDateExpFormat(date, offset, suffix, pattern);

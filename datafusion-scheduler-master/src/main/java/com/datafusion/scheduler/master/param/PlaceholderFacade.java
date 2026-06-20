@@ -1,12 +1,9 @@
 package com.datafusion.scheduler.master.param;
 
+import com.datafusion.common.variable.builtin.VariableRenderContext;
+import com.datafusion.common.variable.VariableRenderFacade;
 import com.datafusion.scheduler.master.param.builtin.BuiltinParamResolver;
-import com.datafusion.scheduler.master.param.exp.ExpPlaceholderHandler;
-import com.datafusion.scheduler.master.param.var.VarPlaceholderHandler;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * 占位符处理门面类.
@@ -20,15 +17,14 @@ import java.util.List;
 public class PlaceholderFacade {
 
     /**
-     * 处理器列表.
-     * 按照顺序执行：先内置参数解析 → 变量处理器 → 表达式处理器.
-     */
-    private final List<PlaceholderHandler> handlers = new ArrayList<>();
-
-    /**
      * 内置参数解析器.
      */
     private final BuiltinParamResolver builtinParamResolver = new BuiltinParamResolver();
+
+    /**
+     * 通用变量渲染门面.
+     */
+    private final VariableRenderFacade variableRenderFacade = new VariableRenderFacade();
 
     /**
      * 单例实例.
@@ -39,10 +35,6 @@ public class PlaceholderFacade {
      * 私有构造函数，初始化处理器列表.
      */
     private PlaceholderFacade() {
-        // 添加变量处理器
-        handlers.add(new VarPlaceholderHandler());
-        // 添加表达式处理器
-        handlers.add(new ExpPlaceholderHandler());
     }
 
     /**
@@ -58,8 +50,7 @@ public class PlaceholderFacade {
      * 替换字符串中的所有占位符.
      * 处理顺序：
      * 1. 解析内置参数并填充到 context.variables
-     * 2. 变量处理器处理 #{变量名}
-     * 3. 表达式处理器处理 #[表达式]
+     * 2. 处理新语法 #(变量名) / #函数名(...)
      *
      * @param value   包含占位符的字符串
      * @param context 占位符处理上下文
@@ -73,40 +64,21 @@ public class PlaceholderFacade {
         // Step 1: 解析内置参数
         builtinParamResolver.resolveBuiltinParams(context);
 
-        // Step 2-3: 按顺序执行处理器
-        String result = value;
-        for (PlaceholderHandler handler : handlers) {
-            result = handler.replacePlaceholders(result, context);
-        }
-        return result;
+        // Step 2: 处理新语法 #(变量名) / #函数名(...)
+        return variableRenderFacade.render(value, toVariableRenderContext(context));
     }
 
     /**
-     * 添加自定义处理器.
-     * 处理器会被添加到处理器列表的末尾.
+     * 转换为通用变量渲染上下文.
      *
-     * @param handler 占位符处理器
+     * @param context scheduler 占位符上下文
+     * @return 通用变量渲染上下文
      */
-    public void addHandler(PlaceholderHandler handler) {
-        handlers.add(handler);
+    private VariableRenderContext toVariableRenderContext(PlaceholderContext context) {
+        return VariableRenderContext.builder()
+                .scheduleTime(context == null ? null : context.getScheduleTime())
+                .variables(context == null ? null : context.getVariables())
+                .build();
     }
 
-    /**
-     * 在指定位置插入处理器.
-     *
-     * @param index   插入位置
-     * @param handler 占位符处理器
-     */
-    public void addHandler(int index, PlaceholderHandler handler) {
-        handlers.add(index, handler);
-    }
-
-    /**
-     * 获取处理器列表.
-     *
-     * @return 处理器列表
-     */
-    public List<PlaceholderHandler> getHandlers() {
-        return new ArrayList<>(handlers);
-    }
 }

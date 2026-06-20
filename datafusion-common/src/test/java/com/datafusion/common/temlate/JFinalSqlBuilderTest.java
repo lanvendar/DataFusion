@@ -14,6 +14,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 @Slf4j
 public class JFinalSqlBuilderTest {
     private static final String SQL_LOAD_PATH = resolveTestResourcePath("sqlLoadPath");
@@ -67,6 +69,7 @@ public class JFinalSqlBuilderTest {
         final JFinalSqlBuilder test = JFinalSqlBuilder.create().build();
         SqlParamRender normalSql = test.renderSql("normal.key", paramMap);
         log.info("正常sql渲染:" + normalSql.getSql());
+        assertTrue(normalSql.getSql().contains("2022-04-30"));
         SqlParamRender normalSql2 = test.renderSql("normal.key2", paramMap);
         log.info("正常sql渲染2:" + normalSql2.getSql());
         SqlParamRender normalSql3 = test.renderSql("normal.key3", paramMap);

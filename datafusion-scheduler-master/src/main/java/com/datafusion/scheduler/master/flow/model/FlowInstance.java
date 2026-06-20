@@ -1,10 +1,9 @@
 package com.datafusion.scheduler.master.flow.model;
 
-import com.datafusion.common.date.DateTimeStamp;
-import com.datafusion.common.enums.TimeAlignmentEnum;
+import com.datafusion.common.variable.builtin.BuiltinVariableEnum;
+import com.datafusion.common.variable.builtin.BuiltinTimeParams;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.master.flow.enums.FlowTypeEnum;
-import com.datafusion.scheduler.master.param.builtin.BuiltinParamEnum;
 import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.PluginData;
 import com.datafusion.scheduler.model.Variable;
@@ -23,6 +22,12 @@ import java.util.Set;
  */
 @Data
 public class FlowInstance implements Comparable<FlowInstance> {
+
+    /**
+     * 内置时间变量求值工具.
+     */
+    private static final BuiltinTimeParams BUILTIN_TIME_PARAMS = new BuiltinTimeParams();
+
     //region schedule调度属性
 
     /**
@@ -103,10 +108,12 @@ public class FlowInstance implements Comparable<FlowInstance> {
         if (this.getFlowParam() != null) {
             Map<String, Variable> vars = flowParam.getVars();
             if (vars != null) {
-                Variable v = vars.get(BuiltinParamEnum.EVENT_TIME.getParamName());
+                Variable v = vars.get(BuiltinVariableEnum.EVENT_TIME.getParamName());
                 if (v != null) {
-                    eventTime = Long.parseLong(v.getValue());
-                    return eventTime;
+                    eventTime = BUILTIN_TIME_PARAMS.parseLong(v.getValue());
+                    if (eventTime != null) {
+                        return eventTime;
+                    }
                 }
                 return alignedEventTime();
             }
@@ -124,7 +131,7 @@ public class FlowInstance implements Comparable<FlowInstance> {
         if (this.getFlowParam() != null) {
             Map<String, Variable> vars = flowParam.getVars();
             if (vars != null) {
-                Variable v = vars.get(BuiltinParamEnum.EVENT_ALIGN.getParamName());
+                Variable v = vars.get(BuiltinVariableEnum.EVENT_ALIGN.getParamName());
                 if (v != null) {
                     eventSegment = String.valueOf(v.getValue());
                     return eventSegment;
@@ -143,14 +150,16 @@ public class FlowInstance implements Comparable<FlowInstance> {
         if (scheduleTime == null) {
             return null;
         }
-        String align = eventSegment();
-        if (align == null || TimeAlignmentEnum.ORIGINAL.getCode().equals(align)) {
-            return scheduleTime;
-        }
-        if (TimeAlignmentEnum.getByCode(align) == null) {
-            return scheduleTime;
-        }
-        return DateTimeStamp.getTime(scheduleTime, align);
+        return BUILTIN_TIME_PARAMS.eventTime(toCommonVariables(), scheduleTime);
+    }
+
+    /**
+     * 转换为通用变量映射.
+     *
+     * @return 通用变量映射
+     */
+    private Map<String, Variable> toCommonVariables() {
+        return flowParam == null ? null : flowParam.getVars();
     }
 
     @Override

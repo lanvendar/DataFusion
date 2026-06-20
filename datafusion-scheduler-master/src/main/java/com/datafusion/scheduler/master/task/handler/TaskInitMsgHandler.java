@@ -2,10 +2,10 @@ package com.datafusion.scheduler.master.task.handler;
 
 import com.datafusion.scheduler.enums.ActionType;
 import com.datafusion.scheduler.enums.StatusEnum;
+import com.datafusion.common.variable.builtin.BuiltinVariableEnum;
 import com.datafusion.scheduler.master.actor.ActorSysContext;
 import com.datafusion.scheduler.master.event.GlobalEventOperator;
 import com.datafusion.scheduler.master.param.PlaceholderContext;
-import com.datafusion.scheduler.master.param.builtin.BuiltinParamEnum;
 import com.datafusion.scheduler.master.param.builtin.BuiltinParamResolver;
 import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.TaskMsg;
@@ -164,8 +164,8 @@ public class TaskInitMsgHandler extends AbstractTaskMsgHandler {
         if (variable == null || variable.getType() != null) {
             return false;
         }
-        return BuiltinParamEnum.getByParamName(name) != null
-                || BuiltinParamEnum.getByParamName(variable.getName()) != null;
+        return BuiltinVariableEnum.getByParamName(name) != null
+                || BuiltinVariableEnum.getByParamName(variable.getName()) != null;
     }
 
     /**

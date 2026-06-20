@@ -1,10 +1,9 @@
 package com.datafusion.scheduler.master.task.model;
 
 import cn.hutool.core.collection.CollectionUtil;
-import com.datafusion.common.date.DateTimeStamp;
-import com.datafusion.common.enums.TimeAlignmentEnum;
+import com.datafusion.common.variable.builtin.BuiltinVariableEnum;
+import com.datafusion.common.variable.builtin.BuiltinTimeParams;
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.master.param.builtin.BuiltinParamEnum;
 import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.PluginData;
 import com.datafusion.scheduler.model.TaskResult;
@@ -25,6 +24,11 @@ import java.util.Set;
  */
 @Data
 public class TaskInstance {
+
+    /**
+     * 内置时间变量求值工具.
+     */
+    private static final BuiltinTimeParams BUILTIN_TIME_PARAMS = new BuiltinTimeParams();
 
     /**
      * 默认重试次数.
@@ -171,9 +175,9 @@ public class TaskInstance {
         if (this.getTaskParam() != null) {
             Map<String, Variable> vars = taskParam.getVars();
             if (vars != null) {
-                Variable v = vars.get(BuiltinParamEnum.EVENT_TIME.getParamName());
+                Variable v = vars.get(BuiltinVariableEnum.EVENT_TIME.getParamName());
                 if (v != null) {
-                    eventTime = parseLong(v.getValue());
+                    eventTime = BUILTIN_TIME_PARAMS.parseLong(v.getValue());
                     if (eventTime != null) {
                         return eventTime;
                     }
@@ -194,7 +198,7 @@ public class TaskInstance {
         if (this.getTaskParam() != null) {
             Map<String, Variable> vars = taskParam.getVars();
             if (vars != null) {
-                Variable v = vars.get(BuiltinParamEnum.EVENT_ALIGN.getParamName());
+                Variable v = vars.get(BuiltinVariableEnum.EVENT_ALIGN.getParamName());
                 if (v != null) {
                     eventSegment = v.getValue();
                     return eventSegment;
@@ -214,14 +218,7 @@ public class TaskInstance {
         if (scheduleTime == null) {
             return null;
         }
-        String align = eventSegment();
-        if (align == null || align.trim().isEmpty() || TimeAlignmentEnum.ORIGINAL.getCode().equals(align)) {
-            return scheduleTime;
-        }
-        if (TimeAlignmentEnum.getByCode(align) == null) {
-            return scheduleTime;
-        }
-        return DateTimeStamp.getTime(scheduleTime, align);
+        return BUILTIN_TIME_PARAMS.eventTime(toCommonVariables(), scheduleTime);
     }
 
     /**
@@ -233,28 +230,20 @@ public class TaskInstance {
         if (this.getTaskParam() == null || taskParam.getVars() == null) {
             return null;
         }
-        Variable scheduleTime = taskParam.getVars().get(BuiltinParamEnum.SCHEDULE_TIME.getParamName());
+        Variable scheduleTime = taskParam.getVars().get(BuiltinVariableEnum.SCHEDULE_TIME.getParamName());
         if (scheduleTime == null || scheduleTime.getValue() == null || scheduleTime.getValue().trim().isEmpty()) {
             return null;
         }
-        return parseLong(scheduleTime.getValue());
+        return BUILTIN_TIME_PARAMS.parseLong(scheduleTime.getValue());
     }
 
     /**
-     * 解析长整型.
+     * 转换为通用变量映射.
      *
-     * @param value 文本
-     * @return 长整型
+     * @return 通用变量映射
      */
-    private Long parseLong(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return null;
-        }
-        try {
-            return Long.parseLong(value.trim());
-        } catch (NumberFormatException e) {
-            return null;
-        }
+    private Map<String, Variable> toCommonVariables() {
+        return taskParam == null ? null : taskParam.getVars();
     }
 
     /**
