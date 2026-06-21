@@ -1,6 +1,7 @@
-# DataX LOCAL / K8S 运行模式设计
+# DataX 插件设计
 
-> 数据结构见 [datax-run-mode-data-define.md](./datax-run-mode-data-define.md)。Agent 总体设计见 [agent-design.md](./agent-design.md)，模板机制见 [plugin-run-mode-template-design.md](./plugin-run-mode-template-design.md)。
+> 数据结构见 [plugin-datax-data-define.md](./plugin-datax-data-define.md)。Agent 总体设计见
+> [agent-design.md](./agent-design.md)。
 
 ## 定位
 
@@ -125,7 +126,7 @@ Job 约定：
 
 - Job / Secret 结构固定在模板中，动态值来自 `pluginParam.kubernetes` 和 `taskData.kubernetes`。
 - label 必须包含 `plugin-type`、`run-mode`、`task-instance-id`、`flow-instance-id` 等定位信息。
-- DataX job JSON 先落盘到 `${modules}/${taskRuntimeDir}/{date}/{flowInstanceId}/{taskInstanceId}/job.json`，
+- DataX job JSON 先落盘到 `${taskRuntimeDir}/{date}/{flowInstanceId}/{taskInstanceId}/job.json`，
   再读取该快照写入 Secret，不用 ConfigMap。
 - `backoffLimit` 默认 0，避免 Kubernetes 自己重试改变调度语义。
 - 镜像必须内置 DataX bundle，agent 不上传本地插件目录。
@@ -154,11 +155,11 @@ Job 约定：
 ## 日志
 
 - `TaskResult.logPath` 返回插件日志入口，优先与 `TaskResult.result.pluginLogUri` 保持一致。
-- `TaskResult.result.pluginLogUri` 返回插件日志入口，可以是 `${modules}/${taskRuntimeDir}/...` 下的本地日志文件、对象存储 URI 或 `k8s://{namespace}/jobs/{jobName}`。
-- `TaskResult.result.agentLogPath` 返回 agent 自身日志或状态入口，只指向 `/opt/datafusion/datafusion-agent/...` 一类 agent 管理路径；没有明确路径时为空。
-- LOCAL 模式只暴露一个主插件日志文件 `${modules}/${taskRuntimeDir}/{date}/{flowInstanceId}/{taskInstanceId}/local-datax.log`，DataX logback 和进程 stdout / stderr 都写入该文件。
+- `TaskResult.result.pluginLogUri` 返回插件日志入口，可以是 `${taskRuntimeDir}/...` 下的本地日志文件、对象存储 URI 或 `k8s://{namespace}/jobs/{jobName}`。
+- `TaskResult.result.agentLogPath` 返回 agent 自身日志入口，只指向 `/opt/datafusion/logs/datafusion-agent/...`；没有明确路径时为空。
+- LOCAL 模式只暴露一个主插件日志文件 `${taskRuntimeDir}/{date}/{flowInstanceId}/{taskInstanceId}/local-datax.log`，DataX logback 和进程 stdout / stderr 都写入该文件。
 - 未配置外部日志且 `collectLogsOnFinish=true` 时，agent 在终态 best-effort 拉取 Pod 主容器日志，并写入
-  `${modules}/${taskRuntimeDir}/{date}/{flowInstanceId}/{taskInstanceId}/k8s-datax.log`。
+  `${taskRuntimeDir}/{date}/{flowInstanceId}/{taskInstanceId}/k8s-datax.log`。
 - K8S 模式配置 `logStorageUri` 时，`pluginLogUri=logStorageUri`；未配置时，提交后先返回 `k8s://{namespace}/jobs/{jobName}`，终态采集成功后返回本地 `k8s-datax.log`。
 - 日志采集失败不改变任务终态。
 - 不在日志、状态文件、label 或 annotation 中输出完整 job JSON。

@@ -120,9 +120,9 @@ public class AgentProperties {
         private String logsDir = "logs";
 
         /**
-         * 任务运行态目录名.
+         * 任务运行态目录.
          */
-        private String taskRuntimeDir = "task-runtime";
+        private String taskRuntimeDir = "/opt/datafusion/task-runtime";
     }
 
     /**

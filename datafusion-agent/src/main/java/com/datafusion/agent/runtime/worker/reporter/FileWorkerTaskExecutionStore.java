@@ -208,7 +208,7 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
     }
 
     private List<Path> findSnapshotFiles() {
-        Path root = Path.of(properties.getModules(), properties.getStorage().getTaskRuntimeDir());
+        Path root = taskRuntimeRoot();
         if (!Files.exists(root)) {
             return Collections.emptyList();
         }
@@ -221,7 +221,7 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
     }
 
     private List<Path> findStateFiles() {
-        Path root = Path.of(properties.getModules(), properties.getStorage().getTaskRuntimeDir());
+        Path root = taskRuntimeRoot();
         if (!Files.exists(root)) {
             return Collections.emptyList();
         }
@@ -294,8 +294,11 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
 
     private Path executionDir(String flowInstanceId, String taskInstanceId) {
         String date = LocalDate.now().format(DATE_FORMATTER);
-        return Path.of(properties.getModules(), properties.getStorage().getTaskRuntimeDir(), date,
-                safePath(flowInstanceId), safePath(taskInstanceId));
+        return taskRuntimeRoot().resolve(date).resolve(safePath(flowInstanceId)).resolve(safePath(taskInstanceId));
+    }
+
+    private Path taskRuntimeRoot() {
+        return Path.of(properties.getStorage().getTaskRuntimeDir());
     }
 
     private String json(Object value) throws Exception {

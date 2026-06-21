@@ -152,8 +152,7 @@ public class DataxParamResolver {
         JsonNode pluginParam = request.getPluginParam();
         DataxRunMode runMode = DataxRunMode.parse(text(pluginParam, "runMode"));
         String date = LocalDate.now().format(DATE_FORMATTER);
-        Path runtimeDir = Path.of(properties.getModules(), properties.getStorage().getTaskRuntimeDir(), date,
-                safePath(request.getFlowInstanceId()), safePath(request.getTaskInstanceId()));
+        Path runtimeDir = taskRuntimeDir(date, request);
         JsonNode effectiveTaskData = effectiveTaskData(pluginParam, taskData);
         String dataxHome = text(pluginParam, "dataxHome");
         String dataxJar = text(pluginParam, "dataxJar");
@@ -386,5 +385,10 @@ public class DataxParamResolver {
 
     private String safePath(String value) {
         return isBlank(value) ? "unknown" : value;
+    }
+
+    private Path taskRuntimeDir(String date, TaskRequest request) {
+        return Path.of(properties.getStorage().getTaskRuntimeDir(), date, safePath(request.getFlowInstanceId()),
+                safePath(request.getTaskInstanceId()));
     }
 }

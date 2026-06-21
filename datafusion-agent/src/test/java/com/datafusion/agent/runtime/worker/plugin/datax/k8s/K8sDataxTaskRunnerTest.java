@@ -102,6 +102,7 @@ class K8sDataxTaskRunnerTest {
     private AgentProperties properties() {
         AgentProperties properties = new AgentProperties();
         properties.setModules(tempDir.toString());
+        properties.getStorage().setTaskRuntimeDir(tempDir.resolve("task-runtime").toString());
         return properties;
     }
 

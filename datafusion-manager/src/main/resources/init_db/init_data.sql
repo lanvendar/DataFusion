@@ -133,7 +133,6 @@ VALUES
      "-c"
    ],
    "env": {},
-   "workDir": "",
    "pluginLogUri": ""
  }'::jsonb,
  true, 0, 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,

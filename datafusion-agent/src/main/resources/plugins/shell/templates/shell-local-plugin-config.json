@@ -4,13 +4,12 @@
   "runMode": "LOCAL",
   "description": "Shell 本地执行配置模板",
   "isTemplate": true,
-  "env": {
+  "pluginParam": {
     "command": "sh",
     "args": [
       "-c"
     ],
     "env": {},
-    "workDir": "",
     "pluginLogUri": ""
   }
 }

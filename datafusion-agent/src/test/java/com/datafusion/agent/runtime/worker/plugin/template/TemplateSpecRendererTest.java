@@ -20,18 +20,12 @@ class TemplateSpecRendererTest {
     void shouldRenderShellLocalProcessSpec() {
         TemplateSpecRenderer renderer = new TemplateSpecRenderer();
         LocalProcessSpec spec = renderer.renderYaml("plugins/shell/templates/shell-local-runtime.yml", Map.of(
-                "workDir", "/tmp",
-                "command", TemplateYamlFragments.listItems(java.util.List.of("bash", "-lc", "echo ok"), 2),
-                "env", TemplateYamlFragments.mapEntries(Map.of("A", "B"), 2),
-                "stdout", "/tmp/stdout.log",
-                "stderr", "/tmp/stderr.log",
-                "pluginLogUri", "oss://logs/shell/task-1"
+                "command", TemplateYamlFragments.listItems(java.util.List.of("bash", "-lc", "echo ok"), 2)
         ), LocalProcessSpec.class);
 
-        assertEquals("LocalProcessSpec", spec.getKind());
+        assertEquals("LocalShellProcess", spec.getKind());
         assertEquals("bash", spec.getCommand().get(0));
-        assertEquals("B", spec.getEnv().get("A"));
-        assertTrue(spec.getStdout().endsWith("stdout.log"));
+        assertEquals("echo ok", spec.getCommand().get(2));
     }
 
     @Test

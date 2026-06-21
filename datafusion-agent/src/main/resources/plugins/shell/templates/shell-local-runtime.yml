@@ -1,9 +1,3 @@
-kind: "LocalProcessSpec"
-workDir: "{{workDir}}"
+kind: "LocalShellProcess"
 command:
 {{command}}
-env:
-{{env}}
-stdout: "{{stdout}}"
-stderr: "{{stderr}}"
-pluginLogUri: "{{pluginLogUri}}"

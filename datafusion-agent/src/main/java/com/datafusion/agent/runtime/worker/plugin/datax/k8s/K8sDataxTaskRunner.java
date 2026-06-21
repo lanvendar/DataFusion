@@ -206,7 +206,7 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
     }
 
     private Path taskRuntimeDir(TaskRequest request) {
-        return Path.of(properties.getModules(), properties.getStorage().getTaskRuntimeDir(),
+        return Path.of(properties.getStorage().getTaskRuntimeDir(),
                 java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE),
                 safePath(request.getFlowInstanceId()), safePath(request.getTaskInstanceId()));
     }
