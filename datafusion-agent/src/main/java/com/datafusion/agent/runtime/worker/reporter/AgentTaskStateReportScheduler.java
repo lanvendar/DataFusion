@@ -117,8 +117,7 @@ public class AgentTaskStateReportScheduler {
     private void refreshState(WorkerTaskExecutionState state) {
         WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(state.getTaskInstanceId()).orElse(null);
         if (state.getStatus() != null && state.getStatus().isFinalState()) {
-            resultReporter.report(toTaskResult(snapshot, state));
-            queryFailureCountMap.remove(state.getTaskInstanceId());
+            reportFinalState(snapshot, state);
             return;
         }
         PluginRunModeStateMapping mapping = stateMapping(snapshot);
@@ -137,10 +136,19 @@ public class AgentTaskStateReportScheduler {
             state.setStatus(nextStatus);
             stateStore.saveState(state);
         }
-        resultReporter.report(toTaskResult(snapshot, state));
         if (nextStatus.isFinalState()) {
-            queryFailureCountMap.remove(state.getTaskInstanceId());
+            reportFinalState(snapshot, state);
+        } else {
+            resultReporter.report(toTaskResult(snapshot, state));
         }
+    }
+
+    private void reportFinalState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
+        String taskInstanceId = state.getTaskInstanceId();
+        if (resultReporter.report(toTaskResult(snapshot, state))) {
+            stateStore.remove(taskInstanceId);
+        }
+        queryFailureCountMap.remove(taskInstanceId);
     }
 
     private PluginRunModeStateMapping stateMapping(WorkerTaskExecutionSnap snapshot) {

@@ -84,6 +84,7 @@ public class TaskRestartMsgHandler extends AbstractTaskMsgHandler {
 
         // 发送重试消息
         TaskMsg retryMsg = TaskMsg.builder()
+                .flowInstanceId(taskIns.getFlowInstanceId())
                 .taskInstanceId(taskIns.getInstanceId())
                 .actionType(ActionType.SUBMIT)
                 .isManualAction(false)
@@ -104,6 +105,7 @@ public class TaskRestartMsgHandler extends AbstractTaskMsgHandler {
 
         //重新进入提交阶段
         TaskMsg submitMsg = TaskMsg.builder()//
+                .flowInstanceId(taskIns.getFlowInstanceId())//
                 .taskInstanceId(taskIns.getInstanceId())//
                 .actionType(ActionType.SUBMIT)//
                 .isManualAction(false)//

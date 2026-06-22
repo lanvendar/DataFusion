@@ -5,6 +5,7 @@ import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
@@ -44,18 +45,22 @@ public class ManagerTaskResultReporter implements TaskResultReporter {
             return false;
         }
         try {
-            reportPool.execute(() -> doReport(result));
-            return true;
+            Future<Boolean> future = reportPool.submit(() -> doReport(result));
+            return future.get();
         } catch (RejectedExecutionException e) {
             log.warn("结果上报线程池已满, taskInstanceId={}", result.getTaskInstanceId(), e);
+            return false;
+        } catch (Exception e) {
+            log.warn("任务结果上报异常, taskInstanceId={}", result.getTaskInstanceId(), e);
             return false;
         }
     }
 
-    private void doReport(TaskResult result) {
+    private boolean doReport(TaskResult result) {
         boolean success = managerClient.reportTaskResult(result);
         if (!success) {
             log.warn("任务结果上报失败, taskInstanceId={}", result.getTaskInstanceId());
         }
+        return success;
     }
 }

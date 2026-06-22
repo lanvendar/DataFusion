@@ -37,6 +37,19 @@ class WorkerTaskServiceTest {
                 contextStorage.getOperations());
     }
 
+    @Test
+    void shouldRemoveContextWhenStopReturnsFinalState() {
+        RecordingContextStorage contextStorage = new RecordingContextStorage();
+        contextStorage.context = RunningTaskContext.fromRequest(finishRequest());
+        WorkerTaskService taskService = taskService(contextStorage, new SuccessPluginTaskExecutor());
+
+        TaskResult result = taskService.stopTask(finishRequest());
+
+        assertEquals(StatusEnum.STOP_SUCCESS, result.getTaskState());
+        assertEquals(List.of("get:task-1", "save:STOP_SUCCESS", "remove:task-1"),
+                contextStorage.getOperations());
+    }
+
     private WorkerTaskService taskService(RecordingContextStorage contextStorage, PluginTaskExecutor executor) {
         WorkerTaskOperatorRouter router = new WorkerTaskOperatorRouter(List.of(executor));
         Executor sameThreadExecutor = Runnable::run;
@@ -116,7 +129,12 @@ class WorkerTaskServiceTest {
 
         @Override
         public TaskResult stopTask(TaskRequest request) {
-            return null;
+            return TaskResult.builder()
+                    .taskInstanceId(request.getTaskInstanceId())
+                    .flowInstanceId(request.getFlowInstanceId())
+                    .taskName(request.getTaskName())
+                    .taskState(StatusEnum.STOP_SUCCESS)
+                    .build();
         }
 
         @Override

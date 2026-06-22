@@ -407,6 +407,7 @@ public class TaskAction implements TaskResultHandler {
      */
     private void manualAction(TaskInstance instance, ActionType actionType) {
         TaskMsg msg = TaskMsg.builder()
+                .flowInstanceId(instance.getFlowInstanceId())
                 .taskInstanceId(instance.getInstanceId())
                 .actionType(actionType)
                 .isManualAction(true)

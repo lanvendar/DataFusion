@@ -143,8 +143,8 @@ public class WorkerTaskService implements WorkerTaskOperator {
             return failureResult(resolvedRequest, StatusEnum.STOP_FAILURE, "未匹配到插件执行器: " + resolvedRequest.getPluginType());
         }
         TaskResult result = safeExecuteControl(executor, resolvedRequest, StatusEnum.STOP_FAILURE, TaskControlAction.STOP);
-        updateContext(context, result);
         reportAndUpdate(context, result);
+        removeFinalContext(context, executor, resolvedRequest, result);
         return result;
     }
 
@@ -162,8 +162,8 @@ public class WorkerTaskService implements WorkerTaskOperator {
             return failureResult(resolvedRequest, StatusEnum.KILLED, "未匹配到插件执行器: " + resolvedRequest.getPluginType());
         }
         TaskResult result = safeExecuteControl(executor, resolvedRequest, StatusEnum.KILLED, TaskControlAction.KILL);
-        updateContext(context, result);
         reportAndUpdate(context, result);
+        removeFinalContext(context, executor, resolvedRequest, result);
         return result;
     }
 
@@ -185,6 +185,14 @@ public class WorkerTaskService implements WorkerTaskOperator {
             contextStore.remove(resolvedRequest.getTaskInstanceId());
         }
         return result;
+    }
+
+    private void removeFinalContext(RunningTaskContext context, PluginTaskExecutor executor, TaskRequest request,
+            TaskResult result) {
+        if (context != null && isFinalState(result.getTaskState())) {
+            executor.destroyTask(request);
+            contextStore.remove(request.getTaskInstanceId());
+        }
     }
 
     private void submitPluginAndReport(PluginTaskExecutor executor, TaskRequest request, RunningTaskContext context) {

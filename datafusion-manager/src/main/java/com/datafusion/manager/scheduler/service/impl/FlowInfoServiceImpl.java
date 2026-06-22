@@ -374,6 +374,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         if (entity == null) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程不存在");
         }
+        checkFlowHasTask(entity.getId(), "空流程无法发布");
 
         entity.setPublishState(true);
         entity.setPublishVersion(System.currentTimeMillis());
@@ -414,6 +415,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         if (!Boolean.TRUE.equals(entity.getPublishState())) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程未发布, 无法开始调度");
         }
+        checkFlowHasTask(entity.getId(), "空流程无法开始调度");
 
         entity.setEnabled(true);
         entity.setUpdater(HttpUtils.getCurrentUserName());
@@ -487,6 +489,18 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         }
         if (baseMapper.selectCount(wrapper) > 0) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程编码已存在");
+        }
+    }
+
+    /**
+     * 校验流程已绑定任务.
+     *
+     * @param flowId       流程ID
+     * @param errorMessage 校验失败提示
+     */
+    private void checkFlowHasTask(UUID flowId, String errorMessage) {
+        if (CollectionUtils.isEmpty(taskInfoService.listByFlowId(flowId))) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, errorMessage);
         }
     }
 

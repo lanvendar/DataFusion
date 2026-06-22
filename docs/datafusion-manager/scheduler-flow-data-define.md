@@ -190,9 +190,9 @@ CREATE TABLE scheduler_task_link (
 | `POST /api/scheduler/flow/delete/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 删除流程 |
 | `GET /api/scheduler/flow/dag/detail/{id}` | path `UUID id` | `FlowDagDto` | `Result<T>` | 查询流程 DAG |
 | `POST /api/scheduler/flow/dag/save` | `DagSaveDto` | `Boolean` | `Result<T>` | 保存流程 DAG |
-| `POST /api/scheduler/flow/publish` | `FlowPublishDto` | `Boolean` | `Result<T>` | 发布流程 |
+| `POST /api/scheduler/flow/publish` | `FlowPublishDto` | `Boolean` | `Result<T>` | 发布流程；发布前必须至少绑定一个任务节点 |
 | `POST /api/scheduler/flow/unpublish/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 取消发布 |
-| `POST /api/scheduler/flow/enable/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 启用调度 |
+| `POST /api/scheduler/flow/enable/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 启用调度；启用前必须已发布且至少绑定一个任务节点 |
 | `POST /api/scheduler/flow/disable/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 停用调度 |
 
 ## 5. 层间转换规则
