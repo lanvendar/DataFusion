@@ -1,19 +1,10 @@
-import { CopyOutlined, DeleteOutlined, EditOutlined } from "@ant-design/icons";
-import { Button, Popconfirm, Space, Tag, Typography } from "antd";
+import { CopyOutlined, DeleteOutlined, EditOutlined, EyeOutlined } from "@ant-design/icons";
+import { Button, Popconfirm, Space, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { PageActionEnum, type PluginConfigItem } from "../../dto";
 
 interface UseColumnsProps {
   onAction: (action: PageActionEnum, record?: PluginConfigItem) => void;
-}
-
-function renderPluginParam(value: unknown) {
-  if (!value) return "-";
-  return (
-    <Typography.Text code ellipsis>
-      {typeof value === "string" ? value : JSON.stringify(value)}
-    </Typography.Text>
-  );
 }
 
 export function useColumns({ onAction }: UseColumnsProps): ColumnsType<PluginConfigItem> {
@@ -43,7 +34,6 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<PluginCon
       ),
     },
     { title: "描述", dataIndex: "description", key: "description", width: 220, ellipsis: true },
-    { title: "配置", dataIndex: "pluginParam", key: "pluginParam", width: 260, render: renderPluginParam },
     { title: "更新人", dataIndex: "updater", key: "updater", width: 120 },
     { title: "更新时间", dataIndex: "updateTime", key: "updateTime", width: 180 },
     {
@@ -53,6 +43,9 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<PluginCon
       fixed: "right",
       render: (_, record) => (
         <Space>
+          <Button type="link" icon={<EyeOutlined />} onClick={() => onAction(PageActionEnum.VIEW, record)}>
+            查看
+          </Button>
           <Button type="link" icon={<CopyOutlined />} onClick={() => onAction(PageActionEnum.COPY, record)}>
             复制
           </Button>

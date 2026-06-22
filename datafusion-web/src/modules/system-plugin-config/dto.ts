@@ -1,5 +1,6 @@
 export enum PageActionEnum {
   ADD = "ADD",
+  VIEW = "VIEW",
   COPY = "COPY",
   EDIT = "EDIT",
   DELETE = "DELETE",

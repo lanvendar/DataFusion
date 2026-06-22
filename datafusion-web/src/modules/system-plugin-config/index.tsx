@@ -1,4 +1,4 @@
-import { App, Space } from "antd";
+import { App, Modal, Space } from "antd";
 import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-layout";
@@ -17,6 +17,7 @@ export default function SystemPluginConfigPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<PluginConfigFormMode>("add");
   const [currentRecord, setCurrentRecord] = useState<PluginConfigItem>();
+  const [viewRecord, setViewRecord] = useState<PluginConfigItem>();
 
   const refreshList = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: [SYSTEM_PLUGIN_CONFIG_QUERY_KEY] });
@@ -57,6 +58,9 @@ export default function SystemPluginConfigPage() {
         case PageActionEnum.ADD:
           openForm("add");
           break;
+        case PageActionEnum.VIEW:
+          setViewRecord(record);
+          break;
         case PageActionEnum.COPY:
           if (record) copyMutation.mutate(record);
           break;
@@ -93,6 +97,18 @@ export default function SystemPluginConfigPage() {
         onClose={() => setFormOpen(false)}
         onSubmitSuccess={refreshList}
       />
+
+      <Modal
+        footer={null}
+        open={!!viewRecord}
+        title="查看插件配置"
+        width={720}
+        onCancel={() => setViewRecord(undefined)}
+      >
+        <pre style={{ maxHeight: 520, margin: 0, overflow: "auto", whiteSpace: "pre-wrap" }}>
+          {viewRecord?.pluginParam ? JSON.stringify(viewRecord.pluginParam, null, 2) : "-"}
+        </pre>
+      </Modal>
     </Space>
   );
 }
