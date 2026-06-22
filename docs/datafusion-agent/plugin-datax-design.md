@@ -151,8 +151,8 @@ Job 约定：
 
 | 动作 | 行为 | 返回状态 |
 |------|------|----------|
-| stop | 删除 Job，使用默认 grace period | `STOPPING`，待状态映射转终态 |
-| kill | 删除 Job，`gracePeriodSeconds=0` | `KILLING`，待状态映射转终态 |
+| stop | 删除 Job 和本次任务 Secret，Job 使用默认 grace period | `STOPPING`，待状态映射转终态 |
+| kill | 删除 Job 和本次任务 Secret，Job 使用 `gracePeriodSeconds=0` | `KILLING`，待状态映射转终态 |
 | finish | 终态后采集日志并清理 Secret / Job | 当前终态 |
 
 ## 日志

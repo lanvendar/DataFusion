@@ -73,10 +73,19 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
      */
     public Fabric8DataxKubernetesClient(AgentProperties properties, DataxJobFileService jobFileService,
             DataxKubernetesTemplateRenderer templateRenderer) {
+        this(client(properties), jobFileService, templateRenderer);
+    }
+
+    Fabric8DataxKubernetesClient(KubernetesClient client, DataxJobFileService jobFileService,
+            DataxKubernetesTemplateRenderer templateRenderer) {
         this.jobFileService = jobFileService;
         this.templateRenderer = templateRenderer;
+        this.client = client;
+    }
+
+    private static KubernetesClient client(AgentProperties properties) {
         Config config = config(properties.getKubernetes());
-        this.client = config == null ? new DefaultKubernetesClient() : new DefaultKubernetesClient(config);
+        return config == null ? new DefaultKubernetesClient() : new DefaultKubernetesClient(config);
     }
 
     @Override
@@ -99,7 +108,11 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
 
     @Override
     public void stop(DataxKubernetesRuntimeRef runtimeRef, boolean forcibly) {
-        deleteJob(runtimeRef, forcibly);
+        try {
+            deleteJob(runtimeRef, forcibly);
+        } finally {
+            deleteSecret(runtimeRef);
+        }
     }
 
     @Override
@@ -138,13 +151,16 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
 
     @Override
     public void cleanup(DataxKubernetesRuntimeRef runtimeRef) {
-        if (runtimeRef.isDeleteJobOnFinish()) {
-            deleteJob(runtimeRef, false);
+        try {
+            if (runtimeRef.isDeleteJobOnFinish()) {
+                deleteJob(runtimeRef, false);
+            }
+        } finally {
+            deleteSecret(runtimeRef);
         }
-        deleteSecret(runtimeRef);
     }
 
-    private Config config(AgentProperties.Kubernetes kubernetes) {
+    private static Config config(AgentProperties.Kubernetes kubernetes) {
         if (!hasCustomConfig(kubernetes)) {
             return null;
         }
@@ -218,7 +234,7 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
                 .delete();
     }
 
-    private boolean hasCustomConfig(AgentProperties.Kubernetes kubernetes) {
+    private static boolean hasCustomConfig(AgentProperties.Kubernetes kubernetes) {
         return !isBlank(kubernetes.getApiServer()) || !isBlank(kubernetes.getToken())
                 || exists(kubernetes.getTokenFile()) || exists(kubernetes.getCaCertFile());
     }
@@ -278,11 +294,11 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
         return selector.substring(selector.indexOf('=') + 1);
     }
 
-    private boolean isBlank(String value) {
+    private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
 
-    private boolean exists(String path) {
+    private static boolean exists(String path) {
         return !isBlank(path) && Files.exists(Path.of(path));
     }
 }
