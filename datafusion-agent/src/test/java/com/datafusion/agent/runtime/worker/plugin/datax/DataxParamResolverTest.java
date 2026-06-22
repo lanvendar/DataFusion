@@ -55,6 +55,8 @@ class DataxParamResolverTest {
         assertEquals("/opt/plugins/datax/conf/logback.xml", param.getLogbackConfigFile());
         assertEquals("/usr/bin/java", param.getJavaBin());
         assertEquals("WARN", param.getLogLevel());
+        assertEquals("OWNER_READ,OWNER_WRITE,OWNER_EXECUTE,GROUP_READ,GROUP_EXECUTE,OTHERS_READ,OTHERS_EXECUTE",
+                param.getWriteJobFilePermissions());
         assertTrue(param.getWorkDir().toString().contains("task-runtime"));
     }
 

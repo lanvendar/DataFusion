@@ -87,7 +87,8 @@ public class DataxParamResolver {
     /**
      * Default generated job file permissions.
      */
-    private static final String DEFAULT_WRITE_JOB_FILE_PERMISSIONS = "OWNER_READ,OWNER_WRITE";
+    private static final String DEFAULT_WRITE_JOB_FILE_PERMISSIONS = "OWNER_READ,OWNER_WRITE,OWNER_EXECUTE,GROUP_READ,"
+            + "GROUP_EXECUTE,OTHERS_READ,OTHERS_EXECUTE";
 
     /**
      * Default Kubernetes namespace.

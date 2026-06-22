@@ -44,6 +44,7 @@ DataX LOCAL / K8S 的静态结构均由 YAML 模板管理：
 | `dataxHome` | `String` | LOCAL 必填 | 无 | DataX home |
 | `dataxJar` | `String` | LOCAL 条件必填 | `${dataxHome}/lib/datax-bundle-0.0.1.jar` | DataX bundle jar；`dataxHome` 为空时不会自动推导 |
 | `jobFile` | `String` | 否 | 空 | 预置 DataX job JSON 文件路径；非空时复制到任务运行目录的 `job.json` |
+| `writeJobFilePermissions` | `String` | 否 | `OWNER_READ,OWNER_WRITE,OWNER_EXECUTE,GROUP_READ,GROUP_EXECUTE,OTHERS_READ,OTHERS_EXECUTE` | 生成或复制到任务运行目录的 `job.json` 的 POSIX 权限，默认等价 `755` |
 | `logConfigFile` | `String` | LOCAL 条件必填 | `${dataxHome}/conf/logback.xml` | DataX LOCAL 模式 logback 配置文件；`dataxHome` 为空时不会自动推导 |
 | `logLevel` | `String` | 否 | `INFO` | DataX 日志级别 |
 | `logMaxSize` | `String` | 否 | `100MB` | DataX logback 单文件滚动大小 |
