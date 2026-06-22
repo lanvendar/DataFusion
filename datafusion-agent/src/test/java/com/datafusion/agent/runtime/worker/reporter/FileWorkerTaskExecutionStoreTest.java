@@ -53,6 +53,37 @@ class FileWorkerTaskExecutionStoreTest {
         assertEquals(0, reloadedStore.listListeningStates().size());
     }
 
+    @Test
+    void shouldAppendStatusLogWhenReadStateIsMutatedBeforeSave() throws Exception {
+        FileWorkerTaskExecutionStore store = new FileWorkerTaskExecutionStore(properties());
+        store.saveSnapshot(snapshot());
+        store.saveState(state(StatusEnum.RUNNING));
+
+        WorkerTaskExecutionState state = store.readState("task-1").orElseThrow();
+        state.setExitCode(0);
+        state.setStatus(StatusEnum.RUN_SUCCESS);
+        store.saveState(state);
+
+        Path logFile = executionDir().resolve("state.log");
+        assertEquals(2, Files.readAllLines(logFile).size());
+        assertTrue(Files.readString(logFile).contains("status:RUN_SUCCESS|exitCode:0"));
+    }
+
+    @Test
+    void shouldAppendStatusLogWhenAppIdChanges() throws Exception {
+        FileWorkerTaskExecutionStore store = new FileWorkerTaskExecutionStore(properties());
+        store.saveSnapshot(snapshot());
+        store.saveState(state(StatusEnum.RUNNING));
+
+        WorkerTaskExecutionState state = state(StatusEnum.RUNNING);
+        state.setAppId("200");
+        store.saveState(state);
+
+        Path logFile = executionDir().resolve("state.log");
+        assertEquals(2, Files.readAllLines(logFile).size());
+        assertTrue(Files.readString(logFile).contains("appId:200|status:RUNNING"));
+    }
+
     private AgentProperties properties() {
         AgentProperties properties = new AgentProperties();
         properties.setModules(tempDir.toString());

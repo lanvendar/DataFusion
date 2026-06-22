@@ -133,6 +133,7 @@ state.log
 - `.state` 保存运行态，包含 `appId`、`workDirPath`、`status`、`exitCode`、`result`。
 - `stdout.log`、`stderr.log`、`state.log` 是 agent 标准任务日志，文件名由 `TaskRuntimeFiles` 统一定义。
 - `state.log` 保存状态变化流水，finish 后保留；`.snap` 和 `.state` 在 finish 确认终态后删除。
+- `saveState` 更新 `.state` 时同步比较旧 `.state`，当 `status`、`appId` 或 `exitCode` 变化时追加 `state.log`，避免 watcher 或状态刷新器原地修改运行态对象导致终态漏记。
 - 控制请求可以只携带 `taskInstanceId`；agent 通过 `.snap + .state` 恢复插件类型、运行模式和运行引用。
 
 ## 状态上报

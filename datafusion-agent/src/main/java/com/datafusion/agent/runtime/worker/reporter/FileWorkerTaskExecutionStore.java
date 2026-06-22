@@ -1,7 +1,6 @@
 package com.datafusion.agent.runtime.worker.reporter;
 
 import com.datafusion.agent.config.AgentProperties;
-import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRuntimeFiles;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
@@ -19,6 +18,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -36,6 +36,16 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
      * 日期格式.
      */
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
+
+    /**
+     * Snapshot file suffix.
+     */
+    private static final String SNAPSHOT_FILE_SUFFIX = ".snap";
+
+    /**
+     * State file suffix.
+     */
+    private static final String STATE_FILE_SUFFIX = ".state";
 
     /**
      * JSON 序列化器.
@@ -73,7 +83,7 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
             Files.createDirectories(snapshotFile.getParent());
             Files.writeString(snapshotFile, json(snapshot), StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            registerExecution(snapshot.getTaskInstanceId(), snapshotFile.getParent(), null);
+            registerExecution(snapshot.getTaskInstanceId(), snapshotFile.getParent());
         } catch (Exception e) {
             log.warn("记录任务提交快照失败, taskInstanceId={}", snapshot.getTaskInstanceId(), e);
         }
@@ -89,7 +99,7 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
                 .filter(Files::exists)
                 .flatMap(this::readSnapshotFile)
                 .or(() -> findSnapshotFile(taskInstanceId).flatMap(path -> {
-                    registerExecution(taskInstanceId, path.getParent(), null);
+                    registerExecution(taskInstanceId, path.getParent());
                     return readSnapshotFile(path);
                 }));
     }
@@ -103,14 +113,11 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
             state.setUpdateTime(System.currentTimeMillis());
             Path stateFile = stateFile(state);
             Files.createDirectories(stateFile.getParent());
-            StatusEnum oldStatus = Optional.ofNullable(executionCache.asMap().get(state.getTaskInstanceId()))
-                    .map(WorkerTaskExecutionEntry::getState)
-                    .map(WorkerTaskExecutionState::getStatus)
-                    .orElse(null);
+            WorkerTaskExecutionState oldState = Files.exists(stateFile) ? readStateFile(stateFile).orElse(null) : null;
             Files.writeString(stateFile, json(state), StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            registerExecution(state.getTaskInstanceId(), stateFile.getParent(), state);
-            if (oldStatus != state.getStatus()) {
+            registerExecution(state.getTaskInstanceId(), stateFile.getParent());
+            if (shouldAppendStatusLog(oldState, state)) {
                 appendStatusLog(stateFile.getParent(), state);
             }
         } catch (Exception e) {
@@ -124,10 +131,12 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
             return Optional.empty();
         }
         return executionEntry(taskInstanceId)
-                .map(WorkerTaskExecutionEntry::getState)
+                .map(entry -> stateFile(entry.getExecutionDir(), taskInstanceId))
+                .filter(Files::exists)
+                .flatMap(this::readStateFile)
                 .or(() -> findStateFile(taskInstanceId).flatMap(path -> readStateFile(path)
                         .map(state -> {
-                            registerExecution(taskInstanceId, path.getParent(), state);
+                            registerExecution(taskInstanceId, path.getParent());
                             return state;
                         })));
     }
@@ -135,9 +144,13 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
     @Override
     public List<WorkerTaskExecutionState> listListeningStates() {
         return executionCache.asMap()
-                .values()
+                .entrySet()
                 .stream()
-                .map(WorkerTaskExecutionEntry::getState)
+                .filter(entry -> entry.getValue() != null && entry.getValue().getExecutionDir() != null)
+                .map(entry -> stateFile(entry.getValue().getExecutionDir(), entry.getKey()))
+                .filter(Files::exists)
+                .map(this::readStateFile)
+                .flatMap(Optional::stream)
                 .filter(state -> state != null && !isBlank(state.getTaskInstanceId()))
                 .toList();
     }
@@ -168,7 +181,7 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
                 .map(WorkerTaskExecutionEntry::getExecutionDir)
                 .map(path -> snapshotFile(path, snapshot.getTaskInstanceId()))
                 .orElseGet(() -> executionDir(snapshot.getFlowInstanceId(), snapshot.getTaskInstanceId())
-                        .resolve(snapshot.getTaskInstanceId() + ".snap"));
+                        .resolve(snapshotFileName(snapshot.getTaskInstanceId())));
     }
 
     private Path stateFile(WorkerTaskExecutionState state) {
@@ -183,28 +196,56 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
     }
 
     private Path snapshotFile(Path executionDir, String taskInstanceId) {
-        return executionDir.resolve(taskInstanceId + ".snap");
+        return executionDir.resolve(snapshotFileName(taskInstanceId));
     }
 
     private Path stateFile(Path executionDir, String taskInstanceId) {
-        return executionDir.resolve(taskInstanceId + ".state");
+        return executionDir.resolve(stateFileName(taskInstanceId));
     }
 
     private Path statusLogFile(Path executionDir) {
         return TaskRuntimeFiles.stateLog(executionDir);
     }
 
+    private String snapshotFileName(String taskInstanceId) {
+        return taskInstanceId + SNAPSHOT_FILE_SUFFIX;
+    }
+
+    private String stateFileName(String taskInstanceId) {
+        return taskInstanceId + STATE_FILE_SUFFIX;
+    }
+
+    private boolean isSnapshotFile(Path path) {
+        return fileName(path).endsWith(SNAPSHOT_FILE_SUFFIX);
+    }
+
+    private boolean isStateFile(Path path) {
+        return fileName(path).endsWith(STATE_FILE_SUFFIX);
+    }
+
+    private boolean isSnapshotFile(Path path, String taskInstanceId) {
+        return fileName(path).equals(snapshotFileName(taskInstanceId));
+    }
+
+    private boolean isStateFile(Path path, String taskInstanceId) {
+        return fileName(path).equals(stateFileName(taskInstanceId));
+    }
+
+    private String fileName(Path path) {
+        return path.getFileName().toString();
+    }
+
     private Optional<Path> findSnapshotFile(String taskInstanceId) {
         return findSnapshotFiles()
                 .stream()
-                .filter(path -> path.getFileName().toString().equals(taskInstanceId + ".snap"))
+                .filter(path -> isSnapshotFile(path, taskInstanceId))
                 .findFirst();
     }
 
     private Optional<Path> findStateFile(String taskInstanceId) {
         return findStateFiles()
                 .stream()
-                .filter(path -> path.getFileName().toString().equals(taskInstanceId + ".state"))
+                .filter(path -> isStateFile(path, taskInstanceId))
                 .findFirst();
     }
 
@@ -214,7 +255,7 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
             return Collections.emptyList();
         }
         try (Stream<Path> stream = Files.walk(root)) {
-            return stream.filter(path -> path.getFileName().toString().endsWith(".snap")).toList();
+            return stream.filter(this::isSnapshotFile).toList();
         } catch (Exception e) {
             log.warn("读取任务提交快照文件列表失败, root={}", root, e);
             return Collections.emptyList();
@@ -227,7 +268,7 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
             return Collections.emptyList();
         }
         try (Stream<Path> stream = Files.walk(root)) {
-            return stream.filter(path -> path.getFileName().toString().endsWith(".state")).toList();
+            return stream.filter(this::isStateFile).toList();
         } catch (Exception e) {
             log.warn("读取任务运行态文件列表失败, root={}", root, e);
             return Collections.emptyList();
@@ -256,7 +297,7 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
         for (Path stateFile : findStateFiles()) {
             readStateFile(stateFile).ifPresent(state -> {
                 if (!isBlank(state.getTaskInstanceId())) {
-                    registerExecution(state.getTaskInstanceId(), stateFile.getParent(), state);
+                    registerExecution(state.getTaskInstanceId(), stateFile.getParent());
                 }
             });
         }
@@ -273,24 +314,32 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
     private WorkerTaskExecutionEntry loadExecutionEntry(String taskInstanceId) {
         Optional<Path> stateFile = findStateFile(taskInstanceId);
         if (stateFile.isPresent()) {
-            WorkerTaskExecutionState state = readStateFile(stateFile.get()).orElse(null);
-            return new WorkerTaskExecutionEntry(stateFile.get().getParent(), state);
+            return new WorkerTaskExecutionEntry(stateFile.get().getParent());
         }
         Optional<Path> snapshotFile = findSnapshotFile(taskInstanceId);
         if (snapshotFile.isPresent()) {
-            return new WorkerTaskExecutionEntry(snapshotFile.get().getParent(), null);
+            return new WorkerTaskExecutionEntry(snapshotFile.get().getParent());
         }
-        return new WorkerTaskExecutionEntry(null, null);
+        return new WorkerTaskExecutionEntry(null);
     }
 
-    private void registerExecution(String taskInstanceId, Path executionDir, WorkerTaskExecutionState state) {
+    private void registerExecution(String taskInstanceId, Path executionDir) {
         if (isBlank(taskInstanceId) || executionDir == null) {
             return;
         }
-        executionCache.asMap().compute(taskInstanceId, (key, existing) -> {
-            WorkerTaskExecutionState nextState = state == null && existing != null ? existing.getState() : state;
-            return new WorkerTaskExecutionEntry(executionDir, nextState);
-        });
+        executionCache.put(taskInstanceId, new WorkerTaskExecutionEntry(executionDir));
+    }
+
+    private boolean shouldAppendStatusLog(WorkerTaskExecutionState oldState, WorkerTaskExecutionState newState) {
+        if (newState == null) {
+            return false;
+        }
+        if (oldState == null) {
+            return true;
+        }
+        return oldState.getStatus() != newState.getStatus()
+                || !Objects.equals(oldState.getAppId(), newState.getAppId())
+                || !Objects.equals(oldState.getExitCode(), newState.getExitCode());
     }
 
     private Path executionDir(String flowInstanceId, String taskInstanceId) {
@@ -342,21 +391,16 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
         private final Path executionDir;
 
         /**
-         * Worker task execution state.
+         * Constructor.
+         *
+         * @param executionDir Execution directory
          */
-        private final WorkerTaskExecutionState state;
-
-        private WorkerTaskExecutionEntry(Path executionDir, WorkerTaskExecutionState state) {
+        private WorkerTaskExecutionEntry(Path executionDir) {
             this.executionDir = executionDir;
-            this.state = state;
         }
 
         private Path getExecutionDir() {
             return executionDir;
-        }
-
-        private WorkerTaskExecutionState getState() {
-            return state;
         }
     }
 }
