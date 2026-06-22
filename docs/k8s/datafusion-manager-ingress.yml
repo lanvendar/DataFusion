@@ -1,21 +1,51 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
+  # DataFusion Manager 对外访问入口。
+  # 该 Ingress 只暴露接口、健康检查和 Knife4j/OpenAPI 文档所需的最小路径。
   name: datafusion-manager
   namespace: datafusion
   labels:
     app.kubernetes.io/name: datafusion
     app.kubernetes.io/component: manager
   annotations:
+    # Manager 接口中可能存在耗时请求，适当放宽 Nginx Ingress 代理超时时间。
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
 spec:
-  ingressClassName: nginx
+  # dev 环境域名统一走 dev-nginx，对应入口地址 172.26.185.204。
+  ingressClassName: dev-nginx
   rules:
-    - host: sz-dev-datafusion
+    # Manager 外部访问域名。
+    - host: sz-dev-datafusion.indusmind.me
       http:
         paths:
+          # Knife4j/Swagger 文档入口页面。
+          - path: /doc.html
+            pathType: Exact
+            backend:
+              service:
+                name: datafusion-manager
+                port:
+                  number: 8080
+          # /doc.html 页面依赖的 JS/CSS 等静态资源。
+          - path: /webjars
+            pathType: Prefix
+            backend:
+              service:
+                name: datafusion-manager
+                port:
+                  number: 8080
+          # OpenAPI JSON，文档页面展示接口列表需要访问该路径。
+          - path: /v3/api-docs
+            pathType: Prefix
+            backend:
+              service:
+                name: datafusion-manager
+                port:
+                  number: 8080
+          # Manager 业务接口统一前缀。
           - path: /api
             pathType: Prefix
             backend:
@@ -23,6 +53,7 @@ spec:
                 name: datafusion-manager
                 port:
                   number: 8080
+          # 健康检查接口，用于人工排障或外部探测。
           - path: /actuator/health
             pathType: Exact
             backend:
@@ -31,6 +62,7 @@ spec:
                 port:
                   number: 8080
   tls:
+    # TLS Secret 必须与 Ingress 位于同一个 namespace。
     - hosts:
-        - sz-dev-datafusion
+        - sz-dev-datafusion.indusmind.me
       secretName: indusmind-me-wildcard-tls

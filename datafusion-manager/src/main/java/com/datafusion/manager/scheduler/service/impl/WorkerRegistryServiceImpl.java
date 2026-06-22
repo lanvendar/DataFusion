@@ -366,7 +366,9 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         entity.setPlugins(normalizePlugins(joinPlugins(worker.getPluginTypes())));
         entity.setRegisterTime(toDate(worker.getRegisterTime()));
         entity.setLastHeartbeatTime(toDate(worker.getLastHeartbeatTime()));
-        entity.setLogDir(worker.getWorkerLogDir());
+        if (StringUtils.isNotBlank(worker.getWorkerLogDir())) {
+            entity.setLogDir(worker.getWorkerLogDir());
+        }
         if (entity.getIsActive() == null) {
             entity.setIsActive(ACTIVE);
         }

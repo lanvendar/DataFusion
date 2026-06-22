@@ -69,6 +69,7 @@ public class WorkerManager implements WorkerListener {
                 worker.setPort(w.getPort());
                 worker.setHostName(w.getHostName());
                 worker.setPluginTypes(w.getPluginTypes());
+                worker.setWorkerLogDir(w.getWorkerLogDir());
                 onInactive(worker);
             });
         }

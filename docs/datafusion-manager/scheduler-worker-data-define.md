@@ -155,7 +155,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `WorkerRegistryEntity` -> `WorkerRegistryDto` | 字段逐一复制 | 不转换 `status/isActive`，由前端映射展示 |
 | `WorkerRegistryQueryDto` -> `LambdaQueryWrapper` | 字符串字段按定义 `like/eq`；数值字段 `eq` | 默认排除 `status=2` 清除记录，默认 `updateTime desc` |
 | `WorkerRegistryEntity` -> scheduler `Worker` | `workerCode` -> `id`，`host` -> `ip`，`plugins` 逗号拆分为 `pluginTypes`，`logDir` -> `workerLogDir` | `timestamp(6)` 转毫秒时间戳 |
-| scheduler `Worker` -> `WorkerRegistryEntity` | `id` -> `workerCode`，`ip` -> `host`，`pluginTypes` -> `plugins` 逗号字符串，`workerLogDir` -> `logDir` | 注册/心跳由 `WorkerStorageImpl` 调用 Service upsert；已有记录保留 `isActive` |
+| scheduler `Worker` -> `WorkerRegistryEntity` | `id` -> `workerCode`，`ip` -> `host`，`pluginTypes` -> `plugins` 逗号字符串，非空 `workerLogDir` -> `logDir` | 注册/心跳由 `WorkerStorageImpl` 调用 Service upsert；已有记录保留 `isActive`；空日志目录不覆盖已有值 |
 
 ## 6. 枚举 / 特殊字段
 
