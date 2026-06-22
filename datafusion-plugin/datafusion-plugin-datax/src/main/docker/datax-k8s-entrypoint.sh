@@ -1,8 +1,8 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
-set -Eeuo pipefail
+set -eu
 
-if [[ $# -gt 0 ]]; then
+if [ "$#" -gt 0 ]; then
   case "$1" in
     bash|sh|java)
       exec "$@"
@@ -16,32 +16,47 @@ fi
 
 DATAX_JAR="${DATAX_HOME}/lib/datax-bundle-0.0.1.jar"
 
-if [[ ! -d "$DATAX_HOME" ]]; then
+if [ ! -d "$DATAX_HOME" ]; then
   echo "Error: DATAX_HOME does not exist: ${DATAX_HOME}" >&2
   exit 66
 fi
 
-if [[ ! -f "$DATAX_JAR" ]]; then
+if [ ! -f "$DATAX_JAR" ]; then
   echo "Error: DataX bundle jar does not exist: ${DATAX_JAR}" >&2
   exit 66
 fi
 
-if [[ ! -f "$DATAX_JOB_FILE" ]]; then
+if [ ! -f "$DATAX_JOB_FILE" ]; then
   echo "Error: DataX job file does not exist: ${DATAX_JOB_FILE}" >&2
   exit 66
 fi
 
-if [[ ! "$DATAX_LOG_LEVEL" =~ ^(INFO|WARN|ERROR)$ ]]; then
-  echo "Error: DATAX_LOG_LEVEL must be INFO, WARN, or ERROR: ${DATAX_LOG_LEVEL}" >&2
+case "$DATAX_LOG_LEVEL" in
+  TRACE|DEBUG|INFO|WARN|ERROR)
+    ;;
+  *)
+  echo "Error: DATAX_LOG_LEVEL must be TRACE, DEBUG, INFO, WARN, or ERROR: ${DATAX_LOG_LEVEL}" >&2
   exit 64
-fi
+    ;;
+esac
 
-if [[ ! "$DATAX_LOG_MAX_INDEX" =~ ^[0-9]+$ ]] || [[ "$DATAX_LOG_MAX_INDEX" -lt 1 ]]; then
-  echo "Error: DATAX_LOG_MAX_INDEX must be a positive integer: ${DATAX_LOG_MAX_INDEX}" >&2
-  exit 64
-fi
+case "$DATAX_LOG_MAX_INDEX" in
+  ''|*[!0-9]*)
+    echo "Error: DATAX_LOG_MAX_INDEX must be a positive integer: ${DATAX_LOG_MAX_INDEX}" >&2
+    exit 64
+    ;;
+  *)
+    if [ "$DATAX_LOG_MAX_INDEX" -lt 1 ]; then
+      echo "Error: DATAX_LOG_MAX_INDEX must be a positive integer: ${DATAX_LOG_MAX_INDEX}" >&2
+      exit 64
+    fi
+    ;;
+esac
 
-mkdir -p "$(dirname "$DATAX_LOG_FILE")"
+DATAX_LOG_DIR=${DATAX_LOG_FILE%/*}
+if [ "$DATAX_LOG_DIR" != "$DATAX_LOG_FILE" ]; then
+  mkdir -p "$DATAX_LOG_DIR"
+fi
 
 echo "============================================================"
 echo "Start time      : $(date '+%Y-%m-%d %H:%M:%S')"

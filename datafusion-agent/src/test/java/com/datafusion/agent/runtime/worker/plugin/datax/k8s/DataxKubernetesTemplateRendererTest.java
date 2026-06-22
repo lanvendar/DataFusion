@@ -35,7 +35,9 @@ class DataxKubernetesTemplateRendererTest {
         assertTrue(yaml.contains("name: \"df-datax-task-1\""));
         assertTrue(yaml.contains("image: \"datafusion/datax:latest\""));
         assertTrue(yaml.contains("DATAX_JOB_FILE"));
-        assertTrue(yaml.contains("/datafusion/job/job.json"));
+        assertTrue(yaml.contains("/opt/datafusion/plugins/datax/job/job.json"));
+        assertTrue(yaml.contains("/opt/datafusion/plugins/datax/logs/datax.log"));
+        assertTrue(yaml.contains("/opt/datafusion/plugins/datax"));
         assertTrue(yaml.contains("DATAX_JOB_ID"));
         assertTrue(yaml.contains("JAVA_OPTS"));
         assertTrue(yaml.contains("--add-opens java.base/java.lang=ALL-UNNAMED"));

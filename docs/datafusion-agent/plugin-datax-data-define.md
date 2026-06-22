@@ -29,7 +29,7 @@ DataX LOCAL / K8S 的静态结构均由 YAML 模板管理：
 | `LOCAL` | `datafusion-agent/src/main/resources/plugins/datax/templates/datax-local-runtime.yml` | `LocalShellProcess` |
 | `K8S` | `datafusion-agent/src/main/resources/plugins/datax/templates/datax-k8s-runtime.yml` | Kubernetes manifest |
 
-`jobJsonMountPath=/datafusion/job/job.json`、`containerName=datax`、`DATAX_HOME=/opt/datafusion/datax` 等 K8S 结构常量由模板和 `DataxKubernetesTemplateConstants` 维护。
+`jobJsonMountPath=/opt/datafusion/plugins/datax/job/job.json`、`containerName=datax`、`DATAX_HOME=/opt/datafusion/plugins/datax` 等 K8S 结构常量由模板和 `DataxKubernetesTemplateConstants` 维护。
 
 ## 3. TaskRequest.pluginParam
 

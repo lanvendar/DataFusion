@@ -22,17 +22,17 @@ public final class DataxKubernetesTemplateConstants {
     /**
      * Job JSON mount path inside container.
      */
-    public static final String JOB_JSON_MOUNT_PATH = "/datafusion/job/job.json";
+    public static final String JOB_JSON_MOUNT_PATH = "/opt/datafusion/plugins/datax/job/job.json";
 
     /**
      * Job JSON mount directory inside container.
      */
-    public static final String JOB_JSON_MOUNT_DIR = "/datafusion/job";
+    public static final String JOB_JSON_MOUNT_DIR = "/opt/datafusion/plugins/datax/job";
 
     /**
      * DataX log file inside container.
      */
-    public static final String DATAX_LOG_FILE = "/datafusion/logs/datax.log";
+    public static final String DATAX_LOG_FILE = "/opt/datafusion/plugins/datax/logs/datax.log";
 
     /**
      * Main DataX container name.
@@ -42,7 +42,7 @@ public final class DataxKubernetesTemplateConstants {
     /**
      * DataX home inside container.
      */
-    public static final String DATAX_HOME = "/opt/datafusion/datax";
+    public static final String DATAX_HOME = "/opt/datafusion/plugins/datax";
 
     private DataxKubernetesTemplateConstants() {
     }

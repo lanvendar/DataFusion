@@ -130,6 +130,9 @@ Job 约定：
   再读取该快照写入 Secret，不用 ConfigMap。
 - `backoffLimit` 默认 0，避免 Kubernetes 自己重试改变调度语义。
 - 镜像必须内置 DataX bundle，agent 不上传本地插件目录。
+- 镜像内 DataX home 固定为 `/opt/datafusion/plugins/datax`，需包含 `lib/datax-bundle-0.0.1.jar`、`conf/logback.xml`、`plugin`、`job` 和 `logs` 目录。
+- K8S Secret 挂载到 `/opt/datafusion/plugins/datax/job`，容器内 DataX job 文件固定为 `/opt/datafusion/plugins/datax/job/job.json`。
+- K8S 容器内 DataX 日志文件固定为 `/opt/datafusion/plugins/datax/logs/datax.log`；agent 终态采集的是 Pod 主容器日志，不直接读取容器文件系统。
 - 提交成功后只把 Job name 写入 `.state.appId`；namespace、secretName、podLabelSelector、containerName 等运行引用
   由 `.snap` 中的 `pluginParam/taskData` 和 `.state.appId` 重建，stop / kill / finish 和周期状态映射都不能依赖当前控制请求携带完整参数。
 

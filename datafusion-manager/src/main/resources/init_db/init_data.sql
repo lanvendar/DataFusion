@@ -105,7 +105,7 @@ VALUES
 	   },
 	   "kubernetes": {
 	     "namespace": "datafusion",
-	     "image": "",
+	     "image": "jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:datax-runtime-v1.0.0-20260622",
 	     "imagePullPolicy": "IfNotPresent",
 	     "serviceAccountName": "",
 	     "backoffLimit": 0,
