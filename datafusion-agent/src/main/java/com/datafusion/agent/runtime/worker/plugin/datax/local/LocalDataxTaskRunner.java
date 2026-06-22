@@ -100,12 +100,12 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
                     .status(StatusEnum.RUNNING)
                     .appId(appId)
                     .workDirPath(param.getWorkDir().toString())
-                    .result(resultJson("LOCAL DataX task submitted", param.getLogFile().toString(), null, null))
+                    .result(resultJson("LOCAL DataX task submitted", param.getLogFile().toString(), null))
                     .build();
         } catch (Exception e) {
             return DataxSubmitResult.builder()
                     .status(StatusEnum.SUBMIT_FAILURE)
-                    .result(resultJson(e.getMessage(), null, null, null))
+                    .result(resultJson(e.getMessage(), null, null))
                     .build();
         }
     }
@@ -130,7 +130,7 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
                 .taskState(status == null ? StatusEnum.UNKNOWN : status)
                 .appId(request.getAppId())
                 .workDirPath(state == null ? null : state.getWorkDirPath())
-                .result(resultJson("LOCAL DataX finish checked", pluginLogUri(state), null, null))
+                .result(resultJson("LOCAL DataX finish checked", pluginLogUri(state), null))
                 .build();
     }
 
@@ -179,7 +179,7 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
                 .appId(resolveAppId(request, state))
                 .workDirPath(state == null ? null : state.getWorkDirPath())
                 .result(resultJson(handle == null ? "LOCAL DataX process not found" : "LOCAL DataX process stopped",
-                        pluginLogUri(state), null, null))
+                        pluginLogUri(state), null))
                 .build();
     }
 
@@ -194,7 +194,7 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
                 state.setExitCode(exitCode);
                 state.setStatus(exitCode == 0 ? StatusEnum.RUN_SUCCESS : StatusEnum.RUN_FAILURE);
                 state.setResult(resultJson("LOCAL DataX process exited, exitCode=" + exitCode, pluginLogUri(state),
-                        null, exitCode));
+                        exitCode));
                 stateStore.saveState(state);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -229,9 +229,8 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
         return value;
     }
 
-    private ObjectNode resultJson(String message, String pluginLogUri, String agentLogPath, Integer exitCode) {
-        return PluginResultJson.build(message, "DATAX", DataxRunMode.LOCAL.name(), pluginLogUri, agentLogPath,
-                exitCode);
+    private ObjectNode resultJson(String message, String pluginLogUri, Integer exitCode) {
+        return PluginResultJson.build(message, "DATAX", DataxRunMode.LOCAL.name(), pluginLogUri, exitCode);
     }
 
     private String pluginLogUri(WorkerTaskExecutionState state) {

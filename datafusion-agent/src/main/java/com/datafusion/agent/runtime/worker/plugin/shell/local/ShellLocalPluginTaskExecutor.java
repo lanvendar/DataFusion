@@ -122,7 +122,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
             WorkerTaskExecutionState state = baseState(request, StatusEnum.RUNNING)
                     .appId(appId)
                     .workDirPath(workDirPath)
-                    .result(resultJson("LOCAL shell task submitted", pluginLogUri, null, null))
+                    .result(resultJson("LOCAL shell task submitted", pluginLogUri, null))
                     .build();
             stateStore.saveSnapshot(snapshot(request));
             stateStore.saveState(state);
@@ -134,7 +134,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                     .taskState(StatusEnum.RUNNING)
                     .appId(appId)
                     .workDirPath(workDirPath)
-                    .result(resultJson("LOCAL shell task submitted", pluginLogUri, null, null))
+                    .result(resultJson("LOCAL shell task submitted", pluginLogUri, null))
                     .build();
         } catch (Exception e) {
             return TaskResult.builder()
@@ -142,7 +142,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                     .flowInstanceId(request.getFlowInstanceId())
                     .taskName(request.getTaskName())
                     .taskState(StatusEnum.SUBMIT_FAILURE)
-                    .result(resultJson(e.getMessage(), request, null, null))
+                    .result(resultJson(e.getMessage(), request, null))
                     .build();
         }
     }
@@ -170,8 +170,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                     .taskState(status)
                     .appId(resolveAppId(resolvedRequest, state))
                     .workDirPath(workDirPath(state))
-                    .result(resultJson("terminal task is not finished", pluginLogUri(resolvedRequest, state), null,
-                            null))
+                    .result(resultJson("terminal task is not finished", pluginLogUri(resolvedRequest, state), null))
                     .build();
         }
         return TaskResult.builder()
@@ -181,7 +180,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                 .taskState(status == null ? StatusEnum.UNKNOWN : status)
                 .appId(resolveAppId(resolvedRequest, state))
                 .workDirPath(workDirPath(state))
-                .result(resultJson("finish checked", pluginLogUri(resolvedRequest, state), null, null))
+                .result(resultJson("finish checked", pluginLogUri(resolvedRequest, state), null))
                 .build();
     }
 
@@ -195,7 +194,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
         String pluginLogUri = pluginLogUri(resolvedRequest, state);
         if (handle == null) {
             recordControlResult(resolvedRequest, state, targetStatus, appId, workDirPath,
-                    resultJson("process not found", pluginLogUri, null, null));
+                    resultJson("process not found", pluginLogUri, null));
             return TaskResult.builder()
                     .taskInstanceId(resolvedRequest.getTaskInstanceId())
                     .flowInstanceId(resolvedRequest.getFlowInstanceId())
@@ -203,7 +202,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                     .taskState(targetStatus)
                     .appId(appId)
                     .workDirPath(workDirPath)
-                    .result(resultJson("process not found", pluginLogUri, null, null))
+                    .result(resultJson("process not found", pluginLogUri, null))
                     .build();
         }
         if (forcibly) {
@@ -212,7 +211,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
             handle.destroy();
         }
         recordControlResult(resolvedRequest, state, targetStatus, appId, workDirPath,
-                resultJson(forcibly ? "process killed" : "process stopped", pluginLogUri, null, null));
+                resultJson(forcibly ? "process killed" : "process stopped", pluginLogUri, null));
         return TaskResult.builder()
                 .taskInstanceId(resolvedRequest.getTaskInstanceId())
                 .flowInstanceId(resolvedRequest.getFlowInstanceId())
@@ -220,7 +219,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                 .taskState(targetStatus)
                 .appId(appId)
                 .workDirPath(workDirPath)
-                .result(resultJson(forcibly ? "process killed" : "process stopped", pluginLogUri, null, null))
+                .result(resultJson(forcibly ? "process killed" : "process stopped", pluginLogUri, null))
                 .build();
     }
 
@@ -271,7 +270,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                 latestState.setStatus(hasLiveDescendant(process) ? StatusEnum.RUNNING
                         : exitCode == 0 ? StatusEnum.RUN_SUCCESS : StatusEnum.RUN_FAILURE);
                 latestState.setResult(resultJson("LOCAL process exited, exitCode=" + exitCode,
-                        pluginLogUri(null, latestState), null, exitCode));
+                        pluginLogUri(null, latestState), exitCode));
                 stateStore.saveState(latestState);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -350,13 +349,13 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
         return value == null || value.trim().isEmpty() ? "unknown" : value;
     }
 
-    private ObjectNode resultJson(String message, TaskRequest request, String agentLogPath, Integer exitCode) {
-        return resultJson(message, pluginLogUri(request), agentLogPath, exitCode);
+    private ObjectNode resultJson(String message, TaskRequest request, Integer exitCode) {
+        return resultJson(message, pluginLogUri(request), exitCode);
     }
 
-    private ObjectNode resultJson(String message, String pluginLogUri, String agentLogPath, Integer exitCode) {
+    private ObjectNode resultJson(String message, String pluginLogUri, Integer exitCode) {
         return PluginResultJson.build(message, PLUGIN_TYPE, ShellLocalRunModeStateMapping.RUN_MODE, pluginLogUri,
-                agentLogPath, exitCode);
+                exitCode);
     }
 
     private String pluginLogUri(TaskRequest request) {

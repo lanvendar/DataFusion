@@ -42,6 +42,7 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<WorkerReg
     { title: "有效标记", dataIndex: "isActive", key: "isActive", width: 110, render: renderActive },
     { title: "区域", dataIndex: "zone", key: "zone", width: 120, ellipsis: true },
     { title: "插件", dataIndex: "plugins", key: "plugins", width: 260, render: renderPlugins },
+    { title: "日志目录", dataIndex: "workerLogDir", key: "workerLogDir", width: 280, ellipsis: true },
     { title: "注册时间", dataIndex: "registerTime", key: "registerTime", width: 180 },
     { title: "最近心跳", dataIndex: "lastHeartbeatTime", key: "lastHeartbeatTime", width: 180 },
     { title: "更新时间", dataIndex: "updateTime", key: "updateTime", width: 180 },

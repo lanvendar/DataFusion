@@ -72,6 +72,11 @@ public class Worker {
     private Long lastHeartbeatTime;
 
     /**
+     * worker 服务日志目录.
+     */
+    private String workerLogDir;
+
+    /**
      * 最近更新时间.
      */
     private Long updateTime;

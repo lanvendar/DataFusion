@@ -15,6 +15,7 @@ export interface WorkerRegistryItem {
   plugins?: string;
   registerTime?: string;
   lastHeartbeatTime?: string;
+  workerLogDir?: string;
   isActive: number;
   remark?: string;
   creator?: string;

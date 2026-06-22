@@ -156,7 +156,7 @@ Job 约定：
 
 - `TaskResult.workDirPath` 返回任务运行目录，manager 只用该目录识别 `stdout.log`、`stderr.log`、`state.log`。
 - `TaskResult.result.pluginLogUri` 返回插件日志入口，可以是 `${taskRuntimeDir}/...` 下的本地日志文件、对象存储 URI 或 `k8s://{namespace}/jobs/{jobName}`。
-- `TaskResult.result.agentLogPath` 返回 agent 自身日志入口，只指向 `/opt/datafusion/logs/datafusion-agent/...`；没有明确路径时为空。
+- agent 自身服务日志不进入 `TaskResult.result`；由 `Worker.workerLogDir` 在注册和心跳时上报。
 - LOCAL 模式只暴露一个主插件日志文件 `${taskRuntimeDir}/{date}/{flowInstanceId}/{taskInstanceId}/local-datax.log`，DataX logback 和进程 stdout / stderr 都写入该文件。
 - 未配置外部日志且 `collectLogsOnFinish=true` 时，agent 在终态 best-effort 拉取 Pod 主容器日志，并写入
   `${taskRuntimeDir}/{date}/{flowInstanceId}/{taskInstanceId}/k8s-datax.log`。

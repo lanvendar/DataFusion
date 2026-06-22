@@ -96,7 +96,6 @@ ${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
     "pluginType": "{pluginType}",
     "runMode": "{runMode}",
     "pluginLogUri": "{pluginLogUri}",
-    "agentLogPath": "{agentLogPath}",
     "exitCode": null
   }
 }
@@ -118,7 +117,7 @@ time:1780000001000|appId:123|status:RUN_SUCCESS|exitCode:0
 - `workDirPath` 统一表示任务运行目录，manager 只通过该目录读取标准任务日志。
 - `stdout.log`、`stderr.log`、`state.log` 是 agent 标准任务日志，文件名由 `TaskRuntimeFiles` 统一定义。
 - `TaskResult.result.pluginLogUri` 表示插件日志入口。
-- `TaskResult.result.agentLogPath` 只表示 agent 自身服务日志入口。
+- `TaskResult.result` 不返回 agent 自身服务日志入口；worker 服务日志目录由 `Worker.workerLogDir` 在注册和心跳时上报。
 - `finishTask` 确认终态后删除 `.state` / `.snap`，保留 `stdout.log` / `stderr.log` / `state.log`。
 
 ## 5. 通用结果结构
@@ -131,7 +130,6 @@ time:1780000001000|appId:123|status:RUN_SUCCESS|exitCode:0
 | `pluginType` | `String` | 是 | 插件类型，例如 `SHELL`、`DATAX` |
 | `runMode` | `String` | 是 | 运行模式，例如 `LOCAL`、`K8S` |
 | `pluginLogUri` | `String` | 否 | 插件日志入口，本地文件、对象存储 URI 或第三方运行时 URI |
-| `agentLogPath` | `String` | 否 | agent 自身服务日志入口 |
 | `exitCode` | `Integer` | 否 | 本地进程退出码 |
 
 ## 6. 复用对象

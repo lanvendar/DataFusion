@@ -35,6 +35,7 @@ export const demoWorkerRows: WorkerRegistryItem[] = [
     plugins: "DATAX,FLINK",
     registerTime: "2026-06-06 09:00:00",
     lastHeartbeatTime: "2026-06-06 09:30:00",
+    workerLogDir: "/opt/datafusion/logs/datafusion-agent",
     isActive: 1,
     remark: "本地开发 worker",
     updater: "system",

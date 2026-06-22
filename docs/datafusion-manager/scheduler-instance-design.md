@@ -83,6 +83,9 @@ STATUS -> {workDirPath}/state.log
 `stdout.log`、`stderr.log`、`state.log` 的文件名由 `TaskRuntimeFiles` 统一定义。`workerResult` 缺失
 `workDirPath` 或目标文件不存在时，接口返回空内容和实际尝试路径；日志读取不新增数据库表。
 
+任务实例“返回结果”展示 `workerResultText`，当 `workerResult.result.pluginLogUri` 存在时额外渲染插件日志入口链接。
+agent 自身服务日志属于 worker 级信息，不进入任务实例 `workerResult`，实例查询页面不展示该属性。
+
 ## 归档
 
 `SchedulerInstanceArchiveScheduleJob` 定时把成功流程实例从实时表迁移到历史表，并按流程实例 ID 同步迁移其任务实例。

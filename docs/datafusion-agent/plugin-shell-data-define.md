@@ -62,5 +62,4 @@ datafusion-agent/src/main/resources/plugins/shell/templates/shell-local-plugin-c
 | `pluginType` | `String` | 是 | 固定 `SHELL` |
 | `runMode` | `String` | 是 | 固定 `LOCAL` |
 | `pluginLogUri` | `String` | 否 | 用户显式配置的插件日志入口；默认不写 |
-| `agentLogPath` | `String` | 否 | Shell 插件不主动设置 |
 | `exitCode` | `Integer` | 否 | 顶层 shell 退出码 |

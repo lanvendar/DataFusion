@@ -70,7 +70,7 @@ watcher 在顶层 shell 退出时会 best-effort 检查 `ProcessHandle.descendan
 - `stdout.log` 和 `stderr.log` 固定写入任务工作目录。
 - `TaskResult.workDirPath` 返回任务运行目录。
 - `TaskResult.result.pluginLogUri` 只表示用户显式配置的 Shell 插件日志入口；默认不把 `stdout.log` 当插件日志返回。
-- Shell 插件不写 `agentLogPath`。
+- Shell 插件不写 agent 服务日志入口；agent 服务日志目录由 `Worker.workerLogDir` 在注册和心跳时上报。
 
 ## 非目标
 

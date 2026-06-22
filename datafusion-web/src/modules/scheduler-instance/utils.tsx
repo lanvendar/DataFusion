@@ -5,6 +5,7 @@ import {
   statusColorMap,
   statusOptions,
 } from "./constants";
+import type { TaskInstanceItem, TaskWorkerPluginResult } from "./dto";
 
 export function getRows<T>(page?: { dataList?: T[]; records?: T[]; list?: T[] }) {
   return page?.dataList || page?.records || page?.list || [];
@@ -29,6 +30,12 @@ export function formatJson(value?: unknown) {
   } catch {
     return String(value);
   }
+}
+
+export function getTaskPluginLogUri(task: TaskInstanceItem) {
+  const result = task.workerResult?.result;
+  if (!result || typeof result === "string") return undefined;
+  return (result as TaskWorkerPluginResult).pluginLogUri || undefined;
 }
 
 export function renderStatus(value?: string) {

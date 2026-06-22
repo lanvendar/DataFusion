@@ -114,7 +114,6 @@
 | `pluginType` | `String` | 否 | 插件类型，如 `SHELL`、`DATAX` |
 | `runMode` | `String` | 否 | 运行模式，如 `LOCAL`、`K8S` |
 | `pluginLogUri` | `String` | 否 | 第三方运行系统自身日志入口，如 Kubernetes、Yarn、对象存储、脚本自定义日志 |
-| `agentLogPath` | `String` | 否 | agent 自身服务日志入口，不指向任务运行目录 |
 | `exitCode` | `Integer` | 否 | 本地进程退出码 |
 | `errorCode` | `String` | 否 | 插件可读错误码 |
 | `detail` | `Object` | 否 | 小体积扩展信息，不放密码和大日志正文 |
@@ -127,7 +126,6 @@
   "pluginType": "DATAX",
   "runMode": "K8S",
   "pluginLogUri": "oss://datafusion/logs/datax/task-1/",
-  "agentLogPath": "/opt/datafusion-agent/logs/20260609/flow-1/task-1",
   "detail": {
     "namespace": "datafusion",
     "jobName": "df-datax-task-1"

@@ -78,6 +78,12 @@ public class WorkerRegistryDto {
     private Date lastHeartbeatTime;
 
     /**
+     * worker 服务日志目录.
+     */
+    @Schema(name = "workerLogDir", description = "worker 服务日志目录")
+    private String workerLogDir;
+
+    /**
      * 是否有效.
      */
     @Schema(name = "isActive", description = "是否有效: 1-有效 0-无效")

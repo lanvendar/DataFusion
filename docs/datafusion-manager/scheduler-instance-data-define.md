@@ -238,7 +238,7 @@
 | 对象 | 场景 | 字段 | 类型 | 来源 | 格式化 / 展示规则 | 说明 |
 |--------|----------|-------|------|--------|---------------------------|-------|
 | `FlowInstanceRow` | 主表行 | `flowName`、`id`、`status`、`scheduleTime`、`startTime`、`endTime`、`duration`、`availableActions` | `string/number/list` | `FlowInstanceDto` | 时间戳格式化为日期时间；状态用 Tag；起止时间按开始/结束两行展示；操作按钮按 `availableActions` 渲染 | 可展开 |
-| `TaskInstanceRow` | 展开行 | `taskName`、`id`、`status`、`workerResultText`、`workDirPath`、`startTime`、`endTime`、`costTime`、`availableActions` | `string/number/list` | `TaskInstanceDto` | worker 结果摘要和任务运行目录展示；起止时间按开始/结束/耗时展示；操作按钮按 `availableActions` 渲染 | 行操作含查看依赖图、查看日志和已开放的 `taskAction` 操作 |
+| `TaskInstanceRow` | 展开行 | `taskName`、`id`、`status`、`workerResultText`、`workDirPath`、`workerResult.result.pluginLogUri`、`startTime`、`endTime`、`costTime`、`availableActions` | `string/number/list` | `TaskInstanceDto` | worker 结果摘要和任务运行目录展示；`pluginLogUri` 存在时渲染插件日志超链接；起止时间按开始/结束/耗时展示；操作按钮按 `availableActions` 渲染 | 行操作含查看依赖图、查看日志和已开放的 `taskAction` 操作；worker 服务日志不属于任务实例 |
 | `EventInstanceRow` | 事件页 | `eventName`、`eventType`、`flowInstanceId`、`taskInstanceId`、`effectTime` | `string/number` | `EventInstanceDto` | 时间戳格式化 | 可独立页面或详情页 |
 | `TaskInstanceDependencyPanel` | 依赖图抽屉 | `flowDagSnapshot`、`lastInstanceId`、`nextInstanceId`、当前任务实例 ID | `JsonNode/string` | `TaskInstanceDependencyDto` | 只读展示流程 DAG 和当前任务上下游关系 | 不修改定义 |
 | `TaskInstanceLogPanel` | 日志弹窗/抽屉 | `content`、`hasMore` | `string/boolean` | `TaskInstanceLogDto` | 等宽字体、按偏移加载更多 | 不展示完整路径给普通用户也可 |
@@ -292,7 +292,7 @@
 | `SchedulerInstanceQueryDto` -> Mapper 条件 | 先按 `viewType` 选择实时表或历史表，再在目标表上应用 `flowKeyword/taskKeyword/status/time range` | UUID 解析失败时只按名称模糊匹配；`status` 使用 `StatusEnum.stateType` |
 | `FlowInstanceTaskQueryDto` -> Mapper 条件 | 先按 `viewType` 选择 `scheduler_task_instance` 或 `scheduler_task_instance_his`，再按 `flow_instance_id` 查询 | `viewType` 缺省为 `REALTIME` |
 | `FlowInstanceEntity` / `FlowInstanceHisEntity` -> `FlowInstanceDto` | 字段复制 | `duration=endTime-startTime`，缺失时间则为空 |
-| `TaskInstanceEntity` / `TaskInstanceHisEntity` -> `TaskInstanceDto` | 字段复制 | `workerResult` 保留原 JSON，另派生摘要文本和 `workDirPath` |
+| `TaskInstanceEntity` / `TaskInstanceHisEntity` -> `TaskInstanceDto` | 字段复制 | `workerResult` 保留原 JSON，另派生摘要文本和 `workDirPath`；前端从 `workerResult.result.pluginLogUri` 渲染插件日志入口 |
 | `FlowInstanceDto` + `TaskInstanceDto` -> `TaskInstanceDependencyDto` | 前端组合当前流程 DAG 快照和任务上下游实例 ID | 只读展示，不回写定义 |
 | `FlowInstanceEntity` / `TaskInstanceEntity` -> 历史 Entity | 归档时字段镜像复制，保留原主键和审计字段 | 插入历史表后删除实时表；同批次事务提交 |
 | `EventInstanceEntity` -> `EventInstanceDto` | 字段复制 | `eventType` 保存值为 `1/2`，展示时映射任务/流程 |

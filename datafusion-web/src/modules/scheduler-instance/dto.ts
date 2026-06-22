@@ -94,10 +94,20 @@ export interface TaskInstanceItem {
   lastInstanceId?: string;
   nextInstanceId?: string;
   workerId?: string;
-  workerResult?: unknown;
+  workerResult?: TaskWorkerResult;
   workerResultText?: string;
-  logPath?: string;
+  workDirPath?: string;
   availableActions?: SchedulerInstanceAvailableAction[];
+}
+
+export interface TaskWorkerResult {
+  workDirPath?: string;
+  result?: TaskWorkerPluginResult | string;
+}
+
+export interface TaskWorkerPluginResult {
+  message?: string;
+  pluginLogUri?: string;
 }
 
 export interface EventInstanceItem {

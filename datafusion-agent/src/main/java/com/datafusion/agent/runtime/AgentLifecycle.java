@@ -60,6 +60,11 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
     private final AgentTaskStateReportScheduler taskStateReportScheduler;
 
     /**
+     * 默认 worker 服务日志目录.
+     */
+    private static final String DEFAULT_WORKER_LOG_DIR = "/opt/datafusion/logs/datafusion-agent";
+
+    /**
      * 构造函数.
      *
      * @param properties    agent 配置
@@ -109,6 +114,7 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         worker.setStatus(Worker.STATUS_UP);
         worker.setRegisterTime(now);
         worker.setLastHeartbeatTime(now);
+        worker.setWorkerLogDir(resolveWorkerLogDir());
         worker.setUpdateTime(now);
         runtimeState.setWorker(worker);
         runtimeState.setPluginTypes(worker.getPluginTypes());
@@ -121,6 +127,7 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         }
         long now = System.currentTimeMillis();
         worker.setLastHeartbeatTime(now);
+        worker.setWorkerLogDir(resolveWorkerLogDir());
         worker.setUpdateTime(now);
         boolean success = runtimeState.isReady() ? managerClient.heartbeat(worker) : managerClient.register(worker);
         runtimeState.setReady(success);
@@ -161,5 +168,17 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         } catch (Exception e) {
             return "localhost";
         }
+    }
+
+    private String resolveWorkerLogDir() {
+        String systemValue = System.getProperty("LOG_PATH");
+        if (systemValue != null && !systemValue.trim().isEmpty()) {
+            return systemValue;
+        }
+        String envValue = System.getenv("LOG_PATH");
+        if (envValue != null && !envValue.trim().isEmpty()) {
+            return envValue;
+        }
+        return DEFAULT_WORKER_LOG_DIR;
     }
 }

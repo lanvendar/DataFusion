@@ -251,6 +251,7 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         worker.setPluginTypes(splitPlugins(entity.getPlugins()));
         worker.setRegisterTime(toMillis(entity.getRegisterTime()));
         worker.setLastHeartbeatTime(toMillis(entity.getLastHeartbeatTime()));
+        worker.setWorkerLogDir(entity.getLogDir());
         worker.setUpdateTime(toMillis(entity.getUpdateTime()));
         return worker;
     }
@@ -365,6 +366,7 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         entity.setPlugins(normalizePlugins(joinPlugins(worker.getPluginTypes())));
         entity.setRegisterTime(toDate(worker.getRegisterTime()));
         entity.setLastHeartbeatTime(toDate(worker.getLastHeartbeatTime()));
+        entity.setLogDir(worker.getWorkerLogDir());
         if (entity.getIsActive() == null) {
             entity.setIsActive(ACTIVE);
         }
@@ -389,6 +391,7 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         dto.setPlugins(entity.getPlugins());
         dto.setRegisterTime(entity.getRegisterTime());
         dto.setLastHeartbeatTime(entity.getLastHeartbeatTime());
+        dto.setWorkerLogDir(entity.getLogDir());
         dto.setIsActive(entity.getIsActive());
         dto.setRemark(entity.getRemark());
         dto.setCreator(entity.getCreator());

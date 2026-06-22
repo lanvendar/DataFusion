@@ -22,18 +22,16 @@ public final class PluginResultJson {
      * @param pluginType     plugin type
      * @param runMode        run mode
      * @param pluginLogUri   plugin log URI
-     * @param agentLogPath   agent log path
      * @param exitCode       exit code
      * @return result JSON
      */
     public static ObjectNode build(String message, String pluginType, String runMode, String pluginLogUri,
-            String agentLogPath, Integer exitCode) {
+            Integer exitCode) {
         ObjectNode result = JacksonUtils.createObjectNode();
         putIfNotBlank(result, "message", message);
         putIfNotBlank(result, "pluginType", pluginType);
         putIfNotBlank(result, "runMode", runMode);
         putIfNotBlank(result, "pluginLogUri", pluginLogUri);
-        putIfNotBlank(result, "agentLogPath", agentLogPath);
         if (exitCode != null) {
             result.put("exitCode", exitCode);
         }

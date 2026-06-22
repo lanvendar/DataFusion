@@ -79,14 +79,13 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
                     .status(StatusEnum.RUNNING)
                     .appId(runtimeRef.getJobName())
                     .workDirPath(param.getWorkDir().toString())
-                    .result(resultJson("K8S DataX job submitted", pluginLogUri(runtimeRef), null))
+                    .result(resultJson("K8S DataX job submitted", pluginLogUri(runtimeRef)))
                     .kubernetesRuntimeRef(runtimeRef)
                     .build();
         } catch (Exception e) {
             return DataxSubmitResult.builder()
                     .status(StatusEnum.SUBMIT_FAILURE)
-                    .result(PluginResultJson.build(e.getMessage(), "DATAX", DataxRunMode.K8S.name(),
-                            null, null, null))
+                    .result(PluginResultJson.build(e.getMessage(), "DATAX", DataxRunMode.K8S.name(), null, null))
                     .build();
         }
     }
@@ -156,7 +155,7 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
                 .appId(state == null ? resolvedRequest.getAppId() : state.getAppId())
                 .workDirPath(state == null ? null : state.getWorkDirPath())
                 .result(resultJson(message, firstText(pluginLogUri,
-                        runtimeRef == null ? null : pluginLogUri(runtimeRef)), null))
+                        runtimeRef == null ? null : pluginLogUri(runtimeRef))))
                 .build();
     }
 
@@ -219,8 +218,8 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
         return value == null || value.trim().isEmpty() ? "unknown" : value;
     }
 
-    private ObjectNode resultJson(String message, String pluginLogUri, String agentLogPath) {
-        return PluginResultJson.build(message, "DATAX", DataxRunMode.K8S.name(), pluginLogUri, agentLogPath, null);
+    private ObjectNode resultJson(String message, String pluginLogUri) {
+        return PluginResultJson.build(message, "DATAX", DataxRunMode.K8S.name(), pluginLogUri, null);
     }
 
     private String pluginLogUri(WorkerTaskExecutionState state) {

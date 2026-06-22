@@ -12,6 +12,7 @@ import type {
   TaskInstanceItem,
 } from "../../dto";
 import {
+  getTaskPluginLogUri,
   renderCopyableId,
   renderStatus,
   renderTimeBlock,
@@ -59,12 +60,16 @@ export function TaskInstanceGrid({
         {!query.isFetching && tasks.length === 0 ? (
           <div className="scheduler-instance-task-grid-empty">暂无任务实例</div>
         ) : null}
-        {tasks.map((record) => (
-          <div
-            className="scheduler-instance-task-grid-row"
-            key={record.id}
-            style={{ gridTemplateColumns: EXPANDED_TASK_GRID_TEMPLATE }}
-          >
+        {tasks.map((record) => {
+          const pluginLogUri = getTaskPluginLogUri(record);
+          const resultText = record.workerResultText || record.workDirPath || EMPTY_PLACEHOLDER;
+
+          return (
+            <div
+              className="scheduler-instance-task-grid-row"
+              key={record.id}
+              style={{ gridTemplateColumns: EXPANDED_TASK_GRID_TEMPLATE }}
+            >
             <div className="scheduler-instance-task-grid-cell scheduler-instance-task-grid-placeholder" />
             <div className="scheduler-instance-task-grid-cell">
               <Space direction="vertical" size={2} style={{ maxWidth: "100%" }}>
@@ -87,9 +92,22 @@ export function TaskInstanceGrid({
             <div className="scheduler-instance-task-grid-cell">{renderType(record.taskType)}</div>
             <div className="scheduler-instance-task-grid-cell">{renderStatus(record.status)}</div>
             <div className="scheduler-instance-task-grid-cell">
-              <Typography.Text ellipsis={{ tooltip: record.workerResultText || record.logPath }}>
-                {record.workerResultText || record.logPath || EMPTY_PLACEHOLDER}
-              </Typography.Text>
+              <Space direction="vertical" size={2} style={{ maxWidth: "100%" }}>
+                <Typography.Text ellipsis={{ tooltip: resultText }} style={{ maxWidth: "100%" }}>
+                  {resultText}
+                </Typography.Text>
+                {pluginLogUri ? (
+                  <Typography.Link
+                    ellipsis
+                    href={pluginLogUri}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                    title={pluginLogUri}
+                  >
+                    插件日志
+                  </Typography.Link>
+                ) : null}
+              </Space>
             </div>
             <div className="scheduler-instance-task-grid-cell">
               {renderTimeBlock(record.startTime, record.endTime, record.costTime)}
@@ -114,7 +132,8 @@ export function TaskInstanceGrid({
               </Space>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -30,8 +30,9 @@ status int4 NOT NULL, -- 状态：0-下线 1-上线 2-清除
 plugins varchar(256) NULL, -- 组件类型列表，逗号分隔
 register_time timestamp(6) NULL, -- 注册时间
 last_heartbeat_time timestamp(6) NULL, -- 最近心跳时间
+log_dir text NULL, -- 日志根路径
 is_active int2 NOT NULL, -- 是否有效：1-有效 0-无效
-remark varchar(255) NULL, -- 资源说明
+remark text NULL, -- 资源说明
 creator varchar(100) NOT NULL, -- 创建人
 updater varchar(100) NOT NULL, -- 修改人
 create_time timestamp(6) NOT NULL, -- 创建时间
@@ -60,6 +61,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `plugins` | `plugins` | `String` | 否 | 无 | 插件类型列表，逗号分隔，最大 256 字符 |
 | `register_time` | `registerTime` | `Date` | 否 | agent 注册时写入 | 注册时间 |
 | `last_heartbeat_time` | `lastHeartbeatTime` | `Date` | 否 | agent 心跳时写入 | 最近心跳时间 |
+| `log_dir` | `workerLogDir` | `String` | 否 | agent 注册/心跳时写入 | worker 服务日志目录；用于定位 `datafusion-agent*.log` 和 `datafusion-agent.error*.log` |
 | `is_active` | `isActive` | `Integer` | 是 | 新增时 `1` | `1` 有效、`0` 无效；调度查找必须过滤 `1` |
 | `remark` | `remark` | `String` | 否 | 无 | 资源说明 |
 | `creator` | `creator` | `String` | 是 | 当前用户或 `system` | 创建人，继承自 `BaseEntity` |
@@ -82,6 +84,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `plugins` | `plugins` | `String` | `@TableField("plugins")` | 插件类型列表 |
 | `registerTime` | `register_time` | `Date` | `@TableField("register_time")` | 注册时间 |
 | `lastHeartbeatTime` | `last_heartbeat_time` | `Date` | `@TableField("last_heartbeat_time")` | 最近心跳时间 |
+| `logDir` | `log_dir` | `String` | `@TableField("log_dir")` | worker 服务日志目录 |
 | `isActive` | `is_active` | `Integer` | `@TableField("is_active")` | 是否有效 |
 | `remark` | `remark` | `String` | `@TableField("remark")` | 资源说明 |
 | `tenantId` | `tenant_id` | `UUID` | `@TableField("tenant_id")` | 租户 ID |
@@ -127,6 +130,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `WorkerRegistryDto` | `Response` | 查询响应 | `plugins` | `String` | 无 | 插件类型列表 |
 | `WorkerRegistryDto` | `Response` | 查询响应 | `registerTime` | `Date` | 无 | 注册时间 |
 | `WorkerRegistryDto` | `Response` | 查询响应 | `lastHeartbeatTime` | `Date` | 无 | 最近心跳时间 |
+| `WorkerRegistryDto` | `Response` | 查询响应 | `workerLogDir` | `String` | 无 | worker 服务日志目录 |
 | `WorkerRegistryDto` | `Response` | 查询响应 | `isActive` | `Integer` | 无 | 是否有效 |
 | `WorkerRegistryDto` | `Response` | 查询响应 | `remark` | `String` | 无 | 资源说明 |
 | `WorkerRegistryDto` | `Response` | 查询响应 | `creator/updater/createTime/updateTime` | `String/Date` | 无 | 审计字段 |
@@ -146,12 +150,12 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
-| `WorkerRegistrySaveDto` -> `WorkerRegistryEntity` | 复制主机、端口、分组、插件、有效标记和备注 | `id` 使用 `UUID.randomUUID()`；`status` 默认 `0`；`isActive` 默认 `1`；审计字段由 Service 设置 |
-| `WorkerRegistryUpdateDto` -> existing `WorkerRegistryEntity` | 非空字符串/数值和非 `null` 可清空字段合并 | 不接收 `status` 修改；合并后校验有效值、端口、插件长度、`workerCode` 唯一、`host + port` 唯一 |
+| `WorkerRegistrySaveDto` -> `WorkerRegistryEntity` | 复制主机、端口、分组、插件、有效标记和备注 | `id` 使用 `UUID.randomUUID()`；`status` 默认 `0`；`isActive` 默认 `1`；不接收 `workerLogDir`；审计字段由 Service 设置 |
+| `WorkerRegistryUpdateDto` -> existing `WorkerRegistryEntity` | 非空字符串/数值和非 `null` 可清空字段合并 | 不接收 `status` 和 `workerLogDir` 修改；合并后校验有效值、端口、插件长度、`workerCode` 唯一、`host + port` 唯一 |
 | `WorkerRegistryEntity` -> `WorkerRegistryDto` | 字段逐一复制 | 不转换 `status/isActive`，由前端映射展示 |
 | `WorkerRegistryQueryDto` -> `LambdaQueryWrapper` | 字符串字段按定义 `like/eq`；数值字段 `eq` | 默认排除 `status=2` 清除记录，默认 `updateTime desc` |
-| `WorkerRegistryEntity` -> scheduler `Worker` | `workerCode` -> `id`，`host` -> `ip`，`plugins` 逗号拆分为 `pluginTypes` | `timestamp(6)` 转毫秒时间戳 |
-| scheduler `Worker` -> `WorkerRegistryEntity` | `id` -> `workerCode`，`ip` -> `host`，`pluginTypes` -> `plugins` 逗号字符串 | 注册/心跳由 `WorkerStorageImpl` 调用 Service upsert；已有记录保留 `isActive` |
+| `WorkerRegistryEntity` -> scheduler `Worker` | `workerCode` -> `id`，`host` -> `ip`，`plugins` 逗号拆分为 `pluginTypes`，`logDir` -> `workerLogDir` | `timestamp(6)` 转毫秒时间戳 |
+| scheduler `Worker` -> `WorkerRegistryEntity` | `id` -> `workerCode`，`ip` -> `host`，`pluginTypes` -> `plugins` 逗号字符串，`workerLogDir` -> `logDir` | 注册/心跳由 `WorkerStorageImpl` 调用 Service upsert；已有记录保留 `isActive` |
 
 ## 6. 枚举 / 特殊字段
 
@@ -160,6 +164,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `status` | `int4` | `Integer` | `0` 下线、`1` 上线、`2` 清除 | 对应 `Worker.STATUS_DOWN/STATUS_UP/STATUS_DELETED` |
 | `is_active` | `int2` | `Integer` | `0` 无效、`1` 有效 | 调度查找必须过滤 `1` |
 | `plugins` | `varchar(256)` | `String` | 逗号分隔字符串 | 前端以文本维护，后端去除空白分隔项后保存 |
+| `log_dir` | `text` | `String` | 目录路径 | worker 服务日志目录，不指向单个滚动日志文件 |
 | `tenant_id` | `uuid` | `UUID` | 无 | 暂无租户功能，不参与 API 维护和查询过滤 |
 
 ## 7. 复用对象

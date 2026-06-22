@@ -39,6 +39,9 @@ agent 自身服务日志固定归属：
 /opt/datafusion/logs/datafusion-agent/
 ```
 
+该目录通过 `Worker.workerLogDir` 在注册和心跳时上报给 manager，并落到
+`scheduler_worker_registry.log_dir`。`workerLogDir` 是 worker 级服务日志目录，不属于单个任务结果。
+
 任务运行态、插件运行产物和插件日志固定归属：
 
 ```text
@@ -48,7 +51,16 @@ agent 自身服务日志固定归属：
 `taskRuntimeDir` 是绝对路径，默认 `/opt/datafusion/task-runtime`，不与 `${modules}` 拼接。
 `TaskResult.workDirPath` 表示任务运行目录，manager 只通过该目录识别标准日志。
 `TaskResult.result.pluginLogUri` 表示插件日志入口，可以是任务运行目录下的插件日志文件、对象存储 URI 或第三方运行时 URI。
-`TaskResult.result.agentLogPath` 只表示 agent 自身日志入口，指向 `/opt/datafusion/logs/datafusion-agent`。
+`TaskResult.result` 不返回 worker 服务日志目录；agent 服务日志通过 `Worker.workerLogDir` 查询。
+
+agent 服务日志按 logback 切分，`workerLogDir` 只保存目录入口。当前标准文件模式为：
+
+```text
+datafusion-agent.log
+datafusion-agent.error.log
+datafusion-agent.{yyyy-MM-dd}.{index}.log
+datafusion-agent.error.{yyyy-MM-dd}.{index}.log
+```
 
 内置插件资源随 agent 镜像放在：
 

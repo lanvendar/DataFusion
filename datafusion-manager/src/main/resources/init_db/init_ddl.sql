@@ -842,6 +842,7 @@ status int4 NOT NULL, -- 状态：0-下线 1-上线 2-清除
 plugins varchar(256) NULL, -- 组件类型列表，逗号分隔
 register_time timestamp(6) NULL, -- 注册时间
 last_heartbeat_time timestamp(6) NULL, -- 最近心跳时间
+log_dir text NULL, -- 日志根路径
 is_active int2 NOT NULL, -- 是否有效：1-有效 0-无效
 remark text NULL, -- 资源说明
 creator varchar(100) NOT NULL, -- 创建人
@@ -866,6 +867,7 @@ COMMENT ON COLUMN scheduler_worker_registry."zone" IS '区域/分组，预留字
 COMMENT ON COLUMN scheduler_worker_registry.plugins IS '组件类型列表，逗号分隔';
 COMMENT ON COLUMN scheduler_worker_registry.register_time IS '注册时间';
 COMMENT ON COLUMN scheduler_worker_registry.last_heartbeat_time IS '最近心跳时间';
+COMMENT ON COLUMN scheduler_worker_registry.log_dir IS '日志根路径';
 COMMENT ON COLUMN scheduler_worker_registry.is_active IS '是否有效：1-有效 0-无效';
 COMMENT ON COLUMN scheduler_worker_registry.remark IS '资源说明';
 COMMENT ON COLUMN scheduler_worker_registry.creator IS '创建人';

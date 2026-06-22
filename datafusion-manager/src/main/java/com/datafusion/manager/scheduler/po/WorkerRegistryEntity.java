@@ -74,6 +74,12 @@ public class WorkerRegistryEntity extends BaseIdEntity {
     private Date lastHeartbeatTime;
 
     /**
+     * 日志根路径.
+     */
+    @TableField("log_dir")
+    private String logDir;
+
+    /**
      * 是否有效.
      */
     @TableField("is_active")
