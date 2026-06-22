@@ -23,7 +23,7 @@ export const demoPluginConfigRows: PluginConfigItem[] = [
     pluginType: "FLINK",
     runMode: "YARN",
     description: "Flink on YARN 初始化模板",
-    env: {
+    pluginParam: {
       queue: "default",
       parallelism: 2,
     },

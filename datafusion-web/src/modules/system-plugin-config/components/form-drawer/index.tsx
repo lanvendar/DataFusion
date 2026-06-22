@@ -11,7 +11,7 @@ interface PluginConfigFormProps {
   onSubmitSuccess: () => void;
 }
 
-function stringifyEnv(value: unknown) {
+function stringifyPluginParam(value: unknown) {
   if (!value) return "";
   if (typeof value === "string") return value;
   return JSON.stringify(value, null, 2);
@@ -39,7 +39,7 @@ export function PluginConfigForm({
         pluginType: currentRecord.pluginType,
         runMode: currentRecord.runMode,
         description: currentRecord.description,
-        envText: stringifyEnv(currentRecord.env),
+        pluginParamText: stringifyPluginParam(currentRecord.pluginParam),
       });
     } else {
       form.resetFields();
@@ -76,7 +76,7 @@ export function PluginConfigForm({
           <Input.TextArea rows={3} placeholder="请输入描述" />
         </Form.Item>
         <Form.Item
-          name="envText"
+          name="pluginParamText"
           label="插件配置 JSON"
           rules={[
             {

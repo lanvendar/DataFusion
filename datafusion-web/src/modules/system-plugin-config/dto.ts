@@ -11,7 +11,7 @@ export interface PluginConfigItem {
   pluginType: string;
   runMode: string;
   description?: string;
-  env?: unknown;
+  pluginParam?: unknown;
   isTemplate?: boolean;
   isDel?: number;
   tenantId?: string;
@@ -49,7 +49,7 @@ export interface PluginConfigSaveReq {
   pluginType?: string;
   runMode?: string;
   description?: string;
-  env?: unknown;
+  pluginParam?: unknown;
 }
 
 export interface PluginConfigFormValues {
@@ -57,7 +57,7 @@ export interface PluginConfigFormValues {
   pluginType?: string;
   runMode?: string;
   description?: string;
-  envText?: string;
+  pluginParamText?: string;
 }
 
 export type PluginConfigFormMode = "add" | "edit";

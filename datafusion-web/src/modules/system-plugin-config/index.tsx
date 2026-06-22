@@ -37,7 +37,7 @@ export default function SystemPluginConfigPage() {
         pluginType: record.pluginType,
         runMode: record.runMode,
         description: record.description,
-        env: record.env,
+        pluginParam: record.pluginParam,
       }),
     onSuccess: () => {
       message.success("复制成功");

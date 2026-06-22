@@ -15,9 +15,9 @@ interface UsePluginConfigSubmitOptions {
   onSubmitSuccess: () => void;
 }
 
-function parseEnv(envText?: string) {
-  if (!envText?.trim()) return undefined;
-  return JSON.parse(envText) as unknown;
+function parsePluginParam(pluginParamText?: string) {
+  if (!pluginParamText?.trim()) return undefined;
+  return JSON.parse(pluginParamText) as unknown;
 }
 
 function buildParams(values: PluginConfigFormValues, id?: string): PluginConfigSaveReq {
@@ -27,7 +27,7 @@ function buildParams(values: PluginConfigFormValues, id?: string): PluginConfigS
     pluginType: values.pluginType,
     runMode: values.runMode,
     description: values.description,
-    env: parseEnv(values.envText),
+    pluginParam: parsePluginParam(values.pluginParamText),
   };
 }
 

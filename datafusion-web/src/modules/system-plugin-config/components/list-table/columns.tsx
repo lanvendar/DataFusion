@@ -7,7 +7,7 @@ interface UseColumnsProps {
   onAction: (action: PageActionEnum, record?: PluginConfigItem) => void;
 }
 
-function renderEnv(value: unknown) {
+function renderPluginParam(value: unknown) {
   if (!value) return "-";
   return (
     <Typography.Text code ellipsis>
@@ -43,7 +43,7 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<PluginCon
       ),
     },
     { title: "描述", dataIndex: "description", key: "description", width: 220, ellipsis: true },
-    { title: "配置", dataIndex: "env", key: "env", width: 260, render: renderEnv },
+    { title: "配置", dataIndex: "pluginParam", key: "pluginParam", width: 260, render: renderPluginParam },
     { title: "更新人", dataIndex: "updater", key: "updater", width: 120 },
     { title: "更新时间", dataIndex: "updateTime", key: "updateTime", width: 180 },
     {
