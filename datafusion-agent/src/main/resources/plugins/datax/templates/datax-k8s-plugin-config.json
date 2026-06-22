@@ -26,8 +26,12 @@
             "record": 0
           }
         },
-        "reader": {},
-        "writer": {}
+        "content": [
+          {
+            "reader": {},
+            "writer": {}
+          }
+        ]
       }
     },
     "kubernetes": {

@@ -67,25 +67,26 @@ CREATE UNIQUE INDEX uk_scheduler_task_info_definition_biz_ref
     "jobId": "j002",
     "versionId": "v7"
   },
-  "options": {
-    "submitter": "INGESTION"
-  }
+  "options": {},
+  "...": "具体插件任务定义字段"
 }
 ```
 
 说明:
 
 - `bizRef` 是必填字符串，作为调度侧唯一定位符。
-- `data` 是必填对象，保存业务侧完整定义快照。
+- `data` 是可选对象，保存业务侧完整定义快照。
 - `options` 是可选对象，保存不参与唯一性判断的扩展信息。
+- 除 `bizRef`、`data`、`options` 外，其余字段由具体 `taskType/pluginParam` 解释。例如 DataX 提交标准 `job.content`。
 
 ### 2.2 顶层字段约束
 
 | key | 类型 | 必填 | 说明 |
 |-----|------|------|------|
 | `bizRef` | `String` | 是 | 调度侧唯一定位符 |
-| `data` | `Object` | 是 | 业务定义快照 |
+| `data` | `Object` | 否 | 业务定义快照 |
 | `options` | `Object` | 否 | 补充扩展信息 |
+| 其他字段 | `Object/String/Array/...` | 按插件定义 | 具体任务运行定义，由执行插件解释 |
 
 ### 2.3 `bizRef` 结构
 
@@ -146,7 +147,7 @@ bizref:v1:key=value:key=value
 | `TaskDefinitionRegisterDto` | `Request` | `taskTypeId` | `String` | `@NotBlank` | 任务类型 ID |
 | `TaskDefinitionRegisterDto` | `Request` | `taskType` | `String` | `@NotBlank` | 任务类型 |
 | `TaskDefinitionRegisterDto` | `Request` | `taskParam` | `JsonNode` | 可选 | 任务变量参数，建议传 JSON 对象 |
-| `TaskDefinitionRegisterDto` | `Request` | `definition` | `JsonNode` | `@NotNull` | 顶层必须带 `bizRef/data` |
+| `TaskDefinitionRegisterDto` | `Request` | `definition` | `JsonNode` | `@NotNull` | 顶层必须带 `bizRef`，运行字段由具体插件定义 |
 | `TaskDefinitionRegisterDto` | `Request` | `sourceRoute` | `String` | 可选 | 原业务页面路由或详情 URL |
 
 ### 3.2 `register` 响应 DTO

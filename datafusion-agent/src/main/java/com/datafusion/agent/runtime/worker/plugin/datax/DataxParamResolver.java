@@ -359,7 +359,7 @@ public class DataxParamResolver {
         }
         ObjectNode override = taskData.deepCopy();
         override.remove(List.of("jobJson", "jobName", "jobPath", "jobFileName", "env", "jvmOptions", "dataxArgs",
-                "kubernetes", "pluginLogUri"));
+                "kubernetes", "pluginLogUri", "bizRef", "data", "options"));
         return override;
     }
 

@@ -102,6 +102,40 @@ class DataxParamResolverTest {
     }
 
     @Test
+    void shouldMergeStandardJobContentAndIgnoreRegisterMetadata() {
+        ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
+        pluginParam.put("runMode", "LOCAL");
+        ObjectNode defaultTaskData = OBJECT_MAPPER.createObjectNode();
+        ObjectNode defaultJob = OBJECT_MAPPER.createObjectNode();
+        ObjectNode setting = OBJECT_MAPPER.createObjectNode();
+        ObjectNode speed = OBJECT_MAPPER.createObjectNode();
+        speed.put("channel", 1);
+        setting.set("speed", speed);
+        defaultJob.set("setting", setting);
+        defaultTaskData.set("job", defaultJob);
+        pluginParam.set("defaultTaskData", defaultTaskData);
+        ObjectNode taskData = OBJECT_MAPPER.createObjectNode();
+        taskData.put("bizRef", "bizref:v1:system=DATAFUSION_PLUGIN_DATAX:bizType=DATAX_K8S_JOB:bizKey=task-1");
+        ObjectNode contentItem = OBJECT_MAPPER.createObjectNode();
+        contentItem.set("reader", OBJECT_MAPPER.createObjectNode().put("name", "mysqlreader"));
+        contentItem.set("writer", OBJECT_MAPPER.createObjectNode().put("name", "paimonwriter"));
+        ObjectNode taskJob = OBJECT_MAPPER.createObjectNode();
+        taskJob.set("content", OBJECT_MAPPER.createArrayNode().add(contentItem));
+        taskData.set("job", taskJob);
+        DataxParamResolver resolver = new DataxParamResolver(new AgentProperties());
+
+        DataxExecutionParam param = resolver.resolve(request(pluginParam, taskData));
+
+        assertFalse(param.getEffectiveTaskData().has("bizRef"));
+        assertEquals(1, param.getEffectiveTaskData().path("job").path("setting").path("speed")
+                .path("channel").asInt());
+        assertEquals("mysqlreader", param.getEffectiveTaskData().path("job").path("content").get(0)
+                .path("reader").path("name").asText());
+        assertEquals("paimonwriter", param.getEffectiveTaskData().path("job").path("content").get(0)
+                .path("writer").path("name").asText());
+    }
+
+    @Test
     void shouldRequireJobSource() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
         pluginParam.put("runMode", "LOCAL");

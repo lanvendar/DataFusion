@@ -224,10 +224,6 @@ public class TaskDefinitionRegisterServiceImpl implements TaskDefinitionRegister
         if (bizRefNode == null || bizRefNode.isNull() || StringUtils.isBlank(bizRefNode.asText())) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "任务定义bizRef不能为空");
         }
-        JsonNode dataNode = definition.get("data");
-        if (dataNode == null || dataNode.isNull() || !dataNode.isObject()) {
-            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "任务定义data不能为空");
-        }
         return bizRefNode.asText();
     }
 

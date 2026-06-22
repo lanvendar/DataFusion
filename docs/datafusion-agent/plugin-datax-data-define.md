@@ -159,17 +159,35 @@ LOCAL 示例：
 
 LOCAL 模式下，`pluginParam.jobFile` 非空时优先复制该文件到任务运行目录的 `job.json`；为空时使用 `taskData.jobJson`，再为空时使用 `deepMerge(pluginParam.defaultTaskData, taskData)` 生成 `job.json`。数组按整体替换处理，普通值按 `taskData` 覆盖默认值处理。
 
+`taskData` 规则：
+
+- `job.content` 使用 DataX 标准数组结构，任务定义中应直接提交完整 `content`。
+- `bizRef`、`data`、`options` 是注册元数据，不写入最终 DataX job。
+- `kubernetes` 是 K8S 任务覆盖项，不写入最终 DataX job。
+
 ### 4.2 taskData 示例
 
 ```json
 {
+  "bizRef": "bizref:v1:system=DATAFUSION_PLUGIN_DATAX:bizType=DATAX_K8S_JOB:bizKey=example",
   "job": {
     "setting": {
       "speed": {
         "channel": 2
       }
     },
-    "content": []
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {}
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {}
+        }
+      }
+    ]
   },
   "kubernetes": {
     "namespace": "datafusion-prod",

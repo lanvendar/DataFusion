@@ -68,8 +68,12 @@ VALUES
            "record": 0
          }
        },
-       "reader": {},
-       "writer": {}
+       "content": [
+         {
+           "reader": {},
+           "writer": {}
+         }
+       ]
      }
    }
  }'::jsonb,
@@ -99,8 +103,12 @@ VALUES
 	           "record": 0
 	         }
 	       },
-	       "reader": {},
-	       "writer": {}
+	       "content": [
+	         {
+	           "reader": {},
+	           "writer": {}
+	         }
+	       ]
 	     }
 	   },
 	   "kubernetes": {
@@ -154,7 +162,7 @@ INSERT INTO system_task_type_config
 (id, task_type, default_plugin_id, plugin_type, creator, updater, create_time, update_time, tenant_id)
 VALUES
 ('d2f6659e-562a-350e-b926-d7812852e23d'::uuid, 'DATAX',
- '81deb2e9-2c69-33d0-917a-dded2e73ce6d'::uuid, 'DATAX',
+ 'e9f668d7-7d7c-30e3-9143-3c5ab6019eb1'::uuid, 'DATAX',
  'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
  '00000000-0000-0000-0000-000000000001'::uuid),
 ('28d568b3-892d-3e36-b283-3542693a1062'::uuid, 'SHELL',
