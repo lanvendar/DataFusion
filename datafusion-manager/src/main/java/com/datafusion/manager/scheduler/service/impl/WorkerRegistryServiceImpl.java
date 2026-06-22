@@ -77,7 +77,7 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
     @Override
     public WorkerRegistryDto getWorkerRegistryById(UUID id) {
         WorkerRegistryEntity entity = getById(id);
-        if (entity == null) {
+        if (entity == null || Worker.STATUS_DELETED.equals(entity.getStatus())) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker不存在");
         }
         return toDto(entity);
@@ -87,7 +87,6 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
     @Transactional(rollbackFor = Exception.class)
     public UUID addWorkerRegistry(WorkerRegistrySaveDto dto) {
         validatePort(dto.getPort());
-        validateStatus(defaultStatus(dto.getStatus()));
         validateActive(defaultActive(dto.getIsActive()));
         String plugins = normalizePlugins(dto.getPlugins());
         checkWorkerCodeUnique(dto.getWorkerCode(), null);
@@ -99,7 +98,7 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         entity.setHostName(dto.getHostName());
         entity.setHost(dto.getHost());
         entity.setPort(dto.getPort());
-        entity.setStatus(defaultStatus(dto.getStatus()));
+        entity.setStatus(Worker.STATUS_DOWN);
         entity.setZone(dto.getZone());
         entity.setPlugins(plugins);
         entity.setIsActive(defaultActive(dto.getIsActive()));
@@ -114,7 +113,7 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
     @Transactional(rollbackFor = Exception.class)
     public boolean updateWorkerRegistry(WorkerRegistryUpdateDto dto) {
         WorkerRegistryEntity entity = getById(dto.getId());
-        if (entity == null) {
+        if (entity == null || Worker.STATUS_DELETED.equals(entity.getStatus())) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker不存在");
         }
 
@@ -130,9 +129,6 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         if (dto.getPort() != null) {
             entity.setPort(dto.getPort());
         }
-        if (dto.getStatus() != null) {
-            entity.setStatus(dto.getStatus());
-        }
         if (dto.getZone() != null) {
             entity.setZone(dto.getZone());
         }
@@ -147,7 +143,6 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         }
 
         validatePort(entity.getPort());
-        validateStatus(entity.getStatus());
         validateActive(entity.getIsActive());
         checkWorkerCodeUnique(entity.getWorkerCode(), entity.getId());
         checkHostPortUnique(entity.getHost(), entity.getPort(), entity.getId());
@@ -198,6 +193,24 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int markHeartbeatTimeoutWorkersOffline(Date expireBefore) {
+        if (expireBefore == null) {
+            return 0;
+        }
+        WorkerRegistryEntity entity = new WorkerRegistryEntity();
+        entity.setStatus(Worker.STATUS_DOWN);
+        fillSystemUpdateAudit(entity);
+
+        LambdaQueryWrapper<WorkerRegistryEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(WorkerRegistryEntity::getStatus, Worker.STATUS_UP)
+                .and(item -> item.isNull(WorkerRegistryEntity::getLastHeartbeatTime)
+                        .or()
+                        .lt(WorkerRegistryEntity::getLastHeartbeatTime, expireBefore));
+        return baseMapper.update(entity, wrapper);
+    }
+
+    @Override
     public WorkerRegistryEntity findForHeartbeat(String workerCode, String host, Integer port) {
         WorkerRegistryEntity entity = findByWorkerCode(workerCode);
         if (entity != null) {
@@ -213,6 +226,9 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
             return;
         }
         WorkerRegistryEntity existing = findForHeartbeat(worker.getId(), worker.getIp(), worker.getPort());
+        if (existing != null && Worker.STATUS_DELETED.equals(existing.getStatus())) {
+            return;
+        }
         WorkerRegistryEntity entity = toEntity(worker, existing);
         if (existing == null) {
             save(entity);
@@ -249,6 +265,7 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
      */
     private LambdaQueryWrapper<WorkerRegistryEntity> buildQueryWrapper(WorkerRegistryQueryDto query) {
         LambdaQueryWrapper<WorkerRegistryEntity> wrapper = new LambdaQueryWrapper<>();
+        wrapper.ne(WorkerRegistryEntity::getStatus, Worker.STATUS_DELETED);
         if (query != null) {
             if (StringUtils.isNotBlank(query.getWorkerCode())) {
                 wrapper.like(WorkerRegistryEntity::getWorkerCode, query.getWorkerCode());
@@ -348,7 +365,9 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         entity.setPlugins(normalizePlugins(joinPlugins(worker.getPluginTypes())));
         entity.setRegisterTime(toDate(worker.getRegisterTime()));
         entity.setLastHeartbeatTime(toDate(worker.getLastHeartbeatTime()));
-        entity.setIsActive(ACTIVE);
+        if (entity.getIsActive() == null) {
+            entity.setIsActive(ACTIVE);
+        }
         if (entity.getCreateTime() == null) {
             entity.setCreateTime(new Date());
         }
@@ -405,10 +424,6 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         entity.setUpdateTime(new Date());
     }
 
-    private Integer defaultStatus(Integer status) {
-        return status == null ? Worker.STATUS_DOWN : status;
-    }
-
     private Integer defaultActive(Integer isActive) {
         return isActive == null ? ACTIVE : isActive;
     }
@@ -416,13 +431,6 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
     private void validatePort(Integer port) {
         if (port == null || port <= 0) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker端口必须大于0");
-        }
-    }
-
-    private void validateStatus(Integer status) {
-        if (!Worker.STATUS_DOWN.equals(status) && !Worker.STATUS_UP.equals(status)
-                && !Worker.STATUS_DELETED.equals(status)) {
-            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker状态非法");
         }
     }
 

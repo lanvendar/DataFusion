@@ -46,12 +46,6 @@ public class WorkerRegistrySaveDto {
     private Integer port;
 
     /**
-     * worker 状态.
-     */
-    @Schema(name = "status", description = "worker 状态: 0-下线 1-上线 2-清除")
-    private Integer status;
-
-    /**
      * 区域/分组.
      */
     @Schema(name = "zone", description = "区域/分组")

@@ -1,6 +1,6 @@
 import { Button, Drawer, Form, Input, InputNumber, Select, Space } from "antd";
 import { useEffect } from "react";
-import { activeOptions, workerStatusOptions } from "../../constants";
+import { activeOptions } from "../../constants";
 import type { WorkerRegistryFormMode, WorkerRegistryItem } from "../../dto";
 import { useWorkerRegistrySubmit } from "./use-submit";
 
@@ -33,7 +33,6 @@ export function WorkerRegistryForm({
     } else {
       form.resetFields();
       form.setFieldsValue({
-        status: 0,
         isActive: 1,
       });
     }
@@ -66,9 +65,6 @@ export function WorkerRegistryForm({
         </Form.Item>
         <Form.Item name="port" label="端口" rules={[{ required: true }]}>
           <InputNumber min={1} precision={0} className="full-input" placeholder="请输入端口" />
-        </Form.Item>
-        <Form.Item name="status" label="状态" rules={[{ required: true }]}>
-          <Select options={workerStatusOptions} placeholder="请选择状态" />
         </Form.Item>
         <Form.Item name="isActive" label="有效标记" rules={[{ required: true }]}>
           <Select options={activeOptions} placeholder="请选择有效标记" />

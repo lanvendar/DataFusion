@@ -10,6 +10,7 @@ import com.datafusion.manager.scheduler.dto.WorkerRegistryUpdateDto;
 import com.datafusion.manager.scheduler.po.WorkerRegistryEntity;
 import com.datafusion.scheduler.model.Worker;
 
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -93,6 +94,14 @@ public interface WorkerRegistryService extends IService<WorkerRegistryEntity> {
      * @return worker 注册实体列表
      */
     List<WorkerRegistryEntity> listSchedulableWorkers();
+
+    /**
+     * 将心跳超时的在线 worker 标记为下线.
+     *
+     * @param expireBefore 超时时间边界
+     * @return 更新数量
+     */
+    int markHeartbeatTimeoutWorkersOffline(Date expireBefore);
 
     /**
      * 定位 agent 注册或心跳对应的 worker 注册记录.

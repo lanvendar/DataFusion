@@ -16,7 +16,6 @@ export const defaultFilter: WorkerRegistryPageOption = {
 export const workerStatusOptions = [
   { label: "下线", value: 0 },
   { label: "上线", value: 1 },
-  { label: "清除", value: 2 },
 ];
 
 export const activeOptions = [

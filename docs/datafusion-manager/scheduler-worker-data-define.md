@@ -55,7 +55,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `host_name` | `hostName` | `String` | 是 | 无 | 主机名称 |
 | `host` | `host` | `String` | 是 | 无 | IP 地址或可访问主机地址 |
 | `port` | `port` | `Integer` | 是 | 无 | worker HTTP 端口 |
-| `status` | `status` | `Integer` | 是 | 新增时 `0` | `0` 下线、`1` 上线、`2` 清除 |
+| `status` | `status` | `Integer` | 是 | 新增时 `0` | `0` 下线、`1` 上线、`2` 清除；仅由系统注册、心跳、下线和超时扫描维护 |
 | `zone` | `zone` | `String` | 否 | 无 | 区域/分组，预留字段 |
 | `plugins` | `plugins` | `String` | 否 | 无 | 插件类型列表，逗号分隔，最大 256 字符 |
 | `register_time` | `registerTime` | `Date` | 否 | agent 注册时写入 | 注册时间 |
@@ -104,7 +104,6 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `hostName` | `String` | `@NotBlank` | 主机名称 |
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `host` | `String` | `@NotBlank` | IP 地址 |
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `port` | `Integer` | `@NotNull`，大于 0 | 端口 |
-| `WorkerRegistrySaveDto` | `Request` | 新增 worker | `status` | `Integer` | 可空，默认 `0` | worker 状态 |
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `zone` | `String` | 可空 | 区域/分组 |
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `plugins` | `String` | 长度不超过 256 | 插件类型列表 |
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `isActive` | `Integer` | 可空，默认 `1` | 是否有效 |
@@ -114,7 +113,6 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `hostName` | `String` | 非空时合并 | 主机名称 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `host` | `String` | 非空时合并并校验 `host + port` 唯一 | IP 地址 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `port` | `Integer` | 非空时合并并校验 `host + port` 唯一 | 端口 |
-| `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `status` | `Integer` | 非空时合并 | worker 状态 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `zone` | `String` | 非 `null` 时合并 | 区域/分组 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `plugins` | `String` | 非 `null` 时合并，长度不超过 256 | 插件类型列表 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `isActive` | `Integer` | 非空时合并 | 是否有效 |
@@ -148,12 +146,12 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
-| `WorkerRegistrySaveDto` -> `WorkerRegistryEntity` | 复制主机、端口、状态、分组、插件、有效标记和备注 | `id` 使用 `UUID.randomUUID()`；`status` 默认 `0`；`isActive` 默认 `1`；审计字段由 Service 设置 |
-| `WorkerRegistryUpdateDto` -> existing `WorkerRegistryEntity` | 非空字符串/数值和非 `null` 可清空字段合并 | 合并后校验状态值、有效值、端口、插件长度、`workerCode` 唯一、`host + port` 唯一 |
+| `WorkerRegistrySaveDto` -> `WorkerRegistryEntity` | 复制主机、端口、分组、插件、有效标记和备注 | `id` 使用 `UUID.randomUUID()`；`status` 默认 `0`；`isActive` 默认 `1`；审计字段由 Service 设置 |
+| `WorkerRegistryUpdateDto` -> existing `WorkerRegistryEntity` | 非空字符串/数值和非 `null` 可清空字段合并 | 不接收 `status` 修改；合并后校验有效值、端口、插件长度、`workerCode` 唯一、`host + port` 唯一 |
 | `WorkerRegistryEntity` -> `WorkerRegistryDto` | 字段逐一复制 | 不转换 `status/isActive`，由前端映射展示 |
-| `WorkerRegistryQueryDto` -> `LambdaQueryWrapper` | 字符串字段按定义 `like/eq`；数值字段 `eq` | 默认 `updateTime desc` |
+| `WorkerRegistryQueryDto` -> `LambdaQueryWrapper` | 字符串字段按定义 `like/eq`；数值字段 `eq` | 默认排除 `status=2` 清除记录，默认 `updateTime desc` |
 | `WorkerRegistryEntity` -> scheduler `Worker` | `workerCode` -> `id`，`host` -> `ip`，`plugins` 逗号拆分为 `pluginTypes` | `timestamp(6)` 转毫秒时间戳 |
-| scheduler `Worker` -> `WorkerRegistryEntity` | `id` -> `workerCode`，`ip` -> `host`，`pluginTypes` -> `plugins` 逗号字符串 | 注册/心跳由 `WorkerStorageImpl` 调用 Service upsert |
+| scheduler `Worker` -> `WorkerRegistryEntity` | `id` -> `workerCode`，`ip` -> `host`，`pluginTypes` -> `plugins` 逗号字符串 | 注册/心跳由 `WorkerStorageImpl` 调用 Service upsert；已有记录保留 `isActive` |
 
 ## 6. 枚举 / 特殊字段
 

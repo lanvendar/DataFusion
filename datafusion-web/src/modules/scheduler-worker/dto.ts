@@ -53,7 +53,6 @@ export interface WorkerRegistrySaveReq {
   hostName?: string;
   host?: string;
   port?: number;
-  status?: number;
   zone?: string;
   plugins?: string;
   isActive?: number;
