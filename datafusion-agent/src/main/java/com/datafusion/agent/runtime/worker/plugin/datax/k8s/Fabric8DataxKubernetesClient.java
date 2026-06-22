@@ -73,19 +73,10 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
      */
     public Fabric8DataxKubernetesClient(AgentProperties properties, DataxJobFileService jobFileService,
             DataxKubernetesTemplateRenderer templateRenderer) {
-        this(client(properties), jobFileService, templateRenderer);
-    }
-
-    Fabric8DataxKubernetesClient(KubernetesClient client, DataxJobFileService jobFileService,
-            DataxKubernetesTemplateRenderer templateRenderer) {
         this.jobFileService = jobFileService;
         this.templateRenderer = templateRenderer;
-        this.client = client;
-    }
-
-    private static KubernetesClient client(AgentProperties properties) {
         Config config = config(properties.getKubernetes());
-        return config == null ? new DefaultKubernetesClient() : new DefaultKubernetesClient(config);
+        this.client = config == null ? new DefaultKubernetesClient() : new DefaultKubernetesClient(config);
     }
 
     @Override
