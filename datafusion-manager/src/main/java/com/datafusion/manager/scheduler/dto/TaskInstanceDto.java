@@ -109,10 +109,10 @@ public class TaskInstanceDto {
     private String workerResultText;
 
     /**
-     * 日志路径.
+     * 任务运行目录路径.
      */
-    @Schema(name = "logPath", description = "日志路径")
-    private String logPath;
+    @Schema(name = "workDirPath", description = "任务运行目录路径")
+    private String workDirPath;
 
     /**
      * 可用操作.

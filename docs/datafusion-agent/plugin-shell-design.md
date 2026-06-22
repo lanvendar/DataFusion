@@ -25,19 +25,18 @@ TaskRequest(pluginType=SHELL, taskData, pluginParam)
     -> ProcessBuilder 启动本地进程
     -> stdout 写入 stdout.log，stderr 写入 stderr.log
     -> 写 WorkerTaskExecutionSnap(...)
-    -> 写 WorkerTaskExecutionState(status=RUNNING, appId=pid, logPath=pluginLogUri)
+    -> 写 WorkerTaskExecutionState(status=RUNNING, appId=pid, workDirPath=任务运行目录)
     -> watcher 等待退出码并更新 RUN_SUCCESS / RUN_FAILURE
 ```
 
-模板只描述 `kind + command`。工作目录、环境变量、stdout、stderr 和默认 `pluginLogUri` 都由执行器生成。
+模板只描述 `kind + command`。工作目录、环境变量、stdout 和 stderr 都由执行器生成。
 
 ## 参数规则
 
 - `pluginParam.command` 是默认命令；缺失时可使用 `taskData.command`。
 - `pluginParam.args` 和 `taskData.args` 按顺序追加。
 - `pluginParam.env` 和 `taskData.env` 合并，任务级同名变量覆盖插件级变量。
-- `pluginParam.pluginLogUri` 或 `taskData.pluginLogUri` 非空时透传为插件日志入口；为空时使用
-  `${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/stdout.log`。
+- `pluginParam.pluginLogUri` 或 `taskData.pluginLogUri` 非空时透传为插件日志入口；为空时不写 `pluginLogUri`。
 - 不支持外部传入 `workDir`，任务工作目录必须由 agent 统一生成。
 
 ## 控制规则
@@ -49,7 +48,7 @@ TaskRequest(pluginType=SHELL, taskData, pluginParam)
 | finish | 终态后删除 `.state` / `.snap` | 当前终态 |
 
 stop / kill / finish 支持最小控制请求。只要请求携带 `taskInstanceId`，agent 会通过 `.snap + .state`
-恢复 `pluginType`、`taskData`、`pluginParam`、`appId` 和日志入口。
+恢复 `pluginType`、`taskData`、`pluginParam`、`appId` 和任务运行目录。
 
 ## 状态映射
 
@@ -69,8 +68,8 @@ watcher 在顶层 shell 退出时会 best-effort 检查 `ProcessHandle.descendan
 ## 日志
 
 - `stdout.log` 和 `stderr.log` 固定写入任务工作目录。
-- `TaskResult.logPath` 返回插件日志入口。
-- `TaskResult.result.pluginLogUri` 与 `TaskResult.logPath` 保持一致。
+- `TaskResult.workDirPath` 返回任务运行目录。
+- `TaskResult.result.pluginLogUri` 只表示用户显式配置的 Shell 插件日志入口；默认不把 `stdout.log` 当插件日志返回。
 - Shell 插件不写 `agentLogPath`。
 
 ## 非目标

@@ -75,11 +75,11 @@ class K8sDataxTaskRunnerTest {
         stateStore.saveSnapshot(snapshot(request));
         TaskResult result = runner.finish(minimalRequest(), state(StatusEnum.RUNNING));
 
-        Path logFile = Path.of(result.getLogPath());
+        Path logFile = Path.of(result.getResult().path("pluginLogUri").asText());
         assertEquals("k8s-datax.log", logFile.getFileName().toString());
-        assertTrue(result.getLogPath().contains("task-runtime"));
+        assertTrue(result.getWorkDirPath().contains("task-runtime"));
         assertEquals("k8s datax logs", Files.readString(logFile));
-        assertEquals(result.getLogPath(), result.getResult().path("pluginLogUri").asText());
+        assertEquals(state(StatusEnum.RUNNING).getWorkDirPath(), result.getWorkDirPath());
     }
 
     @Test
@@ -160,6 +160,8 @@ class K8sDataxTaskRunnerTest {
         return WorkerTaskExecutionState.builder()
                 .taskInstanceId("task-1")
                 .appId("df-datax-task-1")
+                .workDirPath(tempDir.resolve("task-runtime").resolve("20260621").resolve("flow-1")
+                        .resolve("task-1").toString())
                 .status(status)
                 .build();
     }

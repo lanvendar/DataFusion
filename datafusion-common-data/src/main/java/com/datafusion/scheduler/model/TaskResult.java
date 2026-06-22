@@ -62,9 +62,9 @@ public class TaskResult {
     private String appId;
 
     /**
-     * 任务日志文件路径.
+     * 任务运行目录路径.
      */
-    private String logPath;
+    private String workDirPath;
 
     /**
      * worker 端提交模式，默认为同步提交.

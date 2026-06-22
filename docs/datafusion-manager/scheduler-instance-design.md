@@ -71,14 +71,17 @@
 
 ## 日志
 
-优先使用 `TaskResult.logPath`。缺失时按约定目录定位：
+只使用 `TaskResult.workDirPath` 定位 agent 标准任务日志，不按 `startTime` 或 `${modules}` 兜底推导路径。
+日志类型固定映射：
 
 ```text
-${modules}/logs/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/*.log
-${modules}/logs/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/*.err.log
+LOG    -> {workDirPath}/stdout.log
+ERROR  -> {workDirPath}/stderr.log
+STATUS -> {workDirPath}/state.log
 ```
 
-`yyyyMMdd` 由任务实例 `startTime` 派生。日志读取不新增数据库表。
+`stdout.log`、`stderr.log`、`state.log` 的文件名由 `TaskRuntimeFiles` 统一定义。`workerResult` 缺失
+`workDirPath` 或目标文件不存在时，接口返回空内容和实际尝试路径；日志读取不新增数据库表。
 
 ## 归档
 

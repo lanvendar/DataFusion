@@ -106,7 +106,7 @@ public class DataxKubernetesTemplateRenderer {
     private Map<String, String> annotations(DataxKubernetesParam kubernetes) {
         Map<String, String> annotations = new LinkedHashMap<>(kubernetes.getAnnotations());
         annotations.put("datafusion.io/worker-id", "");
-        annotations.put("datafusion.io/log-path", logPath(kubernetes));
+        annotations.put("datafusion.io/plugin-log-uri", pluginLogUri(kubernetes));
         return annotations;
     }
 
@@ -185,7 +185,7 @@ public class DataxKubernetesTemplateRenderer {
         return spaces(indent) + name + ": " + value + System.lineSeparator();
     }
 
-    private String logPath(DataxKubernetesParam kubernetes) {
+    private String pluginLogUri(DataxKubernetesParam kubernetes) {
         if (!isBlank(kubernetes.getLogStorageUri())) {
             return kubernetes.getLogStorageUri();
         }

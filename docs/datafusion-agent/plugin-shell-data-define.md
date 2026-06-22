@@ -18,7 +18,7 @@ Manager 侧 `system_plugin_config.plugin_param` 保存插件级默认参数，`s
 | `command` | `String` | 是 | 无 | 本地可执行命令，例如 `sh` |
 | `args` | `List<String>` | 否 | 空 | 命令参数，例如 `["-c"]` |
 | `env` | `Object<String,String>` | 否 | 空 | 插件级环境变量 |
-| `pluginLogUri` | `String` | 否 | `${taskRuntimeDir}/.../stdout.log` | 插件日志入口；为空时使用 Agent 生成的 `stdout.log` |
+| `pluginLogUri` | `String` | 否 | 空 | 插件日志入口；为空时不写，`stdout.log` 作为标准日志由 manager 读取 |
 
 默认模板位于：
 
@@ -43,7 +43,7 @@ datafusion-agent/src/main/resources/plugins/shell/templates/shell-local-plugin-c
 |------|------|------|----------|------|
 | `LocalShellProcess` | LOCAL 模板渲染产物 | `kind`, `command` | 单次提交 | 模板只描述启动命令 |
 | `WorkerTaskExecutionSnap` | 提交快照 | `pluginType=SHELL`, `runMode=LOCAL`, `taskData`, `pluginParam` | 提交后到 finish | 控制请求恢复上下文 |
-| `WorkerTaskExecutionState` | 运行态 | `appId`, `logPath`, `status`, `exitCode`, `result` | 提交后到 finish | `appId` 为顶层 shell PID |
+| `WorkerTaskExecutionState` | 运行态 | `appId`, `workDirPath`, `status`, `exitCode`, `result` | 提交后到 finish | `appId` 为顶层 shell PID |
 
 ## 5. TaskResult.result
 
@@ -52,7 +52,6 @@ datafusion-agent/src/main/resources/plugins/shell/templates/shell-local-plugin-c
   "message": "LOCAL shell task submitted",
   "pluginType": "SHELL",
   "runMode": "LOCAL",
-  "pluginLogUri": "/opt/datafusion/task-runtime/20260609/flow-1/task-1/stdout.log",
   "exitCode": 0
 }
 ```
@@ -62,6 +61,6 @@ datafusion-agent/src/main/resources/plugins/shell/templates/shell-local-plugin-c
 | `message` | `String` | 是 | 简短执行说明 |
 | `pluginType` | `String` | 是 | 固定 `SHELL` |
 | `runMode` | `String` | 是 | 固定 `LOCAL` |
-| `pluginLogUri` | `String` | 否 | 插件日志入口 |
+| `pluginLogUri` | `String` | 否 | 用户显式配置的插件日志入口；默认不写 |
 | `agentLogPath` | `String` | 否 | Shell 插件不主动设置 |
 | `exitCode` | `Integer` | 否 | 顶层 shell 退出码 |

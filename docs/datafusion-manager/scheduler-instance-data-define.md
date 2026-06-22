@@ -16,7 +16,7 @@
 
 第一版不新增 `scheduler_event_instance_his`。事件实例继续查询 `scheduler_event_instance`。
 
-`TaskInstanceLog` 第一版不新增表。日志能力基于实时或历史任务实例的 `flow_instance_id`、`id`、`start_time`、`worker_id`、`worker_result` 和 `TaskResult` 回传的日志文件路径定位。
+`TaskInstanceLog` 第一版不新增表。日志能力基于实时或历史任务实例的 `worker_result.workDirPath` 定位 agent 标准任务日志。
 
 ### 1.2 DDL / 迁移
 
@@ -163,7 +163,7 @@
 | 对象 | 类型 | 场景 | 字段 | 字段类型 | 来源 | 说明 |
 |--------|------|----------|-------|------------|--------|-------|
 | `FlowInstanceDto` | `Page/Detail` | 流程实例列表和详情 | `id`、`flowId`、`flowName`、`flowCode`、`flowType`、`status`、`triggerId`、`publishVersion`、`scheduleTime`、`startTime`、`endTime`、`duration`、`flowDagSnapshot`、`availableActions` | `UUID/String/Long/JsonNode/List` | `FlowInstanceEntity` / `FlowInstanceHisEntity` | `duration` 为派生字段；`availableActions` 由后端按实时实例状态计算 |
-| `TaskInstanceDto` | `Page/ListItem/Detail` | 任务实例列表和详情 | `id`、`flowInstanceId`、`taskId`、`taskType`、`taskName`、`taskCode`、`status`、`startTime`、`endTime`、`costTime`、`lastInstanceId`、`nextInstanceId`、`workerId`、`workerResult`、`workerResultText`、`logPath`、`availableActions` | `UUID/String/Long/Integer/JsonNode/List` | `TaskInstanceEntity` / `TaskInstanceHisEntity` | `workerResultText` 和 `logPath` 由 `workerResult` 派生；上下游实例 ID 支持依赖图只读展示；`availableActions` 由后端按实时实例状态计算 |
+| `TaskInstanceDto` | `Page/ListItem/Detail` | 任务实例列表和详情 | `id`、`flowInstanceId`、`taskId`、`taskType`、`taskName`、`taskCode`、`status`、`startTime`、`endTime`、`costTime`、`lastInstanceId`、`nextInstanceId`、`workerId`、`workerResult`、`workerResultText`、`workDirPath`、`availableActions` | `UUID/String/Long/Integer/JsonNode/List` | `TaskInstanceEntity` / `TaskInstanceHisEntity` | `workerResultText` 和 `workDirPath` 由 `workerResult` 派生；上下游实例 ID 支持依赖图只读展示；`availableActions` 由后端按实时实例状态计算 |
 | `EventInstanceDto` | `Page/Detail` | 事件实例列表和详情 | `id`、`eventId`、`eventName`、`eventType`、`flowInstanceId`、`taskInstanceId`、`effectTime`、`effectBeginTime`、`effectEndTime` | `UUID/String/Long` | `EventInstanceEntity` | 无 |
 | `TaskInstanceLogDto` | `Detail` | 日志内容 | `logType`、`path`、`content`、`nextOffset`、`hasMore` | `String/Long/Boolean` | 共享文件系统 | 不落库 |
 | `TaskInstanceDependencyDto` | `ViewModel` | 任务依赖图只读展示 | `flowInstanceId`、`taskInstanceId`、`flowDagSnapshot`、`lastInstanceId`、`nextInstanceId` | `UUID/JsonNode/String` | `FlowInstanceDto` + `TaskInstanceDto` | 前端可直接由详情数据组装，不要求新增后端接口 |
@@ -189,7 +189,7 @@
 | `TaskInstanceEntity` | `datafusion-scheduler-master` / worker result | master/worker -> manager DB | `status`、`workerId`、`workerResult` | `String/UUID/JsonNode` | `TaskStorageImpl` 转换并保存；`status` 使用 `StatusEnum.stateType`；`workerResult` 保存 `TaskResult` | 任务运行态、返回值和日志路径 |
 | `EventInstanceEntity` | `datafusion-scheduler-master` | master -> manager DB | `eventId`、`effectTime`、`eventType` | `UUID/Long/String` | `EventStorageImpl` 转换并保存；`eventType` 使用 `EventTypeEnum.getType()` 的字符串值 | 事件实例 |
 | `FlowInstanceHisEntity` / `TaskInstanceHisEntity` | 归档定时任务 | realtime DB -> his DB | 与实时表一致 | 与实时表一致 | 实时表记录状态满足 `StatusEnum.isSuccess()` 后复制到对应历史表，再删除实时表记录 | 成功实例归档 |
-| `TaskInstanceLogDto` | agent / 共享日志目录 | file -> API | `content`、`nextOffset` | `String/Long` | 优先按 `TaskResult` 回传路径读取；缺失时由任务 `startTime` 派生 `yyyyMMdd` 后按约定目录兜底 | 日志读取 |
+| `TaskInstanceLogDto` | agent / 共享日志目录 | file -> API | `content`、`nextOffset` | `String/Long` | 只按 `TaskResult.workDirPath` 和 `TaskRuntimeFiles` 拼接标准日志文件 | 日志读取 |
 
 ### 2.6 状态 / 枚举模型
 
@@ -238,7 +238,7 @@
 | 对象 | 场景 | 字段 | 类型 | 来源 | 格式化 / 展示规则 | 说明 |
 |--------|----------|-------|------|--------|---------------------------|-------|
 | `FlowInstanceRow` | 主表行 | `flowName`、`id`、`status`、`scheduleTime`、`startTime`、`endTime`、`duration`、`availableActions` | `string/number/list` | `FlowInstanceDto` | 时间戳格式化为日期时间；状态用 Tag；起止时间按开始/结束两行展示；操作按钮按 `availableActions` 渲染 | 可展开 |
-| `TaskInstanceRow` | 展开行 | `taskName`、`id`、`status`、`workerResultText`、`logPath`、`startTime`、`endTime`、`costTime`、`availableActions` | `string/number/list` | `TaskInstanceDto` | worker 结果摘要和日志路径展示；起止时间按开始/结束/耗时展示；操作按钮按 `availableActions` 渲染 | 行操作含查看依赖图、查看日志和已开放的 `taskAction` 操作 |
+| `TaskInstanceRow` | 展开行 | `taskName`、`id`、`status`、`workerResultText`、`workDirPath`、`startTime`、`endTime`、`costTime`、`availableActions` | `string/number/list` | `TaskInstanceDto` | worker 结果摘要和任务运行目录展示；起止时间按开始/结束/耗时展示；操作按钮按 `availableActions` 渲染 | 行操作含查看依赖图、查看日志和已开放的 `taskAction` 操作 |
 | `EventInstanceRow` | 事件页 | `eventName`、`eventType`、`flowInstanceId`、`taskInstanceId`、`effectTime` | `string/number` | `EventInstanceDto` | 时间戳格式化 | 可独立页面或详情页 |
 | `TaskInstanceDependencyPanel` | 依赖图抽屉 | `flowDagSnapshot`、`lastInstanceId`、`nextInstanceId`、当前任务实例 ID | `JsonNode/string` | `TaskInstanceDependencyDto` | 只读展示流程 DAG 和当前任务上下游关系 | 不修改定义 |
 | `TaskInstanceLogPanel` | 日志弹窗/抽屉 | `content`、`hasMore` | `string/boolean` | `TaskInstanceLogDto` | 等宽字体、按偏移加载更多 | 不展示完整路径给普通用户也可 |
@@ -292,11 +292,11 @@
 | `SchedulerInstanceQueryDto` -> Mapper 条件 | 先按 `viewType` 选择实时表或历史表，再在目标表上应用 `flowKeyword/taskKeyword/status/time range` | UUID 解析失败时只按名称模糊匹配；`status` 使用 `StatusEnum.stateType` |
 | `FlowInstanceTaskQueryDto` -> Mapper 条件 | 先按 `viewType` 选择 `scheduler_task_instance` 或 `scheduler_task_instance_his`，再按 `flow_instance_id` 查询 | `viewType` 缺省为 `REALTIME` |
 | `FlowInstanceEntity` / `FlowInstanceHisEntity` -> `FlowInstanceDto` | 字段复制 | `duration=endTime-startTime`，缺失时间则为空 |
-| `TaskInstanceEntity` / `TaskInstanceHisEntity` -> `TaskInstanceDto` | 字段复制 | `workerResult` 保留原 JSON，另派生摘要文本和 `logPath` |
+| `TaskInstanceEntity` / `TaskInstanceHisEntity` -> `TaskInstanceDto` | 字段复制 | `workerResult` 保留原 JSON，另派生摘要文本和 `workDirPath` |
 | `FlowInstanceDto` + `TaskInstanceDto` -> `TaskInstanceDependencyDto` | 前端组合当前流程 DAG 快照和任务上下游实例 ID | 只读展示，不回写定义 |
 | `FlowInstanceEntity` / `TaskInstanceEntity` -> 历史 Entity | 归档时字段镜像复制，保留原主键和审计字段 | 插入历史表后删除实时表；同批次事务提交 |
 | `EventInstanceEntity` -> `EventInstanceDto` | 字段复制 | `eventType` 保存值为 `1/2`，展示时映射任务/流程 |
-| `TaskInstanceLogQueryDto` -> 文件路径 | 优先取 `workerResult` 中 `TaskResult` 回传日志路径；缺失时按 `flowInstanceId/taskInstanceId/logType` 和任务 `startTime` 派生日期拼接候选路径 | 文件不存在时返回空内容或明确错误 |
+| `TaskInstanceLogQueryDto` -> 文件路径 | 只读取 `workerResult.workDirPath`，再按 `LOG -> stdout.log`、`ERROR -> stderr.log`、`STATUS -> state.log` 拼接 | `workDirPath` 缺失或文件不存在时返回空内容和尝试路径 |
 | `SchedulerInstanceActionDto` -> scheduler action | 根据 `actionType` 调用 `MasterService.getFlowAction()` 或 `MasterService.getTaskAction()` 中已公开的方法 | 仅允许实时实例；操作前查询实例是否存在；操作后只记录日志，不新增审计表 |
 | `FlowInstanceEntity` / `TaskInstanceEntity` -> `availableActions` | 后端按实例状态调用 `SchedulerInstanceActionPolicy` 计算 | 历史实例返回空列表；action 接口提交时再次按同一策略校验，避免页面数据过期 |
 
@@ -312,7 +312,8 @@
 | `FlowInstanceHisMapper` / `TaskInstanceHisMapper` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dao` | 历史表持久化访问 | 新增历史分页、展开和归档查询 |
 | `FlowInstanceService` / `TaskInstanceService` / `EventInstanceService` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/service` | 基础查询能力 | 可扩展页面查询 |
 | `StatusEnum` | `datafusion-common-data/src/main/java/com/datafusion/scheduler/enums/StatusEnum.java` | 状态存储、展示和成功归档判断 | `stateType` 落库，`fromString()` 读取，`isSuccess()` 触发归档 |
-| `TaskResult` | `datafusion-common-data/src/main/java/com/datafusion/scheduler/model/TaskResult.java` | worker 返回结果 | 需要能承载 agent 回传的日志文件路径 |
+| `TaskResult` | `datafusion-common-data/src/main/java/com/datafusion/scheduler/model/TaskResult.java` | worker 返回结果 | 通过 `workDirPath` 承载 agent 任务运行目录 |
+| `TaskRuntimeFiles` | `datafusion-common-data/src/main/java/com/datafusion/scheduler/model/TaskRuntimeFiles.java` | 标准日志路径 | manager 根据 `workDirPath` 拼接 `stdout.log`、`stderr.log`、`state.log` |
 | `ActionType` | `datafusion-common-data/src/main/java/com/datafusion/scheduler/enums/ActionType.java` | 操作类型 | 实例操作 DTO 使用其名称作为 `actionType` |
 | `MasterService` | `datafusion-scheduler-master` | 实例操作入口 | `getFlowAction()` / `getTaskAction()` |
 | `SchedulerInstanceActionPolicy` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/model` | 可用操作策略 | 统一维护实例状态到操作按钮的映射，并供查询响应和 action 校验复用 |

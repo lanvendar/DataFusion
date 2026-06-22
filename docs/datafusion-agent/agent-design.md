@@ -46,7 +46,8 @@ agent 自身服务日志固定归属：
 ```
 
 `taskRuntimeDir` 是绝对路径，默认 `/opt/datafusion/task-runtime`，不与 `${modules}` 拼接。
-`TaskResult.logPath` 表示当前任务主要日志入口，优先与 `TaskResult.result.pluginLogUri` 保持一致。
+`TaskResult.workDirPath` 表示任务运行目录，manager 只通过该目录识别标准日志。
+`TaskResult.result.pluginLogUri` 表示插件日志入口，可以是任务运行目录下的插件日志文件、对象存储 URI 或第三方运行时 URI。
 `TaskResult.result.agentLogPath` 只表示 agent 自身日志入口，指向 `/opt/datafusion/logs/datafusion-agent`。
 
 内置插件资源随 agent 镜像放在：
@@ -109,14 +110,17 @@ TaskRequest(taskData, pluginParam)
 ```text
 {taskInstanceId}.snap
 {taskInstanceId}.state
-{taskInstanceId}.log
+stdout.log
+stderr.log
+state.log
 ```
 
 规则：
 
 - `.snap` 保存提交快照，包含 `pluginType`、`runMode`、`taskData`、`pluginParam`。
-- `.state` 保存运行态，包含 `appId`、`logPath`、`status`、`exitCode`、`result`。
-- `.log` 保存状态变化流水，finish 后保留；`.snap` 和 `.state` 在 finish 确认终态后删除。
+- `.state` 保存运行态，包含 `appId`、`workDirPath`、`status`、`exitCode`、`result`。
+- `stdout.log`、`stderr.log`、`state.log` 是 agent 标准任务日志，文件名由 `TaskRuntimeFiles` 统一定义。
+- `state.log` 保存状态变化流水，finish 后保留；`.snap` 和 `.state` 在 finish 确认终态后删除。
 - 控制请求可以只携带 `taskInstanceId`；agent 通过 `.snap + .state` 恢复插件类型、运行模式和运行引用。
 
 ## 状态上报

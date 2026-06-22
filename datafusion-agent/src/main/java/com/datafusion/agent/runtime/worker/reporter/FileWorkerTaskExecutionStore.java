@@ -2,6 +2,7 @@ package com.datafusion.agent.runtime.worker.reporter;
 
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.scheduler.enums.StatusEnum;
+import com.datafusion.scheduler.model.TaskRuntimeFiles;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStore;
@@ -189,8 +190,8 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
         return executionDir.resolve(taskInstanceId + ".state");
     }
 
-    private Path statusLogFile(Path executionDir, String taskInstanceId) {
-        return executionDir.resolve(taskInstanceId + ".log");
+    private Path statusLogFile(Path executionDir) {
+        return TaskRuntimeFiles.stateLog(executionDir);
     }
 
     private Optional<Path> findSnapshotFile(String taskInstanceId) {
@@ -306,7 +307,7 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
     }
 
     private void appendStatusLog(Path executionDir, WorkerTaskExecutionState state) throws Exception {
-        Files.writeString(statusLogFile(executionDir, state.getTaskInstanceId()),
+        Files.writeString(statusLogFile(executionDir),
                 statusLine(state) + System.lineSeparator(), StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.APPEND);
     }

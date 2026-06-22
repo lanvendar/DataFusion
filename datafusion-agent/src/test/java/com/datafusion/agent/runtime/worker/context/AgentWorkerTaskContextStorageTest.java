@@ -49,14 +49,14 @@ class AgentWorkerTaskContextStorageTest {
         assertEquals("DATAX", snap.getPluginType());
         assertEquals("K8S", snap.getRunMode());
         assertEquals("app-1", state.getAppId());
-        assertEquals("k8s://df/jobs/app-1", state.getLogPath());
+        assertEquals("/opt/datafusion/task-runtime/20260622/flow-1/task-1", state.getWorkDirPath());
     }
 
     private WorkerTaskExecutionState existingState() {
         return WorkerTaskExecutionState.builder()
                 .taskInstanceId("task-1")
                 .appId("app-1")
-                .logPath("k8s://df/jobs/app-1")
+                .workDirPath("/opt/datafusion/task-runtime/20260622/flow-1/task-1")
                 .status(StatusEnum.RUNNING)
                 .build();
     }

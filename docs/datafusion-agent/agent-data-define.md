@@ -58,7 +58,9 @@ agent 调用 manager：
 ${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
     {taskInstanceId}.snap
     {taskInstanceId}.state
-    {taskInstanceId}.log
+    stdout.log
+    stderr.log
+    state.log
 ```
 
 `taskRuntimeDir` 默认 `/opt/datafusion/task-runtime`。每个任务工作目录、插件运行产物、插件日志和状态文件
@@ -85,7 +87,7 @@ ${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
 {
   "taskInstanceId": "{taskInstanceId}",
   "appId": "{appId}",
-  "logPath": "{logPath}",
+  "workDirPath": "{workDirPath}",
   "status": "{StatusEnum.name}",
   "exitCode": null,
   "updateTime": 1780000000000,
@@ -100,7 +102,7 @@ ${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
 }
 ```
 
-`{taskInstanceId}.log` 是任务状态变化流水：
+`state.log` 是任务状态变化流水：
 
 ```text
 time:1780000000000|appId:123|status:RUNNING|exitCode:
@@ -113,10 +115,11 @@ time:1780000001000|appId:123|status:RUN_SUCCESS|exitCode:0
 - `appId` 统一表示终端任务 ID。
 - `.snap` 只保存提交快照和插件配置参数，不保存运行时观测字段。
 - `.state` 只保存通用运行态，不回写 `taskData` / `pluginParam`。
-- `logPath` 统一表示当前任务的主要日志入口。
+- `workDirPath` 统一表示任务运行目录，manager 只通过该目录读取标准任务日志。
+- `stdout.log`、`stderr.log`、`state.log` 是 agent 标准任务日志，文件名由 `TaskRuntimeFiles` 统一定义。
 - `TaskResult.result.pluginLogUri` 表示插件日志入口。
-- `TaskResult.result.agentLogPath` 只表示 agent 自身日志或状态入口。
-- `finishTask` 确认终态后删除 `.state` / `.snap`，保留 `.log`。
+- `TaskResult.result.agentLogPath` 只表示 agent 自身服务日志入口。
+- `finishTask` 确认终态后删除 `.state` / `.snap`，保留 `stdout.log` / `stderr.log` / `state.log`。
 
 ## 5. 通用结果结构
 
@@ -128,7 +131,7 @@ time:1780000001000|appId:123|status:RUN_SUCCESS|exitCode:0
 | `pluginType` | `String` | 是 | 插件类型，例如 `SHELL`、`DATAX` |
 | `runMode` | `String` | 是 | 运行模式，例如 `LOCAL`、`K8S` |
 | `pluginLogUri` | `String` | 否 | 插件日志入口，本地文件、对象存储 URI 或第三方运行时 URI |
-| `agentLogPath` | `String` | 否 | agent 自身日志或状态入口 |
+| `agentLogPath` | `String` | 否 | agent 自身服务日志入口 |
 | `exitCode` | `Integer` | 否 | 本地进程退出码 |
 
 ## 6. 复用对象
@@ -142,3 +145,4 @@ time:1780000001000|appId:123|status:RUN_SUCCESS|exitCode:0
 | `WorkerTaskExecutionSnap` / `WorkerTaskExecutionState` / `WorkerTaskExecutionStore` | `datafusion-scheduler-worker` | 提交快照、运行态和状态存储 SPI |
 | `PluginTaskExecutor` / `PluginRunModeStateMapping` | `datafusion-scheduler-worker` | 插件执行和状态映射 SPI |
 | `TaskResultReporter` | `datafusion-scheduler-worker` | 任务结果上报端口 |
+| `TaskRuntimeFiles` | `datafusion-common-data` | agent 标准任务日志文件名和路径拼接工具 |

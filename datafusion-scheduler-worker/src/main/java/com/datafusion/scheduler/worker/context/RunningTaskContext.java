@@ -81,9 +81,9 @@ public class RunningTaskContext {
     private Map<String, Variable> outputVars;
 
     /**
-     * 任务日志文件路径.
+     * 任务运行目录路径.
      */
-    private String logPath;
+    private String workDirPath;
 
     /**
      * 执行结果说明.
@@ -140,8 +140,8 @@ public class RunningTaskContext {
             if (result.getOutputVars() != null) {
                 this.outputVars = result.getOutputVars();
             }
-            if (result.getLogPath() != null) {
-                this.logPath = result.getLogPath();
+            if (result.getWorkDirPath() != null) {
+                this.workDirPath = result.getWorkDirPath();
             }
             if (result.getResult() != null) {
                 this.result = result.getResult();
@@ -202,7 +202,7 @@ public class RunningTaskContext {
                 .taskState(taskState)
                 .outputVars(outputVars)
                 .appId(appId)
-                .logPath(logPath)
+                .workDirPath(workDirPath)
                 .submitMode(submitMode)
                 .result(result)
                 .build();

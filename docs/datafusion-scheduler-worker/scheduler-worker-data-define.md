@@ -30,7 +30,7 @@
 | `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `outputVars` | `Map<String, Variable>` | 可选 | 输出变量 |
 | `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `workerId` | `String` | 可选 | worker ID |
 | `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `appId` | `String` | 可选 | 外部终端任务 ID |
-| `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `logPath` | `String` | 可选 | agent 管理的本地日志路径或可被 manager 读取的日志入口 |
+| `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `workDirPath` | `String` | 可选 | agent 任务运行目录；manager 只通过该目录读取标准日志 |
 | `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `submitMode` | `SubmitModeEnum` | 可选，默认 `SYNC` | 提交模式 |
 | `TaskResult` | `Response` | worker 返回提交结果或异步上报结果 | `result` | `JsonNode` | 可选 | 插件结构化结果 JSON |
 | `Worker` | `Internal` | master/manager 维护 worker 节点 | `id` | `String` | 必填 | worker ID |
@@ -54,7 +54,7 @@
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `taskData` | `JsonNode` | 可选 | 渲染后的任务执行数据快照 |
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `pluginParam` | `JsonNode` | 可选 | 插件参数快照 |
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `outputVars` | `Map<String, Variable>` | 可选 | 最近输出变量 |
-| `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `logPath` | `String` | 可选 | 最近日志路径 |
+| `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `workDirPath` | `String` | 可选 | 最近任务运行目录 |
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `result` | `JsonNode` | 可选 | 最近结构化结果 |
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `createTime` | `Long` | 必填 | 上下文创建时间 |
 | `RunningTaskContext` | `Internal` | worker 记录运行中任务 | `updateTime` | `Long` | 必填 | 上下文更新时间 |
@@ -68,7 +68,7 @@
 | `WorkerTaskExecutionSnap` | `Internal` | worker 任务提交快照 | `pluginParam` | `JsonNode` | 可选 | 插件参数 |
 | `WorkerTaskExecutionState` | `Internal` | worker 任务运行态 envelope | `taskInstanceId` | `String` | 必填 | 任务实例 ID |
 | `WorkerTaskExecutionState` | `Internal` | worker 任务运行态 envelope | `appId` | `String` | 可选 | 终端任务 ID |
-| `WorkerTaskExecutionState` | `Internal` | worker 任务运行态 envelope | `logPath` | `String` | 可选 | agent 管理的本地日志路径或可被 manager 读取的日志入口 |
+| `WorkerTaskExecutionState` | `Internal` | worker 任务运行态 envelope | `workDirPath` | `String` | 可选 | agent 任务运行目录；用于恢复和上报 |
 | `WorkerTaskExecutionState` | `Internal` | worker 任务运行态 envelope | `status` | `StatusEnum` | 可选 | 最近任务状态 |
 | `WorkerTaskExecutionState` | `Internal` | worker 任务运行态 envelope | `exitCode` | `Integer` | 可选 | 本地进程退出码 |
 | `WorkerTaskExecutionState` | `Internal` | worker 任务运行态 envelope | `updateTime` | `Long` | 可选 | 状态更新时间 |
@@ -101,7 +101,7 @@
 | `pluginParam` | 不涉及 | `JsonNode` | manager/master 传入，worker 不解析结构 | 插件自行解释 |
 | `runMode` | 提交快照 | `String` | 插件自行解释 | 终端运行模式大类，状态映射按 `pluginType + runMode` 路由 |
 | `appId` | 运行态存储 | `String` | 插件自行解释 | 终端任务 ID，不再区分本地进程 ID 和第三方任务 ID 字段 |
-| `logPath` | 结果/状态存储 | `String` | agent/plugin 写入 | 优先表示 agent 本地日志路径；外部日志 URI 应放入 `result.pluginLogUri` |
+| `workDirPath` | 结果/状态存储 | `String` | agent/plugin 写入 | 只表示 agent 任务运行目录；标准日志由 `TaskRuntimeFiles` 拼接；插件日志 URI 放入 `result.pluginLogUri` |
 | `result` | 结果/状态存储 | `JsonNode` | 插件写入 JSON 对象 | 推荐结构见下方 `TaskResultResult`；不得写入密码、完整 job JSON 或大体积日志正文 |
 
 ### 6.1 TaskResultResult
@@ -114,7 +114,7 @@
 | `pluginType` | `String` | 否 | 插件类型，如 `SHELL`、`DATAX` |
 | `runMode` | `String` | 否 | 运行模式，如 `LOCAL`、`K8S` |
 | `pluginLogUri` | `String` | 否 | 第三方运行系统自身日志入口，如 Kubernetes、Yarn、对象存储、脚本自定义日志 |
-| `agentLogPath` | `String` | 否 | agent 本地日志路径，通常与 `TaskResult.logPath` 相同 |
+| `agentLogPath` | `String` | 否 | agent 自身服务日志入口，不指向任务运行目录 |
 | `exitCode` | `Integer` | 否 | 本地进程退出码 |
 | `errorCode` | `String` | 否 | 插件可读错误码 |
 | `detail` | `Object` | 否 | 小体积扩展信息，不放密码和大日志正文 |
@@ -141,6 +141,7 @@
 |------|------|----------|------|
 | `TaskRequest` | `datafusion-common-data` | 通信 DTO | master/manager/worker/agent 共享 |
 | `TaskResult` | `datafusion-common-data` | 通信 DTO | master/manager/worker/agent 共享 |
+| `TaskRuntimeFiles` | `datafusion-common-data` | 任务运行文件工具 | agent 标准任务日志文件名和路径拼接 |
 | `Worker` | `datafusion-common-data` | 通信/节点模型 | master/manager 维护 worker 信息 |
 | `StatusEnum` | `datafusion-common-data` | 状态枚举 | 任务状态 |
 | `ActionType` | `datafusion-common-data` | 动作枚举 | 幂等动作类型 |

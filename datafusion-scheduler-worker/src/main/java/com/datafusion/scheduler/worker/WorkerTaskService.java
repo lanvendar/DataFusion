@@ -180,6 +180,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
         TaskResult result = safeExecuteControl(executor, resolvedRequest, StatusEnum.RUN_SUCCESS, TaskControlAction.FINISH);
         updateContext(context, result);
         if (isFinalState(result.getTaskState())) {
+            recordFinalContext(context, resolvedRequest, result);
             executor.destroyTask(resolvedRequest);
             contextStore.remove(resolvedRequest.getTaskInstanceId());
         }
@@ -262,6 +263,14 @@ public class WorkerTaskService implements WorkerTaskOperator {
     private void reportAndUpdate(RunningTaskContext context, TaskResult result) {
         updateContext(context, result);
         resultReporter.report(result);
+    }
+
+    private void recordFinalContext(RunningTaskContext context, TaskRequest request, TaskResult result) {
+        if (context != null) {
+            return;
+        }
+        RunningTaskContext finalContext = contextStore.getOrCreate(request);
+        updateContext(finalContext, result);
     }
 
     private void updateContext(RunningTaskContext context, TaskResult result) {

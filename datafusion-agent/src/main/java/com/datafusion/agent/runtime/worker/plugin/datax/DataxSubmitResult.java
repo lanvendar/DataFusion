@@ -28,9 +28,9 @@ public class DataxSubmitResult {
     private String appId;
 
     /**
-     * Log path.
+     * Task runtime work directory path.
      */
-    private String logPath;
+    private String workDirPath;
 
     /**
      * Result message.

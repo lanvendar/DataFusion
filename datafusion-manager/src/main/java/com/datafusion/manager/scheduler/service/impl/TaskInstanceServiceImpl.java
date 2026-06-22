@@ -28,12 +28,12 @@ import com.datafusion.scheduler.master.task.model.TaskInstance;
 import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.PluginData;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.TaskRuntimeFiles;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -44,7 +44,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * 调度-任务实例Service实现.
@@ -98,12 +97,6 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
      * master 服务.
      */
     private final ObjectProvider<MasterService> masterServiceProvider;
-
-    /**
-     * 模块根目录.
-     */
-    @Value("${datafusion.modules:${user.dir}}")
-    private String modulesRoot;
 
     @Override
     public PageResponse<TaskInstanceDto> pageTaskInstance(PageQuery<SchedulerInstanceQueryDto> query) {
@@ -279,7 +272,7 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
         dto.setWorkerId(entity.getWorkerId());
         dto.setWorkerResult(entity.getWorkerResult());
         dto.setWorkerResultText(extractWorkerResultText(entity.getWorkerResult()));
-        dto.setLogPath(extractLogPath(entity.getWorkerResult()));
+        dto.setWorkDirPath(extractWorkDirPath(entity.getWorkerResult()));
         dto.setAvailableActions(SchedulerInstanceActionPolicy.taskActions(entity.getStatus()));
         return dto;
     }
@@ -304,69 +297,28 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
         return workerResult.toString();
     }
 
-    private String extractLogPath(JsonNode workerResult) {
-        if (workerResult == null || workerResult.isNull() || !workerResult.hasNonNull("logPath")) {
+    private String extractWorkDirPath(JsonNode workerResult) {
+        if (workerResult == null || workerResult.isNull() || !workerResult.hasNonNull("workDirPath")) {
             return null;
         }
-        return workerResult.get("logPath").asText();
+        return workerResult.get("workDirPath").asText();
     }
 
     private Path resolveLogPath(TaskInstanceEntity entity, String logType) {
-        String workerLogPath = extractLogPath(entity.getWorkerResult());
-        if (LOG_TYPE_LOG.equals(logType) && StringUtils.isNotBlank(workerLogPath)) {
-            return Path.of(workerLogPath);
-        }
-
-        Path fallback = findConventionLogPath(entity, logType);
-        if (fallback != null) {
-            return fallback;
-        }
-
-        if (StringUtils.isNotBlank(workerLogPath)) {
-            return Path.of(workerLogPath);
-        }
-        return null;
-    }
-
-    private Path findConventionLogPath(TaskInstanceEntity entity, String logType) {
-        String date = formatDate(entity.getStartTime());
-        if (date == null || entity.getFlowInstanceId() == null || entity.getId() == null) {
+        String workDirPath = extractWorkDirPath(entity.getWorkerResult());
+        if (StringUtils.isBlank(workDirPath)) {
             return null;
         }
-
-        if (LOG_TYPE_STATUS.equals(logType)) {
-            return Path.of(modulesRoot, "task-status", date, entity.getFlowInstanceId().toString(),
-                    entity.getId().toString(), "taskStatus.log");
+        Path workDir = Path.of(workDirPath);
+        switch (logType) {
+            case LOG_TYPE_ERROR:
+                return TaskRuntimeFiles.stderrLog(workDir);
+            case LOG_TYPE_STATUS:
+                return TaskRuntimeFiles.stateLog(workDir);
+            case LOG_TYPE_LOG:
+            default:
+                return TaskRuntimeFiles.stdoutLog(workDir);
         }
-
-        Path logDir = Path.of(modulesRoot, "logs", date, entity.getFlowInstanceId().toString(), entity.getId().toString());
-        if (!Files.isDirectory(logDir)) {
-            return null;
-        }
-        String suffix = LOG_TYPE_ERROR.equals(logType) ? ".err.log" : ".log";
-        return findFirstLogFile(logDir, suffix, LOG_TYPE_LOG.equals(logType));
-    }
-
-    private Path findFirstLogFile(Path directory, String suffix, boolean excludeErrorLog) {
-        try (Stream<Path> stream = Files.list(directory)) {
-            return stream.filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().endsWith(suffix))
-                    .filter(path -> !excludeErrorLog || !path.getFileName().toString().endsWith(".err.log"))
-                    .sorted()
-                    .findFirst()
-                    .orElse(null);
-        } catch (IOException e) {
-            return null;
-        }
-    }
-
-    private String formatDate(Long timestamp) {
-        if (timestamp == null) {
-            return null;
-        }
-        return java.time.Instant.ofEpochMilli(timestamp)
-                .atZone(java.time.ZoneId.systemDefault())
-                .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
     }
 
     private TaskInstanceLogDto readLogFile(Path path, String logType, Long offsetValue, Integer limitValue) {

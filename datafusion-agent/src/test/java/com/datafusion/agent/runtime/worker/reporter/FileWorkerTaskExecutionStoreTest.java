@@ -37,7 +37,7 @@ class FileWorkerTaskExecutionStoreTest {
         store.saveState(state(StatusEnum.RUN_SUCCESS));
 
         Path executionDir = executionDir();
-        Path logFile = executionDir.resolve("task-1.log");
+        Path logFile = executionDir.resolve("state.log");
         assertEquals(1, store.listListeningStates().size());
         assertEquals(2, Files.readAllLines(logFile).size());
 

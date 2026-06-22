@@ -176,7 +176,7 @@ public class AgentTaskStateReportScheduler {
                 .taskName(snapshot == null ? null : snapshot.getTaskName())
                 .taskState(state.getStatus())
                 .appId(state.getAppId())
-                .logPath(state.getLogPath())
+                .workDirPath(state.getWorkDirPath())
                 .submitMode(SubmitModeEnum.ASYNC)
                 .result(state.getResult())
                 .build();

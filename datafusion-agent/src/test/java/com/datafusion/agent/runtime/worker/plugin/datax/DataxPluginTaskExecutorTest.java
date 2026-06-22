@@ -48,7 +48,7 @@ class DataxPluginTaskExecutorTest {
         assertEquals(DataxRunMode.K8S.name(), snap.getRunMode());
         assertEquals("K8S", snap.getPluginParam().path("runMode").asText());
         assertEquals(result.getAppId(), state.getAppId());
-        assertEquals(result.getLogPath(), state.getLogPath());
+        assertEquals(result.getWorkDirPath(), state.getWorkDirPath());
         assertTrue(snap.getPluginParam().path("kubernetes").path("collectLogsOnFinish").asBoolean());
     }
 
@@ -97,7 +97,7 @@ class DataxPluginTaskExecutorTest {
             return DataxSubmitResult.builder()
                     .status(StatusEnum.RUNNING)
                     .appId(runtimeRef.getJobName())
-                    .logPath(param.getWorkDir().toString())
+                    .workDirPath(param.getWorkDir().toString())
                     .kubernetesRuntimeRef(runtimeRef)
                     .result(JacksonUtils.createObjectNode().put("message", "submitted"))
                     .build();

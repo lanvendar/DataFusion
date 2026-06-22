@@ -119,7 +119,7 @@ SchedulerMasterLifecycle.run
 
 ## 日志
 
-任务实例日志由 agent 写入共享目录，并通过 `TaskResult.logPath` 或约定路径供实例查询域只读获取。manager runtime 第一版不新增独立调度日志能力。
+任务实例日志由 agent 写入任务运行目录，并通过 `TaskResult.workDirPath` 供实例查询域只读获取。manager runtime 第一版不新增独立调度日志能力。
 
 ## 验证
 

@@ -88,7 +88,7 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
         WorkerTaskExecutionState state = WorkerTaskExecutionState.builder()
                 .taskInstanceId(request.getTaskInstanceId())
                 .appId(submitResult.getAppId())
-                .logPath(submitResult.getLogPath())
+                .workDirPath(submitResult.getWorkDirPath())
                 .status(submitResult.getStatus())
                 .result(submitResult.getResult())
                 .build();
@@ -99,7 +99,7 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
                 .taskName(request.getTaskName())
                 .taskState(submitResult.getStatus())
                 .appId(submitResult.getAppId())
-                .logPath(submitResult.getLogPath())
+                .workDirPath(submitResult.getWorkDirPath())
                 .result(submitResult.getResult())
                 .build();
     }
@@ -161,7 +161,7 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
         WorkerTaskExecutionState next = state == null ? currentState(request) : state;
         next.setStatus(result.getTaskState());
         next.setAppId(result.getAppId() == null ? next.getAppId() : result.getAppId());
-        next.setLogPath(result.getLogPath() == null ? next.getLogPath() : result.getLogPath());
+        next.setWorkDirPath(result.getWorkDirPath() == null ? next.getWorkDirPath() : result.getWorkDirPath());
         next.setResult(result.getResult());
         stateStore.saveState(next);
     }

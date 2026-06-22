@@ -104,7 +104,7 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
         WorkerTaskExecutionState state = WorkerTaskExecutionState.builder()
                 .taskInstanceId(context.getTaskInstanceId())
                 .appId(context.getAppId())
-                .logPath(context.getLogPath())
+                .workDirPath(context.getWorkDirPath())
                 .status(context.getTaskState())
                 .result(context.getResult())
                 .build();
@@ -119,8 +119,8 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
             if (state.getAppId() == null) {
                 state.setAppId(existing.getAppId());
             }
-            if (state.getLogPath() == null) {
-                state.setLogPath(existing.getLogPath());
+            if (state.getWorkDirPath() == null) {
+                state.setWorkDirPath(existing.getWorkDirPath());
             }
             if (state.getExitCode() == null) {
                 state.setExitCode(existing.getExitCode());
@@ -137,7 +137,7 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
     private String stateSign(WorkerTaskExecutionState state) {
         return safeText(state.getTaskInstanceId()) + '|'
                 + safeText(state.getAppId()) + '|'
-                + safeText(state.getLogPath()) + '|'
+                + safeText(state.getWorkDirPath()) + '|'
                 + (state.getStatus() == null ? "" : state.getStatus().name()) + '|'
                 + String.valueOf(state.getExitCode()) + '|'
                 + jsonText(state.getResult());
@@ -155,7 +155,7 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
         RunningTaskContext context = new RunningTaskContext();
         context.setTaskInstanceId(state.getTaskInstanceId());
         context.setAppId(state.getAppId());
-        context.setLogPath(state.getLogPath());
+        context.setWorkDirPath(state.getWorkDirPath());
         context.setTaskState(state.getStatus());
         context.setResult(state.getResult());
         if (snapshot != null) {
