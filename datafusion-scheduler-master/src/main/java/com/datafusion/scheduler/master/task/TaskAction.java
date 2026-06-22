@@ -310,6 +310,10 @@ public class TaskAction implements TaskResultHandler {
      */
     @Override
     public boolean asyncHandle(TaskResult result) {
+        if (result == null || result.getTaskState() == null) {
+            return false;
+        }
+
         ActionType actionType = null;
         switch (result.getTaskState()) {
             case RUNNING:
@@ -328,8 +332,9 @@ public class TaskAction implements TaskResultHandler {
                 actionType = ActionType.ENFORCE_SUCCESS;
                 break;
             default:
-                log.error("收到worker非法状态,不可能发生!!!");
-                break;
+                log.warn("收到worker无法处理的任务状态, taskInstanceId={}, taskState={}",
+                        result.getTaskInstanceId(), result.getTaskState());
+                return false;
         }
 
         TaskMsg msg = TaskMsg.builder()
