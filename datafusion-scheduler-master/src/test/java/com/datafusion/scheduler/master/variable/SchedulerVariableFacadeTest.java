@@ -32,8 +32,8 @@ public class SchedulerVariableFacadeTest {
     @Test
     public void testSchedulerVariableResolverBizDateWithAlign() {
         Map<String, Variable> variables = new HashMap<>();
-        variables.put(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamName(),
-                createVariable(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamName(), "day_1"));
+        variables.put(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamKeyCode(),
+                createVariable(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamKeyCode(), "day_1"));
         PlaceholderContext context = PlaceholderContext.builder()
                 .scheduleTime(TEST_SCHEDULE_TIME)
                 .variables(variables)
@@ -42,8 +42,8 @@ public class SchedulerVariableFacadeTest {
         SchedulerVariableResolver resolver = new SchedulerVariableResolver();
         resolver.resolveBuiltinVariables(context);
 
-        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.BIZ_DATE.getParamName()));
-        String bizDate = context.getVariables().get(SchedulerBuiltinVariableEnum.BIZ_DATE.getParamName()).getValue();
+        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.BIZ_DATE.getParamKeyCode()));
+        String bizDate = context.getVariables().get(SchedulerBuiltinVariableEnum.BIZ_DATE.getParamKeyCode()).getValue();
         log.info("biz_date with align: {}", bizDate);
         assertNotNull(bizDate);
     }
@@ -59,8 +59,8 @@ public class SchedulerVariableFacadeTest {
         SchedulerVariableResolver resolver = new SchedulerVariableResolver();
         resolver.resolveBuiltinVariables(context);
 
-        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.BIZ_DATE.getParamName()));
-        String bizDate = context.getVariables().get(SchedulerBuiltinVariableEnum.BIZ_DATE.getParamName()).getValue();
+        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.BIZ_DATE.getParamKeyCode()));
+        String bizDate = context.getVariables().get(SchedulerBuiltinVariableEnum.BIZ_DATE.getParamKeyCode()).getValue();
         log.info("biz_date without align: {}", bizDate);
         assertNotNull(bizDate);
     }
@@ -68,10 +68,10 @@ public class SchedulerVariableFacadeTest {
     @Test
     public void testSchedulerVariableResolverAllVariables() {
         Map<String, Variable> variables = new HashMap<>();
-        variables.put(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamName(),
-                createVariable(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamName(), "day_1"));
-        variables.put(SchedulerBuiltinVariableEnum.EVENT_ALIGN.getParamName(),
-                createVariable(SchedulerBuiltinVariableEnum.EVENT_ALIGN.getParamName(), "hour_1"));
+        variables.put(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamKeyCode(),
+                createVariable(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamKeyCode(), "day_1"));
+        variables.put(SchedulerBuiltinVariableEnum.EVENT_ALIGN.getParamKeyCode(),
+                createVariable(SchedulerBuiltinVariableEnum.EVENT_ALIGN.getParamKeyCode(), "hour_1"));
         PlaceholderContext context = PlaceholderContext.builder()
                 .scheduleTime(TEST_SCHEDULE_TIME)
                 .variables(variables)
@@ -80,15 +80,15 @@ public class SchedulerVariableFacadeTest {
         SchedulerVariableResolver resolver = new SchedulerVariableResolver();
         resolver.resolveBuiltinVariables(context);
 
-        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.NOW_TIME.getParamName()));
-        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.NOW_DATE.getParamName()));
-        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.SCHEDULE_TIME.getParamName()));
-        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamName()));
-        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.BIZ_TIME.getParamName()));
-        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.BIZ_DATE.getParamName()));
-        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.EVENT_ALIGN.getParamName()));
-        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.EVENT_TIME.getParamName()));
-        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.EVENT_DATE.getParamName()));
+        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.NOW_TIME.getParamKeyCode()));
+        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.NOW_DATE.getParamKeyCode()));
+        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.SCHEDULE_TIME.getParamKeyCode()));
+        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamKeyCode()));
+        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.BIZ_TIME.getParamKeyCode()));
+        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.BIZ_DATE.getParamKeyCode()));
+        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.EVENT_ALIGN.getParamKeyCode()));
+        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.EVENT_TIME.getParamKeyCode()));
+        assertNotNull(context.getVariables().get(SchedulerBuiltinVariableEnum.EVENT_DATE.getParamKeyCode()));
     }
 
     @Test
@@ -180,37 +180,37 @@ public class SchedulerVariableFacadeTest {
                 .variables(variables)
                 .build();
 
-        String result = SchedulerVariableFacade.getInstance().replacePlaceholders("#{table}|#[DAY(biz_date)]", context);
-        assertEquals("#{table}|#[DAY(biz_date)]", result);
+        String result = SchedulerVariableFacade.getInstance().replacePlaceholders("#{table}|#[DAY(_biz_date_)]", context);
+        assertEquals("#{table}|#[DAY(_biz_date_)]", result);
     }
 
     @Test
     public void testFacadeNewSyntaxDay() {
         Map<String, Variable> variables = new HashMap<>();
-        variables.put(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamName(),
-                createVariable(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamName(), "day_1"));
+        variables.put(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamKeyCode(),
+                createVariable(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamKeyCode(), "day_1"));
         PlaceholderContext context = PlaceholderContext.builder()
                 .scheduleTime(TEST_SCHEDULE_TIME)
                 .variables(variables)
                 .build();
 
-        String result = SchedulerVariableFacade.getInstance().replacePlaceholders("#day(biz_date, \"yyyyMMdd\")", context);
+        String result = SchedulerVariableFacade.getInstance().replacePlaceholders("#day(_biz_date_, \"yyyyMMdd\")", context);
         assertEquals("20220620", result);
     }
 
     @Test
     public void testFacadeExpressionWithBizAndEventAlign() {
         Map<String, Variable> variables = new HashMap<>();
-        variables.put(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamName(),
-                createVariable(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamName(), "day_1"));
-        variables.put(SchedulerBuiltinVariableEnum.EVENT_ALIGN.getParamName(),
-                createVariable(SchedulerBuiltinVariableEnum.EVENT_ALIGN.getParamName(), "hour_1"));
+        variables.put(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamKeyCode(),
+                createVariable(SchedulerBuiltinVariableEnum.BIZ_ALIGN.getParamKeyCode(), "day_1"));
+        variables.put(SchedulerBuiltinVariableEnum.EVENT_ALIGN.getParamKeyCode(),
+                createVariable(SchedulerBuiltinVariableEnum.EVENT_ALIGN.getParamKeyCode(), "hour_1"));
         PlaceholderContext context = PlaceholderContext.builder()
                 .scheduleTime(TEST_SCHEDULE_TIME)
                 .variables(variables)
                 .build();
 
-        String result = SchedulerVariableFacade.getInstance().replacePlaceholders("#day(biz_date)|#day(event_date)", context);
+        String result = SchedulerVariableFacade.getInstance().replacePlaceholders("#day(_biz_date_)|#day(_event_date_)", context);
         assertEquals("20220620000000|20220620150000", result);
     }
 
@@ -221,7 +221,7 @@ public class SchedulerVariableFacadeTest {
                 .variables(new HashMap<>())
                 .build();
 
-        String result = SchedulerVariableFacade.getInstance().replacePlaceholders("#timestamp(schedule_time)", context);
+        String result = SchedulerVariableFacade.getInstance().replacePlaceholders("#timestamp(_schedule_time_)", context);
         assertEquals(String.valueOf(TEST_SCHEDULE_TIME), result);
     }
 

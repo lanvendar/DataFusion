@@ -137,7 +137,7 @@ public class FlowInstance implements Comparable<FlowInstance> {
         if (flowParam == null || flowParam.getVars() == null) {
             return null;
         }
-        Variable value = flowParam.getVars().get(variable.getParamName());
+        Variable value = flowParam.getVars().get(variable.getParamKeyCode());
         return value == null ? null : value.getValue();
     }
 

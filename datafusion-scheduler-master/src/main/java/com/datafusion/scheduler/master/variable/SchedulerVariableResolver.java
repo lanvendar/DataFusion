@@ -72,16 +72,16 @@ public class SchedulerVariableResolver implements VariableResolver {
     /**
      * 解析单个变量的值.
      *
-     * @param paramName 参数名
+     * @param paramKeyCode 参数编码
      * @param context   上下文
      * @return 参数值
      */
-    public String resolveVariable(String paramName, PlaceholderContext context) {
-        if (paramName == null || context == null || context.getVariables() == null) {
+    public String resolveVariable(String paramKeyCode, PlaceholderContext context) {
+        if (paramKeyCode == null || context == null || context.getVariables() == null) {
             return null;
         }
 
-        Variable variable = context.getVariables().get(paramName);
+        Variable variable = context.getVariables().get(paramKeyCode);
         if (variable != null && variable.getValue() != null) {
             return variable.getValue();
         }
@@ -100,8 +100,8 @@ public class SchedulerVariableResolver implements VariableResolver {
             return;
         }
         Variable target = new Variable();
-        target.setName(variable.getParamName());
+        target.setName(variable.getParamKeyCode());
         target.setValue(value);
-        variables.put(variable.getParamName(), target);
+        variables.put(variable.getParamKeyCode(), target);
     }
 }

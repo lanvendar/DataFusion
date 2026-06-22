@@ -156,16 +156,16 @@ public class TaskInitMsgHandler extends AbstractTaskMsgHandler {
     /**
      * 判断是否为解析器生成的内置变量.
      *
-     * @param name     变量名
+     * @param code     变量编码
      * @param variable 变量对象
      * @return 是否为解析器生成的内置变量
      */
-    private boolean isGeneratedBuiltinVariable(String name, Variable variable) {
+    private boolean isGeneratedBuiltinVariable(String code, Variable variable) {
         if (variable == null || variable.getType() != null) {
             return false;
         }
-        return SchedulerBuiltinVariableEnum.getByParamName(name) != null
-                || SchedulerBuiltinVariableEnum.getByParamName(variable.getName()) != null;
+        return SchedulerBuiltinVariableEnum.getByParamKeyCode(code) != null
+                || SchedulerBuiltinVariableEnum.getByParamKeyCode(variable.getName()) != null;
     }
 
     /**

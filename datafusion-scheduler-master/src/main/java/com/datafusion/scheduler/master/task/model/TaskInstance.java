@@ -204,7 +204,7 @@ public class TaskInstance {
         if (taskParam == null || taskParam.getVars() == null) {
             return null;
         }
-        Variable value = taskParam.getVars().get(variable.getParamName());
+        Variable value = taskParam.getVars().get(variable.getParamKeyCode());
         return value == null ? null : value.getValue();
     }
 

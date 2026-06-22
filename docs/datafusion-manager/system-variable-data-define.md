@@ -136,19 +136,19 @@ COMMENT ON COLUMN system_variable_info.update_time IS '修改时间';
 
 ### 6.1 内置时间变量备注约定
 
-内置时间变量在 `system_variable_info` 中作为变量目录和前端提示使用。`code` 使用内置程序参数键，`name` 使用用户表达式参数名，运行期真实值由调度上下文派生。
+内置时间变量在 `system_variable_info` 中作为变量目录和前端提示使用。`code` 是表达式渲染使用的稳定编码，必须严格等于调度内置变量枚举的 `paramKeyCode`；`name` 是前端展示名称，可使用中文；运行期真实值由调度上下文派生。
 
 | code | name | valueType | 默认 value | remark 要求 |
 |------|------|-----------|------------|-------------|
-| `_now_time_` | `now_time` | `LONG` | 无 | 当前系统时间，格式为毫秒时间戳，例如 `1772012833904`。 |
-| `_now_date_` | `now_date` | `STRING` | 无 | 当前系统日期，格式为 `yyyyMMddHHmmss`，例如 `20260620100353`。 |
-| `_schedule_time_` | `schedule_time` | `LONG` | 无 | 原始调度时间，格式为毫秒时间戳，例如 `1772012833904`。 |
-| `_biz_align_` | `biz_align` | `STRING` | `original` | 业务时间对齐方式，格式为小写下划线编码。枚举格式见本节后续说明。 |
-| `_biz_time_` | `biz_time` | `LONG` | 无 | 业务时间，格式为毫秒时间戳；由 `schedule_time` 按 `biz_align` 对齐后生成。 |
-| `_biz_date_` | `biz_date` | `STRING` | 无 | 业务日期，格式为 `yyyyMMddHHmmss`；由 `biz_time` 格式化后生成。 |
-| `_event_align_` | `event_align` | `STRING` | `original` | 事件时间对齐方式，格式为小写下划线编码。枚举格式见本节后续说明。 |
-| `_event_time_` | `event_time` | `LONG` | 无 | 事件匹配时间，格式为毫秒时间戳；由 `schedule_time` 按 `event_align` 对齐后生成。 |
-| `_event_date_` | `event_date` | `STRING` | 无 | 事件日期，格式为 `yyyyMMddHHmmss`；由 `event_time` 格式化后生成。 |
+| `_now_time_` | 当前时间戳 | `LONG` | 无 | 当前系统时间，格式为毫秒时间戳，例如 `1772012833904`。 |
+| `_now_date_` | 当前日期 | `STRING` | 无 | 当前系统日期，格式为 `yyyyMMddHHmmss`，例如 `20260620100353`。 |
+| `_schedule_time_` | 调度时间戳 | `LONG` | 无 | 原始调度时间，格式为毫秒时间戳，例如 `1772012833904`。 |
+| `_biz_align_` | 业务时间对齐枚举 | `STRING` | `original` | 业务时间对齐方式，格式为小写下划线编码。枚举格式见本节后续说明。 |
+| `_biz_time_` | 业务时间戳 | `LONG` | 无 | 业务时间，格式为毫秒时间戳；由 `_schedule_time_` 按 `_biz_align_` 对齐后生成。 |
+| `_biz_date_` | 业务日期 | `STRING` | 无 | 业务日期，格式为 `yyyyMMddHHmmss`；由 `_biz_time_` 格式化后生成。 |
+| `_event_align_` | 事件时间对齐枚举 | `STRING` | `original` | 事件时间对齐方式，格式为小写下划线编码。枚举格式见本节后续说明。 |
+| `_event_time_` | 事件时间戳 | `LONG` | 无 | 事件匹配时间，格式为毫秒时间戳；由 `_schedule_time_` 按 `_event_align_` 对齐后生成。 |
+| `_event_date_` | 事件日期 | `STRING` | 无 | 事件日期，格式为 `yyyyMMddHHmmss`；由 `_event_time_` 格式化后生成。 |
 
 `_biz_align_` 和 `_event_align_` 复用同一套 `TimeAlignmentEnum` 枚举。基础枚举值包括：
 

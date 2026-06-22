@@ -6,8 +6,7 @@ package com.datafusion.scheduler.master.variable;
  * <p>
  * 统一管理 Scheduler 运行期内置变量：
  * <ul>
- *   <li>paramKey：系统变量目录编码，如 _now_time_</li>
- *   <li>paramName：表达式中使用的变量名，如 now_time</li>
+ *   <li>paramKeyCode：系统变量编码，也是表达式中使用的稳定渲染标识，如 _now_time_</li>
  * </ul>
  *
  * @author lanvendar
@@ -19,61 +18,55 @@ public enum SchedulerBuiltinVariableEnum {
     /**
      * 当前时间（毫秒）.
      */
-    NOW_TIME("_now_time_", "now_time"),
+    NOW_TIME("_now_time_"),
 
     /**
      * 当前日期（yyyyMMddHHmmss）.
      */
-    NOW_DATE("_now_date_", "now_date"),
+    NOW_DATE("_now_date_"),
 
     /**
      * 原始调度时间（毫秒）.
      */
-    SCHEDULE_TIME("_schedule_time_", "schedule_time"),
+    SCHEDULE_TIME("_schedule_time_"),
 
     /**
      * 业务时间对齐格式.
      */
-    BIZ_ALIGN("_biz_align_", "biz_align"),
+    BIZ_ALIGN("_biz_align_"),
 
     /**
      * 业务时间（毫秒）.
      */
-    BIZ_TIME("_biz_time_", "biz_time"),
+    BIZ_TIME("_biz_time_"),
 
     /**
      * 业务日期（yyyyMMddHHmmss）.
      */
-    BIZ_DATE("_biz_date_", "biz_date"),
+    BIZ_DATE("_biz_date_"),
 
     /**
      * 事件时间对齐格式.
      */
-    EVENT_ALIGN("_event_align_", "event_align"),
+    EVENT_ALIGN("_event_align_"),
 
     /**
      * 事件时间（毫秒）.
      */
-    EVENT_TIME("_event_time_", "event_time"),
+    EVENT_TIME("_event_time_"),
 
     /**
      * 事件日期（yyyyMMddHHmmss）.
      */
-    EVENT_DATE("_event_date_", "event_date");
+    EVENT_DATE("_event_date_");
 
     /**
      * 内置变量编码.
      */
-    private final String paramKey;
+    private final String paramKeyCode;
 
-    /**
-     * 表达式变量名.
-     */
-    private final String paramName;
-
-    SchedulerBuiltinVariableEnum(String paramKey, String paramName) {
-        this.paramKey = paramKey;
-        this.paramName = paramName;
+    SchedulerBuiltinVariableEnum(String paramKeyCode) {
+        this.paramKeyCode = paramKeyCode;
     }
 
     /**
@@ -81,49 +74,22 @@ public enum SchedulerBuiltinVariableEnum {
      *
      * @return 内置变量编码
      */
-    public String getParamKey() {
-        return paramKey;
+    public String getParamKeyCode() {
+        return paramKeyCode;
     }
 
     /**
-     * 获取表达式变量名.
+     * 根据参数编码获取枚举.
      *
-     * @return 表达式变量名
-     */
-    public String getParamName() {
-        return paramName;
-    }
-
-    /**
-     * 根据参数键获取枚举.
-     *
-     * @param paramKey 参数键
+     * @param paramKeyCode 参数编码
      * @return 枚举值
      */
-    public static SchedulerBuiltinVariableEnum getByParamKey(String paramKey) {
-        if (paramKey == null) {
+    public static SchedulerBuiltinVariableEnum getByParamKeyCode(String paramKeyCode) {
+        if (paramKeyCode == null) {
             return null;
         }
         for (SchedulerBuiltinVariableEnum variable : values()) {
-            if (variable.getParamKey().equals(paramKey)) {
-                return variable;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * 根据参数名获取枚举.
-     *
-     * @param paramName 参数名
-     * @return 枚举值
-     */
-    public static SchedulerBuiltinVariableEnum getByParamName(String paramName) {
-        if (paramName == null) {
-            return null;
-        }
-        for (SchedulerBuiltinVariableEnum variable : values()) {
-            if (variable.getParamName().equals(paramName)) {
+            if (variable.getParamKeyCode().equals(paramKeyCode)) {
                 return variable;
             }
         }

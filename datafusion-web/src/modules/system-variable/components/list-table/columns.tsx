@@ -22,6 +22,7 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<VariableI
     },
     { title: "值类型", dataIndex: "valueType", key: "valueType", width: 130 },
     { title: "变量值", dataIndex: "value", key: "value", width: 220, ellipsis: true },
+    { title: "参数备注", dataIndex: "remark", key: "remark", width: 260, ellipsis: true },
     { title: "更新人", dataIndex: "updater", key: "updater", width: 120 },
     { title: "更新时间", dataIndex: "updateTime", key: "updateTime", width: 180 },
     {

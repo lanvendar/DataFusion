@@ -29,6 +29,7 @@ export const demoVariableRows: VariableItem[] = [
     type: "SYSTEM",
     valueType: "EXPRESSION",
     value: "${yyyyMMdd-1}",
+    remark: "业务日期默认取前一天，支持按调度上下文动态计算。",
     updater: "scheduler",
     updateTime: "2026-05-25 09:30:00",
   },

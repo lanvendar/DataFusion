@@ -7,7 +7,7 @@
 当前调度参数模块已经具备三类能力：
 
 - 变量渲染：将运行期变量替换到 SQL、JSON 或普通文本中。
-- 内置时间函数：基于 `schedule_time`、`biz_align`、`event_align` 派生业务时间、事件时间、日期字符串和时间戳。
+- 内置时间函数：基于 `_schedule_time_`、`_biz_align_`、`_event_align_` 派生业务时间、事件时间、日期字符串和时间戳。
 - 表达式扩展：后续计划接入 Java Aviator，用于承载更复杂的用户表达式。
 
 旧实现中，变量、函数和表达式分别散落在 `#{var}`、`#[DAY(...)]`、`#[TIMESTAMP(...)]` 等语法中，内置时间逻辑也分布在 `BuiltinParamResolver`、`ExpPlaceholderUtils`、`AbstractDateBuiltinFunc`、`FlowInstance` 和 `TaskInstance`。这会导致：
@@ -24,7 +24,7 @@
 - 保留现有业务能力，不保留旧语法兼容包袱。
 - 变量、函数、表达式使用统一的 `#...` 风格，但语义边界必须清楚。
 - 运行期时间语义只在一个地方计算，调用方只读取结果。
-- `biz` 与 `event` 时间彻底解耦，`event_time` 不再依赖 `biz_align`。
+- `biz` 与 `event` 时间彻底解耦，`_event_time_` 不再依赖 `_biz_align_`。
 - 先完成设计文档，再按阶段迁移代码；迁移前不修改 `datafusion-common/template` 或调度参数使用方。
 
 ## 3. 改造边界
@@ -58,8 +58,8 @@
 示例：
 
 ```text
-#(biz_date)
-#(event_time)
+#(_biz_date_)
+#(_event_time_)
 #(table_name)
 ```
 
@@ -67,7 +67,7 @@
 
 - `#(...)` 仅表示变量输出。
 - 括号内第一版只支持普通变量名，不支持 `#(task.name)` 这类属性访问。
-- 不支持 `#(biz_date, "-2M", "MS", "yyyyMMdd")` 这类隐式日期函数写法。
+- 不支持 `#(_biz_date_, "-2M", "MS", "yyyyMMdd")` 这类隐式日期函数写法。
 - 日期计算和格式化必须使用 `#day(...)`。
 - 变量不存在时保留原 token 透传，例如 `#(unknown_var)` 输出仍为 `#(unknown_var)`。
 - `_变量_` 形式的变量均视为系统内置变量，由平台定义和维护。
@@ -79,15 +79,15 @@
 示例：
 
 ```text
-#day(biz_date)
-#day(event_date, "-1D", "yyyyMMdd")
-#timestamp(event_time)
+#day(_biz_date_)
+#day(_event_date_, "-1D", "yyyyMMdd")
+#timestamp(_event_time_)
 ```
 
 规则：
 
 - `#day(...)`、`#timestamp(...)` 属于内置时间函数。
-- 第一个参数可以是内置时间变量语义，例如 `biz_date`、`event_date`、`schedule_time`。
+- 第一个参数可以是内置时间变量编码，例如 `_biz_date_`、`_event_date_`、`_schedule_time_`。
 - 普通内置函数参数按逗号分隔。
 - 普通内置函数参数只支持变量名、字符串字面量和数字字面量。
 - 字符串参数只支持双引号。
@@ -155,7 +155,7 @@ base -> offset -> suffix -> pattern
 示例：
 
 ```text
-#expr(biz_time > event_time ? biz_time : event_time)
+#expr(_biz_time_ > _event_time_ ? _biz_time_ : _event_time_)
 #expr(score > 90 ? "high" : "normal")
 #expr(string.startsWith(task_name, "ods_"))
 ```
@@ -175,7 +175,7 @@ base -> offset -> suffix -> pattern
 如果需要在表达式中调用日期能力，后续通过 Aviator 自定义函数承载，例如：
 
 ```text
-#expr(df_day(score > 90 ? biz_time : event_time, "yyyyMMdd"))
+#expr(df_day(score > 90 ? _biz_time_ : _event_time_, "yyyyMMdd"))
 ```
 
 ## 9. 内置时间变量
@@ -184,24 +184,24 @@ base -> offset -> suffix -> pattern
 
 统一规则：
 
-- `schedule_time` 优先使用 `PlaceholderContext.scheduleTime`，为空时从变量环境读取。
-- `biz_align` 和 `event_align` 默认值均为 `original`。
-- `biz_align` 与 `event_align` 独立生效。
-- `event_time` 不依赖 `biz_align`。
+- `_schedule_time_` 优先使用 `PlaceholderContext.scheduleTime`，为空时从变量环境读取。
+- `_biz_align_` 和 `_event_align_` 默认值均为 `original`。
+- `_biz_align_` 与 `_event_align_` 独立生效。
+- `_event_time_` 不依赖 `_biz_align_`。
 - `xxx_time` 变量统一为毫秒时间戳 `Long` 语义。
 - `xxx_date` 变量统一为字符串格式，默认 Java 日期格式为 `yyyyMMddHHmmss`。
-- `biz_time`、`biz_date`、`event_time`、`event_date`、`now_time`、`now_date` 是运行期派生内置变量，由系统覆盖生成。
+- `_biz_time_`、`_biz_date_`、`_event_time_`、`_event_date_`、`_now_time_`、`_now_date_` 是运行期派生内置变量，由系统覆盖生成。
 - 非法 `align` 按函数使用错误抛错。
 
 业务语义不变清单：
 
-- `schedule_time` 可以来自上下文，也可以来自变量环境，上下文优先。
-- `biz_time` 由 `schedule_time + biz_align` 派生。
-- `event_time` 由 `schedule_time + event_align` 派生。
-- `biz_date` 由 `biz_time` 格式化得到。
-- `event_date` 由 `event_time` 格式化得到。
-- `now_time` 为当前系统毫秒时间戳。
-- `now_date` 为当前系统时间格式化结果。
+- `_schedule_time_` 可以来自上下文，也可以来自变量环境，上下文优先。
+- `_biz_time_` 由 `_schedule_time_ + _biz_align_` 派生。
+- `_event_time_` 由 `_schedule_time_ + _event_align_` 派生。
+- `_biz_date_` 由 `_biz_time_` 格式化得到。
+- `_event_date_` 由 `_event_time_` 格式化得到。
+- `_now_time_` 为当前系统毫秒时间戳。
+- `_now_date_` 为当前系统时间格式化结果。
 - `#day(...)` 和 `#timestamp(...)` 必须覆盖旧 `DAY` / `TIMESTAMP` 的日期偏移、边界取值和格式化能力。
 
 ## 10. 错误策略
@@ -241,7 +241,7 @@ datafusion-scheduler-master/src/main/java/com/datafusion/scheduler/master/variab
 - `#day(...)`、`#timestamp(...)` 的无调度语义函数实现。
 - 通用编排接口。
 
-`datafusion-common` 不负责生成 `schedule_time`、`biz_align`、`event_align`、`biz_time`、`event_time` 等调度运行期变量，也不维护调度内置变量目录。原因是这些变量不是表达式引擎的通用能力，而是 Scheduler 运行时契约。
+`datafusion-common` 不负责生成 `_schedule_time_`、`_biz_align_`、`_event_align_`、`_biz_time_`、`_event_time_` 等调度运行期变量，也不维护调度内置变量目录。原因是这些变量不是表达式引擎的通用能力，而是 Scheduler 运行时契约。
 
 依赖方向应保持：
 
@@ -281,7 +281,7 @@ datafusion-scheduler-master/src/main/java/com/datafusion/scheduler/master/variab
 调度变量层职责：
 
 - 将调度上下文转换为 `common.variable` 的渲染上下文。
-- 注入 `schedule_time`、`biz_align`、`event_align` 等调度内置变量。
+- 注入 `_schedule_time_`、`_biz_align_`、`_event_align_` 等调度内置变量。
 - 维护调度领域变量目录枚举。
 - 调用 `common.variable` 提供的通用 renderer 和 `day` / `timestamp` 函数。
 - 保证 `FlowInstance`、`TaskInstance` 只读取统一求值结果，不再各自实现时间解析或兜底计算。
@@ -294,17 +294,17 @@ datafusion-scheduler-master/src/main/java/com/datafusion/scheduler/master/variab
 
 | 对象 | 所属模块 | 职责 |
 |------|----------|------|
-| `SchedulerBuiltinVariableEnum` | `datafusion-scheduler-master` | 定义调度内置变量 key/name |
+| `SchedulerBuiltinVariableEnum` | `datafusion-scheduler-master` | 定义调度内置变量 `paramKeyCode` |
 | `system_variable_info` 初始化数据 | `datafusion-manager` | 提供系统变量目录、默认值和说明 |
 | `system-variable-data-define.md` | `docs/datafusion-manager` | 记录系统变量数据结构和初始化约定 |
 
 约束：
 
-- `system_variable_info.code` 必须严格等于内置变量枚举的 `paramKey`。
-- `system_variable_info.name` 必须严格等于内置变量枚举的 `paramName`。
+- `system_variable_info.code` 必须严格等于内置变量枚举的 `paramKeyCode`，也是表达式渲染使用的稳定编码。
+- `system_variable_info.name` 是前端展示名称，可使用中文，不参与变量渲染。
 - `value_type`、默认 `value` 和 `remark` 由 `system-variable-data-define.md` 与 `init_data.sql` 维护，不放入调度枚举。
 - 变量目录不表达运行期值，运行期值由变量求值层生成。
-- 复制任务参数时，是否过滤解析器生成变量通过 `SchedulerBuiltinVariableEnum.getByParamName(...)` 和变量类型共同判断，不额外引入 `generated` 字段。
+- 复制任务参数时，是否过滤解析器生成变量通过 `SchedulerBuiltinVariableEnum.getByParamKeyCode(...)` 和变量类型共同判断，不额外引入 `generated` 字段。
 
 ### 12.2 变量求值层
 
@@ -317,7 +317,7 @@ datafusion-scheduler-master/src/main/java/com/datafusion/scheduler/master/variab
 | `VariableRenderContext` | `datafusion-common` | 通用渲染上下文，只持有 `Map<String, Variable>` |
 | `SqlVariableRenderContext` | `datafusion-common` | SQL 模板变量渲染上下文，持有 `templateSqlTime` |
 | `VariableResolver` | `datafusion-common` | 定义变量环境预处理接口，不包含调度实现 |
-| `SchedulerBuiltinTimeResolver` | `datafusion-scheduler-master` | 统一解析 `schedule_time`、`biz_align`、`event_align` 和派生时间 |
+| `SchedulerBuiltinTimeResolver` | `datafusion-scheduler-master` | 统一解析 `_schedule_time_`、`_biz_align_`、`_event_align_` 和派生时间 |
 | `SchedulerVariableResolver` | `datafusion-scheduler-master` | 编排调度内置变量解析并写回变量环境 |
 | `PlaceholderContext` | `datafusion-scheduler-master` | 继承 `VariableRenderContext`，承载 `scheduleTime`，不再放 `biz/event` 定制字段 |
 
@@ -325,7 +325,7 @@ datafusion-scheduler-master/src/main/java/com/datafusion/scheduler/master/variab
 
 - `datafusion-common` 只定义 `VariableResolver` 接口，不内置调度变量解析实现。
 - `SchedulerVariableResolver` 不直接散写 `biz/event` 两套时间计算逻辑，应委托 `SchedulerBuiltinTimeResolver`。
-- `FlowInstance` 和 `TaskInstance` 只读取统一求值结果，不在缺少 `event_time` 时基于 `schedule_time` 和 `event_align` 兜底计算。
+- `FlowInstance` 和 `TaskInstance` 只读取统一求值结果，不在缺少 `_event_time_` 时基于 `_schedule_time_` 和 `_event_align_` 兜底计算。
 - `FlowInstance` 和 `TaskInstance` 不持有 `SchedulerBuiltinTimeResolver`。
 - 派生变量由解析器生成并覆盖同名输入。
 - 变量字段统一使用 `Map<String, Variable>`，其中 `Variable` 来自 `datafusion-common-data`。
@@ -381,7 +381,7 @@ Token 扫描层负责从普通 SQL、JSON、文本中识别 `#...` 片段。
 - `DayVariableFunction`、`TimestampVariableFunction` 可以被 scheduler variable 和 JFinal SQL 模板共同复用。
 - `AviatorExpressionEngine` 使用独立变量环境，不直接暴露 `Variable` 对象。
 - `datafusion-common` 可以提供默认函数注册表，但只注册无调度语义的 `day`、`timestamp`。
-- `now_time`、`now_date`、`biz_time`、`biz_date`、`event_time`、`event_date`、`schedule_time`、`biz_align`、`event_align` 均不作为 SQL 模板通用变量复用。
+- `_now_time_`、`_now_date_`、`_biz_time_`、`_biz_date_`、`_event_time_`、`_event_date_`、`_schedule_time_`、`_biz_align_`、`_event_align_` 均不作为 SQL 模板通用变量复用。
 
 ### 12.5 编排层
 
@@ -474,20 +474,20 @@ SchedulerVariableFacade.render(text, placeholderContext)
 - `com.datafusion.scheduler.master.param` 迁移为 `com.datafusion.scheduler.master.variable`。
 - `com.datafusion.scheduler.master.param.builtin` 合并到 `com.datafusion.scheduler.master.variable`。
 - `BuiltinVariableEnum` 下沉并改名为 `SchedulerBuiltinVariableEnum`。
-- `SchedulerBuiltinVariableEnum` 仅保留 `paramKey`、`paramName`。
+- `SchedulerBuiltinVariableEnum` 仅保留 `paramKeyCode`，不维护展示名称。
 - `SchedulerVariableResolver` 使用 `SchedulerBuiltinTimeResolver`。
 - `FlowInstance` 和 `TaskInstance` 使用统一时间求值结果。
 - 非法 align 改为抛错。
-- `event_time` 只依赖 `event_align`。
+- `_event_time_` 只依赖 `_event_align_`。
 
 验收：
 
-- `schedule_time` 来自 `context.scheduleTime`。
-- `schedule_time` 来自变量环境。
-- `biz_align` 默认 `original`。
-- `event_align` 默认 `original`。
+- `_schedule_time_` 来自 `context.scheduleTime`。
+- `_schedule_time_` 来自变量环境。
+- `_biz_align_` 默认 `original`。
+- `_event_align_` 默认 `original`。
 - 非法 align 抛错。
-- `event_time` 不依赖 `biz_align`。
+- `_event_time_` 不依赖 `_biz_align_`。
 - `xxx_time` 是毫秒时间戳。
 - `xxx_date` 是 `yyyyMMddHHmmss` 字符串。
 
@@ -511,16 +511,16 @@ SchedulerVariableFacade.render(text, placeholderContext)
 
 验收：
 
-- `#(biz_date)` 渲染变量值。
+- `#(_biz_date_)` 渲染变量值。
 - `#(unknown_var)` 保留原 token。
 - `#unknown(...)` 抛错。
-- `#day(biz_date, "yyyyMMdd")` 渲染日期。
-- `#day(biz_date, "-2M")` 支持 offset 简写。
-- `#day(biz_date, "-2M", "MS")` 支持 offset + suffix。
-- `#day(biz_date, "-2M", "MS", "yyyyMMdd")` 支持完整日期规则。
-- `#timestamp(event_time)` 渲染时间戳。
-- `#(biz_date, "-2M", "MS", "yyyyMMdd")` 不被支持。
-- `#day(score > 90 ? biz_time : event_time, "yyyyMMdd")` 不被支持。
+- `#day(_biz_date_, "yyyyMMdd")` 渲染日期。
+- `#day(_biz_date_, "-2M")` 支持 offset 简写。
+- `#day(_biz_date_, "-2M", "MS")` 支持 offset + suffix。
+- `#day(_biz_date_, "-2M", "MS", "yyyyMMdd")` 支持完整日期规则。
+- `#timestamp(_event_time_)` 渲染时间戳。
+- `#(_biz_date_, "-2M", "MS", "yyyyMMdd")` 不被支持。
+- `#day(score > 90 ? _biz_time_ : _event_time_, "yyyyMMdd")` 不被支持。
 
 ### 13.5 第四阶段：SQL 模板用法统一
 
@@ -529,7 +529,7 @@ SchedulerVariableFacade.render(text, placeholderContext)
 - `datafusion-common/template` 的 `#day` 用法与变量表达式引擎使用同一参数顺序。
 - `DateCalDirective` 复用 common 的 `DayVariableFunction` 或同一底层日期函数计算逻辑。
 - SQL 模板不再保留旧四参顺序。
-- SQL 模板不复用 scheduler 内置变量，不自动注入 `now_time`、`now_date`、`biz_time`、`biz_date`、`event_time`、`event_date`、`schedule_time`、`biz_align`、`event_align`。
+- SQL 模板不复用 scheduler 内置变量，不自动注入 `_now_time_`、`_now_date_`、`_biz_time_`、`_biz_date_`、`_event_time_`、`_event_date_`、`_schedule_time_`、`_biz_align_`、`_event_align_`。
 - SQL 模板调用 common 日期函数时，无参 `#day()` 的默认时间使用 `SqlVariableRenderContext.templateSqlTime`。
 - Scheduler 调用 common 日期函数时，无参 `#day()` 的默认时间使用 `PlaceholderContext.scheduleTime`。
 
@@ -572,8 +572,8 @@ SchedulerVariableFacade.render(text, placeholderContext)
 验收：
 
 - `#expr(score > 90 ? "high" : "normal")`。
-- `#expr(biz_time > event_time ? biz_time : event_time)`。
-- `#expr(df_day(biz_time, "yyyyMMdd"))`。
+- `#expr(_biz_time_ > _event_time_ ? _biz_time_ : _event_time_)`。
+- `#expr(df_day(_biz_time_, "yyyyMMdd"))`。
 - 表达式中字符串包含逗号时不被外层拆分。
 
 ## 14. 待确认问题

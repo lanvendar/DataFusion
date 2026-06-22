@@ -11,6 +11,7 @@ export interface VariableItem {
   type: string;
   valueType: string;
   value?: string;
+  remark?: string;
   creator?: string;
   updater?: string;
   createTime?: string;
@@ -45,6 +46,7 @@ export interface VariableSaveReq {
   name?: string;
   valueType?: string;
   value?: string;
+  remark?: string;
 }
 
 export type VariableFormMode = "add" | "edit";

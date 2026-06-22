@@ -138,7 +138,7 @@ public class SchedulerBuiltinTimeResolver {
         if (variables == null) {
             return null;
         }
-        Variable target = variables.get(variable.getParamName());
+        Variable target = variables.get(variable.getParamKeyCode());
         return target == null ? null : target.getValue();
     }
 

@@ -65,6 +65,9 @@ export function VariableForm({
         <Form.Item name="value" label="变量值">
           <Input.TextArea rows={4} placeholder="请输入变量值" />
         </Form.Item>
+        <Form.Item name="remark" label="参数备注">
+          <Input.TextArea disabled={isSystemVariable} rows={3} placeholder="请输入参数备注" />
+        </Form.Item>
       </Form>
     </Drawer>
   );
