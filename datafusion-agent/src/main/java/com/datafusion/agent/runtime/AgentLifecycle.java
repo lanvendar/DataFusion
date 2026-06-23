@@ -67,16 +67,6 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
     private final AgentWorkerConfigStore workerConfigStore;
 
     /**
-     * 默认 worker 服务日志目录.
-     */
-    private static final String DEFAULT_WORKER_LOG_DIR = "/opt/datafusion/logs/datafusion-agent";
-
-    /**
-     * 默认 worker 编码.
-     */
-    private static final String DEFAULT_WORKER_CODE = "00000000-0000-0000-0000-000000000001";
-
-    /**
      * 构造函数.
      *
      * @param properties    agent 配置
@@ -120,14 +110,14 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         Worker worker = new Worker();
         long now = System.currentTimeMillis();
         AgentProperties.Worker workerProperties = properties.getWorker();
-        String ip = resolveIp(workerProperties);
-        String hostName = resolveHostName(workerProperties);
+        String resolvedIp = resolveIp(workerProperties);
+        String resolvedHostName = resolveHostName(workerProperties);
         Integer port = workerProperties.getPort();
-        worker.setWorkerCode(resolveWorkerCode(workerProperties, hostName, ip, port));
+        worker.setWorkerCode(resolveWorkerCode(workerProperties, resolvedHostName, resolvedIp, port));
         mergeLocalWorker(worker);
-        worker.setIp(ip);
+        worker.setIp(firstNonBlank(resolvedIp, workerProperties.getDefaultIp()));
         worker.setPort(workerProperties.getPort());
-        worker.setHostName(hostName);
+        worker.setHostName(firstNonBlank(resolvedHostName, workerProperties.getDefaultHostName()));
         worker.setPluginTypes(new ArrayList<>(router.executors().keySet()));
         worker.setStatus(Worker.STATUS_UP);
         worker.setRegisterTime(now);
@@ -167,7 +157,7 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
             String source = hostName + SystemConstant.COLON + ip + SystemConstant.COLON + port;
             return UUID.nameUUIDFromBytes(source.getBytes(StandardCharsets.UTF_8)).toString();
         }
-        return DEFAULT_WORKER_CODE;
+        return workerProperties.getDefaultWorkerCode();
     }
 
     private String resolveIp(AgentProperties.Worker workerProperties) {
@@ -177,7 +167,7 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         try {
             return InetAddress.getLocalHost().getHostAddress();
         } catch (Exception e) {
-            return "127.0.0.1";
+            return null;
         }
     }
 
@@ -188,24 +178,20 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         try {
             return InetAddress.getLocalHost().getHostName();
         } catch (Exception e) {
-            return "localhost";
+            return null;
         }
     }
 
     private String resolveWorkerLogDir() {
-        String systemValue = System.getProperty("LOG_PATH");
-        if (systemValue != null && !systemValue.trim().isEmpty()) {
-            return systemValue;
-        }
-        String envValue = System.getenv("LOG_PATH");
-        if (envValue != null && !envValue.trim().isEmpty()) {
-            return envValue;
-        }
-        return DEFAULT_WORKER_LOG_DIR;
+        return properties.getWorker().getWorkerLogDir();
     }
 
     private boolean isNotBlank(String value) {
         return value != null && !value.trim().isEmpty();
+    }
+
+    private String firstNonBlank(String first, String second) {
+        return isNotBlank(first) ? first : second;
     }
 
     private void mergeSavedWorker(Worker worker, Worker savedWorker) {

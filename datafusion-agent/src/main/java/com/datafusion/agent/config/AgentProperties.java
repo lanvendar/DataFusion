@@ -81,6 +81,31 @@ public class AgentProperties {
         private String hostName;
 
         /**
+         * worker 服务日志目录.
+         */
+        private String workerLogDir = "/opt/datafusion/logs/datafusion-agent";
+
+        /**
+         * worker 本地配置文件路径.
+         */
+        private String workerConfigPath = "/opt/datafusion-builtin/datafusion-agent/worker.config";
+
+        /**
+         * 无法获取 hostName/ip/port 时使用的默认 worker 编码.
+         */
+        private String defaultWorkerCode = "00000000-0000-0000-0000-000000000001";
+
+        /**
+         * 自动获取 IP 失败时使用的默认 IP.
+         */
+        private String defaultIp = "127.0.0.1";
+
+        /**
+         * 自动获取主机名失败时使用的默认主机名.
+         */
+        private String defaultHostName = "localhost";
+
+        /**
          * 未注册到 manager 前是否允许接收任务.
          */
         private boolean acceptTasksBeforeRegistered = false;

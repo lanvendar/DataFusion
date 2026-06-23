@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: ${DATAFUSION_AGENT_PORT:8081}
 
 spring:
   application:
@@ -10,22 +10,34 @@ datafusion:
     modules: ${DATAFUSION_MODULES:${user.dir}}
     worker:
       worker-code: ${DATAFUSION_WORKER_CODE:}
-      port: ${server.port:8081}
-      accept-tasks-before-registered: false
+      ip: ${DATAFUSION_WORKER_IP:}
+      host-name: ${DATAFUSION_WORKER_HOST_NAME:}
+      port: ${DATAFUSION_WORKER_PORT:${server.port}}
+      worker-log-dir: ${DATAFUSION_WORKER_LOG_DIR:/opt/datafusion/logs/datafusion-agent}
+      worker-config-path: ${DATAFUSION_WORKER_CONFIG_PATH:/opt/datafusion-builtin/datafusion-agent/worker.config}
+      accept-tasks-before-registered: ${DATAFUSION_ACCEPT_TASKS_BEFORE_REGISTERED:false}
     manager:
       base-url: ${DATAFUSION_MANAGER_URL:http://datafusion-manager}
-      enabled: true
-      heartbeat-interval-ms: 15000
+      enabled: ${DATAFUSION_MANAGER_ENABLED:true}
+      heartbeat-interval-ms: ${DATAFUSION_HEARTBEAT_INTERVAL_MS:15000}
     storage:
-      logs-dir: logs
+      logs-dir: ${DATAFUSION_LOGS_DIR:logs}
       task-runtime-dir: ${DATAFUSION_TASK_RUNTIME_DIR:/opt/datafusion/task-runtime}
+    state-refresh:
+      interval-ms: ${DATAFUSION_STATE_REFRESH_INTERVAL_MS:15000}
+      unknown-threshold: ${DATAFUSION_STATE_REFRESH_UNKNOWN_THRESHOLD:3}
+    kubernetes:
+      api-server: ${DATAFUSION_K8S_API_SERVER:}
+      token: ${DATAFUSION_K8S_TOKEN:}
+      token-file: ${DATAFUSION_K8S_TOKEN_FILE:/var/run/secrets/kubernetes.io/serviceaccount/token}
+      ca-cert-file: ${DATAFUSION_K8S_CA_CERT_FILE:/var/run/secrets/kubernetes.io/serviceaccount/ca.crt}
     task-pool:
-      core-pool-size: 8
-      max-pool-size: 16
-      queue-capacity: 512
-      keep-alive-seconds: 60
+      core-pool-size: ${DATAFUSION_TASK_POOL_CORE_SIZE:8}
+      max-pool-size: ${DATAFUSION_TASK_POOL_MAX_SIZE:16}
+      queue-capacity: ${DATAFUSION_TASK_POOL_QUEUE_CAPACITY:512}
+      keep-alive-seconds: ${DATAFUSION_TASK_POOL_KEEP_ALIVE_SECONDS:60}
     report-pool:
-      core-pool-size: 2
-      max-pool-size: 4
-      queue-capacity: 512
-      keep-alive-seconds: 60
+      core-pool-size: ${DATAFUSION_REPORT_POOL_CORE_SIZE:2}
+      max-pool-size: ${DATAFUSION_REPORT_POOL_MAX_SIZE:4}
+      queue-capacity: ${DATAFUSION_REPORT_POOL_QUEUE_CAPACITY:512}
+      keep-alive-seconds: ${DATAFUSION_REPORT_POOL_KEEP_ALIVE_SECONDS:60}
