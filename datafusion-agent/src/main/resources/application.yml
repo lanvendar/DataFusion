@@ -1,5 +1,5 @@
 server:
-  port: ${DATAFUSION_AGENT_PORT:8081}
+  port: ${SERVER_PORT:8081}
 
 spring:
   application:
@@ -10,9 +10,9 @@ datafusion:
     modules: ${DATAFUSION_MODULES:${user.dir}}
     worker:
       worker-code: ${DATAFUSION_WORKER_CODE:}
-      ip: ${DATAFUSION_WORKER_IP:}
-      host-name: ${DATAFUSION_WORKER_HOST_NAME:}
-      port: ${DATAFUSION_WORKER_PORT:${server.port}}
+      ip: ${DATAFUSION_AGENT_WORKER_IP:${DATAFUSION_WORKER_IP:}}
+      host-name: ${DATAFUSION_AGENT_WORKER_HOST_NAME:${DATAFUSION_WORKER_HOST_NAME:}}
+      port: ${DATAFUSION_AGENT_WORKER_PORT:${DATAFUSION_WORKER_PORT:${server.port}}}
       worker-log-dir: ${DATAFUSION_WORKER_LOG_DIR:/opt/datafusion/logs/datafusion-agent}
       worker-config-path: ${DATAFUSION_WORKER_CONFIG_PATH:/opt/datafusion-builtin/datafusion-agent/worker.config}
       accept-tasks-before-registered: ${DATAFUSION_ACCEPT_TASKS_BEFORE_REGISTERED:false}
