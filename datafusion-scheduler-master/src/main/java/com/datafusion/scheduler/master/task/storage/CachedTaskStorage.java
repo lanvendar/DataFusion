@@ -92,6 +92,16 @@ public class CachedTaskStorage implements TaskStorage {
     }
 
     @Override
+    public void invalidateTaskInfoByFlowId(String flowId) {
+        this.taskLinkCache.invalidate(flowId);
+        this.taskInfoCache.asMap().entrySet().removeIf(entry -> {
+            TaskInfo taskInfo = entry.getValue();
+            return taskInfo != null && flowId.equals(taskInfo.getFlowId());
+        });
+        this.taskStorage.invalidateTaskInfoByFlowId(flowId);
+    }
+
+    @Override
     public TaskInstance getInstanceById(String taskInsId) {
         return this.taskInstanceCache.get(taskInsId);
     }

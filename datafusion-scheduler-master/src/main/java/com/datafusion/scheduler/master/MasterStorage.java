@@ -38,12 +38,13 @@ public class MasterStorage {
     private final EventStorage eventStorage;
 
     /**
-     * 失效触发器信息及其派生依赖的流程信息缓存.
+     * 失效调度定义信息缓存.
      *
-     * @param payloadId 调度载体id（即 flowId）
+     * @param flowId 流程id
      */
-    public void invalidateTriggerInfo(String payloadId) {
-        triggerStorage.invalidateTriggerInfo(payloadId);
-        flowStorage.invalidateFlowInfo(payloadId);
+    public void invalidateSchedulerInfo(String flowId) {
+        triggerStorage.invalidateTriggerInfo(flowId);
+        flowStorage.invalidateFlowInfo(flowId);
+        taskStorage.invalidateTaskInfoByFlowId(flowId);
     }
 }

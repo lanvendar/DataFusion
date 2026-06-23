@@ -301,8 +301,10 @@ public class MasterService {
         if (triggerInfo != null) {
             triggerInfo.setScheduleFlag(false);
             masterStorage.getTriggerStorage().saveTriggerInfo(triggerInfo);
+            masterStorage.invalidateSchedulerInfo(payloadId);
             log.info("停止调度: payloadId={}", payloadId);
         } else {
+            masterStorage.invalidateSchedulerInfo(payloadId);
             log.warn("停止调度失败,未找到调度信息: payloadId={}", payloadId);
         }
     }

@@ -40,6 +40,14 @@ public interface TaskStorage {
      * @return TaskInfo集合
      */
     List<TaskInfo> getTaskInfoByFlowId(String flowId);
+
+    /**
+     * 失效指定流程的任务定义缓存.
+     *
+     * @param flowId 流程主键id
+     */
+    default void invalidateTaskInfoByFlowId(String flowId) {
+    }
     //endregion
     //region taskInstance处理
 

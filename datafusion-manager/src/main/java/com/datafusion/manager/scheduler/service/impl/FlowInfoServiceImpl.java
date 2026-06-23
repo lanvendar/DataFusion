@@ -403,7 +403,11 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         entity.setPublishState(false);
         entity.setUpdater(HttpUtils.getCurrentUserName());
         entity.setUpdateTime(new Date());
-        return updateById(entity);
+        boolean updated = updateById(entity);
+        if (updated) {
+            invalidateSchedulerInfo(id);
+        }
+        return updated;
     }
 
     @Override
@@ -593,7 +597,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         if (masterService == null) {
             return;
         }
-        masterService.getMasterStorage().invalidateTriggerInfo(flowId.toString());
+        masterService.getMasterStorage().invalidateSchedulerInfo(flowId.toString());
         TriggerInfo triggerInfo = masterService.getMasterStorage().getTriggerStorage().getTriggerInfo(flowId.toString());
         if (triggerInfo == null) {
             log.warn("流程启用后未找到触发器信息, flowId={}", flowId);
@@ -612,6 +616,18 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         MasterService masterService = masterServiceProvider.getIfAvailable();
         if (masterService != null) {
             masterService.stopSchedule(flowId.toString());
+        }
+    }
+
+    /**
+     * 失效运行中 master 的调度定义缓存.
+     *
+     * @param flowId 流程ID
+     */
+    private void invalidateSchedulerInfo(UUID flowId) {
+        MasterService masterService = masterServiceProvider.getIfAvailable();
+        if (masterService != null) {
+            masterService.getMasterStorage().invalidateSchedulerInfo(flowId.toString());
         }
     }
 
