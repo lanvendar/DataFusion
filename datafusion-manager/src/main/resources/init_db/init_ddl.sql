@@ -837,7 +837,7 @@ worker_code varchar(128) NOT NULL, -- worker编码
 host_name varchar(128) NOT NULL, -- 主机名称
 host varchar(45) NOT NULL, -- IP地址
 port int4 NOT NULL, -- 端口
-status int4 NOT NULL, -- 状态：0-下线 1-上线 2-清除
+status int4 NOT NULL, -- 状态：0-下线 1-上线
 "zone" varchar(64) NULL, -- 区域/分组，预留字段
 plugins varchar(256) NULL, -- 组件类型列表，逗号分隔
 register_time timestamp(6) NULL, -- 注册时间
@@ -862,7 +862,7 @@ COMMENT ON COLUMN scheduler_worker_registry.worker_code IS 'worker编码';
 COMMENT ON COLUMN scheduler_worker_registry.host_name IS '主机名称';
 COMMENT ON COLUMN scheduler_worker_registry.host IS 'IP地址';
 COMMENT ON COLUMN scheduler_worker_registry.port IS '端口';
-COMMENT ON COLUMN scheduler_worker_registry.status IS '状态：0-下线 1-上线 2-清除';
+COMMENT ON COLUMN scheduler_worker_registry.status IS '状态：0-下线 1-上线';
 COMMENT ON COLUMN scheduler_worker_registry."zone" IS '区域/分组，预留字段';
 COMMENT ON COLUMN scheduler_worker_registry.plugins IS '组件类型列表，逗号分隔';
 COMMENT ON COLUMN scheduler_worker_registry.register_time IS '注册时间';
