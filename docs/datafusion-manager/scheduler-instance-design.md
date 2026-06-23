@@ -94,11 +94,15 @@ agent 自身服务日志属于 worker 级信息，不进入任务实例 `workerR
 
 - 只迁移 `StatusEnum.isSuccess()` 的流程实例。
 - 非成功流程实例不迁移，任务实例不独立判断状态。
-- 按 `flow_id + publish_version` 保留实时表中 `schedule_time` 最新的一条流程实例。
+- 当 `scheduler_flow_info` 中仍存在对应 `id + publish_version` 的流程定义版本时，按
+  `flow_id + publish_version` 保留实时表中 `schedule_time` 最新的一条流程实例。
+- 当流程实例的 `flow_id + publish_version` 在 `scheduler_flow_info` 中已不存在时，该成功实例不再参与
+  “保留最新一条”规则，需要迁移到历史表。
 - 只处理 `schedule_time is not null` 的调度实例。
 - 同一批归档需要在事务中完成历史表插入和实时表删除。
 
-该约束保证 master 重启恢复仍能从实时表最新 `scheduleTime` 继续调度。
+该约束保证仍存在定义版本的流程，master 重启恢复能从实时表最新 `scheduleTime` 继续调度；已删除或不存在的
+定义版本不再保留实时实例。
 
 ## 非目标
 

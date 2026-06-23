@@ -176,7 +176,7 @@
 |--------|----------|-------|------------|-----------|-------|
 | `SchedulerInstanceQueryDto` | 后端分页过滤 | 查询条件字段 | `String/Long` | 请求内 | 被 Flow/Task 实例查询复用 |
 | `FlowInstanceTaskQueryDto` | 展开流程实例任务 | `flowInstanceId`、`viewType` | `UUID/String` | 请求内 | `viewType` 只决定任务实例表路由 |
-| `SchedulerInstanceArchiveBatch` | 成功实例归档 | `batchSize`、成功状态集合 | `Integer/List<String>` | 定时任务内 | 成功状态集合来自 `StatusEnum.isSuccess()` |
+| `SchedulerInstanceArchiveBatch` | 成功实例归档 | `batchSize`、成功状态集合、流程定义版本存在性 | `Integer/List<String>/Boolean` | 定时任务内 | 成功状态集合来自 `StatusEnum.isSuccess()`；当 `scheduler_flow_info(id, publish_version)` 不存在时，对应成功实例不再保留实时记录 |
 | `TaskInstanceLogDto` | 日志读取响应 | 日志内容和偏移 | `String/Long/Boolean` | 请求内 | 不持久化 |
 | `SchedulerInstanceActionDto` | 流程/任务实例操作 | `flowInstanceId`、`taskInstanceId`、`actionType` | `UUID/String` | 请求内 | 操作入口复用 `ActionType`，Service 根据流程或任务实例加载实时表实体并转换为 scheduler model |
 | `SchedulerInstanceAvailableActionDto` | 流程/任务实例可用操作 | `actionType`、`label`、`confirmRequired` | `String/String/Boolean` | 响应内 | 后端根据实例类型和 `StatusEnum` 统一计算；前端不自行维护状态矩阵 |
@@ -188,7 +188,7 @@
 | `FlowInstanceEntity` | `datafusion-scheduler-master` | master -> manager DB | `status`、`flowDagSnapshot`、运行时间 | `String/JsonNode/Long` | `FlowStorageImpl` 转换并保存 | 运行态落库 |
 | `TaskInstanceEntity` | `datafusion-scheduler-master` / worker result | master/worker -> manager DB | `status`、`workerId`、`workerResult` | `String/UUID/JsonNode` | `TaskStorageImpl` 转换并保存；`status` 使用 `StatusEnum.stateType`；`workerResult` 保存 `TaskResult` | 任务运行态、返回值和日志路径 |
 | `EventInstanceEntity` | `datafusion-scheduler-master` | master -> manager DB | `eventId`、`effectTime`、`eventType` | `UUID/Long/String` | `EventStorageImpl` 转换并保存；`eventType` 使用 `EventTypeEnum.getType()` 的字符串值 | 事件实例 |
-| `FlowInstanceHisEntity` / `TaskInstanceHisEntity` | 归档定时任务 | realtime DB -> his DB | 与实时表一致 | 与实时表一致 | 实时表记录状态满足 `StatusEnum.isSuccess()` 后复制到对应历史表，再删除实时表记录 | 成功实例归档 |
+| `FlowInstanceHisEntity` / `TaskInstanceHisEntity` | 归档定时任务 | realtime DB -> his DB | 与实时表一致 | 与实时表一致 | 实时表记录状态满足 `StatusEnum.isSuccess()` 后复制到对应历史表，再删除实时表记录；仍存在流程定义版本时保留最新实时实例，流程定义版本不存在时不保留 | 成功实例归档 |
 | `TaskInstanceLogDto` | agent / 共享日志目录 | file -> API | `content`、`nextOffset` | `String/Long` | 只按 `TaskResult.workDirPath` 和 `TaskRuntimeFiles` 拼接标准日志文件 | 日志读取 |
 
 ### 2.6 状态 / 枚举模型

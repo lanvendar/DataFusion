@@ -26,6 +26,8 @@ metadata:
     app.kubernetes.io/component: filebrowser
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: datafusion-filebrowser
@@ -36,16 +38,14 @@ spec:
         app.kubernetes.io/name: datafusion-filebrowser
         app.kubernetes.io/component: filebrowser
     spec:
-      securityContext:
-        fsGroup: 1000
-        fsGroupChangePolicy: OnRootMismatch
       containers:
         - name: filebrowser
           image: filebrowser/filebrowser:v2.63.15
           imagePullPolicy: IfNotPresent
+          # File Browser 需要管理 datafusion-shared-data 中 root 创建的任务目录，因此以 root 运行。
           securityContext:
-            runAsUser: 1000
-            runAsGroup: 1000
+            runAsUser: 0
+            runAsGroup: 0
           args:
             - --address
             - 0.0.0.0
