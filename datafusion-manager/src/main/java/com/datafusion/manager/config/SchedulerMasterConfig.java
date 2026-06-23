@@ -2,8 +2,8 @@ package com.datafusion.manager.config;
 
 import com.datafusion.common.options.ConfigOption;
 import com.datafusion.common.options.Options;
+import com.datafusion.manager.scheduler.dao.WorkerRegistryMapper;
 import com.datafusion.manager.scheduler.master.task.HttpMasterTaskOperator;
-import com.datafusion.manager.scheduler.service.WorkerRegistryService;
 import com.datafusion.manager.scheduler.storage.EventStorageImpl;
 import com.datafusion.manager.scheduler.storage.FlowStorageImpl;
 import com.datafusion.manager.scheduler.storage.TaskStorageImpl;
@@ -109,8 +109,8 @@ public class SchedulerMasterConfig {
      */
     @Bean
     @ConditionalOnMissingBean
-    public WorkerStorage schedulerWorkerStorage(WorkerRegistryService workerRegistryService, Options options) {
-        return new CachedWorkerStorage(new WorkerStorageImpl(workerRegistryService), options);
+    public WorkerStorage schedulerWorkerStorage(WorkerRegistryMapper workerRegistryMapper, Options options) {
+        return new CachedWorkerStorage(new WorkerStorageImpl(workerRegistryMapper), options);
     }
 
     /**

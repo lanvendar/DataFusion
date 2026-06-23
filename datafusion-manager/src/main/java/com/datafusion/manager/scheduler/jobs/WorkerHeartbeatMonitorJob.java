@@ -1,13 +1,11 @@
 package com.datafusion.manager.scheduler.jobs;
 
-import com.datafusion.manager.scheduler.service.WorkerRegistryService;
+import com.datafusion.scheduler.worker.WorkerManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
-import java.util.Date;
 
 /**
  * worker 心跳监控定时任务.
@@ -22,9 +20,9 @@ import java.util.Date;
 public class WorkerHeartbeatMonitorJob {
 
     /**
-     * worker 注册Service.
+     * worker 管理器.
      */
-    private final WorkerRegistryService workerRegistryService;
+    private final WorkerManager workerManager;
 
     /**
      * 是否启用 worker 心跳监控.
@@ -46,8 +44,7 @@ public class WorkerHeartbeatMonitorJob {
         if (!enabled) {
             return;
         }
-        Date expireBefore = new Date(System.currentTimeMillis() - heartbeatTimeoutMs);
-        int updated = workerRegistryService.markHeartbeatTimeoutWorkersOffline(expireBefore);
+        int updated = workerManager.timeoutOffline(heartbeatTimeoutMs);
         if (updated > 0) {
             log.info("worker heartbeat monitor marked timeout workers offline, count: {}", updated);
         }

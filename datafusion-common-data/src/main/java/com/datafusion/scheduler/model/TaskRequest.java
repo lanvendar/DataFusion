@@ -31,6 +31,11 @@ public class TaskRequest {
     private String taskName;
 
     /**
+     * 工作节点ID.
+     */
+    private String workerId;
+
+    /**
      * 任务状态.
      */
     private StatusEnum taskState;

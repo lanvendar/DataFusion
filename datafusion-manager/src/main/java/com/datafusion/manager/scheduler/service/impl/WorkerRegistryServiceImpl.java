@@ -22,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -164,98 +163,6 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         return updateById(entity);
     }
 
-    @Override
-    public WorkerRegistryEntity getSchedulableWorkerByCode(String workerCode) {
-        if (StringUtils.isBlank(workerCode)) {
-            return null;
-        }
-        LambdaQueryWrapper<WorkerRegistryEntity> wrapper = buildSchedulableWrapper()
-                .eq(WorkerRegistryEntity::getWorkerCode, workerCode);
-        return baseMapper.selectOne(wrapper);
-    }
-
-    @Override
-    public WorkerRegistryEntity getSchedulableWorkerByHostAndPort(String host, Integer port) {
-        if (StringUtils.isBlank(host) || port == null) {
-            return null;
-        }
-        LambdaQueryWrapper<WorkerRegistryEntity> wrapper = buildSchedulableWrapper()
-                .eq(WorkerRegistryEntity::getPort, port)
-                .and(item -> item.eq(WorkerRegistryEntity::getHost, host)
-                        .or()
-                        .eq(WorkerRegistryEntity::getHostName, host));
-        return baseMapper.selectOne(wrapper);
-    }
-
-    @Override
-    public List<WorkerRegistryEntity> listSchedulableWorkers() {
-        return baseMapper.selectList(buildSchedulableWrapper());
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public int markHeartbeatTimeoutWorkersOffline(Date expireBefore) {
-        if (expireBefore == null) {
-            return 0;
-        }
-        WorkerRegistryEntity entity = new WorkerRegistryEntity();
-        entity.setStatus(Worker.STATUS_DOWN);
-        fillSystemUpdateAudit(entity);
-
-        LambdaQueryWrapper<WorkerRegistryEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(WorkerRegistryEntity::getStatus, Worker.STATUS_UP)
-                .and(item -> item.isNull(WorkerRegistryEntity::getLastHeartbeatTime)
-                        .or()
-                        .lt(WorkerRegistryEntity::getLastHeartbeatTime, expireBefore));
-        return baseMapper.update(entity, wrapper);
-    }
-
-    @Override
-    public WorkerRegistryEntity findForHeartbeat(String workerCode, String host, Integer port) {
-        WorkerRegistryEntity entity = findByWorkerCode(workerCode);
-        if (entity != null) {
-            return entity;
-        }
-        return findByHostAndPort(host, port);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void saveOrUpdateFromWorker(Worker worker) {
-        if (worker == null || StringUtils.isBlank(worker.getId())) {
-            return;
-        }
-        WorkerRegistryEntity existing = findForHeartbeat(worker.getId(), worker.getIp(), worker.getPort());
-        if (existing != null && Worker.STATUS_DELETED.equals(existing.getStatus())) {
-            return;
-        }
-        WorkerRegistryEntity entity = toEntity(worker, existing);
-        if (existing == null) {
-            save(entity);
-        } else {
-            updateById(entity);
-        }
-    }
-
-    @Override
-    public Worker toWorker(WorkerRegistryEntity entity) {
-        if (entity == null) {
-            return null;
-        }
-        Worker worker = new Worker();
-        worker.setId(entity.getWorkerCode());
-        worker.setIp(entity.getHost());
-        worker.setHostName(entity.getHostName());
-        worker.setPort(entity.getPort());
-        worker.setStatus(entity.getStatus());
-        worker.setPluginTypes(splitPlugins(entity.getPlugins()));
-        worker.setRegisterTime(toMillis(entity.getRegisterTime()));
-        worker.setLastHeartbeatTime(toMillis(entity.getLastHeartbeatTime()));
-        worker.setWorkerLogDir(entity.getLogDir());
-        worker.setUpdateTime(toMillis(entity.getUpdateTime()));
-        return worker;
-    }
-
     // region 私有方法
 
     /**
@@ -291,36 +198,6 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         return wrapper;
     }
 
-    /**
-     * 构建可调度查询条件.
-     *
-     * @return 查询条件
-     */
-    private LambdaQueryWrapper<WorkerRegistryEntity> buildSchedulableWrapper() {
-        return new LambdaQueryWrapper<WorkerRegistryEntity>()
-                .eq(WorkerRegistryEntity::getIsActive, ACTIVE)
-                .eq(WorkerRegistryEntity::getStatus, Worker.STATUS_UP);
-    }
-
-    private WorkerRegistryEntity findByWorkerCode(String workerCode) {
-        if (StringUtils.isBlank(workerCode)) {
-            return null;
-        }
-        LambdaQueryWrapper<WorkerRegistryEntity> wrapper = new LambdaQueryWrapper<WorkerRegistryEntity>()
-                .eq(WorkerRegistryEntity::getWorkerCode, workerCode);
-        return baseMapper.selectOne(wrapper);
-    }
-
-    private WorkerRegistryEntity findByHostAndPort(String host, Integer port) {
-        if (StringUtils.isBlank(host) || port == null) {
-            return null;
-        }
-        LambdaQueryWrapper<WorkerRegistryEntity> wrapper = new LambdaQueryWrapper<WorkerRegistryEntity>()
-                .eq(WorkerRegistryEntity::getHost, host)
-                .eq(WorkerRegistryEntity::getPort, port);
-        return baseMapper.selectOne(wrapper);
-    }
-
     private void checkWorkerCodeUnique(String workerCode, UUID excludeId) {
         if (StringUtils.isBlank(workerCode)) {
             return;
@@ -348,37 +225,6 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         if (baseMapper.selectCount(wrapper) > 0) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker地址和端口已存在");
         }
-    }
-
-    private WorkerRegistryEntity toEntity(Worker worker, WorkerRegistryEntity existing) {
-        WorkerRegistryEntity entity = existing != null ? existing : new WorkerRegistryEntity();
-        if (entity.getId() == null) {
-            entity.setId(UUID.randomUUID());
-            fillSystemCreateAudit(entity);
-        } else {
-            fillSystemUpdateAudit(entity);
-        }
-        entity.setWorkerCode(worker.getId());
-        entity.setHost(worker.getIp());
-        entity.setHostName(worker.getHostName());
-        entity.setPort(worker.getPort());
-        entity.setStatus(worker.getStatus());
-        entity.setPlugins(normalizePlugins(joinPlugins(worker.getPluginTypes())));
-        entity.setRegisterTime(toDate(worker.getRegisterTime()));
-        entity.setLastHeartbeatTime(toDate(worker.getLastHeartbeatTime()));
-        if (StringUtils.isNotBlank(worker.getWorkerLogDir())) {
-            entity.setLogDir(worker.getWorkerLogDir());
-        }
-        if (entity.getIsActive() == null) {
-            entity.setIsActive(ACTIVE);
-        }
-        if (entity.getCreateTime() == null) {
-            entity.setCreateTime(new Date());
-        }
-        if (entity.getCreator() == null) {
-            entity.setCreator(HttpUtils.DEFAULT_USER_NAME);
-        }
-        return entity;
     }
 
     private WorkerRegistryDto toDto(WorkerRegistryEntity entity) {
@@ -416,19 +262,6 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         entity.setUpdateTime(new Date());
     }
 
-    private void fillSystemCreateAudit(WorkerRegistryEntity entity) {
-        Date now = new Date();
-        entity.setCreator(HttpUtils.DEFAULT_USER_NAME);
-        entity.setUpdater(HttpUtils.DEFAULT_USER_NAME);
-        entity.setCreateTime(now);
-        entity.setUpdateTime(now);
-    }
-
-    private void fillSystemUpdateAudit(WorkerRegistryEntity entity) {
-        entity.setUpdater(HttpUtils.DEFAULT_USER_NAME);
-        entity.setUpdateTime(new Date());
-    }
-
     private Integer defaultActive(Integer isActive) {
         return isActive == null ? ACTIVE : isActive;
     }
@@ -445,23 +278,6 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         }
     }
 
-    private Date toDate(Long timestamp) {
-        return timestamp == null ? null : new Date(timestamp);
-    }
-
-    private Long toMillis(Date date) {
-        return date == null ? null : date.getTime();
-    }
-
-    private String joinPlugins(List<String> plugins) {
-        if (plugins == null || plugins.isEmpty()) {
-            return null;
-        }
-        return plugins.stream()
-                .filter(StringUtils::isNotBlank)
-                .collect(Collectors.joining(","));
-    }
-
     private String normalizePlugins(String plugins) {
         if (StringUtils.isBlank(plugins)) {
             return null;
@@ -476,14 +292,5 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         return result;
     }
 
-    private List<String> splitPlugins(String plugins) {
-        if (StringUtils.isBlank(plugins)) {
-            return Collections.emptyList();
-        }
-        return Arrays.stream(plugins.split(","))
-                .map(String::trim)
-                .filter(StringUtils::isNotBlank)
-                .collect(Collectors.toList());
-    }
     // endregion
 }

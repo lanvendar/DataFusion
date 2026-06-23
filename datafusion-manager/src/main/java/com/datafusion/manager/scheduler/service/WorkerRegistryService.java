@@ -8,9 +8,7 @@ import com.datafusion.manager.scheduler.dto.WorkerRegistryQueryDto;
 import com.datafusion.manager.scheduler.dto.WorkerRegistrySaveDto;
 import com.datafusion.manager.scheduler.dto.WorkerRegistryUpdateDto;
 import com.datafusion.manager.scheduler.po.WorkerRegistryEntity;
-import com.datafusion.scheduler.model.Worker;
 
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -70,61 +68,4 @@ public interface WorkerRegistryService extends IService<WorkerRegistryEntity> {
      * @return 是否成功
      */
     boolean deleteWorkerRegistry(UUID id);
-
-    /**
-     * 查询可调度 worker.
-     *
-     * @param workerCode worker 编码
-     * @return worker 注册实体
-     */
-    WorkerRegistryEntity getSchedulableWorkerByCode(String workerCode);
-
-    /**
-     * 按 host + port 查询可调度 worker.
-     *
-     * @param host host 或主机名
-     * @param port 端口
-     * @return worker 注册实体
-     */
-    WorkerRegistryEntity getSchedulableWorkerByHostAndPort(String host, Integer port);
-
-    /**
-     * 查询全部可调度 worker.
-     *
-     * @return worker 注册实体列表
-     */
-    List<WorkerRegistryEntity> listSchedulableWorkers();
-
-    /**
-     * 将心跳超时的在线 worker 标记为下线.
-     *
-     * @param expireBefore 超时时间边界
-     * @return 更新数量
-     */
-    int markHeartbeatTimeoutWorkersOffline(Date expireBefore);
-
-    /**
-     * 定位 agent 注册或心跳对应的 worker 注册记录.
-     *
-     * @param workerCode worker 编码
-     * @param host       host
-     * @param port       端口
-     * @return worker 注册实体
-     */
-    WorkerRegistryEntity findForHeartbeat(String workerCode, String host, Integer port);
-
-    /**
-     * 保存或更新 scheduler worker 模型.
-     *
-     * @param worker scheduler worker
-     */
-    void saveOrUpdateFromWorker(Worker worker);
-
-    /**
-     * 转换为 scheduler worker 模型.
-     *
-     * @param entity worker 注册实体
-     * @return scheduler worker
-     */
-    Worker toWorker(WorkerRegistryEntity entity);
 }

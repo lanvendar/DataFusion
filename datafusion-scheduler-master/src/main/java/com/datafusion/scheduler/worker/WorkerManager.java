@@ -65,82 +65,41 @@ public class WorkerManager implements WorkerListener {
             workers.stream().filter(Worker::isAlive).forEach(w -> {
                 Worker worker = new Worker();
                 worker.setId(w.getId());
+                worker.setWorkerCode(w.getWorkerCode());
                 worker.setIp(w.getIp());
                 worker.setPort(w.getPort());
                 worker.setHostName(w.getHostName());
                 worker.setPluginTypes(w.getPluginTypes());
                 worker.setWorkerLogDir(w.getWorkerLogDir());
-                onInactive(worker);
+                offline(worker.getId());
             });
         }
     }
 
     // endregion
 
-    // region 工作节点上下线监听.
-
-    /**
-     * 节点上线.
-     *
-     * @param workerNode 节点
-     */
     @Override
-    public void onActive(Worker workerNode) {
-        log.info("节点上线：{}", workerNode);
-        long now = System.currentTimeMillis();
-        Worker worker = workerNode.getId() == null ? null : storage.getWorker(workerNode.getId());
-        if (worker == null) {
-            worker = storage.getWorker(workerNode.getIp(), workerNode.getPort());
-        }
-        if (worker == null) {
-            worker = storage.getWorker(workerNode.getHostName(), workerNode.getPort());
-        }
-        if (null == worker) {
-            worker = new Worker();
-            worker.setId(workerNode.getId());
-            worker.setRegisterTime(now);
-        } else if (worker.getRegisterTime() == null) {
-            worker.setRegisterTime(now);
-        }
-
-        if (workerNode.getId() != null) {
-            worker.setId(workerNode.getId());
-        }
-        worker.setIp(workerNode.getIp());
-        worker.setPort(workerNode.getPort());
-        worker.setStatus(Worker.STATUS_UP);
-        worker.setHostName(workerNode.getHostName());
-        worker.setPluginTypes(workerNode.getPluginTypes());
-        worker.setLastHeartbeatTime(now);
-        worker.setUpdateTime(now);
-
-        storage.updateWorker(worker);
+    public Worker register(Worker worker) {
+        log.info("注册 worker：{}", worker);
+        return storage.register(worker);
     }
 
-    /**
-     * 节点下线.
-     *
-     * @param node 节点
-     */
     @Override
-    public void onInactive(Worker node) {
-        log.info("节点下线：{}", node);
-        Worker worker = node.getId() == null ? null : storage.getWorker(node.getId());
-        if (worker == null) {
-            worker = storage.getWorker(node.getIp(), node.getPort());
-        }
-        if (worker == null) {
-            worker = storage.getWorker(node.getHostName(), node.getPort());
-        }
-        if (null != worker && worker.getStatus().equals(Worker.STATUS_UP)) {
-            worker.setStatus(Worker.STATUS_DOWN);
-            worker.setUpdateTime(System.currentTimeMillis());
-            storage.updateWorker(worker);
-
-            // TODO failOver.
-        }
+    public Worker heartbeat(String workerId, Long lastHeartbeatTime) {
+        return storage.heartbeat(workerId, lastHeartbeatTime);
     }
-    // endregion
+
+    @Override
+    public Worker offline(String workerId) {
+        Worker worker = storage.offline(workerId);
+        // TODO failOver.
+        return worker;
+    }
+
+    @Override
+    public int timeoutOffline(Long timeoutMs) {
+        return storage.timeoutOffline(timeoutMs);
+    }
 
     /**
      * 根据工作节点ID获取工作节点.

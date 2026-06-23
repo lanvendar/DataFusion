@@ -1,10 +1,11 @@
-package com.datafusion.manager.scheduler.rpc;
+package com.datafusion.manager.scheduler.master.worker;
 
 import com.datafusion.common.exception.ErrorCodeEnum;
 import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.scheduler.model.Worker;
 import com.datafusion.scheduler.worker.WorkerManager;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,12 +35,11 @@ public class WorkerRpcProvider {
      * @return 是否成功
      */
     @PostMapping("/register")
-    public Result<Boolean> register(@RequestBody Worker worker) {
+    public Result<Worker> register(@RequestBody Worker worker) {
         if (worker == null) {
             return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker不能为空");
         }
-        workerManager.onActive(worker);
-        return Result.success(true);
+        return Result.success(workerManager.register(worker));
     }
 
     /**
@@ -49,12 +49,14 @@ public class WorkerRpcProvider {
      * @return 是否成功
      */
     @PostMapping("/heartbeat")
-    public Result<Boolean> heartbeat(@RequestBody Worker worker) {
+    public Result<Worker> heartbeat(@RequestBody Worker worker) {
         if (worker == null) {
             return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker不能为空");
         }
-        workerManager.onActive(worker);
-        return Result.success(true);
+        if (StringUtils.isBlank(worker.getId())) {
+            return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "workerId不能为空");
+        }
+        return Result.success(workerManager.heartbeat(worker.getId(), worker.getLastHeartbeatTime()));
     }
 
     /**
@@ -64,11 +66,13 @@ public class WorkerRpcProvider {
      * @return 是否成功
      */
     @PostMapping("/offline")
-    public Result<Boolean> offline(@RequestBody Worker worker) {
+    public Result<Worker> offline(@RequestBody Worker worker) {
         if (worker == null) {
             return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker不能为空");
         }
-        workerManager.onInactive(worker);
-        return Result.success(true);
+        if (StringUtils.isBlank(worker.getId())) {
+            return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "workerId不能为空");
+        }
+        return Result.success(workerManager.offline(worker.getId()));
     }
 }

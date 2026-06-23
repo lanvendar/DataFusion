@@ -129,7 +129,7 @@ time:1780000001000|workerId:{workerId}|appId:123|status:RUN_SUCCESS|exitCode:0
 - `workDirPath` 统一表示任务运行目录，manager 只通过该目录读取标准任务日志。
 - `stdout.log`、`stderr.log`、`state.log` 是 agent 标准任务日志，文件名由 `TaskRuntimeFiles` 统一定义。
 - `TaskResult.result.pluginLogUri` 表示插件日志入口。
-- `TaskResult.result` 不返回 agent 自身服务日志入口；worker 服务日志目录由 `Worker.workerLogDir` 在注册和心跳时上报。
+- `TaskResult.result` 不返回 agent 自身服务日志入口；worker 服务日志目录由 `Worker.workerLogDir` 在注册时上报。
 - `saveState` 更新 `.state` 时同步比较旧 `.state`，当 `status`、`appId` 或 `exitCode` 变化时追加 `state.log`。
 - `finishTask` 确认终态后删除 `.state` / `.snap`，保留 `stdout.log` / `stderr.log` / `state.log`。
 

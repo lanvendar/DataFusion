@@ -245,7 +245,7 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
      */
     private TaskResult requestToWorker(String url, Worker worker, TaskInstance taskIns) throws Exception {
         url = url.replaceFirst("host", worker.getIp()).replaceFirst("port", worker.getPort().toString());
-        String body = createRequestBody(taskIns);
+        String body = createRequestBody(taskIns, worker);
         log.info("requestToWorker url {} ...", url);
         String send = this.send(url, body);
         Result<TaskResult> result = null;
@@ -278,11 +278,14 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
      * @param taskIns 任务实例
      * @return 请求参数
      */
-    private String createRequestBody(TaskInstance taskIns) {
+    private String createRequestBody(TaskInstance taskIns, Worker worker) {
         TaskRequest request = new TaskRequest();
         request.setFlowInstanceId(taskIns.getFlowInstanceId());
         request.setTaskInstanceId(taskIns.getInstanceId());
         request.setTaskName(taskIns.getTaskName());
+        if (worker != null) {
+            request.setWorkerId(worker.getId());
+        }
         request.setTaskData(taskIns.getTaskData());
 
         TaskResult taskResult = taskIns.getTaskResult();

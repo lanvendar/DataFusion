@@ -7,6 +7,7 @@ import lombok.Getter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -53,6 +54,65 @@ public class WorkerStorageMem implements WorkerStorage {
         if (worker != null && worker.getId() != null) {
             workerMap.put(worker.getId(), worker);
         }
+    }
+
+    @Override
+    public Worker register(Worker worker) {
+        if (worker == null) {
+            return null;
+        }
+        if (worker.getId() == null) {
+            worker.setId(UUID.randomUUID().toString());
+        }
+        long now = System.currentTimeMillis();
+        if (worker.getRegisterTime() == null) {
+            worker.setRegisterTime(now);
+        }
+        worker.setStatus(Worker.STATUS_UP);
+        worker.setLastHeartbeatTime(now);
+        worker.setUpdateTime(now);
+        updateWorker(worker);
+        return worker;
+    }
+
+    @Override
+    public Worker heartbeat(String workerId, Long lastHeartbeatTime) {
+        Worker worker = getWorker(workerId);
+        if (worker == null) {
+            return null;
+        }
+        worker.setStatus(Worker.STATUS_UP);
+        worker.setLastHeartbeatTime(lastHeartbeatTime == null ? System.currentTimeMillis() : lastHeartbeatTime);
+        worker.setUpdateTime(System.currentTimeMillis());
+        updateWorker(worker);
+        return worker;
+    }
+
+    @Override
+    public Worker offline(String workerId) {
+        Worker worker = getWorker(workerId);
+        if (worker == null) {
+            return null;
+        }
+        worker.setStatus(Worker.STATUS_DOWN);
+        worker.setUpdateTime(System.currentTimeMillis());
+        updateWorker(worker);
+        return worker;
+    }
+
+    @Override
+    public int timeoutOffline(Long timeoutMs) {
+        long timeout = timeoutMs == null ? 0L : timeoutMs;
+        long expireBefore = System.currentTimeMillis() - timeout;
+        int count = 0;
+        for (Worker worker : workerMap.values()) {
+            Long heartbeatTime = worker.getLastHeartbeatTime();
+            if (worker.isAlive() && (heartbeatTime == null || heartbeatTime < expireBefore)) {
+                offline(worker.getId());
+                count++;
+            }
+        }
+        return count;
     }
 
     @Override

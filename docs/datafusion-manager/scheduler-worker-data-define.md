@@ -51,8 +51,8 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 
 | DB 列 | Java 字段 | Java 类型 | 必填 | 默认值 | 说明 |
 |-------|-----------|-----------|------|--------|------|
-| `id` | `id` | `UUID` | 是 | 新增时 `UUID.randomUUID()` | 主键，继承自 `BaseIdEntity` |
-| `worker_code` | `workerCode` | `String` | 是 | agent 上报或人工填写 | worker 稳定编码，对应 scheduler `Worker.id` |
+| `id` | `id` | `UUID` | 是 | 新增时 `UUID.randomUUID()` | 主键，继承自 `BaseIdEntity`，对应 scheduler `Worker.id` 和任务链路 `workerId` |
+| `worker_code` | `workerCode` | `String` | 是 | agent 上报或人工填写 | worker 稳定编码，对应 scheduler `Worker.workerCode` |
 | `host_name` | `hostName` | `String` | 是 | 无 | 主机名称 |
 | `host` | `host` | `String` | 是 | 无 | IP 地址或可访问主机地址 |
 | `port` | `port` | `Integer` | 是 | 无 | worker HTTP 端口 |
@@ -61,7 +61,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `plugins` | `plugins` | `String` | 否 | 无 | 插件类型列表，逗号分隔，最大 256 字符 |
 | `register_time` | `registerTime` | `Date` | 否 | agent 注册时写入 | 注册时间 |
 | `last_heartbeat_time` | `lastHeartbeatTime` | `Date` | 否 | agent 心跳时写入 | 最近心跳时间 |
-| `log_dir` | `workerLogDir` | `String` | 否 | agent 注册/心跳时写入 | worker 服务日志目录；用于定位 `datafusion-agent*.log` 和 `datafusion-agent.error*.log` |
+| `log_dir` | `workerLogDir` | `String` | 否 | agent 注册时写入 | worker 服务日志目录；用于定位 `datafusion-agent*.log` 和 `datafusion-agent.error*.log` |
 | `is_active` | `isActive` | `Integer` | 是 | 新增时 `1` | `1` 有效、`0` 无效；调度查找必须过滤 `1` |
 | `remark` | `remark` | `String` | 否 | 无 | 资源说明 |
 | `creator` | `creator` | `String` | 是 | 当前用户或 `system` | 创建人，继承自 `BaseEntity` |
@@ -154,8 +154,9 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `WorkerRegistryUpdateDto` -> existing `WorkerRegistryEntity` | 非空字符串/数值和非 `null` 可清空字段合并 | 不接收 `status` 和 `workerLogDir` 修改；合并后校验有效值、端口、插件长度、`workerCode` 唯一、`host + port` 唯一 |
 | `WorkerRegistryEntity` -> `WorkerRegistryDto` | 字段逐一复制 | 不转换 `status/isActive`，由前端映射展示 |
 | `WorkerRegistryQueryDto` -> `LambdaQueryWrapper` | 字符串字段按定义 `like/eq`；数值字段 `eq` | 默认排除 `status=2` 清除记录，默认 `updateTime desc` |
-| `WorkerRegistryEntity` -> scheduler `Worker` | `workerCode` -> `id`，`host` -> `ip`，`plugins` 逗号拆分为 `pluginTypes`，`logDir` -> `workerLogDir` | `timestamp(6)` 转毫秒时间戳 |
-| scheduler `Worker` -> `WorkerRegistryEntity` | `id` -> `workerCode`，`ip` -> `host`，`pluginTypes` -> `plugins` 逗号字符串，非空 `workerLogDir` -> `logDir` | 注册/心跳由 `WorkerStorageImpl` 调用 Service upsert；已有记录保留 `isActive`；空日志目录不覆盖已有值 |
+| `WorkerRegistryEntity` -> scheduler `Worker` | `id` -> `id`，`workerCode` -> `workerCode`，`host` -> `ip`，`plugins` 逗号拆分为 `pluginTypes`，`logDir` -> `workerLogDir` | `timestamp(6)` 转毫秒时间戳 |
+| scheduler `Worker` -> `WorkerRegistryEntity` | `id` -> `id`，`workerCode` -> `workerCode`，`ip` -> `host`，`pluginTypes` -> `plugins` 逗号字符串，首次非空 `workerLogDir` -> `logDir` | 注册由 `WorkerStorageImpl` upsert；心跳/下线只按 `id` 更新；已有记录保留 `isActive`；`logDir` 已存在时不被覆盖 |
+| `WorkerStorage.getWorker` | `workerId` 只查 `id` | scheduler 框架层不按 `workerCode` 查询 |
 
 ## 6. 枚举 / 特殊字段
 

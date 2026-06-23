@@ -57,8 +57,8 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 
 | DB 列 | DB 类型 | Java 字段 | Java 类型 | 必填 | 默认值 | 约束 / 索引 | DB 注释 | 说明 |
 |-------|---------|-----------|-----------|------|--------|-------------|---------|------|
-| `id` | `uuid` | `id` | `UUID` | 是 | `UUID.randomUUID()` | primary key | 主键 | 持久化记录主键，不等同于调度侧 worker ID |
-| `worker_code` | `varchar(128)` | `workerCode` | `String` | 是 | agent 上报 | unique | worker编码 | 调度侧稳定 worker ID，对应 `Worker.id` |
+| `id` | `uuid` | `id` | `UUID` | 是 | `UUID.randomUUID()` | primary key | 主键 | worker 注册记录主键，对应调度侧 `Worker.id` 和任务链路 `workerId` |
+| `worker_code` | `varchar(128)` | `workerCode` | `String` | 是 | agent 上报 | unique | worker编码 | agent 稳定编码，对应 `Worker.workerCode` |
 | `host_name` | `varchar(128)` | `hostName` | `String` | 是 | agent 上报 | 无 | 主机名称 | worker 主机名称，用于展示和运行信息记录 |
 | `host` | `varchar(45)` | `host` | `String` | 是 | agent 上报 | unique(`host`,`port`) | IP地址 | agent HTTP 地址 IP 或 hostname |
 | `port` | `int4` | `port` | `Integer` | 是 | agent 上报 | unique(`host`,`port`) | 端口 | agent HTTP 端口 |
@@ -86,7 +86,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | Java 字段 | DB 列 | Java 类型 | 注解 / 类型处理器 | 说明 |
 |-----------|-------|-----------|-------------------|------|
 | `WorkerRegistryEntity.id` | `id` | `UUID` | `@TableId("id")` | 持久化记录主键 |
-| `WorkerRegistryEntity.workerCode` | `worker_code` | `String` | `@TableField("worker_code")` | 对应 `Worker.id` |
+| `WorkerRegistryEntity.workerCode` | `worker_code` | `String` | `@TableField("worker_code")` | 对应 `Worker.workerCode` |
 | `WorkerRegistryEntity.hostName` | `host_name` | `String` | `@TableField("host_name")` | 主机名称 |
 | `WorkerRegistryEntity.host` | `host` | `String` | `@TableField("host")` | IP 地址 |
 | `WorkerRegistryEntity.port` | `port` | `Integer` | `@TableField("port")` | 端口 |
@@ -104,7 +104,8 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 
 | 对象 | 类型 | 场景 | 字段 | 字段类型 | 校验 / 查询行为 | 说明 |
 |------|------|------|------|----------|------------------|------|
-| `Worker` | `Action` | agent 注册、心跳、下线 | `id` | `String` | 注册和心跳必填；生成规则由 agent/worker 端定义 | 对应 `worker_code` |
+| `Worker` | `Action` | agent 注册、心跳、下线 | `id` | `String` | manager 返回后必填 | 对应 `scheduler_worker_registry.id` |
+| `Worker` | `Action` | agent 注册、心跳、下线 | `workerCode` | `String` | 注册和心跳必填；生成规则由 agent 端定义 | 对应 `worker_code` |
 | `Worker` | `Action` | agent 注册、心跳、下线 | `ip` | `String` | 必填 | 对应 `host` |
 | `Worker` | `Action` | agent 注册、心跳、下线 | `port` | `Integer` | 必填 | 对应 `port` |
 | `Worker` | `Action` | agent 注册、心跳、下线 | `hostName` | `String` | 必填 | 对应 `host_name` |
@@ -115,7 +116,8 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 
 | 对象 | 类型 | 场景 | 字段 | 字段类型 | 来源 | 说明 |
 |------|------|------|------|----------|------|------|
-| `Result<Boolean>` | `ActionResult` | agent 注册、心跳、下线、任务结果上报 | `data` | `Boolean` | controller 执行结果 | 内部接口统一返回 |
+| `Result<Worker>` | `ActionResult` | agent 注册、心跳、下线 | `data` | `Worker` | controller 执行结果 | 返回 manager 侧 `Worker.id` |
+| `Result<Boolean>` | `ActionResult` | 任务结果上报 | `data` | `Boolean` | controller 执行结果 | 内部接口统一返回 |
 | `Result<TaskResult>` | `ActionResult` | manager 调用 agent submit/stop/kill/finish | `data` | `TaskResult` | agent 响应 | manager 解析后返回给 master task operator |
 
 ### 2.4 Service 模型
@@ -129,7 +131,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 
 | 对象 | 集成目标 | 方向 | 字段 | 字段类型 | 转换规则 | 说明 |
 |------|----------|------|------|----------|----------|------|
-| `Worker` | `scheduler_worker_registry` | agent -> manager DB -> master | `id/ip/port/hostName/pluginTypes/status/registerTime/lastHeartbeatTime/updateTime` | 多类型 | `id` 映射 `worker_code`；`pluginTypes` 与 `plugins` 逗号字符串互转；毫秒时间戳与 `timestamp(6)` 互转 | worker 注册、心跳和下线 |
+| `Worker` | `scheduler_worker_registry` | agent -> manager DB -> master | `id/workerCode/ip/port/hostName/pluginTypes/status/registerTime/lastHeartbeatTime/updateTime` | 多类型 | `id` 映射 registry 主键 `id`；`workerCode` 映射 `worker_code`；`pluginTypes` 与 `plugins` 逗号字符串互转；毫秒时间戳与 `timestamp(6)` 互转 | worker 注册、心跳和下线 |
 | `FlowInfoEntity` | `FlowInfo` | manager DB -> master | 流程定义字段 | 多类型 | 见 [scheduler-flow-data-define.md](./scheduler-flow-data-define.md) | `FlowStorageImpl` 适配 |
 | `FlowInstanceEntity` | `FlowInstance` / `TriggerInstance` | manager DB <-> master | 流程实例字段 | 多类型 | 见 [scheduler-instance-data-define.md](./scheduler-instance-data-define.md) | 流程实例和触发实例共用表 |
 | `TaskInfoEntity` / `TaskLinkEntity` | `TaskInfo` / `TaskLink` | manager DB -> master | 任务定义和依赖字段 | 多类型 | 见 [scheduler-task-data-define.md](./scheduler-task-data-define.md) | `TaskStorageImpl` 适配 |
@@ -165,19 +167,20 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 
 | API | Request object | Response data | Response wrapper | Notes |
 |-----|----------------|---------------|------------------|-------|
-| `POST /internal/schedule/worker/register` | `Worker` | `Boolean` | `Result<T>` | agent 注册 worker |
-| `POST /internal/schedule/worker/heartbeat` | `Worker` | `Boolean` | `Result<T>` | agent 心跳，同步插件能力和心跳时间 |
-| `POST /internal/schedule/worker/offline` | `Worker` | `Boolean` | `Result<T>` | agent 主动下线 |
+| `POST /internal/schedule/worker/register` | `Worker` | `Worker` | `Result<T>` | agent 注册 worker，按 `id` 或 `workerCode` 匹配，返回 registry 主键 `id` |
+| `POST /internal/schedule/worker/heartbeat` | `Worker` | `Worker` | `Result<T>` | agent 心跳，只按 `id` 更新状态和心跳时间 |
+| `POST /internal/schedule/worker/offline` | `Worker` | `Worker` | `Result<T>` | agent 主动下线，只按 `id` 更新状态 |
 | `POST /internal/schedule/reportTaskResult` | `TaskResult` | `Boolean` | `Result<T>` | agent 上报任务结果 |
 
 ### 4.2 Layer Conversion
 
 | Direction | Conversion rule | Special handling |
 |-----------|-----------------|------------------|
-| `Worker` -> `WorkerRegistryEntity` | `id` -> `workerCode`，`ip` -> `host`，`hostName` -> `hostName`，`port` -> `port`，`status` -> `status`，`pluginTypes` -> `plugins` | 注册写入 `register_time`；心跳更新 `last_heartbeat_time`、`update_time` 和运行态字段，不更新界面审计语义 |
-| `WorkerRegistryEntity` -> `Worker` | `workerCode` -> `id`，`host` -> `ip`，`hostName` -> `hostName`，`port` -> `port`，`status` -> `status`，`plugins` -> `pluginTypes` | DB 恢复时仅加载 `is_active = 1` 的记录；启动后可先恢复已有 worker，再等待 agent 心跳刷新状态和插件能力 |
+| `Worker` -> `WorkerRegistryEntity` | `id` -> `id`，`workerCode` -> `workerCode`，`ip` -> `host`，`hostName` -> `hostName`，`port` -> `port`，`status` -> `status`，`pluginTypes` -> `plugins` | 注册写入 `register_time`；心跳只按 `id` 更新 `last_heartbeat_time`、`status`、`update_time` |
+| `WorkerRegistryEntity` -> `Worker` | `id` -> `id`，`workerCode` -> `workerCode`，`host` -> `ip`，`hostName` -> `hostName`，`port` -> `port`，`status` -> `status`，`plugins` -> `pluginTypes` | DB 恢复时仅加载 `is_active = 1` 的记录；启动后可先恢复已有 worker，再等待 agent 心跳刷新状态和插件能力 |
+| `WorkerStorage.getWorker` | `workerId` 只查 `scheduler_worker_registry.id` | 任务链路使用 `workerId`，scheduler 框架层不按 `workerCode` 查询 |
 | `WorkerStorageImpl.getWorkers` -> `WorkerManager.lookupWorker` | 查询 `is_active = 1` 且状态可用的 worker，再由 `WorkerManager` 按插件类型过滤 | 第一版不按 `tenant_id`、`zone` 过滤 |
-| agent 注册 / 心跳 -> existing worker | 优先按 `worker_code` 定位已有记录；找不到时按 `host + port` 回退 | `host_name` 不作为唯一键；后续实现需要调整或适配现有 `WorkerStorage.getWorker(hostName, port)` 的旧语义 |
+| agent 注册 -> existing worker | 优先按 `id` 定位；没有 `id` 时按 `worker_code` 定位；找不到时新增记录 | heartbeat/offline 只按 `id` 定位 |
 
 ## 5. 复用结构
 

@@ -10,7 +10,7 @@
 
 ```text
 WorkerRegistryController -> WorkerRegistryService -> WorkerRegistryMapper -> scheduler_worker_registry
-WorkerManager -> WorkerStorageImpl -> WorkerRegistryService
+WorkerManager -> WorkerStorageImpl -> WorkerRegistryMapper -> scheduler_worker_registry
 ```
 
 ## 接口
@@ -36,11 +36,13 @@ agent 注册、心跳、下线走内部接口：`/internal/schedule/worker/*`。
 - 页面查询和详情不返回 `status=2` 的清除记录。
 - `status=2` 的清除记录不再被 agent 后续心跳复活；同一 `workerCode` 或 `host + port` 重新注册需要先清理旧记录。
 - 调度可用节点必须满足 `isActive=1`、`status=1`，并且插件能力包含任务需要的 `pluginType`。
-- agent 注册/心跳定位旧记录时优先使用 `workerCode`，找不到再按 `host + port` 回退。
-- agent 心跳可以刷新节点状态、插件能力和心跳时间；人工维护在线节点的地址或编码可能被后续心跳覆盖。
+- agent 注册定位旧记录时优先使用 `id`，没有 `id` 时按 `workerCode`，找不到再按 `host + port` 回退。
+- agent 心跳和主动下线只按 `id` 定位节点，避免重启后错误复活其他节点。
+- agent 注册可以刷新节点状态、插件能力和心跳时间；人工维护在线节点的地址或编码可能被后续注册覆盖。
 - `isActive` 是人工调度开关，注册和心跳不得覆盖已有记录的 `isActive`。
 - `status` 是系统运行态，不允许页面新增或修改；仅由注册、心跳、主动下线、逻辑删除和心跳超时扫描维护。
 - `WorkerHeartbeatMonitorJob` 每 `datafusion.scheduler.worker.heartbeat-check-interval-ms` 扫描在线节点，默认 30000ms；当 `lastHeartbeatTime` 早于当前时间减 `datafusion.scheduler.worker.heartbeat-timeout-ms` 时标记为下线，默认超时 180000ms。
+- `workerLogDir` 是 worker 级服务日志目录，由 agent 注册时写入；UI 不修改，后续心跳不覆盖。
 
 ## 页面规则
 
@@ -55,6 +57,7 @@ agent 注册、心跳、下线走内部接口：`/internal/schedule/worker/*`。
 
 - `WorkerStorageImpl` 将数据库注册表适配为 master 的 `WorkerStorage`。
 - `WorkerRpcProvider` 通过 `WorkerManager` 处理 agent 注册、心跳和下线。
+- `WorkerRegistryService` 只服务执行节点管理页面；master 运行时生命周期不经过该 UI 服务。
 - manager 重启后从数据库恢复有效节点，并由启动时下线和运行中心跳超时扫描共同兜底；节点需要等待 agent 新心跳后再参与调度。
 
 ## 非目标

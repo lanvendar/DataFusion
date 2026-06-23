@@ -47,7 +47,7 @@ agent 自身服务日志固定归属：
 /opt/datafusion/logs/datafusion-agent/
 ```
 
-该目录通过 `Worker.workerLogDir` 在注册和心跳时上报给 manager，并落到
+该目录通过 `Worker.workerLogDir` 在注册时上报给 manager，并落到
 `scheduler_worker_registry.log_dir`。`workerLogDir` 是 worker 级服务日志目录，不属于单个任务结果。
 
 任务运行态、插件运行产物和插件日志固定归属：

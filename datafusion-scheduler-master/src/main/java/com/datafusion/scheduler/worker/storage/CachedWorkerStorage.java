@@ -58,7 +58,18 @@ public class CachedWorkerStorage implements WorkerStorage {
      */
     @Override
     public Worker getWorker(String workerId) {
-        return workerCache.get(workerId);
+        if (StrUtil.isBlank(workerId)) {
+            return null;
+        }
+        Worker worker = workerCache.getIfPresent(workerId);
+        if (worker != null) {
+            return worker;
+        }
+        worker = workerStorage.getWorker(workerId);
+        if (worker != null && worker.getId() != null) {
+            workerCache.put(worker.getId(), worker);
+        }
+        return worker;
     }
 
     /**
@@ -107,11 +118,37 @@ public class CachedWorkerStorage implements WorkerStorage {
      */
     @Override
     public void updateWorker(Worker worker) {
-        workerCache.asMap().compute(worker.getId(), (k, v) -> {
-            v = mergeWorker(v, worker);
-            workerStorage.updateWorker(v);
-            return v;
-        });
+        Worker savedWorker = workerStorage.register(worker);
+        refreshCache(savedWorker);
+    }
+
+    @Override
+    public Worker register(Worker worker) {
+        Worker savedWorker = workerStorage.register(worker);
+        refreshCache(savedWorker);
+        return savedWorker;
+    }
+
+    @Override
+    public Worker heartbeat(String workerId, Long lastHeartbeatTime) {
+        Worker worker = workerStorage.heartbeat(workerId, lastHeartbeatTime);
+        refreshCache(worker);
+        return worker;
+    }
+
+    @Override
+    public Worker offline(String workerId) {
+        Worker worker = workerStorage.offline(workerId);
+        refreshCache(worker);
+        return worker;
+    }
+
+    @Override
+    public int timeoutOffline(Long timeoutMs) {
+        int updated = workerStorage.timeoutOffline(timeoutMs);
+        workerCache.invalidateAll();
+        getWorkers();
+        return updated;
     }
 
     @Override
@@ -131,6 +168,7 @@ public class CachedWorkerStorage implements WorkerStorage {
             raw = updated;
         } else {
             raw.setIp(updated.getIp());
+            raw.setWorkerCode(updated.getWorkerCode());
             raw.setHostName(updated.getHostName());
             raw.setPort(updated.getPort());
             raw.setStatus(updated.getStatus());
@@ -141,5 +179,11 @@ public class CachedWorkerStorage implements WorkerStorage {
         }
 
         return raw;
+    }
+
+    private void refreshCache(Worker worker) {
+        if (worker != null && worker.getId() != null) {
+            workerCache.asMap().compute(worker.getId(), (k, v) -> mergeWorker(v, worker));
+        }
     }
 }

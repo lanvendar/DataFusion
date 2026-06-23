@@ -1,4 +1,4 @@
-package com.datafusion.manager.scheduler.rpc;
+package com.datafusion.manager.scheduler.master.worker;
 
 import com.datafusion.common.exception.ErrorCodeEnum;
 import com.datafusion.common.spring.dto.response.Result;

@@ -196,6 +196,7 @@ public class TaskStorageImpl implements TaskStorage {
         entity.setTaskParam(toJsonNode(ins.getTaskParam()));
         entity.setTaskData(ins.getTaskData());
         entity.setWorkerResult(toJsonNode(ins.getTaskResult()));
+        entity.setWorkerId(resolveWorkerId(ins.getTaskResult()));
         entity.setPluginData(toJsonNode(ins.getPluginData()));
         fillTaskDefinitionFields(entity);
         fillAuditFields(entity);
@@ -281,6 +282,18 @@ public class TaskStorageImpl implements TaskStorage {
             return null;
         }
         return JacksonUtils.tryObj2JsonNode(value);
+    }
+
+    private UUID resolveWorkerId(TaskResult taskResult) {
+        if (taskResult == null || taskResult.getWorkerId() == null) {
+            return null;
+        }
+        try {
+            return UUID.fromString(taskResult.getWorkerId());
+        } catch (IllegalArgumentException e) {
+            log.warn("workerId不是UUID格式, workerId={}", taskResult.getWorkerId());
+            return null;
+        }
     }
 
     private <T> T toBean(JsonNode jsonNode, Class<T> targetClass) {

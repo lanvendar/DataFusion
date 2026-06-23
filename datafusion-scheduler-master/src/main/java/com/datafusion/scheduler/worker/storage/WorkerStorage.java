@@ -46,6 +46,39 @@ public interface WorkerStorage {
     void updateWorker(Worker worker);
 
     /**
+     * 注册 worker.
+     *
+     * @param worker worker 信息
+     * @return 注册后的 worker
+     */
+    Worker register(Worker worker);
+
+    /**
+     * worker 心跳.
+     *
+     * @param workerId          worker ID
+     * @param lastHeartbeatTime 最近心跳时间
+     * @return 心跳后的 worker
+     */
+    Worker heartbeat(String workerId, Long lastHeartbeatTime);
+
+    /**
+     * worker 下线.
+     *
+     * @param workerId worker ID
+     * @return 下线后的 worker
+     */
+    Worker offline(String workerId);
+
+    /**
+     * 将心跳超时的 worker 标记为下线.
+     *
+     * @param timeoutMs 超时时间，单位毫秒
+     * @return 更新数量
+     */
+    int timeoutOffline(Long timeoutMs);
+
+    /**
      * 获取监控任务清单.
      *
      * @param workerId 工作节点id

@@ -12,16 +12,35 @@ import com.datafusion.scheduler.model.Worker;
 public interface WorkerListener {
 
     /**
-     * 节点上线.
+     * 注册 worker.
      *
-     * @param worker 节点
+     * @param worker worker 信息
+     * @return 注册后的 worker
      */
-    void onActive(Worker worker);
+    Worker register(Worker worker);
 
     /**
-     * 节点下线.
+     * worker 心跳.
      *
-     * @param worker 节点
+     * @param workerId          worker ID
+     * @param lastHeartbeatTime 最近心跳时间
+     * @return 心跳后的 worker
      */
-    void onInactive(Worker worker);
+    Worker heartbeat(String workerId, Long lastHeartbeatTime);
+
+    /**
+     * worker 下线.
+     *
+     * @param workerId worker ID
+     * @return 下线后的 worker
+     */
+    Worker offline(String workerId);
+
+    /**
+     * 将心跳超时的 worker 标记为下线.
+     *
+     * @param timeoutMs 超时时间，单位毫秒
+     * @return 更新数量
+     */
+    int timeoutOffline(Long timeoutMs);
 }
