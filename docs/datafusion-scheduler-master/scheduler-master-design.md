@@ -30,7 +30,7 @@ datafusion-manager
     -> datafusion-common-spring
 ```
 
-`TaskRequest`、`TaskResult`、worker 注册/心跳 DTO 属于 `datafusion-common-data`。`WorkerManager`、`WorkerStorage`、worker 选择策略和 master 状态机保留在 `datafusion-scheduler-master`。
+`TaskRequest`、`TaskResult`、worker 注册/心跳 DTO 属于 `datafusion-common-data`。`WorkerManager`、`WorkerStorage`、`WorkerListener`、`WorkerOperator`、worker 选择策略和 master 状态机保留在 `datafusion-scheduler-master`。
 
 ## 核心接口
 
@@ -89,13 +89,46 @@ TriggerInfo -> TriggerInstance
 
 master 只定义 worker 节点模型、存储接口和选择策略，不绑定 Nacos、Kubernetes、Redis 或数据库。
 
+`WorkerListener` 是 agent 生命周期端口：
+
+```java
+public interface WorkerListener {
+    Worker register(Worker worker);
+    Worker heartbeat(String workerId, Long lastHeartbeatTime);
+    Worker offline(String workerId);
+    int timeoutOffline(Long timeoutMs);
+    List<TaskRequest> getTaskInsByWorkerId(String workerId);
+}
+```
+
+`WorkerOperator` 是人工操作端口：
+
+```java
+public interface WorkerOperator {
+    Worker active(String workerId);
+    Worker inactive(String workerId);
+    boolean delete(String workerId);
+}
+```
+
 可调度判断至少依赖：
 
 - 节点状态为 `STATUS_UP`。
+- 节点人工开关为有效。
 - 心跳未超时。
 - `pluginTypes` 包含任务需要的 `pluginType`。
 
 具体注册表、服务发现、心跳刷新和页面维护由 manager 实现。
+
+worker 注册规则：
+
+- `workerCode` 是 worker 稳定编码，`Worker.id` 由 `workerCode` 字符串二进制稳定生成 UUID。
+- `register` 只按 `workerCode` 定位旧记录；存在则恢复上线并刷新 host、port、插件、日志目录和心跳时间，不覆盖人工 `isActive`。
+- `heartbeat` 只按 `workerId` 更新心跳并恢复上线。
+- `offline` 只按 `workerId` 置为下线。
+- `timeoutOffline` 将心跳超时的上线 worker 置为下线。
+- `offlineAllWorkers` 用于 master/manager 启动时将历史在线节点统一置为下线，等待 agent 重新注册或心跳后再参与调度。
+- agent 注册成功后调用 `getTaskInsByWorkerId(workerId)` 获取属于自己的未完成任务清单，再由 agent 结合本地状态文件恢复监听。
 
 ## 重启恢复
 

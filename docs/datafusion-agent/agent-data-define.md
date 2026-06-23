@@ -48,6 +48,7 @@ agent 调用 manager：
 | `POST {manager}/internal/schedule/worker/register` | `Worker` | 注册 worker，携带 `workerCode/hostName/ip/port/pluginTypes/workerLogDir`，响应 `Result<Worker>` |
 | `POST {manager}/internal/schedule/worker/heartbeat` | `Worker` | worker 心跳，只携带 `id/lastHeartbeatTime`，响应 `Result<Worker>` |
 | `POST {manager}/internal/schedule/worker/offline` | `Worker` | worker 下线，只携带 `id`，响应 `Result<Worker>` |
+| `POST {manager}/internal/schedule/worker/tasks` | `Worker` | 注册成功后按 `id` 获取属于当前 worker 的未完成 `TaskRequest` 清单 |
 | `POST {manager}/internal/schedule/reportTaskResult` | `TaskResult` | 上报任务结果 |
 
 agent 本地 worker 配置：
@@ -103,10 +104,7 @@ ${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
   "updateTime": 1780000000000,
   "result": {
     "message": "{message}",
-    "pluginType": "{pluginType}",
-    "runMode": "{runMode}",
-    "pluginLogUri": "{pluginLogUri}",
-    "exitCode": null
+    "pluginLogUri": "{pluginLogUri}"
   }
 }
 ```
@@ -128,22 +126,26 @@ time:1780000001000|workerId:{workerId}|appId:123|status:RUN_SUCCESS|exitCode:0
 - `.state` 只保存通用运行态，不回写 `taskData` / `pluginParam`。
 - `workDirPath` 统一表示任务运行目录，manager 只通过该目录读取标准任务日志。
 - `stdout.log`、`stderr.log`、`state.log` 是 agent 标准任务日志，文件名由 `TaskRuntimeFiles` 统一定义。
-- `TaskResult.result.pluginLogUri` 表示插件日志入口。
-- `TaskResult.result` 不返回 agent 自身服务日志入口；worker 服务日志目录由 `Worker.workerLogDir` 在注册时上报。
+- `TaskResult.workerResult.workDirPath` 表示任务运行目录；manager 查询任务日志时只使用该目录。
+- `TaskResult.workerResult.pluginLogUri` 表示插件日志入口。
+- `TaskResult.workerResult` 不返回 agent 自身服务日志入口；worker 服务日志目录由 `Worker.workerLogDir` 在注册时上报。
 - `saveState` 更新 `.state` 时同步比较旧 `.state`，当 `status`、`appId` 或 `exitCode` 变化时追加 `state.log`。
 - `finishTask` 确认终态后删除 `.state` / `.snap`，保留 `stdout.log` / `stderr.log` / `state.log`。
 
-## 5. 通用结果结构
+## 5. WorkerResult 结构
 
-插件返回的 `TaskResult.result` 使用紧凑 JSON：
+插件上报给 manager 的结果统一写入 `TaskResult.workerResult`。`TaskResult` 只承载任务身份和状态；worker 侧运行信息写入 `WorkerResult`。
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `message` | `String` | 是 | 简短执行说明 |
-| `pluginType` | `String` | 是 | 插件类型，例如 `SHELL`、`DATAX` |
-| `runMode` | `String` | 是 | 运行模式，例如 `LOCAL`、`K8S` |
+| `outputVars` | `Map<String, Variable>` | 否 | 输出变量 |
+| `workerId` | `String` | 否 | worker ID，使用 manager 返回的 `Worker.id` |
+| `appId` | `String` | 否 | 终端任务 ID，如 PID、Kubernetes Job name |
+| `workDirPath` | `String` | 否 | 任务运行目录 |
+| `message` | `String` | 否 | 简短执行说明或错误摘要 |
 | `pluginLogUri` | `String` | 否 | 插件日志入口，本地文件、对象存储 URI 或第三方运行时 URI |
-| `exitCode` | `Integer` | 否 | 本地进程退出码 |
+
+`WorkerResult` 不包含 `exitCode`。本地进程退出码只保存在 `.state.exitCode` 和 `state.log`，用于 agent 状态映射和诊断，不持久化到 manager 的 `worker_result` 结构中。
 
 ## 6. 复用对象
 

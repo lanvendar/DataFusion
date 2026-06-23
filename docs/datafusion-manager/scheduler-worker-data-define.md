@@ -25,7 +25,7 @@ worker_code varchar(128) NOT NULL, -- worker编码
 host_name varchar(128) NOT NULL, -- 主机名称
 host varchar(45) NOT NULL, -- IP地址
 port int4 NOT NULL, -- 端口
-status int4 NOT NULL, -- 状态：0-下线 1-上线 2-清除
+status int4 NOT NULL, -- 状态：0-下线 1-上线
 "zone" varchar(64) NULL, -- 区域/分组，预留字段
 plugins varchar(256) NULL, -- 组件类型列表，逗号分隔
 register_time timestamp(6) NULL, -- 注册时间
@@ -51,12 +51,12 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 
 | DB 列 | Java 字段 | Java 类型 | 必填 | 默认值 | 说明 |
 |-------|-----------|-----------|------|--------|------|
-| `id` | `id` | `UUID` | 是 | 新增时 `UUID.randomUUID()` | 主键，继承自 `BaseIdEntity`，对应 scheduler `Worker.id` 和任务链路 `workerId` |
+| `id` | `id` | `UUID` | 是 | 由 `workerCode` 字节生成 | 主键，继承自 `BaseIdEntity`，对应 scheduler `Worker.id` 和任务链路 `workerId`；生成规则为 `UUID.nameUUIDFromBytes(workerCode.getBytes(UTF_8))` |
 | `worker_code` | `workerCode` | `String` | 是 | agent 上报或人工填写 | worker 稳定编码，对应 scheduler `Worker.workerCode` |
 | `host_name` | `hostName` | `String` | 是 | 无 | 主机名称 |
 | `host` | `host` | `String` | 是 | 无 | IP 地址或可访问主机地址 |
 | `port` | `port` | `Integer` | 是 | 无 | worker HTTP 端口 |
-| `status` | `status` | `Integer` | 是 | 新增时 `0` | `0` 下线、`1` 上线、`2` 清除；仅由系统注册、心跳、下线和超时扫描维护 |
+| `status` | `status` | `Integer` | 是 | 新增时 `0` | `0` 下线、`1` 上线；仅由系统注册、心跳、下线和超时扫描维护 |
 | `zone` | `zone` | `String` | 否 | 无 | 区域/分组，预留字段 |
 | `plugins` | `plugins` | `String` | 否 | 无 | 插件类型列表，逗号分隔，最大 256 字符 |
 | `register_time` | `registerTime` | `Date` | 否 | agent 注册时写入 | 注册时间 |
@@ -143,26 +143,31 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `POST /api/scheduler/worker/list` | `WorkerRegistryQueryDto` | `List<WorkerRegistryDto>` | `Result<T>` | 列表查询 worker |
 | `POST /api/scheduler/worker/add` | `WorkerRegistrySaveDto` | `UUID` | `Result<T>` | 新增 worker |
 | `POST /api/scheduler/worker/update` | `WorkerRegistryUpdateDto` | `Boolean` | `Result<T>` | 修改 worker |
+| `POST /api/scheduler/worker/{id}/active` | path `UUID id` | `Boolean` | `Result<T>` | 手工置为有效 |
+| `POST /api/scheduler/worker/{id}/inactive` | path `UUID id` | `Boolean` | `Result<T>` | 手工置为无效 |
 | `GET /api/scheduler/worker/{id}` | path `UUID id` | `WorkerRegistryDto` | `Result<T>` | 查询详情 |
-| `DELETE /api/scheduler/worker/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 逻辑删除 worker |
+| `DELETE /api/scheduler/worker/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 真删除 worker，前端必须二次确认 |
 
 ## 5. 层间转换规则
 
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
-| `WorkerRegistrySaveDto` -> `WorkerRegistryEntity` | 复制主机、端口、分组、插件、有效标记和备注 | `id` 使用 `UUID.randomUUID()`；`status` 默认 `0`；`isActive` 默认 `1`；不接收 `workerLogDir`；审计字段由 Service 设置 |
-| `WorkerRegistryUpdateDto` -> existing `WorkerRegistryEntity` | 非空字符串/数值和非 `null` 可清空字段合并 | 不接收 `status` 和 `workerLogDir` 修改；合并后校验有效值、端口、插件长度、`workerCode` 唯一、`host + port` 唯一 |
+| `WorkerRegistrySaveDto` -> `WorkerRegistryEntity` | 复制主机、端口、分组、插件、有效标记和备注 | `id` 使用 `workerCode` 生成稳定 UUID；`status` 默认 `0`；`isActive` 默认 `1`；不接收 `workerLogDir`；审计字段由 Service 设置 |
+| `WorkerRegistryUpdateDto` -> existing `WorkerRegistryEntity` | 非空字符串/数值和非 `null` 可清空字段合并 | 不接收 `status` 和 `workerLogDir` 修改；`workerCode` 不允许修改；合并后校验有效值、端口、插件长度、`host + port` 唯一 |
+| `WorkerRegistryService.active/inactive` | 按 `id` 更新 `isActive` | 只改变人工调度开关，不修改 `status` 和心跳时间 |
+| `WorkerRegistryService.delete` | 按 `id` 真删除记录 | 删除后同一 `workerCode` 再次注册会按稳定 UUID 重新插入记录 |
 | `WorkerRegistryEntity` -> `WorkerRegistryDto` | 字段逐一复制 | 不转换 `status/isActive`，由前端映射展示 |
-| `WorkerRegistryQueryDto` -> `LambdaQueryWrapper` | 字符串字段按定义 `like/eq`；数值字段 `eq` | 默认排除 `status=2` 清除记录，默认 `updateTime desc` |
+| `WorkerRegistryQueryDto` -> `LambdaQueryWrapper` | 字符串字段按定义 `like/eq`；数值字段 `eq` | 默认 `updateTime desc` |
 | `WorkerRegistryEntity` -> scheduler `Worker` | `id` -> `id`，`workerCode` -> `workerCode`，`host` -> `ip`，`plugins` 逗号拆分为 `pluginTypes`，`logDir` -> `workerLogDir` | `timestamp(6)` 转毫秒时间戳 |
-| scheduler `Worker` -> `WorkerRegistryEntity` | `id` -> `id`，`workerCode` -> `workerCode`，`ip` -> `host`，`pluginTypes` -> `plugins` 逗号字符串，首次非空 `workerLogDir` -> `logDir` | 注册由 `WorkerStorageImpl` upsert；心跳/下线只按 `id` 更新；已有记录保留 `isActive`；`logDir` 已存在时不被覆盖 |
+| scheduler `Worker` -> `WorkerRegistryEntity` | `id` 由 `workerCode` 稳定生成，`workerCode` -> `workerCode`，`ip` -> `host`，`pluginTypes` -> `plugins` 逗号字符串，首次非空 `workerLogDir` -> `logDir` | 注册由 `WorkerStorageImpl` 按 `workerCode` upsert；注册和心跳都会置 `status=1`；已有记录保留 `isActive`；`logDir` 已存在时不被覆盖 |
 | `WorkerStorage.getWorker` | `workerId` 只查 `id` | scheduler 框架层不按 `workerCode` 查询 |
+| `WorkerStorage.getTaskInsByWorkerId` | 按 `workerId` 查询属于该 worker 的未完成任务清单 | 供 agent 注册成功后恢复本 worker 任务状态，不扫描全部任务运行目录 |
 
 ## 6. 枚举 / 特殊字段
 
 | 字段 | 存储类型 | Java 类型 | 取值 | 说明 |
 |------|----------|-----------|------|------|
-| `status` | `int4` | `Integer` | `0` 下线、`1` 上线、`2` 清除 | 对应 `Worker.STATUS_DOWN/STATUS_UP/STATUS_DELETED` |
+| `status` | `int4` | `Integer` | `0` 下线、`1` 上线 | 对应 `Worker.STATUS_DOWN/STATUS_UP` |
 | `is_active` | `int2` | `Integer` | `0` 无效、`1` 有效 | 调度查找必须过滤 `1` |
 | `plugins` | `varchar(256)` | `String` | 逗号分隔字符串 | 前端以文本维护，后端去除空白分隔项后保存 |
 | `log_dir` | `text` | `String` | 目录路径 | worker 服务日志目录，不指向单个滚动日志文件 |
