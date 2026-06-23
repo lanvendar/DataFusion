@@ -36,6 +36,11 @@ public class RunningTaskContext {
     private String taskName;
 
     /**
+     * 工作节点 ID.
+     */
+    private String workerId;
+
+    /**
      * 插件类型.
      */
     private String pluginType;
@@ -112,6 +117,7 @@ public class RunningTaskContext {
         context.setTaskInstanceId(request.getTaskInstanceId());
         context.setFlowInstanceId(request.getFlowInstanceId());
         context.setTaskName(request.getTaskName());
+        context.setWorkerId(request.getWorkerId());
         context.setPluginType(request.getPluginType());
         context.setAppId(request.getAppId());
         context.setTaskState(request.getTaskState());
@@ -133,6 +139,9 @@ public class RunningTaskContext {
         if (result != null) {
             if (result.getTaskState() != null) {
                 this.taskState = result.getTaskState();
+            }
+            if (result.getWorkerId() != null) {
+                this.workerId = result.getWorkerId();
             }
             if (result.getAppId() != null) {
                 this.appId = result.getAppId();
@@ -168,6 +177,9 @@ public class RunningTaskContext {
         if (request.getTaskName() != null) {
             this.taskName = request.getTaskName();
         }
+        if (request.getWorkerId() != null) {
+            this.workerId = request.getWorkerId();
+        }
         if (request.getPluginType() != null) {
             this.pluginType = request.getPluginType();
         }
@@ -201,6 +213,7 @@ public class RunningTaskContext {
                 .taskName(taskName)
                 .taskState(taskState)
                 .outputVars(outputVars)
+                .workerId(workerId)
                 .appId(appId)
                 .workDirPath(workDirPath)
                 .submitMode(submitMode)
@@ -220,6 +233,9 @@ public class RunningTaskContext {
         }
         if (request.getTaskName() == null) {
             request.setTaskName(taskName);
+        }
+        if (request.getWorkerId() == null) {
+            request.setWorkerId(workerId);
         }
         if (request.getTaskState() == null) {
             request.setTaskState(taskState);

@@ -26,6 +26,11 @@ public class WorkerTaskExecutionState {
     private String taskInstanceId;
 
     /**
+     * 工作节点 ID.
+     */
+    private String workerId;
+
+    /**
      * 终端任务 ID.
      */
     private String appId;

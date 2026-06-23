@@ -61,9 +61,9 @@ public class AgentProperties {
     public static class Worker {
 
         /**
-         * worker ID. 未配置时由 hostName + port 推导.
+         * worker 编码. 未配置时由 hostName + ip + port 推导.
          */
-        private String id;
+        private String workerCode;
 
         /**
          * worker IP.

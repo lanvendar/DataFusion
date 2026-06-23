@@ -363,6 +363,7 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
 
     private String statusLine(WorkerTaskExecutionState state) {
         return "time:" + state.getUpdateTime()
+                + "|workerId:" + safeText(state.getWorkerId())
                 + "|appId:" + safeText(state.getAppId())
                 + "|status:" + (state.getStatus() == null ? "" : state.getStatus().name())
                 + "|exitCode:" + (state.getExitCode() == null ? "" : state.getExitCode());

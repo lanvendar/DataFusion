@@ -182,6 +182,7 @@ public class AgentTaskStateReportScheduler {
                 .taskInstanceId(state.getTaskInstanceId())
                 .flowInstanceId(snapshot == null ? null : snapshot.getFlowInstanceId())
                 .taskName(snapshot == null ? null : snapshot.getTaskName())
+                .workerId(state.getWorkerId() == null && snapshot != null ? snapshot.getWorkerId() : state.getWorkerId())
                 .taskState(state.getStatus())
                 .appId(state.getAppId())
                 .workDirPath(state.getWorkDirPath())

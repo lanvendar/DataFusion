@@ -1,8 +1,13 @@
 package com.datafusion.agent.rpc;
 
 import com.datafusion.agent.config.AgentProperties;
+import com.datafusion.common.exception.ErrorCodeEnum;
+import com.datafusion.common.spring.dto.response.Result;
+import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.Worker;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
@@ -38,6 +43,12 @@ public class HttpManagerClient implements ManagerClient {
     private static final String REPORT_TASK_RESULT_PATH = "/internal/schedule/reportTaskResult";
 
     /**
+     * Manager 统一响应类型.
+     */
+    private static final TypeReference<Result<JsonNode>> RESULT_TYPE = new TypeReference<>() {
+    };
+
+    /**
      * RestTemplate.
      */
     private final RestTemplate restTemplate;
@@ -59,40 +70,56 @@ public class HttpManagerClient implements ManagerClient {
     }
 
     @Override
-    public boolean register(Worker worker) {
+    public Worker register(Worker worker) {
         return post(REGISTER_PATH, worker);
     }
 
     @Override
-    public boolean heartbeat(Worker worker) {
+    public Worker heartbeat(Worker worker) {
         return post(HEARTBEAT_PATH, worker);
     }
 
     @Override
-    public boolean offline(Worker worker) {
+    public Worker offline(Worker worker) {
         return post(OFFLINE_PATH, worker);
     }
 
     @Override
     public boolean reportTaskResult(TaskResult result) {
-        return post(REPORT_TASK_RESULT_PATH, result);
+        return postBoolean(REPORT_TASK_RESULT_PATH, result);
     }
 
-    private boolean post(String path, Object body) {
+    private Worker post(String path, Worker body) {
+        Result<JsonNode> result = postForResult(path, body);
+        if (result == null || !ErrorCodeEnum.SUCCESS.getCode().equals(result.getCode()) || result.getData() == null) {
+            return null;
+        }
+        return JacksonUtils.tryObj2Bean(result.getData(), Worker.class);
+    }
+
+    private boolean postBoolean(String path, Object body) {
+        Result<JsonNode> result = postForResult(path, body);
+        return result != null && ErrorCodeEnum.SUCCESS.getCode().equals(result.getCode());
+    }
+
+    private Result<JsonNode> postForResult(String path, Object body) {
         String baseUrl = properties.getManager().getBaseUrl();
         if (!properties.getManager().isEnabled()) {
-            return true;
+            return Result.success(JacksonUtils.tryObj2JsonNode(body));
         }
         if (baseUrl == null || baseUrl.trim().isEmpty()) {
             log.warn("manager baseUrl 未配置, path={}", path);
-            return false;
+            return null;
         }
         try {
             ResponseEntity<String> response = restTemplate.postForEntity(baseUrl + path, body, String.class);
-            return response.getStatusCode().is2xxSuccessful();
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                return null;
+            }
+            return JacksonUtils.tryStr2Bean(response.getBody(), RESULT_TYPE);
         } catch (Exception e) {
             log.warn("调用 manager 失败, path={}", path, e);
-            return false;
+            return null;
         }
     }
 }

@@ -6,6 +6,7 @@ import com.datafusion.common.exception.ErrorCodeEnum;
 import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.Worker;
 import com.datafusion.scheduler.worker.WorkerTaskOperator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -77,7 +78,7 @@ public class AgentExecutorRpcProvider {
      */
     @PostMapping("/submitTask")
     public Result<TaskResult> submitTask(@RequestBody TaskRequest request) {
-        return execute(() -> workerTaskOperator.submitTask(request));
+        return execute(() -> workerTaskOperator.submitTask(fillWorkerId(request)));
     }
 
     /**
@@ -88,7 +89,7 @@ public class AgentExecutorRpcProvider {
      */
     @PostMapping("/stopTask")
     public Result<TaskResult> stopTask(@RequestBody TaskRequest request) {
-        return execute(() -> workerTaskOperator.stopTask(request));
+        return execute(() -> workerTaskOperator.stopTask(fillWorkerId(request)));
     }
 
     /**
@@ -99,7 +100,7 @@ public class AgentExecutorRpcProvider {
      */
     @PostMapping("/killTask")
     public Result<TaskResult> killTask(@RequestBody TaskRequest request) {
-        return execute(() -> workerTaskOperator.killTask(request));
+        return execute(() -> workerTaskOperator.killTask(fillWorkerId(request)));
     }
 
     /**
@@ -110,7 +111,7 @@ public class AgentExecutorRpcProvider {
      */
     @PostMapping("/finishTask")
     public Result<TaskResult> finishTask(@RequestBody TaskRequest request) {
-        return execute(() -> workerTaskOperator.finishTask(request));
+        return execute(() -> workerTaskOperator.finishTask(fillWorkerId(request)));
     }
 
     private Result<TaskResult> execute(Callable<TaskResult> action) {
@@ -135,5 +136,16 @@ public class AgentExecutorRpcProvider {
 
     private boolean isReady() {
         return runtimeState.isReady() || properties.getWorker().isAcceptTasksBeforeRegistered();
+    }
+
+    private TaskRequest fillWorkerId(TaskRequest request) {
+        if (request == null || request.getWorkerId() != null) {
+            return request;
+        }
+        Worker worker = runtimeState.getWorker();
+        if (worker != null) {
+            request.setWorkerId(worker.getId());
+        }
+        return request;
     }
 }

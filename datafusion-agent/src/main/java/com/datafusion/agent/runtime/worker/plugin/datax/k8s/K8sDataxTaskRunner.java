@@ -151,6 +151,7 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
                 .taskInstanceId(resolvedRequest.getTaskInstanceId())
                 .flowInstanceId(resolvedRequest.getFlowInstanceId())
                 .taskName(resolvedRequest.getTaskName())
+                .workerId(resolvedRequest.getWorkerId())
                 .taskState(status)
                 .appId(state == null ? resolvedRequest.getAppId() : state.getAppId())
                 .workDirPath(state == null ? null : state.getWorkDirPath())

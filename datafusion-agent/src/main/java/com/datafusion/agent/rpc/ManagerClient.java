@@ -16,25 +16,25 @@ public interface ManagerClient {
      * 注册 worker.
      *
      * @param worker worker 信息
-     * @return 是否成功
+     * @return manager 保存后的 worker 信息
      */
-    boolean register(Worker worker);
+    Worker register(Worker worker);
 
     /**
      * worker 心跳.
      *
      * @param worker worker 信息
-     * @return 是否成功
+     * @return manager 保存后的 worker 信息
      */
-    boolean heartbeat(Worker worker);
+    Worker heartbeat(Worker worker);
 
     /**
      * worker 下线.
      *
      * @param worker worker 信息
-     * @return 是否成功
+     * @return manager 保存后的 worker 信息
      */
-    boolean offline(Worker worker);
+    Worker offline(Worker worker);
 
     /**
      * 上报任务结果.

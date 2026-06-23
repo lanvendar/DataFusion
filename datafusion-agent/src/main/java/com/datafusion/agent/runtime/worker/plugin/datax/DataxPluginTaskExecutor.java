@@ -87,6 +87,7 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
         stateStore.saveSnapshot(snapshot(request, param));
         WorkerTaskExecutionState state = WorkerTaskExecutionState.builder()
                 .taskInstanceId(request.getTaskInstanceId())
+                .workerId(request.getWorkerId())
                 .appId(submitResult.getAppId())
                 .workDirPath(submitResult.getWorkDirPath())
                 .status(submitResult.getStatus())
@@ -97,6 +98,7 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
                 .taskInstanceId(request.getTaskInstanceId())
                 .flowInstanceId(request.getFlowInstanceId())
                 .taskName(request.getTaskName())
+                .workerId(request.getWorkerId())
                 .taskState(submitResult.getStatus())
                 .appId(submitResult.getAppId())
                 .workDirPath(submitResult.getWorkDirPath())
@@ -142,6 +144,7 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
         return stateStore.readState(request.getTaskInstanceId())
                 .orElseGet(() -> WorkerTaskExecutionState.builder()
                         .taskInstanceId(request.getTaskInstanceId())
+                        .workerId(request.getWorkerId())
                         .appId(request.getAppId())
                         .status(request.getTaskState())
                         .build());
@@ -160,6 +163,7 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
     private void recordControlResult(TaskRequest request, WorkerTaskExecutionState state, TaskResult result) {
         WorkerTaskExecutionState next = state == null ? currentState(request) : state;
         next.setStatus(result.getTaskState());
+        next.setWorkerId(firstText(next.getWorkerId(), result.getWorkerId(), request.getWorkerId()));
         next.setAppId(result.getAppId() == null ? next.getAppId() : result.getAppId());
         next.setWorkDirPath(result.getWorkDirPath() == null ? next.getWorkDirPath() : result.getWorkDirPath());
         next.setResult(result.getResult());
@@ -170,6 +174,7 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
         return WorkerTaskExecutionSnap.builder()
                 .flowInstanceId(request.getFlowInstanceId())
                 .taskName(request.getTaskName())
+                .workerId(request.getWorkerId())
                 .pluginType(PLUGIN_TYPE)
                 .runMode(param.getRunMode().name())
                 .taskInstanceId(request.getTaskInstanceId())
@@ -183,6 +188,18 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
                 ? pluginParam.deepCopy() : OBJECT_MAPPER.createObjectNode();
         merged.put("runMode", param.getRunMode().name());
         return merged;
+    }
+
+    private String firstText(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (value != null && !value.trim().isEmpty()) {
+                return value;
+            }
+        }
+        return null;
     }
 
 }

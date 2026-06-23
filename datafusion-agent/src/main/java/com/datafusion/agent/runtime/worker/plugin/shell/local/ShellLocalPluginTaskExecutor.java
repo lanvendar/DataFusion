@@ -131,6 +131,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                     .taskInstanceId(request.getTaskInstanceId())
                     .flowInstanceId(request.getFlowInstanceId())
                     .taskName(request.getTaskName())
+                    .workerId(request.getWorkerId())
                     .taskState(StatusEnum.RUNNING)
                     .appId(appId)
                     .workDirPath(workDirPath)
@@ -141,6 +142,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                     .taskInstanceId(request.getTaskInstanceId())
                     .flowInstanceId(request.getFlowInstanceId())
                     .taskName(request.getTaskName())
+                    .workerId(request.getWorkerId())
                     .taskState(StatusEnum.SUBMIT_FAILURE)
                     .result(resultJson(e.getMessage(), request, null))
                     .build();
@@ -167,6 +169,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                     .taskInstanceId(resolvedRequest.getTaskInstanceId())
                     .flowInstanceId(resolvedRequest.getFlowInstanceId())
                     .taskName(resolvedRequest.getTaskName())
+                    .workerId(resolvedRequest.getWorkerId())
                     .taskState(status)
                     .appId(resolveAppId(resolvedRequest, state))
                     .workDirPath(workDirPath(state))
@@ -177,6 +180,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                 .taskInstanceId(resolvedRequest.getTaskInstanceId())
                 .flowInstanceId(resolvedRequest.getFlowInstanceId())
                 .taskName(resolvedRequest.getTaskName())
+                .workerId(resolvedRequest.getWorkerId())
                 .taskState(status == null ? StatusEnum.UNKNOWN : status)
                 .appId(resolveAppId(resolvedRequest, state))
                 .workDirPath(workDirPath(state))
@@ -199,6 +203,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                     .taskInstanceId(resolvedRequest.getTaskInstanceId())
                     .flowInstanceId(resolvedRequest.getFlowInstanceId())
                     .taskName(resolvedRequest.getTaskName())
+                    .workerId(resolvedRequest.getWorkerId())
                     .taskState(targetStatus)
                     .appId(appId)
                     .workDirPath(workDirPath)
@@ -216,6 +221,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                 .taskInstanceId(resolvedRequest.getTaskInstanceId())
                 .flowInstanceId(resolvedRequest.getFlowInstanceId())
                 .taskName(resolvedRequest.getTaskName())
+                .workerId(resolvedRequest.getWorkerId())
                 .taskState(targetStatus)
                 .appId(appId)
                 .workDirPath(workDirPath)
@@ -283,6 +289,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
             String appId, String workDirPath, JsonNode result) {
         WorkerTaskExecutionState state = currentState == null ? baseState(request, status).build() : currentState;
         state.setStatus(status);
+        state.setWorkerId(firstText(state.getWorkerId(), request.getWorkerId()));
         state.setAppId(appId == null ? state.getAppId() : appId);
         state.setWorkDirPath(workDirPath == null ? state.getWorkDirPath() : workDirPath);
         state.setResult(result);
@@ -292,6 +299,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
     private WorkerTaskExecutionState.WorkerTaskExecutionStateBuilder baseState(TaskRequest request, StatusEnum status) {
         return WorkerTaskExecutionState.builder()
                 .taskInstanceId(request.getTaskInstanceId())
+                .workerId(request.getWorkerId())
                 .appId(request.getAppId())
                 .status(status);
     }
@@ -301,6 +309,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                 .flowInstanceId(request.getFlowInstanceId())
                 .taskInstanceId(request.getTaskInstanceId())
                 .taskName(request.getTaskName())
+                .workerId(request.getWorkerId())
                 .pluginType(PLUGIN_TYPE)
                 .runMode(ShellLocalRunModeStateMapping.RUN_MODE)
                 .taskData(request.getTaskData())
@@ -324,6 +333,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
         resolvedRequest.setFlowInstanceId(firstText(request.getFlowInstanceId(), snapshot.getFlowInstanceId()));
         resolvedRequest.setTaskInstanceId(firstText(request.getTaskInstanceId(), snapshot.getTaskInstanceId()));
         resolvedRequest.setTaskName(firstText(request.getTaskName(), snapshot.getTaskName()));
+        resolvedRequest.setWorkerId(firstText(request.getWorkerId(), snapshot.getWorkerId()));
         resolvedRequest.setPluginType(firstText(request.getPluginType(), snapshot.getPluginType()));
         resolvedRequest.setAppId(request.getAppId());
         resolvedRequest.setTaskState(request.getTaskState());

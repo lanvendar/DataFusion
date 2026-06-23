@@ -14,7 +14,7 @@
 | 对象 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `AgentProperties` | `modules` | `String` | `${user.dir}` | agent 模块根目录，不参与任务运行目录拼接 |
-| `AgentProperties.Worker` | `id` | `String` | 空 | 未配置时由 `hostName:port` 推导 |
+| `AgentProperties.Worker` | `workerCode` | `String` | 空 | agent 稳定编码；配置后使用配置值，未配置时由 `hostName:ip:port` 生成稳定 UUID 字符串，主机名、IP、端口都不可用时使用 `00000000-0000-0000-0000-000000000001` |
 | `AgentProperties.Worker` | `ip` | `String` | 空 | 未配置时读取本机 IP |
 | `AgentProperties.Worker` | `port` | `Integer` | `8081` | HTTP 端口 |
 | `AgentProperties.Worker` | `hostName` | `String` | 空 | 未配置时读取本机 hostName |
@@ -45,10 +45,19 @@ agent 调用 manager：
 
 | RPC | 请求对象 | 说明 |
 |-----|----------|------|
-| `POST {manager}/internal/schedule/worker/register` | `Worker` | 注册 worker |
-| `POST {manager}/internal/schedule/worker/heartbeat` | `Worker` | worker 心跳 |
-| `POST {manager}/internal/schedule/worker/offline` | `Worker` | worker 下线 |
+| `POST {manager}/internal/schedule/worker/register` | `Worker` | 注册 worker，携带 `workerCode/hostName/ip/port/pluginTypes/workerLogDir`，响应 `Result<Worker>` |
+| `POST {manager}/internal/schedule/worker/heartbeat` | `Worker` | worker 心跳，只携带 `id/lastHeartbeatTime`，响应 `Result<Worker>` |
+| `POST {manager}/internal/schedule/worker/offline` | `Worker` | worker 下线，只携带 `id`，响应 `Result<Worker>` |
 | `POST {manager}/internal/schedule/reportTaskResult` | `TaskResult` | 上报任务结果 |
+
+agent 本地 worker 配置：
+
+```text
+/opt/datafusion-builtin/datafusion-agent/worker.config
+```
+
+该文件保存 manager 注册成功返回的 `Worker`。agent 重启后如果本地 `workerCode` 与文件中的
+`workerCode` 一致，则复用文件中的 `Worker.id`，后续 heartbeat/offline 不再依赖 `workerCode` 查找。
 
 ## 4. 本地运行态文件
 
@@ -75,7 +84,7 @@ ${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
   "taskName": "{taskName}",
   "pluginType": "{pluginType}",
   "runMode": "{runMode}",
-  "workId": "{workId}",
+  "workerId": "{workerId}",
   "taskData": {},
   "pluginParam": {}
 }
@@ -86,6 +95,7 @@ ${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
 ```json
 {
   "taskInstanceId": "{taskInstanceId}",
+  "workerId": "{workerId}",
   "appId": "{appId}",
   "workDirPath": "{workDirPath}",
   "status": "{StatusEnum.name}",
@@ -104,13 +114,15 @@ ${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
 `state.log` 是任务状态变化流水：
 
 ```text
-time:1780000000000|appId:123|status:RUNNING|exitCode:
-time:1780000001000|appId:123|status:RUN_SUCCESS|exitCode:0
+time:1780000000000|workerId:{workerId}|appId:123|status:RUNNING|exitCode:
+time:1780000001000|workerId:{workerId}|appId:123|status:RUN_SUCCESS|exitCode:0
 ```
 
 规则：
 
 - `.state.status` 使用 `StatusEnum.name()`。
+- `workerId` 使用 manager 返回的 `Worker.id`，即 `scheduler_worker_registry.id` 的 UUID 字符串，并随 `TaskRequest` / `TaskResult` / `.snap` / `.state` 透传。
+- `Worker.workerCode` 使用 agent 配置或推导出的稳定编码，落到 `scheduler_worker_registry.worker_code`，不写入 `TaskRequest.workerId`。
 - `appId` 统一表示终端任务 ID。
 - `.snap` 只保存提交快照和插件配置参数，不保存运行时观测字段。
 - `.state` 只保存通用运行态，不回写 `taskData` / `pluginParam`。

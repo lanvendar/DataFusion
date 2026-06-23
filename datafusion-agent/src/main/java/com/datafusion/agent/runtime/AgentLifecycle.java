@@ -3,6 +3,7 @@ package com.datafusion.agent.runtime;
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.rpc.ManagerClient;
 import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateReportScheduler;
+import com.datafusion.common.constant.SystemConstant;
 import com.datafusion.scheduler.model.Worker;
 import com.datafusion.scheduler.worker.plugin.WorkerTaskOperatorRouter;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +14,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
 import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
@@ -60,9 +62,19 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
     private final AgentTaskStateReportScheduler taskStateReportScheduler;
 
     /**
+     * worker 本地配置存储.
+     */
+    private final AgentWorkerConfigStore workerConfigStore;
+
+    /**
      * 默认 worker 服务日志目录.
      */
     private static final String DEFAULT_WORKER_LOG_DIR = "/opt/datafusion/logs/datafusion-agent";
+
+    /**
+     * 默认 worker 编码.
+     */
+    private static final String DEFAULT_WORKER_CODE = "00000000-0000-0000-0000-000000000001";
 
     /**
      * 构造函数.
@@ -73,16 +85,18 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
      * @param router        插件路由
      * @param heartbeatScheduler 心跳调度器
      * @param taskStateReportScheduler 任务状态上报计划
+     * @param workerConfigStore worker 本地配置存储
      */
     public AgentLifecycle(AgentProperties properties, ManagerClient managerClient, AgentRuntimeState runtimeState,
             WorkerTaskOperatorRouter router, @Qualifier("agentHeartbeatScheduler") ScheduledExecutorService heartbeatScheduler,
-            AgentTaskStateReportScheduler taskStateReportScheduler) {
+            AgentTaskStateReportScheduler taskStateReportScheduler, AgentWorkerConfigStore workerConfigStore) {
         this.properties = properties;
         this.managerClient = managerClient;
         this.runtimeState = runtimeState;
         this.router = router;
         this.heartbeatScheduler = heartbeatScheduler;
         this.taskStateReportScheduler = taskStateReportScheduler;
+        this.workerConfigStore = workerConfigStore;
     }
 
     @Override
@@ -97,7 +111,7 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
     public void destroy() {
         Worker worker = runtimeState.getWorker();
         if (worker != null && runtimeState.isReady()) {
-            managerClient.offline(worker);
+            managerClient.offline(offlineWorker(worker));
         }
         runtimeState.setReady(false);
     }
@@ -106,10 +120,14 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         Worker worker = new Worker();
         long now = System.currentTimeMillis();
         AgentProperties.Worker workerProperties = properties.getWorker();
-        worker.setId(resolveWorkerId(workerProperties));
-        worker.setIp(resolveIp(workerProperties));
+        String ip = resolveIp(workerProperties);
+        String hostName = resolveHostName(workerProperties);
+        Integer port = workerProperties.getPort();
+        worker.setWorkerCode(resolveWorkerCode(workerProperties, hostName, ip, port));
+        mergeLocalWorker(worker);
+        worker.setIp(ip);
         worker.setPort(workerProperties.getPort());
-        worker.setHostName(resolveHostName(workerProperties));
+        worker.setHostName(hostName);
         worker.setPluginTypes(new ArrayList<>(router.executors().keySet()));
         worker.setStatus(Worker.STATUS_UP);
         worker.setRegisterTime(now);
@@ -129,23 +147,27 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         worker.setLastHeartbeatTime(now);
         worker.setWorkerLogDir(resolveWorkerLogDir());
         worker.setUpdateTime(now);
-        boolean success = runtimeState.isReady() ? managerClient.heartbeat(worker) : managerClient.register(worker);
+        Worker savedWorker = runtimeState.isReady() ? managerClient.heartbeat(heartbeatWorker(worker)) : managerClient.register(worker);
+        boolean success = savedWorker != null;
+        if (success) {
+            mergeSavedWorker(worker, savedWorker);
+            workerConfigStore.save(worker);
+        }
         runtimeState.setReady(success);
         if (!success) {
             log.warn("agent 注册或心跳失败, workerId={}", worker.getId());
         }
     }
 
-    private String resolveWorkerId(AgentProperties.Worker workerProperties) {
-        if (workerProperties.getId() != null && !workerProperties.getId().trim().isEmpty()) {
-            return workerProperties.getId();
+    private String resolveWorkerCode(AgentProperties.Worker workerProperties, String hostName, String ip, Integer port) {
+        if (workerProperties.getWorkerCode() != null && !workerProperties.getWorkerCode().trim().isEmpty()) {
+            return workerProperties.getWorkerCode().trim();
         }
-        String hostName = resolveHostName(workerProperties);
-        Integer port = workerProperties.getPort();
-        if (hostName != null && port != null) {
-            return hostName + ':' + port;
+        if (isNotBlank(hostName) && isNotBlank(ip) && port != null) {
+            String source = hostName + SystemConstant.COLON + ip + SystemConstant.COLON + port;
+            return UUID.nameUUIDFromBytes(source.getBytes(StandardCharsets.UTF_8)).toString();
         }
-        return UUID.randomUUID().toString();
+        return DEFAULT_WORKER_CODE;
     }
 
     private String resolveIp(AgentProperties.Worker workerProperties) {
@@ -180,5 +202,54 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
             return envValue;
         }
         return DEFAULT_WORKER_LOG_DIR;
+    }
+
+    private boolean isNotBlank(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
+    private void mergeSavedWorker(Worker worker, Worker savedWorker) {
+        if (savedWorker.getId() != null) {
+            worker.setId(savedWorker.getId());
+        }
+        if (savedWorker.getWorkerCode() != null) {
+            worker.setWorkerCode(savedWorker.getWorkerCode());
+        }
+        if (savedWorker.getRegisterTime() != null) {
+            worker.setRegisterTime(savedWorker.getRegisterTime());
+        }
+        if (savedWorker.getLastHeartbeatTime() != null) {
+            worker.setLastHeartbeatTime(savedWorker.getLastHeartbeatTime());
+        }
+        if (savedWorker.getWorkerLogDir() != null) {
+            worker.setWorkerLogDir(savedWorker.getWorkerLogDir());
+        }
+        if (savedWorker.getUpdateTime() != null) {
+            worker.setUpdateTime(savedWorker.getUpdateTime());
+        }
+    }
+
+    private void mergeLocalWorker(Worker worker) {
+        Worker localWorker = workerConfigStore.load();
+        if (localWorker == null || !worker.getWorkerCode().equals(localWorker.getWorkerCode())) {
+            return;
+        }
+        worker.setId(localWorker.getId());
+        if (localWorker.getRegisterTime() != null) {
+            worker.setRegisterTime(localWorker.getRegisterTime());
+        }
+    }
+
+    private Worker heartbeatWorker(Worker worker) {
+        Worker heartbeat = new Worker();
+        heartbeat.setId(worker.getId());
+        heartbeat.setLastHeartbeatTime(worker.getLastHeartbeatTime());
+        return heartbeat;
+    }
+
+    private Worker offlineWorker(Worker worker) {
+        Worker offline = new Worker();
+        offline.setId(worker.getId());
+        return offline;
     }
 }

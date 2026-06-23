@@ -47,7 +47,7 @@ public class WorkerTaskExecutionSnap {
     /**
      * 工作节点 ID.
      */
-    private String workId;
+    private String workerId;
 
     /**
      * 渲染后的任务执行数据.

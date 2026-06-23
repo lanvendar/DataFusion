@@ -92,6 +92,7 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
                 .flowInstanceId(context.getFlowInstanceId())
                 .taskInstanceId(context.getTaskInstanceId())
                 .taskName(context.getTaskName())
+                .workerId(context.getWorkerId())
                 .pluginType(context.getPluginType())
                 .runMode(resolveRunMode(context))
                 .taskData(context.getTaskData())
@@ -103,6 +104,7 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
 
         WorkerTaskExecutionState state = WorkerTaskExecutionState.builder()
                 .taskInstanceId(context.getTaskInstanceId())
+                .workerId(context.getWorkerId())
                 .appId(context.getAppId())
                 .workDirPath(context.getWorkDirPath())
                 .status(context.getTaskState())
@@ -118,6 +120,9 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
         stateStore.readState(state.getTaskInstanceId()).ifPresent(existing -> {
             if (state.getAppId() == null) {
                 state.setAppId(existing.getAppId());
+            }
+            if (state.getWorkerId() == null) {
+                state.setWorkerId(existing.getWorkerId());
             }
             if (state.getWorkDirPath() == null) {
                 state.setWorkDirPath(existing.getWorkDirPath());
@@ -136,6 +141,7 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
 
     private String stateSign(WorkerTaskExecutionState state) {
         return safeText(state.getTaskInstanceId()) + '|'
+                + safeText(state.getWorkerId()) + '|'
                 + safeText(state.getAppId()) + '|'
                 + safeText(state.getWorkDirPath()) + '|'
                 + (state.getStatus() == null ? "" : state.getStatus().name()) + '|'
@@ -154,6 +160,7 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
     private RunningTaskContext toContext(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
         RunningTaskContext context = new RunningTaskContext();
         context.setTaskInstanceId(state.getTaskInstanceId());
+        context.setWorkerId(state.getWorkerId());
         context.setAppId(state.getAppId());
         context.setWorkDirPath(state.getWorkDirPath());
         context.setTaskState(state.getStatus());
@@ -161,6 +168,9 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
         if (snapshot != null) {
             context.setFlowInstanceId(snapshot.getFlowInstanceId());
             context.setTaskName(snapshot.getTaskName());
+            if (context.getWorkerId() == null) {
+                context.setWorkerId(snapshot.getWorkerId());
+            }
             context.setPluginType(snapshot.getPluginType());
             context.setRunMode(snapshot.getRunMode());
             context.setTaskData(snapshot.getTaskData());

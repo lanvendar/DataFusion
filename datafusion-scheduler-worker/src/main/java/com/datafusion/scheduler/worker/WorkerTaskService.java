@@ -345,6 +345,9 @@ public class WorkerTaskService implements WorkerTaskOperator {
         if (result.getTaskName() == null) {
             result.setTaskName(request.getTaskName());
         }
+        if (result.getWorkerId() == null) {
+            result.setWorkerId(request.getWorkerId());
+        }
         if (result.getTaskState() == null) {
             result.setTaskState(defaultState);
         }
@@ -360,6 +363,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
                 .flowInstanceId(request.getFlowInstanceId())
                 .taskName(request.getTaskName())
                 .taskState(state)
+                .workerId(request.getWorkerId())
                 .appId(request.getAppId())
                 .submitMode(request.getSubmitMode())
                 .result(messageResult(message))

@@ -9,6 +9,7 @@ datafusion:
   agent:
     modules: ${DATAFUSION_MODULES:${user.dir}}
     worker:
+      worker-code: ${DATAFUSION_WORKER_CODE:}
       port: ${server.port:8081}
       accept-tasks-before-registered: false
     manager:
