@@ -37,6 +37,11 @@ public class Worker {
     private String id;
 
     /**
+     * 工作节点编码.
+     */
+    private String workerCode;
+
+    /**
      * 工作节点ip.
      */
     private String ip;
