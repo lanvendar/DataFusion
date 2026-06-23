@@ -1,5 +1,5 @@
 # FROM eclipse-temurin:17-jre
-FROM jsessh-registry.cn-shanghai.cr.aliyuncs.com/base-images/java_17:latest
+FROM jsessh-registry.cn-shanghai.cr.aliyuncs.com/base-images/amd64-python312-jre17:v1.0.0-20260606
 
 ENV TZ=Asia/Shanghai \
     DATAFUSION_MODULES=/opt/datafusion \
