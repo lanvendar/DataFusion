@@ -46,7 +46,7 @@ public class VariableFunctionTest {
                 .variables(variables)
                 .build();
 
-        String result = new DayVariableFunction().call(List.of("base_day", "\"-2M\"", "\"MD\"", "\"yyyy-MM-dd\""),
+        String result = new DayVariableFunction().call(List.of("base_day", "-2M", "MD", "yyyy-MM-dd"),
                 context);
 
         assertEquals("2022-04-30", result);
@@ -61,7 +61,7 @@ public class VariableFunctionTest {
                 .variables(variables)
                 .build();
 
-        String result = new DayVariableFunction().call(List.of("base_day", "\"-2M\"", "\"MS\"", "\"yyyy-MM-dd\""),
+        String result = new DayVariableFunction().call(List.of("base_day", "-2M", "MS", "yyyy-MM-dd"),
                 context);
 
         assertEquals("2022-04-01", result);

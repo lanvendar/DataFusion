@@ -67,7 +67,7 @@
 
 - `#(...)` 仅表示变量输出。
 - 括号内第一版只支持普通变量名，不支持 `#(task.name)` 这类属性访问。
-- 不支持 `#(_biz_date_, "-2M", "MS", "yyyyMMdd")` 这类隐式日期函数写法。
+- 不支持 `#(_biz_date_, -2M, MS, yyyyMMdd)` 这类隐式日期函数写法。
 - 日期计算和格式化必须使用 `#day(...)`。
 - 变量不存在时保留原 token 透传，例如 `#(unknown_var)` 输出仍为 `#(unknown_var)`。
 - `_变量_` 形式的变量均视为系统内置变量，由平台定义和维护。
@@ -80,7 +80,7 @@
 
 ```text
 #day(_biz_date_)
-#day(_event_date_, "-1D", "yyyyMMdd")
+#day(_event_date_, -1D, yyyyMMdd)
 #timestamp(_event_time_)
 ```
 
@@ -89,10 +89,11 @@
 - `#day(...)`、`#timestamp(...)` 属于内置时间函数。
 - 第一个参数可以是内置时间变量编码，例如 `_biz_date_`、`_event_date_`、`_schedule_time_`。
 - 普通内置函数参数按逗号分隔。
-- 普通内置函数参数只支持变量名、字符串字面量和数字字面量。
-- 字符串参数只支持双引号。
-- 双引号字符串内部只支持双引号转义。
-- 逗号出现在字符串内时不拆分参数。
+- 普通内置函数参数支持变量名、未加引号的简单字面量、单引号字符串字面量和数字字面量。
+- 日期 offset、suffix、pattern 等简单参数推荐不加引号，例如 `#day(_biz_date_, -1D, yyyyMMdd)`。
+- 仅当参数本身包含逗号、空格、括号等复杂字符时使用单引号字符串。
+- 字符串参数只支持单引号，单引号字符串内部只支持单引号转义。
+- 逗号出现在单引号字符串内时不拆分参数。
 - 普通内置函数参数中不嵌套 Aviator 表达式。
 - 未注册函数直接抛错，例如 `#unknown(...)`。
 - 函数参数数量错误、参数语义错误、非法 `align` 均按函数使用错误抛错。
@@ -142,11 +143,11 @@ base -> offset -> suffix -> pattern
 
 覆盖范围：
 
-- `#day(base, "yyyyMMdd")` 覆盖仅格式化。
-- `#day(base, "-1D")` 覆盖仅偏移。
-- `#day(base, "-1D", "yyyyMMdd")` 覆盖偏移后格式化。
-- `#day(base, "-1D", "MS")` 覆盖偏移后取边界，使用默认格式。
-- `#day(base, "-1D", "MS", "yyyyMMdd")` 覆盖偏移、取边界、格式化。
+- `#day(base, yyyyMMdd)` 覆盖仅格式化。
+- `#day(base, -1D)` 覆盖仅偏移。
+- `#day(base, -1D, yyyyMMdd)` 覆盖偏移后格式化。
+- `#day(base, -1D, MS)` 覆盖偏移后取边界，使用默认格式。
+- `#day(base, -1D, MS, yyyyMMdd)` 覆盖偏移、取边界、格式化。
 
 ## 8. 表达式
 
@@ -348,8 +349,8 @@ Token 扫描层负责从普通 SQL、JSON、文本中识别 `#...` 片段。
 约束：
 
 - 支持字符串中的 token，例如 JSON 字符串和 SQL 字符串。
-- 正确处理括号嵌套和双引号。
-- 字符串内逗号不拆分参数。
+- 正确处理括号嵌套和单引号。
+- 单引号字符串内逗号不拆分参数。
 - `#expr(...)` 参数体不由外层拆分。
 - 未闭合 token 直接抛错。
 
@@ -458,7 +459,7 @@ SchedulerVariableFacade.render(text, placeholderContext)
 - 覆盖变量 token。
 - 覆盖函数 token。
 - 覆盖 `#expr(...)` 的边界扫描。
-- 覆盖双引号、转义双引号、字符串内逗号。
+- 覆盖单引号、转义单引号、字符串内逗号。
 - 未闭合 token 抛错。
 
 ### 13.3 第二阶段：统一内置时间求值
@@ -514,13 +515,13 @@ SchedulerVariableFacade.render(text, placeholderContext)
 - `#(_biz_date_)` 渲染变量值。
 - `#(unknown_var)` 保留原 token。
 - `#unknown(...)` 抛错。
-- `#day(_biz_date_, "yyyyMMdd")` 渲染日期。
-- `#day(_biz_date_, "-2M")` 支持 offset 简写。
-- `#day(_biz_date_, "-2M", "MS")` 支持 offset + suffix。
-- `#day(_biz_date_, "-2M", "MS", "yyyyMMdd")` 支持完整日期规则。
+- `#day(_biz_date_, yyyyMMdd)` 渲染日期。
+- `#day(_biz_date_, -2M)` 支持 offset 简写。
+- `#day(_biz_date_, -2M, MS)` 支持 offset + suffix。
+- `#day(_biz_date_, -2M, MS, yyyyMMdd)` 支持完整日期规则。
 - `#timestamp(_event_time_)` 渲染时间戳。
-- `#(_biz_date_, "-2M", "MS", "yyyyMMdd")` 不被支持。
-- `#day(score > 90 ? _biz_time_ : _event_time_, "yyyyMMdd")` 不被支持。
+- `#(_biz_date_, -2M, MS, yyyyMMdd)` 不被支持。
+- `#day(score > 90 ? _biz_time_ : _event_time_, yyyyMMdd)` 不被支持。
 
 ### 13.5 第四阶段：SQL 模板用法统一
 

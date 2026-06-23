@@ -194,7 +194,7 @@ public class SchedulerVariableFacadeTest {
                 .variables(variables)
                 .build();
 
-        String result = SchedulerVariableFacade.getInstance().replacePlaceholders("#day(_biz_date_, \"yyyyMMdd\")", context);
+        String result = SchedulerVariableFacade.getInstance().replacePlaceholders("#day(_biz_date_, yyyyMMdd)", context);
         assertEquals("20220620", result);
     }
 

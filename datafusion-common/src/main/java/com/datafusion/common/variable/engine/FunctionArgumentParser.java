@@ -25,7 +25,7 @@ public class FunctionArgumentParser {
         }
 
         StringBuilder current = new StringBuilder();
-        boolean inDoubleQuote = false;
+        boolean inSingleQuote = false;
         boolean escaped = false;
         for (int i = 0; i < argumentsText.length(); i++) {
             char ch = argumentsText.charAt(i);
@@ -39,12 +39,12 @@ public class FunctionArgumentParser {
                 escaped = true;
                 continue;
             }
-            if (ch == '"') {
+            if (ch == '\'') {
                 current.append(ch);
-                inDoubleQuote = !inDoubleQuote;
+                inSingleQuote = !inSingleQuote;
                 continue;
             }
-            if (ch == ',' && !inDoubleQuote) {
+            if (ch == ',' && !inSingleQuote) {
                 arguments.add(current.toString().trim());
                 current.setLength(0);
                 continue;

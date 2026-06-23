@@ -161,8 +161,9 @@ public class AgentConfiguration {
      * @return worker 任务上下文存储
      */
     @Bean
-    public WorkerTaskContextStorage workerTaskContextStore(WorkerTaskExecutionStore stateStore) {
-        return new AgentWorkerTaskContextStorage(stateStore);
+    public WorkerTaskContextStorage workerTaskContextStore(WorkerTaskExecutionStore stateStore,
+            AgentTaskStateReportScheduler taskStateReportScheduler) {
+        return new AgentWorkerTaskContextStorage(stateStore, taskStateReportScheduler);
     }
 
     /**

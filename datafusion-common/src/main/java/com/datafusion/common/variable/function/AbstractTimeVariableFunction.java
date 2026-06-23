@@ -36,8 +36,8 @@ public abstract class AbstractTimeVariableFunction implements VariableFunction {
             return null;
         }
         String trimmed = value.trim();
-        if (trimmed.length() >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
-            return trimmed.substring(1, trimmed.length() - 1).replace("\\\"", "\"");
+        if (trimmed.length() >= 2 && trimmed.startsWith("'") && trimmed.endsWith("'")) {
+            return trimmed.substring(1, trimmed.length() - 1).replace("\\'", "'");
         }
         return trimmed;
     }

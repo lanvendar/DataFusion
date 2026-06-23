@@ -77,7 +77,7 @@ public class PlaceholderTokenizer {
      */
     private int findClosingParen(String value, int openIndex) {
         int depth = 0;
-        boolean inDoubleQuote = false;
+        boolean inSingleQuote = false;
         boolean escaped = false;
         for (int i = openIndex; i < value.length(); i++) {
             char ch = value.charAt(i);
@@ -89,11 +89,11 @@ public class PlaceholderTokenizer {
                 escaped = true;
                 continue;
             }
-            if (ch == '"') {
-                inDoubleQuote = !inDoubleQuote;
+            if (ch == '\'') {
+                inSingleQuote = !inSingleQuote;
                 continue;
             }
-            if (inDoubleQuote) {
+            if (inSingleQuote) {
                 continue;
             }
             if (ch == '(') {

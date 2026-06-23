@@ -144,9 +144,17 @@ public class AgentTaskStateReportScheduler {
     }
 
     private void reportFinalState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
-        String taskInstanceId = state.getTaskInstanceId();
-        if (resultReporter.report(toTaskResult(snapshot, state))) {
-            stateStore.remove(taskInstanceId);
+        resultReporter.report(toTaskResult(snapshot, state));
+    }
+
+    /**
+     * 完成任务监听.
+     *
+     * @param taskInstanceId 任务实例 ID
+     */
+    public void removeQueryFailureMap(String taskInstanceId) {
+        if (isBlank(taskInstanceId)) {
+            return;
         }
         queryFailureCountMap.remove(taskInstanceId);
     }

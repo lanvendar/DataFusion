@@ -1,5 +1,6 @@
 package com.datafusion.agent.runtime.worker.context;
 
+import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateReportScheduler;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.worker.context.RunningTaskContext;
 import com.datafusion.scheduler.worker.context.WorkerTaskContextStorage;
@@ -36,12 +37,20 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
     private final WorkerTaskExecutionStore stateStore;
 
     /**
+     * 任务状态上报计划.
+     */
+    private final AgentTaskStateReportScheduler taskStateReportScheduler;
+
+    /**
      * 构造函数.
      *
-     * @param stateStore 任务执行状态存储
+     * @param stateStore                任务执行状态存储
+     * @param taskStateReportScheduler 任务状态上报计划
      */
-    public AgentWorkerTaskContextStorage(WorkerTaskExecutionStore stateStore) {
+    public AgentWorkerTaskContextStorage(WorkerTaskExecutionStore stateStore,
+            AgentTaskStateReportScheduler taskStateReportScheduler) {
         this.stateStore = stateStore;
+        this.taskStateReportScheduler = taskStateReportScheduler;
     }
 
     @Override
@@ -80,6 +89,7 @@ public class AgentWorkerTaskContextStorage implements WorkerTaskContextStorage {
         String key = contextKey(taskInstanceId);
         contextMap.remove(key);
         stateSignMap.remove(key);
+        taskStateReportScheduler.removeQueryFailureMap(taskInstanceId);
         stateStore.remove(taskInstanceId);
     }
 
