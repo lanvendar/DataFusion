@@ -67,6 +67,7 @@ public class DataxParamResolver {
      * Default JVM options.
      */
     private static final List<String> DEFAULT_JVM_OPTIONS = List.of(
+            "-Dfile.encoding=UTF-8", "-Dsun.jnu.encoding=UTF-8",
             "--add-opens", "java.base/java.lang=ALL-UNNAMED");
 
     /**

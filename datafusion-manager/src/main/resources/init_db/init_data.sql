@@ -53,6 +53,8 @@ VALUES
    "logMaxIndex": 100,
    "mainClass": "com.alibaba.datax.core.Engine",
    "jvmOptions": [
+     "-Dfile.encoding=UTF-8",
+     "-Dsun.jnu.encoding=UTF-8",
      "--add-opens",
      "java.base/java.lang=ALL-UNNAMED"
    ],
@@ -87,6 +89,8 @@ VALUES
 	   "logMaxIndex": 100,
 	   "jobId": -1,
 	   "jvmOptions": [
+	     "-Dfile.encoding=UTF-8",
+	     "-Dsun.jnu.encoding=UTF-8",
 	     "--add-opens",
 	     "java.base/java.lang=ALL-UNNAMED"
 	   ],
@@ -124,7 +128,9 @@ VALUES
 		 "labels": {},
 		 "annotations": {},
 		 "env": {
-		    "TZ": "Asia/Shanghai"
+		    "TZ": "Asia/Shanghai",
+		    "LANG": "C.UTF-8",
+		    "LC_ALL": "C.UTF-8"
 		 },
 		 "nodeSelector": {},
 		 "resources": {}

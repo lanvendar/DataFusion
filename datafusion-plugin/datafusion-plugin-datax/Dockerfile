@@ -6,6 +6,8 @@ LABEL org.opencontainers.image.title="datafusion-plugin-datax" \
       org.opencontainers.image.vendor="DataFusion"
 
 ENV TZ=Asia/Shanghai \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
     DATAX_HOME=/opt/datafusion/plugins/datax \
     DATAX_JOB_FILE=/opt/datafusion/plugins/datax/job/job.json \
     DATAX_LOG_FILE=/opt/datafusion/plugins/datax/logs/datax.log \
@@ -13,7 +15,7 @@ ENV TZ=Asia/Shanghai \
     DATAX_LOG_MAX_SIZE=100MB \
     DATAX_LOG_MAX_INDEX=100 \
     DATAX_JOB_ID=-1 \
-    JAVA_OPTS=""
+    JAVA_OPTS="-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8"
 
 WORKDIR /opt/datafusion
 
