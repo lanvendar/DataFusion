@@ -5,7 +5,6 @@ import cn.hutool.core.lang.Pair;
 import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.scheduler.enums.ActionType;
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.master.actor.ActorSysContext;
 import com.datafusion.scheduler.master.event.GlobalEventOperator;
 import com.datafusion.scheduler.master.flow.FlowMsg;
@@ -37,9 +36,9 @@ public class TaskSubmitMsgHandler extends AbstractTaskMsgHandler {
     /**
      * 构造函数.
      *
-     * @param taskStorage   任务存储
-     * @param eventOperator 全局事件操作
-     * @param masterTaskOperator  任务执行器
+     * @param taskStorage        任务存储
+     * @param eventOperator      全局事件操作
+     * @param masterTaskOperator 任务执行器
      */
     public TaskSubmitMsgHandler(TaskStorage taskStorage, GlobalEventOperator eventOperator, MasterTaskOperator masterTaskOperator) {
         super(taskStorage, eventOperator, masterTaskOperator);
@@ -68,39 +67,22 @@ public class TaskSubmitMsgHandler extends AbstractTaskMsgHandler {
         TaskInstance taskIns = super.getTaskInstance(msg.getTaskInstanceId());
         taskIns.setState(StatusEnum.SUBMITTING);
         super.saveTaskInstance(taskIns);
-        //通知流程,任务的状态消息
-        Pair<String, StatusEnum> stateSubmitting = Pair.of(msg.getTaskInstanceId(), StatusEnum.SUBMITTING);
-        FlowMsg msgSubmitting = FlowMsg.builder()
-                .flowInstanceId(msg.getFlowInstanceId())
-                .actionType(ActionType.RUN)
-                .isManualAction(false)
-                .taskState(stateSubmitting)
-                .build();
-        super.notifyFlowActor(msgSubmitting, context);
+        notifyFlow(msg, StatusEnum.SUBMITTING, context);
 
         try {
             TaskInstance submitTaskIns = renderTaskParam(taskIns);
             TaskResult taskResult = super.masterTaskOperator.submitTask(submitTaskIns);
-            //处理 worker 端返回的同步和异步任务结果
-            StatusEnum taskState = StatusEnum.SUBMIT_SUCCESS;
             taskIns.setTaskData(submitTaskIns.getTaskData());
-            if (null != taskResult) {
-                if (taskResult.getSubmitMode() == SubmitModeEnum.SYNC) {
-                    taskState = taskResult.getTaskState();
-                }
-                taskIns.setState(taskState);
-                taskIns.setTaskResult(taskResult);
+            StatusEnum taskState;
+            if (taskResult == null || taskResult.getTaskState() == null) {
+                taskState = StatusEnum.SUBMIT_FAILURE;
+            } else {
+                taskState = taskResult.getTaskState();
             }
+            taskIns.setState(taskState);
+            taskIns.setTaskResult(taskResult);
             super.saveTaskInstance(taskIns);
-            //通知流程,任务的状态消息
-            Pair<String, StatusEnum> stateSuccess = Pair.of(msg.getTaskInstanceId(), taskState);
-            FlowMsg msgSuccess = FlowMsg.builder()
-                    .flowInstanceId(msg.getFlowInstanceId())
-                    .actionType(ActionType.RUN)
-                    .isManualAction(false)
-                    .taskState(stateSuccess)
-                    .build();
-            super.notifyFlowActor(msgSuccess, context);
+            notifyFlow(msg, taskState, context);
         } catch (Exception e) {
             log.warn("[{}] - 任务提交失败, 准备开始重试.", taskIns.getInstanceId(), e);
             taskIns.setState(StatusEnum.SUBMIT_FAILURE);
@@ -118,6 +100,17 @@ public class TaskSubmitMsgHandler extends AbstractTaskMsgHandler {
         //忽略依赖提交
         msg.setManualAction(false);
         context.notify(msg);
+    }
+
+    private void notifyFlow(TaskMsg msg, StatusEnum taskState, ActorSysContext context) {
+        Pair<String, StatusEnum> state = Pair.of(msg.getTaskInstanceId(), taskState);
+        FlowMsg flowMsg = FlowMsg.builder()
+                .flowInstanceId(msg.getFlowInstanceId())
+                .actionType(ActionType.RUN)
+                .isManualAction(false)
+                .taskState(state)
+                .build();
+        super.notifyFlowActor(flowMsg, context);
     }
 
     /**

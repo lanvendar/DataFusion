@@ -153,7 +153,7 @@ public class WorkerTaskExecutionContext implements WorkerTaskExecutionStore, Wor
         return context(request.getTaskInstanceId())
                 .orElseGet(() -> {
                     RunningTaskContext context = RunningTaskContext.fromRequest(request);
-                    save(context);
+                    executionCache.put(request.getTaskInstanceId(), new WorkerTaskExecutionEntry(context));
                     return context;
                 });
     }

@@ -10,17 +10,12 @@ import com.datafusion.scheduler.model.Worker;
 import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.WorkerTaskOperator;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * Agent 内部调度 RPC Provider.
@@ -40,11 +35,6 @@ public class AgentExecutorRpcProvider {
     private final WorkerTaskOperator workerTaskOperator;
 
     /**
-     * 任务线程池.
-     */
-    private final ThreadPoolExecutor taskPool;
-
-    /**
      * agent 运行状态.
      */
     private final AgentRuntimeState runtimeState;
@@ -58,15 +48,12 @@ public class AgentExecutorRpcProvider {
      * 构造函数.
      *
      * @param workerTaskOperator worker 任务操作入口
-     * @param taskPool           任务线程池
      * @param runtimeState       agent 运行状态
      * @param properties         agent 配置
      */
-    public AgentExecutorRpcProvider(WorkerTaskOperator workerTaskOperator,
-            @Qualifier("agentTaskPool") ThreadPoolExecutor taskPool, AgentRuntimeState runtimeState,
+    public AgentExecutorRpcProvider(WorkerTaskOperator workerTaskOperator, AgentRuntimeState runtimeState,
             AgentProperties properties) {
         this.workerTaskOperator = workerTaskOperator;
-        this.taskPool = taskPool;
         this.runtimeState = runtimeState;
         this.properties = properties;
     }
@@ -133,32 +120,19 @@ public class AgentExecutorRpcProvider {
             return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "agent未注册到manager,暂不可调度");
         }
         try {
-            Future<TaskResult> future = taskPool.submit(() -> {
-                log.info("agent开始执行调度请求, operation={}, taskInstanceId={}",
-                        operation, taskInstanceId(request));
-                return action.call();
-            });
-            TaskResult result = future.get();
+            log.info("agent开始执行调度请求, operation={}, taskInstanceId={}",
+                    operation, taskInstanceId(request));
+            TaskResult result = action.call();
             log.info("agent完成调度请求, operation={}, taskInstanceId={}, taskState={}, submitMode={},"
                             + " workerId={}, appId={}, workDirPath={}, costMs={}",
                     operation, taskInstanceId(request), resultTaskState(result), resultSubmitMode(result),
                     resultWorkerId(result), resultAppId(result), resultWorkDirPath(result),
                     System.currentTimeMillis() - startTime);
             return Result.success(result);
-        } catch (RejectedExecutionException e) {
-            log.warn("任务线程池已满, operation={}, taskInstanceId={}, poolSize={}, activeCount={}, queueSize={}",
-                    operation, taskInstanceId(request), taskPool.getPoolSize(), taskPool.getActiveCount(),
-                    taskPool.getQueue().size(), e);
-            return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "agent任务线程池已满");
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.warn("agent任务控制请求被中断, operation={}, taskInstanceId={}", operation, taskInstanceId(request), e);
-            return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "agent任务控制请求被中断");
-        } catch (ExecutionException e) {
+        } catch (Exception e) {
             log.warn("agent任务控制请求执行失败, operation={}, taskInstanceId={}",
                     operation, taskInstanceId(request), e);
-            Throwable cause = e.getCause() == null ? e : e.getCause();
-            return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, cause.getMessage());
+            return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, e.getMessage());
         }
     }
 

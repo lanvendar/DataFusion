@@ -18,6 +18,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -132,6 +133,18 @@ class WorkerTaskExecutionContextTest {
 
         assertNull(store.get("task-1"));
         assertEquals(0, store.listListeningStates().size());
+    }
+
+    @Test
+    void shouldNotPersistRuntimeFilesWhenContextIsOnlyCreated() {
+        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
+
+        store.getOrCreate(restoreRequest());
+
+        assertFalse(Files.exists(executionDir().resolve("task-1.state")));
+        assertFalse(Files.exists(executionDir().resolve("task-1.snap")));
+        assertEquals(0, store.listListeningStates().size());
+        assertNotNull(store.get("task-1"));
     }
 
     private AgentProperties properties() {

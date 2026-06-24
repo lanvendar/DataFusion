@@ -1,12 +1,12 @@
 package com.datafusion.scheduler.master.example;
 
-import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.exception.SchedulerException;
 import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.WorkerResult;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -49,11 +49,13 @@ public class DummyMasterTaskOperator implements MasterTaskOperator {
                 .flowInstanceId(taskIns.getFlowInstanceId())
                 .taskName(taskIns.getTaskName())
                 .taskState(state)
-                .outputVars(taskIns.getTaskParam() != null ? taskIns.getTaskParam().getVars() : null)
-                .workerId("dummyWorkerId")
-                .appId("dummyAppId")
                 .submitMode(SubmitModeEnum.SYNC)
-                .result(JacksonUtils.createObjectNode().put("message", "dummyResult"))
+                .workerResult(WorkerResult.builder()
+                        .outputVars(taskIns.getTaskParam() != null ? taskIns.getTaskParam().getVars() : null)
+                        .workerId("dummyWorkerId")
+                        .appId("dummyAppId")
+                        .message("dummyResult")
+                        .build())
                 .build();
     }
 }

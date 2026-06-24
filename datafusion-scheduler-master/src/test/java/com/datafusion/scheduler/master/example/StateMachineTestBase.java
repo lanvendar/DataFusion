@@ -1,6 +1,5 @@
 package com.datafusion.scheduler.master.example;
 
-import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.common.options.Options;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.enums.SubmitModeEnum;
@@ -22,6 +21,7 @@ import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.PluginData;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.Variable;
+import com.datafusion.scheduler.model.WorkerResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.HashBasedTable;
@@ -103,10 +103,12 @@ abstract class StateMachineTestBase {
                 .flowInstanceId(taskIns.getFlowInstanceId())
                 .taskName(taskIns.getTaskName())
                 .taskState(resultState)
-                .workerId("test-worker")
-                .appId("test-app")
                 .submitMode(SubmitModeEnum.SYNC)
-                .result(JacksonUtils.createObjectNode().put("message", "test"))
+                .workerResult(WorkerResult.builder()
+                        .workerId("test-worker")
+                        .appId("test-app")
+                        .message("test")
+                        .build())
                 .build();
         masterService.getTaskAction().asyncHandle(result);
     }

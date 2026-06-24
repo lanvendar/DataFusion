@@ -316,6 +316,9 @@ public class TaskAction implements TaskResultHandler {
 
         ActionType actionType = null;
         switch (result.getTaskState()) {
+            case SUBMITTING:
+            case SUBMIT_FAILURE:
+            case SUBMIT_SUCCESS:
             case RUNNING:
             case RUN_SUCCESS:
             case RUN_FAILURE:

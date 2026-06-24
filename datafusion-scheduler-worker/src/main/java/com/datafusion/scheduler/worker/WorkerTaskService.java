@@ -89,10 +89,14 @@ public class WorkerTaskService implements WorkerTaskOperator {
         if (isBlank(request.getPluginType())) {
             throw new IllegalArgumentException("pluginType不能为空");
         }
-        RunningTaskContext context = contextStore.getOrCreate(request);
+        RunningTaskContext existingContext = contextStore.get(request.getTaskInstanceId());
+        if (existingContext != null && existingContext.isSubmitted()) {
+            return duplicateSubmitResult(existingContext);
+        }
+        RunningTaskContext context = contextStore.getOrCreate(snapshotRequest(request));
         synchronized (context) {
-            if (context != null && context.isSubmitted()) {
-                return responseFromContext(context);
+            if (context.isSubmitted()) {
+                return duplicateSubmitResult(context);
             }
 
             PluginTaskExecutor executor = router.route(request.getPluginType());
@@ -109,28 +113,29 @@ public class WorkerTaskService implements WorkerTaskOperator {
                 updateContext(context, result);
                 return result;
             }
-            context.updateRequest(preparedRequest);
-            context.markSubmitted();
-            contextStore.save(context);
+            context.updateSnapshot(preparedRequest);
 
             if (preparedRequest.getSubmitMode() == SubmitModeEnum.ASYNC) {
-                TaskResult accepted = baseResult(preparedRequest, StatusEnum.SUBMIT_SUCCESS, "任务已异步提交");
+                TaskResult accepted = baseResult(preparedRequest, StatusEnum.SUBMITTING, null);
                 updateContext(context, accepted);
-                asyncExecutor.execute(() -> {
-                    TaskResult result = safeExecuteSubmit(executor, preparedRequest);
+                try {
+                    asyncExecutor.execute(() -> {
+                        TaskResult result = safeExecuteSubmit(executor, preparedRequest);
+                        TaskResult submitResult = normalizeSubmitResult(preparedRequest, result);
+                        updateContext(context, submitResult);
+                        resultReporter.report(submitResult);
+                    });
+                } catch (RuntimeException e) {
+                    TaskResult result = failureResult(preparedRequest, StatusEnum.SUBMIT_FAILURE, e.getMessage());
                     updateContext(context, result);
-                    resultReporter.report(result);
-                });
+                    return result;
+                }
                 return accepted;
             }
 
             TaskResult result = safeExecuteSubmit(executor, preparedRequest);
-            TaskResult submitResult = normalizeSyncSubmitResult(preparedRequest, result);
+            TaskResult submitResult = normalizeSubmitResult(preparedRequest, result);
             updateContext(context, submitResult);
-            if (result != submitResult) {
-                updateContext(context, result);
-                resultReporter.report(result);
-            }
             return submitResult;
         }
     }
@@ -209,9 +214,9 @@ public class WorkerTaskService implements WorkerTaskOperator {
     private TaskResult safeExecuteSubmit(PluginTaskExecutor executor, TaskRequest request) {
         try {
             TaskResult result = executor.submitTask(request);
-            return fillResult(request, result, StatusEnum.RUNNING);
+            return fillResult(request, result, StatusEnum.SUBMIT_SUCCESS);
         } catch (RuntimeException e) {
-            return failureResult(request, StatusEnum.RUN_FAILURE, e.getMessage());
+            return failureResult(request, StatusEnum.SUBMIT_FAILURE, e.getMessage());
         }
     }
 
@@ -222,6 +227,24 @@ public class WorkerTaskService implements WorkerTaskOperator {
         }
         normalizeRequest(preparedRequest);
         return preparedRequest;
+    }
+
+    private TaskRequest snapshotRequest(TaskRequest request) {
+        TaskRequest snapshotRequest = new TaskRequest();
+        snapshotRequest.setFlowInstanceId(request.getFlowInstanceId());
+        snapshotRequest.setTaskInstanceId(request.getTaskInstanceId());
+        snapshotRequest.setTaskName(request.getTaskName());
+        snapshotRequest.setTaskData(request.getTaskData());
+        snapshotRequest.setPluginType(request.getPluginType());
+        snapshotRequest.setPluginParam(request.getPluginParam());
+        snapshotRequest.setSubmitMode(request.getSubmitMode());
+        WorkerResult workerResult = request.getWorkerResult();
+        if (workerResult != null) {
+            WorkerResult snapshotWorkerResult = new WorkerResult();
+            snapshotWorkerResult.setWorkerId(workerResult.getWorkerId());
+            snapshotRequest.setWorkerResult(snapshotWorkerResult);
+        }
+        return snapshotRequest;
     }
 
     private TaskResult safeExecuteControl(PluginTaskExecutor executor, TaskRequest request, StatusEnum defaultState,
@@ -248,26 +271,30 @@ public class WorkerTaskService implements WorkerTaskOperator {
         }
     }
 
-    private TaskResult normalizeSyncSubmitResult(TaskRequest request, TaskResult result) {
-        if (result == null || result.getTaskState() == null || isFinalState(result.getTaskState())) {
-            TaskResult response = baseResult(request, StatusEnum.RUNNING, "任务已同步提交");
-            if (result != null && result.getWorkerResult() != null && result.getWorkerResult().getAppId() != null) {
-                response.getWorkerResult().setAppId(result.getWorkerResult().getAppId());
-            }
-            return response;
+    private TaskResult normalizeSubmitResult(TaskRequest request, TaskResult result) {
+        TaskResult submitResult = fillResult(request, result, StatusEnum.SUBMIT_SUCCESS);
+        if (submitResult.getTaskState() != StatusEnum.SUBMIT_FAILURE) {
+            submitResult.setTaskState(StatusEnum.SUBMIT_SUCCESS);
         }
-        if (result.getTaskState() == StatusEnum.SUBMIT_SUCCESS) {
-            result.setTaskState(StatusEnum.RUNNING);
-        }
-        return fillResult(request, result, StatusEnum.RUNNING);
+        submitResult.setSubmitMode(request.getSubmitMode());
+        return submitResult;
     }
 
     private TaskResult responseFromContext(RunningTaskContext context) {
         TaskResult result = context.toTaskResult();
         if (result.getTaskState() == null) {
-            StatusEnum state = context.getSubmitMode() == SubmitModeEnum.ASYNC ? StatusEnum.SUBMIT_SUCCESS : StatusEnum.RUNNING;
+            StatusEnum state = context.getSubmitMode() == SubmitModeEnum.ASYNC ? StatusEnum.SUBMITTING : StatusEnum.RUNNING;
             result.setTaskState(state);
         }
+        return result;
+    }
+
+    private TaskResult duplicateSubmitResult(RunningTaskContext context) {
+        TaskResult result = responseFromContext(context);
+        if (result.getWorkerResult() == null) {
+            result.setWorkerResult(new WorkerResult());
+        }
+        result.getWorkerResult().setMessage("重复提交");
         return result;
     }
 

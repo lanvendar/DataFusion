@@ -34,11 +34,6 @@ public class RunningTaskContext {
     private WorkerTaskExecutionState executionState = new WorkerTaskExecutionState();
 
     /**
-     * Worker 已接收并开始提交.
-     */
-    private boolean submitted;
-
-    /**
      * 根据任务请求创建上下文.
      *
      * @param request 任务请求
@@ -118,6 +113,40 @@ public class RunningTaskContext {
         }
         if (request.getTaskState() != null) {
             this.setTaskState(request.getTaskState());
+        }
+        if (request.getSubmitMode() != null) {
+            this.setSubmitMode(request.getSubmitMode());
+        }
+        if (request.getTaskData() != null) {
+            this.setTaskData(request.getTaskData());
+        }
+        if (request.getPluginParam() != null) {
+            this.setPluginParam(request.getPluginParam());
+        }
+        setUpdateTime(System.currentTimeMillis());
+    }
+
+    /**
+     * 更新任务提交快照，不写入任务运行态.
+     *
+     * @param request 任务请求
+     */
+    public void updateSnapshot(TaskRequest request) {
+        if (request == null) {
+            return;
+        }
+        if (request.getFlowInstanceId() != null) {
+            this.setFlowInstanceId(request.getFlowInstanceId());
+        }
+        if (request.getTaskName() != null) {
+            this.setTaskName(request.getTaskName());
+        }
+        WorkerResult workerResult = request.getWorkerResult();
+        if (workerResult != null && workerResult.getWorkerId() != null) {
+            this.setWorkerId(workerResult.getWorkerId());
+        }
+        if (request.getPluginType() != null) {
+            this.setPluginType(request.getPluginType());
         }
         if (request.getSubmitMode() != null) {
             this.setSubmitMode(request.getSubmitMode());
@@ -556,20 +585,8 @@ public class RunningTaskContext {
      * @return 是否已经提交
      */
     public boolean isSubmitted() {
-        return submitted || getAppId() != null || getWorkDirPath() != null || getResult() != null
-                || isSubmittedState(getTaskState());
-    }
-
-    /**
-     * 标记任务已进入 Worker 提交流程.
-     */
-    public void markSubmitted() {
-        this.submitted = true;
-    }
-
-    private boolean isSubmittedState(StatusEnum state) {
-        return state == StatusEnum.RUNNING || state == StatusEnum.STOPPING || state == StatusEnum.KILLING
-                || state == StatusEnum.UNKNOWN || state != null && state.isFinalState();
+        StatusEnum state = getTaskState();
+        return state == StatusEnum.SUBMITTING || state == StatusEnum.SUBMIT_SUCCESS;
     }
 
     private void updateWorkerResult(WorkerResult workerResult) {

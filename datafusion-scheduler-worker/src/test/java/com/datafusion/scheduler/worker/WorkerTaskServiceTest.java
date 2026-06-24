@@ -62,23 +62,75 @@ class WorkerTaskServiceTest {
         TaskResult result = taskService.submitTask(request);
 
         assertEquals(1, executor.submitCount);
-        assertEquals(StatusEnum.RUNNING, result.getTaskState());
+        assertEquals(StatusEnum.SUBMIT_SUCCESS, result.getTaskState());
         assertNull(result.getWorkerResult().getMessage());
     }
 
     @Test
-    void shouldNotExposeDuplicateSubmitMessageAsWorkerResult() {
+    void shouldReturnDuplicateMessageWhenContextStateIsSubmitting() {
         RecordingContextStorage contextStorage = new RecordingContextStorage();
         contextStorage.context = RunningTaskContext.fromRequest(finishRequest());
-        contextStorage.context.markSubmitted();
+        contextStorage.context.setTaskState(StatusEnum.SUBMITTING);
+        contextStorage.context.setWorkDirPath("/opt/datafusion/task-runtime/20260624/flow-1/task-1");
         SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor();
         WorkerTaskService taskService = taskService(contextStorage, executor);
 
         TaskResult result = taskService.submitTask(finishRequest());
 
         assertEquals(0, executor.submitCount);
-        assertEquals(StatusEnum.RUNNING, result.getTaskState());
+        assertEquals(StatusEnum.SUBMITTING, result.getTaskState());
+        assertEquals("重复提交", result.getWorkerResult().getMessage());
+    }
+
+    @Test
+    void shouldNotSaveSubmittingContextBeforeSyncExecutorStarts() {
+        RecordingContextStorage contextStorage = new RecordingContextStorage();
+        SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor();
+        WorkerTaskService taskService = taskService(contextStorage, executor);
+        TaskRequest request = finishRequest();
+        request.setTaskState(StatusEnum.SUBMITTING);
+
+        taskService.submitTask(request);
+
+        assertEquals(1, executor.submitCount);
+        assertEquals(List.of("get:task-1", "create:task-1", "save:SUBMIT_SUCCESS"),
+                contextStorage.getOperations());
+    }
+
+    @Test
+    void shouldReturnDuplicateMessageWhenContextStateIsSubmitSuccess() {
+        RecordingContextStorage contextStorage = new RecordingContextStorage();
+        contextStorage.context = RunningTaskContext.fromRequest(finishRequest());
+        contextStorage.context.setTaskState(StatusEnum.SUBMIT_SUCCESS);
+        SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor();
+        WorkerTaskService taskService = taskService(contextStorage, executor);
+
+        TaskResult result = taskService.submitTask(finishRequest());
+
+        assertEquals(0, executor.submitCount);
+        assertEquals(StatusEnum.SUBMIT_SUCCESS, result.getTaskState());
+        assertEquals("重复提交", result.getWorkerResult().getMessage());
+    }
+
+    @Test
+    void shouldReturnSubmittingAndQueueExecutorWhenSubmitModeIsAsync() {
+        RecordingContextStorage contextStorage = new RecordingContextStorage();
+        RecordingExecutor asyncExecutor = new RecordingExecutor();
+        SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor();
+        WorkerTaskOperatorRouter router = new WorkerTaskOperatorRouter(List.of(executor));
+        WorkerTaskService taskService = new WorkerTaskService(router, contextStorage, null, asyncExecutor,
+                SubmitModeEnum.SYNC);
+        TaskRequest request = finishRequest();
+        request.setSubmitMode(SubmitModeEnum.ASYNC);
+
+        TaskResult result = taskService.submitTask(request);
+
+        assertEquals(StatusEnum.SUBMITTING, result.getTaskState());
         assertNull(result.getWorkerResult().getMessage());
+        assertEquals(0, executor.submitCount);
+        assertEquals(1, asyncExecutor.tasks.size());
+        assertEquals(List.of("get:task-1", "create:task-1", "save:SUBMITTING"),
+                contextStorage.getOperations());
     }
 
     private WorkerTaskService taskService(RecordingContextStorage contextStorage, PluginTaskExecutor executor) {
@@ -140,6 +192,22 @@ class WorkerTaskServiceTest {
 
         List<String> getOperations() {
             return operations;
+        }
+    }
+
+    /**
+     * Recording executor.
+     */
+    private static class RecordingExecutor implements Executor {
+
+        /**
+         * Tasks.
+         */
+        private final List<Runnable> tasks = new ArrayList<>();
+
+        @Override
+        public void execute(Runnable command) {
+            tasks.add(command);
         }
     }
 

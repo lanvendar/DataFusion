@@ -46,9 +46,8 @@ public class TaskRunMsgHandler extends AbstractTaskMsgHandler {
 
     @Override
     public EnumSet<StatusEnum> getPreState() {
-        // 自动动作可以从 SUBMITTING, RUNNING 状态
-        return EnumSet.of(StatusEnum.SUBMITTING, StatusEnum.SUBMIT_FAILURE, StatusEnum.SUBMIT_SUCCESS, StatusEnum.RUNNING, StatusEnum.STOPPING);
-
+        return EnumSet.of(StatusEnum.SUBMITTING, StatusEnum.SUBMIT_FAILURE, StatusEnum.SUBMIT_SUCCESS,
+                StatusEnum.RUNNING, StatusEnum.STOPPING);
     }
 
     @Override
@@ -59,87 +58,117 @@ public class TaskRunMsgHandler extends AbstractTaskMsgHandler {
     @Override
     protected void handleAction(TaskMsg msg, ActorSysContext context) {
         TaskInstance taskIns = super.getTaskInstance(msg.getTaskInstanceId());
-        StatusEnum currentState = taskIns.getState();
-        //只要收到消息，就认为任务已经运行了
-        if (getPreState().contains(currentState)) {
-            taskIns.setState(StatusEnum.RUNNING);
-            taskIns.setStartTime(System.currentTimeMillis());
-            super.saveTaskInstance(taskIns);
-            FlowMsg flowMsg = FlowMsg.builder()//
-                    .flowInstanceId(taskIns.getFlowInstanceId())//
-                    //.flowId(taskIns.getFlowId())//
-                    .taskState(Pair.of(taskIns.getInstanceId(), StatusEnum.RUNNING))//
-                    .actionType(ActionType.RUN)//
-                    .isManualAction(false)//
-                    .build();
-            super.notifyFlowActor(flowMsg, context);
+        TaskResult acceptState = msg.getTaskResult();
+        if (acceptState == null || acceptState.getTaskState() == null) {
+            log.info("[{}] - 收到任务运行消息但无worker结果, 保持当前状态: {}",
+                    taskIns.getInstanceId(), taskIns.getState());
+            return;
         }
 
-        //处理结果消息
-        TaskResult acceptState = msg.getTaskResult();
-        if (null != acceptState) {
-            //任务运行中不更新,维持状态
-            if (acceptState.getTaskState() == StatusEnum.RUNNING) {
-                return;
-            }
-            //任务成功处理
-            if (acceptState.getTaskState() == StatusEnum.RUN_SUCCESS) {
-                try {
-                    super.masterTaskOperator.finishTask(taskIns);
-                } catch (Exception e) {
-                    log.error("任务实例无法完成:taskInsId=[{}]", taskIns.getInstanceId());
-                    //TODO finish接口失败怎么办？
-                }
-                taskIns.setState(StatusEnum.RUN_SUCCESS);
-                taskIns.setEndTime(System.currentTimeMillis());
-                taskIns.setCostTime(taskIns.getEndTime() - taskIns.getStartTime());
-                taskIns.setTaskResult(acceptState);
-                //发送事件
-                sendTaskGlobalEventIfNeeded(taskIns);
-                super.saveTaskInstance(taskIns);
-                FlowMsg flowMsg = FlowMsg.builder()//
-                        .flowInstanceId(taskIns.getFlowInstanceId())//
-                        //.flowId(taskIns.getFlowId())//
-                        .taskState(Pair.of(taskIns.getInstanceId(), StatusEnum.RUN_SUCCESS))//
-                        .actionType(ActionType.RUN)//
-                        .isManualAction(false)//
-                        .build();
-                super.notifyFlowActor(flowMsg, context);
-                //通知下一个任务,TODO 是否由流程收到成功消息后,由流程触发?
-                if (taskIns.hasNextTask()) {
-                    taskIns.getNextInstanceIds().forEach(nextInsId -> {
-                        TaskMsg nextTaskMsg = TaskMsg.builder()//
-                                .flowInstanceId(taskIns.getFlowInstanceId())//
-                                .taskInstanceId(nextInsId)//
-                                .actionType(ActionType.WAIT)//
-                                .isManualAction(false)//
-                                .build();
-                        context.notify(nextInsId, nextTaskMsg);
-                    });
-                }
-                return;
-            }
-            //任务失败处理
-            if (acceptState.getTaskState() == StatusEnum.RUN_FAILURE) {
-                taskIns.setEndTime(System.currentTimeMillis());
-                taskIns.setCostTime(taskIns.getEndTime() - taskIns.getStartTime());
-                taskIns.setState(StatusEnum.RUN_FAILURE);
-                taskIns.setTaskResult(acceptState);
-                super.saveTaskInstance(taskIns);
-                TaskMsg taskMsg = TaskMsg.builder()//
-                        .flowInstanceId(taskIns.getFlowInstanceId())//
-                        .taskInstanceId(taskIns.getInstanceId())//
-                        .actionType(ActionType.RESTART)//
-                        .isManualAction(false)//
-                        .build();
-                context.notify(taskMsg);
-            }
+        StatusEnum targetState = acceptState.getTaskState();
+        if (targetState == StatusEnum.SUBMITTING || targetState == StatusEnum.SUBMIT_SUCCESS) {
+            updateTaskState(taskIns, acceptState, targetState, context);
+            return;
+        }
+        if (targetState == StatusEnum.RUNNING) {
+            handleRunning(taskIns, acceptState, context);
+            return;
+        }
+        if (targetState == StatusEnum.RUN_SUCCESS) {
+            handleRunSuccess(taskIns, acceptState, context);
+            return;
+        }
+        if (targetState == StatusEnum.SUBMIT_FAILURE || targetState == StatusEnum.RUN_FAILURE) {
+            handleFailure(taskIns, acceptState, targetState, context);
         }
     }
 
     @Override
     protected void handleManualAction(TaskMsg msg, ActorSysContext context) {
         log.error("不可能发生!!!程序异常!!!");
+    }
+
+    private void handleRunning(TaskInstance taskIns, TaskResult taskResult, ActorSysContext context) {
+        if (taskIns.getStartTime() == null || taskIns.getStartTime() <= 0) {
+            taskIns.setStartTime(System.currentTimeMillis());
+        }
+        updateTaskState(taskIns, taskResult, StatusEnum.RUNNING, context);
+    }
+
+    private void handleRunSuccess(TaskInstance taskIns, TaskResult taskResult, ActorSysContext context) {
+        try {
+            super.masterTaskOperator.finishTask(taskIns);
+        } catch (Exception e) {
+            log.error("任务实例无法完成:taskInsId=[{}]", taskIns.getInstanceId());
+        }
+        long endTime = System.currentTimeMillis();
+        if (taskIns.getStartTime() == null || taskIns.getStartTime() <= 0) {
+            taskIns.setStartTime(endTime);
+        }
+        taskIns.setState(StatusEnum.RUN_SUCCESS);
+        taskIns.setEndTime(endTime);
+        taskIns.setCostTime(endTime - taskIns.getStartTime());
+        taskIns.setTaskResult(taskResult);
+        sendTaskGlobalEventIfNeeded(taskIns);
+        super.saveTaskInstance(taskIns);
+        notifyFlow(taskIns, StatusEnum.RUN_SUCCESS, context);
+        notifyNextTasks(taskIns, context);
+    }
+
+    private void handleFailure(TaskInstance taskIns, TaskResult taskResult, StatusEnum targetState,
+            ActorSysContext context) {
+        long endTime = System.currentTimeMillis();
+        if (targetState == StatusEnum.RUN_FAILURE) {
+            if (taskIns.getStartTime() == null || taskIns.getStartTime() <= 0) {
+                taskIns.setStartTime(endTime);
+            }
+            taskIns.setEndTime(endTime);
+            taskIns.setCostTime(endTime - taskIns.getStartTime());
+        }
+        taskIns.setState(targetState);
+        taskIns.setTaskResult(taskResult);
+        super.saveTaskInstance(taskIns);
+        TaskMsg taskMsg = TaskMsg.builder()//
+                .flowInstanceId(taskIns.getFlowInstanceId())//
+                .taskInstanceId(taskIns.getInstanceId())//
+                .actionType(ActionType.RESTART)//
+                .isManualAction(false)//
+                .build();
+        context.notify(taskMsg);
+    }
+
+    private void updateTaskState(TaskInstance taskIns, TaskResult taskResult, StatusEnum targetState,
+            ActorSysContext context) {
+        taskIns.setState(targetState);
+        taskIns.setTaskResult(taskResult);
+        super.saveTaskInstance(taskIns);
+        notifyFlow(taskIns, targetState, context);
+    }
+
+    private void notifyFlow(TaskInstance taskIns, StatusEnum state, ActorSysContext context) {
+        FlowMsg flowMsg = FlowMsg.builder()//
+                .flowInstanceId(taskIns.getFlowInstanceId())//
+                //.flowId(taskIns.getFlowId())//
+                .taskState(Pair.of(taskIns.getInstanceId(), state))//
+                .actionType(ActionType.RUN)//
+                .isManualAction(false)//
+                .build();
+        super.notifyFlowActor(flowMsg, context);
+    }
+
+    private void notifyNextTasks(TaskInstance taskIns, ActorSysContext context) {
+        if (!taskIns.hasNextTask()) {
+            return;
+        }
+        taskIns.getNextInstanceIds().forEach(nextInsId -> {
+            TaskMsg nextTaskMsg = TaskMsg.builder()//
+                    .flowInstanceId(taskIns.getFlowInstanceId())//
+                    .taskInstanceId(nextInsId)//
+                    .actionType(ActionType.WAIT)//
+                    .isManualAction(false)//
+                    .build();
+            context.notify(nextInsId, nextTaskMsg);
+        });
     }
 
     /**
