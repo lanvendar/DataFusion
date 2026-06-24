@@ -7,6 +7,7 @@ import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.Worker;
+import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.WorkerTaskOperator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -139,12 +140,18 @@ public class AgentExecutorRpcProvider {
     }
 
     private TaskRequest fillWorkerId(TaskRequest request) {
-        if (request == null || request.getWorkerId() != null) {
+        if (request == null) {
+            return request;
+        }
+        if (request.getWorkerResult() != null && request.getWorkerResult().getWorkerId() != null) {
             return request;
         }
         Worker worker = runtimeState.getWorker();
         if (worker != null) {
-            request.setWorkerId(worker.getId());
+            if (request.getWorkerResult() == null) {
+                request.setWorkerResult(new WorkerResult());
+            }
+            request.getWorkerResult().setWorkerId(worker.getId());
         }
         return request;
     }

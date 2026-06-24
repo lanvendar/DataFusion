@@ -31,11 +31,6 @@ public class TaskRequest {
     private String taskName;
 
     /**
-     * 工作节点ID.
-     */
-    private String workerId;
-
-    /**
      * 任务状态.
      */
     private StatusEnum taskState;
@@ -44,11 +39,6 @@ public class TaskRequest {
      * 渲染后的任务执行数据.
      */
     private JsonNode taskData;
-
-    /**
-     * 第三方插件运行唯一主键 appId.
-     */
-    private String appId;
 
     /**
      * 组件类型.
@@ -64,4 +54,10 @@ public class TaskRequest {
      * 提交模式.
      */
     private SubmitModeEnum submitMode = SubmitModeEnum.SYNC;
+
+    /**
+     * worker 执行上下文.
+     * manager 发起新任务时通常为空；agent 发起状态同步时用于传递 worker、外部任务和运行目录信息.
+     */
+    private WorkerResult workerResult;
 }

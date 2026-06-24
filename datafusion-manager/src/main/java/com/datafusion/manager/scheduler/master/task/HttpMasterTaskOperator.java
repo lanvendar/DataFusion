@@ -283,15 +283,28 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
         request.setFlowInstanceId(taskIns.getFlowInstanceId());
         request.setTaskInstanceId(taskIns.getInstanceId());
         request.setTaskName(taskIns.getTaskName());
+        WorkerResult requestWorkerResult = null;
         if (worker != null) {
-            request.setWorkerId(worker.getId());
+            requestWorkerResult = WorkerResult.builder()
+                    .workerId(worker.getId())
+                    .build();
         }
         request.setTaskData(taskIns.getTaskData());
 
         TaskResult taskResult = taskIns.getTaskResult();
         if (null != taskResult && taskResult.getWorkerResult() != null) {
-            request.setAppId(taskResult.getWorkerResult().getAppId());
+            WorkerResult workerResult = taskResult.getWorkerResult();
+            requestWorkerResult = WorkerResult.builder()
+                    .outputVars(workerResult.getOutputVars())
+                    .workerId(workerResult.getWorkerId() == null && requestWorkerResult != null
+                            ? requestWorkerResult.getWorkerId() : workerResult.getWorkerId())
+                    .appId(workerResult.getAppId())
+                    .workDirPath(workerResult.getWorkDirPath())
+                    .message(workerResult.getMessage())
+                    .pluginLogUri(workerResult.getPluginLogUri())
+                    .build();
         }
+        request.setWorkerResult(requestWorkerResult);
         request.setSubmitMode(SubmitModeEnum.SYNC);
 
         PluginData pluginData = taskIns.getPluginData();

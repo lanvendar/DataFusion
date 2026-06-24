@@ -12,6 +12,7 @@ import com.datafusion.agent.runtime.worker.plugin.datax.DataxTaskRunner;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStore;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -90,7 +91,7 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
             Files.createDirectories(param.getWorkDir());
             LocalProcessSpec spec = localProcessSpec(param, jobFile);
             ProcessBuilder builder = new ProcessBuilder(spec.getCommand());
-            configureProcess(param, builder);
+            builder.directory(param.getWorkDir().toFile());
             builder.redirectOutput(ProcessBuilder.Redirect.appendTo(param.getLogFile().toFile()));
             builder.redirectError(ProcessBuilder.Redirect.appendTo(param.getLogFile().toFile()));
             Process process = builder.start();
@@ -123,15 +124,15 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
     @Override
     public TaskResult finish(TaskRequest request, WorkerTaskExecutionState state) {
         StatusEnum status = state == null ? StatusEnum.UNKNOWN : state.getStatus();
+        WorkerResult requestWorkerResult = request.getWorkerResult();
         return TaskResult.builder()
                 .taskInstanceId(request.getTaskInstanceId())
                 .flowInstanceId(request.getFlowInstanceId())
                 .taskName(request.getTaskName())
-                .workerId(request.getWorkerId())
                 .taskState(status == null ? StatusEnum.UNKNOWN : status)
-                .appId(request.getAppId())
-                .workDirPath(state == null ? null : state.getWorkDirPath())
-                .result(resultJson("LOCAL DataX finish checked", pluginLogUri(state), null))
+                .workerResult(workerResult(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId(),
+                        requestWorkerResult == null ? null : requestWorkerResult.getAppId(), state == null ? null : state.getWorkDirPath(),
+                        "LOCAL DataX finish checked", pluginLogUri(state)))
                 .build();
     }
 
@@ -158,12 +159,9 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
         return spec;
     }
 
-    private void configureProcess(DataxExecutionParam param, ProcessBuilder builder) {
-        builder.directory(param.getWorkDir().toFile());
-    }
-
     private TaskResult stopProcess(TaskRequest request, WorkerTaskExecutionState state, boolean forcibly) {
         StatusEnum targetStatus = forcibly ? StatusEnum.KILLED : StatusEnum.STOP_SUCCESS;
+        WorkerResult requestWorkerResult = request.getWorkerResult();
         ProcessHandle handle = processHandle(resolveAppId(request, state));
         if (handle != null) {
             if (forcibly) {
@@ -176,12 +174,11 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
                 .taskInstanceId(request.getTaskInstanceId())
                 .flowInstanceId(request.getFlowInstanceId())
                 .taskName(request.getTaskName())
-                .workerId(request.getWorkerId())
                 .taskState(targetStatus)
-                .appId(resolveAppId(request, state))
-                .workDirPath(state == null ? null : state.getWorkDirPath())
-                .result(resultJson(handle == null ? "LOCAL DataX process not found" : "LOCAL DataX process stopped",
-                        pluginLogUri(state), null))
+                .workerResult(workerResult(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId(),
+                        resolveAppId(request, state),
+                        state == null ? null : state.getWorkDirPath(),
+                        handle == null ? "LOCAL DataX process not found" : "LOCAL DataX process stopped", pluginLogUri(state)))
                 .build();
     }
 
@@ -221,7 +218,8 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
         if (state != null && state.getAppId() != null) {
             return state.getAppId();
         }
-        return request.getAppId();
+        WorkerResult workerResult = request == null ? null : request.getWorkerResult();
+        return workerResult == null ? null : workerResult.getAppId();
     }
 
     private String required(String value, String message) {
@@ -235,10 +233,22 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
         return PluginResultJson.build(message, "DATAX", DataxRunMode.LOCAL.name(), pluginLogUri, exitCode);
     }
 
+    private WorkerResult workerResult(String workerId, String appId, String workDirPath, String message,
+            String pluginLogUri) {
+        return WorkerResult.builder()
+                .workerId(workerId)
+                .appId(appId)
+                .workDirPath(workDirPath)
+                .message(message)
+                .pluginLogUri(pluginLogUri)
+                .build();
+    }
+
     private String pluginLogUri(WorkerTaskExecutionState state) {
         if (state == null || state.getResult() == null || !state.getResult().hasNonNull("pluginLogUri")) {
             return null;
         }
         return state.getResult().get("pluginLogUri").asText();
     }
+
 }

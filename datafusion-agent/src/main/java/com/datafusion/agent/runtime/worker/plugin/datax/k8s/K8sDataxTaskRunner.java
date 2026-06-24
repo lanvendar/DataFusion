@@ -10,6 +10,7 @@ import com.datafusion.agent.runtime.worker.plugin.datax.DataxTaskRunner;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStore;
@@ -94,14 +95,14 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
     public TaskResult stop(TaskRequest request, WorkerTaskExecutionState state) {
         DataxKubernetesRuntimeRef runtimeRef = runtimeRef(request, state);
         kubernetesClient.stop(runtimeRef, false);
-        return result(request, state, StatusEnum.STOPPING, "K8S DataX stop requested");
+        return result(request, state, StatusEnum.STOPPING, "K8S DataX stop requested", null);
     }
 
     @Override
     public TaskResult kill(TaskRequest request, WorkerTaskExecutionState state) {
         DataxKubernetesRuntimeRef runtimeRef = runtimeRef(request, state);
         kubernetesClient.stop(runtimeRef, true);
-        return result(request, state, StatusEnum.KILLING, "K8S DataX kill requested");
+        return result(request, state, StatusEnum.KILLING, "K8S DataX kill requested", null);
     }
 
     @Override
@@ -109,7 +110,7 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
         DataxKubernetesRuntimeRef runtimeRef = runtimeRef(request, state);
         StatusEnum status = kubernetesClient.queryStatus(runtimeRef, state == null ? null : state.getStatus());
         if (!status.isFinalState()) {
-            return result(request, state, status, "K8S DataX task is not finished");
+            return result(request, state, status, "K8S DataX task is not finished", null);
         }
         String collectedLogPath = collectLogsIfNecessary(request, state, runtimeRef);
         kubernetesClient.cleanup(runtimeRef);
@@ -137,26 +138,31 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
         }
     }
 
-    private TaskResult result(TaskRequest request, WorkerTaskExecutionState state, StatusEnum status, String message) {
-        return result(request, state, status, message, null);
-    }
-
     private TaskResult result(TaskRequest request, WorkerTaskExecutionState state, StatusEnum status, String message,
             String pluginLogPath) {
         TaskRequest resolvedRequest = resolveRequest(request);
         DataxKubernetesRuntimeRef runtimeRef = state == null ? null : runtimeRef(request, state);
+        WorkerResult requestWorkerResult = resolvedRequest.getWorkerResult();
         String pluginLogUri = firstText(pluginLogPath, firstText(pluginLogUri(state),
                 runtimeRef == null ? null : pluginLogUri(runtimeRef)));
+        String appId = null;
+        if (state != null) {
+            appId = state.getAppId();
+        } else if (requestWorkerResult != null) {
+            appId = requestWorkerResult.getAppId();
+        }
         return TaskResult.builder()
                 .taskInstanceId(resolvedRequest.getTaskInstanceId())
                 .flowInstanceId(resolvedRequest.getFlowInstanceId())
                 .taskName(resolvedRequest.getTaskName())
-                .workerId(resolvedRequest.getWorkerId())
                 .taskState(status)
-                .appId(state == null ? resolvedRequest.getAppId() : state.getAppId())
-                .workDirPath(state == null ? null : state.getWorkDirPath())
-                .result(resultJson(message, firstText(pluginLogUri,
-                        runtimeRef == null ? null : pluginLogUri(runtimeRef))))
+                .workerResult(WorkerResult.builder()
+                        .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
+                        .appId(appId)
+                        .workDirPath(state == null ? null : state.getWorkDirPath())
+                        .message(message)
+                        .pluginLogUri(firstText(pluginLogUri, runtimeRef == null ? null : pluginLogUri(runtimeRef)))
+                        .build())
                 .build();
     }
 
@@ -190,7 +196,7 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
         resolvedRequest.setTaskInstanceId(firstText(request.getTaskInstanceId(), snapshot.getTaskInstanceId()));
         resolvedRequest.setTaskName(firstText(request.getTaskName(), snapshot.getTaskName()));
         resolvedRequest.setPluginType(firstText(request.getPluginType(), snapshot.getPluginType()));
-        resolvedRequest.setAppId(request.getAppId());
+        resolvedRequest.setWorkerResult(request.getWorkerResult());
         resolvedRequest.setTaskState(request.getTaskState());
         resolvedRequest.setSubmitMode(request.getSubmitMode());
         resolvedRequest.setTaskData(request.getTaskData() == null ? snapshot.getTaskData() : request.getTaskData());
@@ -207,16 +213,12 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
     }
 
     private Path taskRuntimeDir(TaskRequest request, WorkerTaskExecutionState state) {
-        if (state != null && !isBlank(state.getWorkDirPath())) {
+        if (state != null && firstText(state.getWorkDirPath(), null) != null) {
             return Path.of(state.getWorkDirPath());
         }
         return Path.of(properties.getStorage().getTaskRuntimeDir(),
                 java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE),
-                safePath(request.getFlowInstanceId()), safePath(request.getTaskInstanceId()));
-    }
-
-    private String safePath(String value) {
-        return value == null || value.trim().isEmpty() ? "unknown" : value;
+                firstText(request.getFlowInstanceId(), "unknown"), firstText(request.getTaskInstanceId(), "unknown"));
     }
 
     private ObjectNode resultJson(String message, String pluginLogUri) {
@@ -237,7 +239,4 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
         return second;
     }
 
-    private boolean isBlank(String value) {
-        return value == null || value.trim().isEmpty();
-    }
 }

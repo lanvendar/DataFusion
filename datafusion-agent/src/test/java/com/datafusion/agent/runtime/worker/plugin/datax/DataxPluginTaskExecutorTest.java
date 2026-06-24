@@ -47,8 +47,8 @@ class DataxPluginTaskExecutorTest {
         assertEquals(DataxPluginTaskExecutor.PLUGIN_TYPE, snap.getPluginType());
         assertEquals(DataxRunMode.K8S.name(), snap.getRunMode());
         assertEquals("K8S", snap.getPluginParam().path("runMode").asText());
-        assertEquals(result.getAppId(), state.getAppId());
-        assertEquals(result.getWorkDirPath(), state.getWorkDirPath());
+        assertEquals(result.getWorkerResult().getAppId(), state.getAppId());
+        assertEquals(result.getWorkerResult().getWorkDirPath(), state.getWorkDirPath());
         assertTrue(snap.getPluginParam().path("kubernetes").path("collectLogsOnFinish").asBoolean());
     }
 

@@ -1,5 +1,7 @@
 package com.datafusion.scheduler.worker.state;
 
+import com.datafusion.scheduler.model.TaskRequest;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -48,6 +50,14 @@ public interface WorkerTaskExecutionStore {
      * @return 待监听任务运行态
      */
     List<WorkerTaskExecutionState> listListeningStates();
+
+    /**
+     * 恢复待监听任务.
+     *
+     * @param requests 任务请求清单
+     */
+    default void restoreListeningTasks(List<TaskRequest> requests) {
+    }
 
     /**
      * 删除任务执行状态.

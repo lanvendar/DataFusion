@@ -75,11 +75,11 @@ class K8sDataxTaskRunnerTest {
         stateStore.saveSnapshot(snapshot(request));
         TaskResult result = runner.finish(minimalRequest(), state(StatusEnum.RUNNING));
 
-        Path logFile = Path.of(result.getResult().path("pluginLogUri").asText());
+        Path logFile = Path.of(result.getWorkerResult().getPluginLogUri());
         assertEquals("k8s-datax.log", logFile.getFileName().toString());
-        assertTrue(result.getWorkDirPath().contains("task-runtime"));
+        assertTrue(result.getWorkerResult().getWorkDirPath().contains("task-runtime"));
         assertEquals("k8s datax logs", Files.readString(logFile));
-        assertEquals(state(StatusEnum.RUNNING).getWorkDirPath(), result.getWorkDirPath());
+        assertEquals(state(StatusEnum.RUNNING).getWorkDirPath(), result.getWorkerResult().getWorkDirPath());
     }
 
     @Test

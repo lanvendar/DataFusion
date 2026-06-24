@@ -4,6 +4,7 @@ import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.common.exception.ErrorCodeEnum;
 import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.common.utils.JacksonUtils;
+import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.Worker;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -11,6 +12,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * HTTP Manager 通信客户端.
@@ -36,6 +41,11 @@ public class HttpManagerClient implements ManagerClient {
      * 下线接口.
      */
     private static final String OFFLINE_PATH = "/internal/schedule/worker/offline";
+
+    /**
+     * worker 任务清单接口.
+     */
+    private static final String WORKER_TASKS_PATH = "/internal/schedule/worker/tasks";
 
     /**
      * 任务结果上报接口.
@@ -82,6 +92,17 @@ public class HttpManagerClient implements ManagerClient {
     @Override
     public Worker offline(Worker worker) {
         return post(OFFLINE_PATH, worker);
+    }
+
+    @Override
+    public Optional<List<TaskRequest>> getTaskInsByWorker(Worker worker) {
+        Result<JsonNode> result = postForResult(WORKER_TASKS_PATH, worker);
+        if (result == null || !ErrorCodeEnum.SUCCESS.getCode().equals(result.getCode()) || result.getData() == null) {
+            return Optional.empty();
+        }
+        List<TaskRequest> tasks = JacksonUtils.tryObj2Bean(result.getData(), new TypeReference<List<TaskRequest>>() {
+        });
+        return Optional.of(tasks == null ? Collections.emptyList() : tasks);
     }
 
     @Override

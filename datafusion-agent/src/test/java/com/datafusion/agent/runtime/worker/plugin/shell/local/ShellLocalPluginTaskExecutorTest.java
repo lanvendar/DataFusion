@@ -6,6 +6,7 @@ import com.datafusion.agent.runtime.worker.plugin.template.TemplateSpecRenderer;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,6 +21,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.concurrent.Executor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Tests for {@link ShellLocalPluginTaskExecutor}.
@@ -59,15 +61,15 @@ class ShellLocalPluginTaskExecutorTest {
 
         Path workDir = workDir();
         assertEquals(StatusEnum.RUNNING, result.getTaskState());
-        assertEquals(workDir.toString(), result.getWorkDirPath());
-        assertEquals("", result.getResult().path("pluginLogUri").asText());
+        assertEquals(workDir.toString(), result.getWorkerResult().getWorkDirPath());
+        assertNull(result.getWorkerResult().getPluginLogUri());
         assertEquals("task", Files.readString(workDir.resolve("stdout.log")));
         assertEquals("err", Files.readString(workDir.resolve("stderr.log")));
         assertEquals(ShellLocalPluginTaskExecutor.PLUGIN_TYPE,
                 stateStore.readSnapshot("task-1").orElseThrow().getPluginType());
         WorkerTaskExecutionState state = stateStore.readState("task-1").orElseThrow();
         assertEquals(0, state.getExitCode());
-        assertEquals(result.getWorkDirPath(), state.getWorkDirPath());
+        assertEquals(result.getWorkerResult().getWorkDirPath(), state.getWorkDirPath());
         assertEquals(StatusEnum.RUN_SUCCESS, new ShellLocalRunModeStateMapping().mapState(state));
     }
 
@@ -86,9 +88,10 @@ class ShellLocalPluginTaskExecutorTest {
         assertEquals(StatusEnum.RUN_SUCCESS, result.getTaskState());
         assertEquals("flow-1", result.getFlowInstanceId());
         assertEquals("Shell", result.getTaskName());
-        assertEquals("12345", result.getAppId());
-        assertEquals("/opt/datafusion/task-runtime/20260621/flow-1/task-1", result.getWorkDirPath());
-        assertEquals("", result.getResult().path("pluginLogUri").asText());
+        assertEquals("12345", result.getWorkerResult().getAppId());
+        assertEquals("/opt/datafusion/task-runtime/20260621/flow-1/task-1",
+                result.getWorkerResult().getWorkDirPath());
+        assertNull(result.getWorkerResult().getPluginLogUri());
     }
 
     @Test
@@ -106,9 +109,10 @@ class ShellLocalPluginTaskExecutorTest {
         assertEquals(StatusEnum.STOP_SUCCESS, result.getTaskState());
         assertEquals("flow-1", result.getFlowInstanceId());
         assertEquals("Shell", result.getTaskName());
-        assertEquals("9223372036854775807", result.getAppId());
-        assertEquals("/opt/datafusion/task-runtime/20260621/flow-1/task-1", result.getWorkDirPath());
-        assertEquals("", result.getResult().path("pluginLogUri").asText());
+        assertEquals("9223372036854775807", result.getWorkerResult().getAppId());
+        assertEquals("/opt/datafusion/task-runtime/20260621/flow-1/task-1",
+                result.getWorkerResult().getWorkDirPath());
+        assertNull(result.getWorkerResult().getPluginLogUri());
         assertEquals(StatusEnum.STOP_SUCCESS, stateStore.readState("task-1").orElseThrow().getStatus());
     }
 
@@ -127,9 +131,10 @@ class ShellLocalPluginTaskExecutorTest {
         assertEquals(StatusEnum.KILLED, result.getTaskState());
         assertEquals("flow-1", result.getFlowInstanceId());
         assertEquals("Shell", result.getTaskName());
-        assertEquals("9223372036854775807", result.getAppId());
-        assertEquals("/opt/datafusion/task-runtime/20260621/flow-1/task-1", result.getWorkDirPath());
-        assertEquals("", result.getResult().path("pluginLogUri").asText());
+        assertEquals("9223372036854775807", result.getWorkerResult().getAppId());
+        assertEquals("/opt/datafusion/task-runtime/20260621/flow-1/task-1",
+                result.getWorkerResult().getWorkDirPath());
+        assertNull(result.getWorkerResult().getPluginLogUri());
         assertEquals(StatusEnum.KILLED, stateStore.readState("task-1").orElseThrow().getStatus());
     }
 
@@ -156,6 +161,9 @@ class ShellLocalPluginTaskExecutorTest {
         request.setFlowInstanceId("flow-1");
         request.setTaskInstanceId("task-1");
         request.setTaskName("Shell");
+        request.setWorkerResult(WorkerResult.builder()
+                .workerId("worker-1")
+                .build());
         request.setPluginType(ShellLocalPluginTaskExecutor.PLUGIN_TYPE);
         request.setPluginParam(pluginParam);
         request.setTaskData(taskData);

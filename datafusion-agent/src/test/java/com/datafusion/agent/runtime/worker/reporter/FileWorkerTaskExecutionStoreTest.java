@@ -2,6 +2,8 @@ package com.datafusion.agent.runtime.worker.reporter;
 
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.scheduler.enums.StatusEnum;
+import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
 import org.junit.jupiter.api.Test;
@@ -11,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -29,7 +32,7 @@ class FileWorkerTaskExecutionStoreTest {
     private Path tempDir;
 
     @Test
-    void shouldCacheStatesAndKeepLogWhenRemovingRuntimeFiles() throws Exception {
+    void shouldRestoreStateOnlyByManagerTaskRequestsAndKeepLogWhenRemovingRuntimeFiles() throws Exception {
         FileWorkerTaskExecutionStore store = new FileWorkerTaskExecutionStore(properties());
         store.saveSnapshot(snapshot());
         store.saveState(state(StatusEnum.RUNNING));
@@ -42,6 +45,9 @@ class FileWorkerTaskExecutionStoreTest {
         assertEquals(2, Files.readAllLines(logFile).size());
 
         FileWorkerTaskExecutionStore reloadedStore = new FileWorkerTaskExecutionStore(properties());
+        assertEquals(0, reloadedStore.listListeningStates().size());
+
+        reloadedStore.restoreListeningTasks(List.of(restoreRequest()));
         assertEquals(1, reloadedStore.listListeningStates().size());
         assertEquals(StatusEnum.RUN_SUCCESS, reloadedStore.readState("task-1").orElseThrow().getStatus());
 
@@ -107,6 +113,15 @@ class FileWorkerTaskExecutionStoreTest {
                 .appId("100")
                 .status(status)
                 .build();
+    }
+
+    private TaskRequest restoreRequest() {
+        TaskRequest request = new TaskRequest();
+        request.setTaskInstanceId("task-1");
+        request.setWorkerResult(WorkerResult.builder()
+                .workDirPath(executionDir().toString())
+                .build());
+        return request;
     }
 
     private Path executionDir() {

@@ -11,6 +11,7 @@ import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.PluginData;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.Worker;
+import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.storage.WorkerStorage;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
@@ -296,10 +297,9 @@ public class WorkerStorageImpl implements WorkerStorage {
         request.setFlowInstanceId(uuidText(entity.getFlowInstanceId()));
         request.setTaskInstanceId(uuidText(entity.getId()));
         request.setTaskName(entity.getTaskName());
-        request.setWorkerId(uuidText(entity.getWorkerId()));
         request.setTaskState(status(entity.getStatus()));
         request.setTaskData(entity.getTaskData());
-        request.setWorkDirPath(workDirPath(entity));
+        request.setWorkerResult(workerResult(entity));
         request.setPluginType(pluginData == null ? null : pluginData.getPluginType());
         request.setPluginParam(pluginData == null ? null : pluginData.getPluginParam());
         return request;
@@ -312,11 +312,15 @@ public class WorkerStorageImpl implements WorkerStorage {
         return JacksonUtils.tryObj2Bean(entity.getPluginData(), PluginData.class);
     }
 
-    private String workDirPath(TaskInstanceEntity entity) {
-        if (entity == null || entity.getWorkerResult() == null || !entity.getWorkerResult().hasNonNull("workDirPath")) {
+    private WorkerResult workerResult(TaskInstanceEntity entity) {
+        if (entity == null || entity.getWorkerResult() == null || entity.getWorkerResult().isNull()) {
             return null;
         }
-        return entity.getWorkerResult().get("workDirPath").asText();
+        WorkerResult workerResult = JacksonUtils.tryObj2Bean(entity.getWorkerResult(), WorkerResult.class);
+        if (workerResult != null && workerResult.getWorkerId() == null) {
+            workerResult.setWorkerId(uuidText(entity.getWorkerId()));
+        }
+        return workerResult;
     }
 
     private StatusEnum status(String status) {

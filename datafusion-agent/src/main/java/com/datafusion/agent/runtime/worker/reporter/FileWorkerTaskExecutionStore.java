@@ -1,6 +1,7 @@
 package com.datafusion.agent.runtime.worker.reporter;
 
 import com.datafusion.agent.config.AgentProperties;
+import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskRuntimeFiles;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
@@ -70,7 +71,6 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
     public FileWorkerTaskExecutionStore(AgentProperties properties) {
         this.properties = properties;
         this.executionCache = Caffeine.newBuilder().build(this::loadExecutionEntry);
-        loadExistingStates();
     }
 
     @Override
@@ -153,6 +153,19 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
                 .flatMap(Optional::stream)
                 .filter(state -> state != null && !isBlank(state.getTaskInstanceId()))
                 .toList();
+    }
+
+    @Override
+    public void restoreListeningTasks(List<TaskRequest> requests) {
+        if (requests == null) {
+            return;
+        }
+        for (TaskRequest request : requests) {
+            if (request == null || isBlank(request.getTaskInstanceId())) {
+                continue;
+            }
+            workDir(request).ifPresent(path -> registerExecution(request.getTaskInstanceId(), path));
+        }
     }
 
     @Override
@@ -293,16 +306,6 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
         }
     }
 
-    private void loadExistingStates() {
-        for (Path stateFile : findStateFiles()) {
-            readStateFile(stateFile).ifPresent(state -> {
-                if (!isBlank(state.getTaskInstanceId())) {
-                    registerExecution(state.getTaskInstanceId(), stateFile.getParent());
-                }
-            });
-        }
-    }
-
     private Optional<WorkerTaskExecutionEntry> executionEntry(String taskInstanceId) {
         if (isBlank(taskInstanceId)) {
             return Optional.empty();
@@ -349,6 +352,20 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
 
     private Path taskRuntimeRoot() {
         return Path.of(properties.getStorage().getTaskRuntimeDir());
+    }
+
+    private Optional<Path> workDir(TaskRequest request) {
+        String workDirPath = request == null || request.getWorkerResult() == null ? null
+                : request.getWorkerResult().getWorkDirPath();
+        if (isBlank(workDirPath)) {
+            return Optional.empty();
+        }
+        Path workDir = Path.of(workDirPath);
+        if (Files.exists(stateFile(workDir, request.getTaskInstanceId()))
+                || Files.exists(snapshotFile(workDir, request.getTaskInstanceId()))) {
+            return Optional.of(workDir);
+        }
+        return Optional.empty();
     }
 
     private String json(Object value) throws Exception {

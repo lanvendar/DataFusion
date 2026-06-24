@@ -4,6 +4,7 @@ import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.rpc.ManagerClient;
 import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateReportScheduler;
 import com.datafusion.common.constant.SystemConstant;
+import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.Worker;
 import com.datafusion.scheduler.worker.plugin.WorkerTaskOperatorRouter;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +17,9 @@ import org.springframework.stereotype.Component;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -65,6 +69,11 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
      * worker 本地配置存储.
      */
     private final AgentWorkerConfigStore workerConfigStore;
+
+    /**
+     * 已恢复任务清单的 worker ID.
+     */
+    private volatile String restoredWorkerId;
 
     /**
      * 构造函数.
@@ -140,8 +149,14 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         Worker savedWorker = runtimeState.isReady() ? managerClient.heartbeat(heartbeatWorker(worker)) : managerClient.register(worker);
         boolean success = savedWorker != null;
         if (success) {
+            String beforeWorkerId = worker.getId();
             mergeSavedWorker(worker, savedWorker);
             workerConfigStore.save(worker);
+            if (!Objects.equals(worker.getId(), beforeWorkerId) || !Objects.equals(worker.getId(), restoredWorkerId)) {
+                if (restoreWorkerTasks(worker)) {
+                    restoredWorkerId = worker.getId();
+                }
+            }
         }
         runtimeState.setReady(success);
         if (!success) {
@@ -237,5 +252,23 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         Worker offline = new Worker();
         offline.setId(worker.getId());
         return offline;
+    }
+
+    private Worker workerIdOnly(Worker worker) {
+        Worker idOnly = new Worker();
+        idOnly.setId(worker.getId());
+        return idOnly;
+    }
+
+    private boolean restoreWorkerTasks(Worker worker) {
+        if (worker == null || worker.getId() == null) {
+            return false;
+        }
+        Optional<List<TaskRequest>> tasks = managerClient.getTaskInsByWorker(workerIdOnly(worker));
+        if (tasks.isEmpty()) {
+            return false;
+        }
+        taskStateReportScheduler.restoreTasks(tasks.get());
+        return true;
     }
 }

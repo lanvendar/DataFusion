@@ -27,11 +27,6 @@ public class Worker {
     public static final Integer STATUS_DOWN = 0;
 
     /**
-     * 清除状态.
-     */
-    public static final Integer STATUS_DELETED = 2;
-
-    /**
      * 工作节点id.
      */
     private String id;

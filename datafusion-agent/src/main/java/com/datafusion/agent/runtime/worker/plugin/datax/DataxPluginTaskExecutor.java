@@ -3,6 +3,7 @@ package com.datafusion.agent.runtime.worker.plugin.datax;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
@@ -85,9 +86,10 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
         DataxTaskRunner runner = runner(param.getRunMode());
         DataxSubmitResult submitResult = runner.submit(request, param);
         stateStore.saveSnapshot(snapshot(request, param));
+        WorkerResult requestWorkerResult = request.getWorkerResult();
         WorkerTaskExecutionState state = WorkerTaskExecutionState.builder()
                 .taskInstanceId(request.getTaskInstanceId())
-                .workerId(request.getWorkerId())
+                .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
                 .appId(submitResult.getAppId())
                 .workDirPath(submitResult.getWorkDirPath())
                 .status(submitResult.getStatus())
@@ -98,11 +100,9 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
                 .taskInstanceId(request.getTaskInstanceId())
                 .flowInstanceId(request.getFlowInstanceId())
                 .taskName(request.getTaskName())
-                .workerId(request.getWorkerId())
                 .taskState(submitResult.getStatus())
-                .appId(submitResult.getAppId())
-                .workDirPath(submitResult.getWorkDirPath())
-                .result(submitResult.getResult())
+                .workerResult(workerResult(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId(),
+                        submitResult.getAppId(), submitResult.getWorkDirPath(), submitResult.getResult()))
                 .build();
     }
 
@@ -141,11 +141,12 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     private WorkerTaskExecutionState currentState(TaskRequest request) {
+        WorkerResult requestWorkerResult = request.getWorkerResult();
         return stateStore.readState(request.getTaskInstanceId())
                 .orElseGet(() -> WorkerTaskExecutionState.builder()
                         .taskInstanceId(request.getTaskInstanceId())
-                        .workerId(request.getWorkerId())
-                        .appId(request.getAppId())
+                        .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
+                        .appId(requestWorkerResult == null ? null : requestWorkerResult.getAppId())
                         .status(request.getTaskState())
                         .build());
     }
@@ -162,19 +163,55 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
 
     private void recordControlResult(TaskRequest request, WorkerTaskExecutionState state, TaskResult result) {
         WorkerTaskExecutionState next = state == null ? currentState(request) : state;
+        WorkerResult workerResult = result.getWorkerResult();
+        WorkerResult requestWorkerResult = request.getWorkerResult();
         next.setStatus(result.getTaskState());
-        next.setWorkerId(firstText(next.getWorkerId(), result.getWorkerId(), request.getWorkerId()));
-        next.setAppId(result.getAppId() == null ? next.getAppId() : result.getAppId());
-        next.setWorkDirPath(result.getWorkDirPath() == null ? next.getWorkDirPath() : result.getWorkDirPath());
-        next.setResult(result.getResult());
+        next.setWorkerId(firstText(next.getWorkerId(), workerResult == null ? null : workerResult.getWorkerId(),
+                requestWorkerResult == null ? null : requestWorkerResult.getWorkerId()));
+        next.setAppId(workerResult == null || workerResult.getAppId() == null ? next.getAppId() : workerResult.getAppId());
+        next.setWorkDirPath(workerResult == null || workerResult.getWorkDirPath() == null ? next.getWorkDirPath()
+                : workerResult.getWorkDirPath());
+        next.setResult(resultJson(workerResult));
         stateStore.saveState(next);
     }
 
+    private WorkerResult workerResult(String workerId, String appId, String workDirPath, JsonNode result) {
+        return WorkerResult.builder()
+                .workerId(workerId)
+                .appId(appId)
+                .workDirPath(workDirPath)
+                .message(resultText(result, "message"))
+                .pluginLogUri(resultText(result, "pluginLogUri"))
+                .build();
+    }
+
+    private JsonNode resultJson(WorkerResult workerResult) {
+        if (workerResult == null) {
+            return null;
+        }
+        ObjectNode result = OBJECT_MAPPER.createObjectNode();
+        if (workerResult.getMessage() != null) {
+            result.put("message", workerResult.getMessage());
+        }
+        if (workerResult.getPluginLogUri() != null) {
+            result.put("pluginLogUri", workerResult.getPluginLogUri());
+        }
+        return result;
+    }
+
+    private String resultText(JsonNode result, String fieldName) {
+        if (result == null || !result.hasNonNull(fieldName)) {
+            return null;
+        }
+        return result.get(fieldName).asText();
+    }
+
     private WorkerTaskExecutionSnap snapshot(TaskRequest request, DataxExecutionParam param) {
+        WorkerResult requestWorkerResult = request.getWorkerResult();
         return WorkerTaskExecutionSnap.builder()
                 .flowInstanceId(request.getFlowInstanceId())
                 .taskName(request.getTaskName())
-                .workerId(request.getWorkerId())
+                .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
                 .pluginType(PLUGIN_TYPE)
                 .runMode(param.getRunMode().name())
                 .taskInstanceId(request.getTaskInstanceId())

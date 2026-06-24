@@ -1,13 +1,15 @@
 package com.datafusion.agent.runtime.worker.reporter;
 
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.enums.SubmitModeEnum;
+import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStore;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
@@ -104,6 +106,15 @@ public class AgentTaskStateReportScheduler {
         scheduler.scheduleWithFixedDelay(this::refreshStates, interval, interval, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * 恢复待监听任务.
+     *
+     * @param requests 任务请求清单
+     */
+    public void restoreTasks(List<TaskRequest> requests) {
+        stateStore.restoreListeningTasks(requests);
+    }
+
     private void refreshStates() {
         for (WorkerTaskExecutionState state : stateStore.listListeningStates()) {
             try {
@@ -190,13 +201,22 @@ public class AgentTaskStateReportScheduler {
                 .taskInstanceId(state.getTaskInstanceId())
                 .flowInstanceId(snapshot == null ? null : snapshot.getFlowInstanceId())
                 .taskName(snapshot == null ? null : snapshot.getTaskName())
-                .workerId(state.getWorkerId() == null && snapshot != null ? snapshot.getWorkerId() : state.getWorkerId())
                 .taskState(state.getStatus())
-                .appId(state.getAppId())
-                .workDirPath(state.getWorkDirPath())
-                .submitMode(SubmitModeEnum.ASYNC)
-                .result(state.getResult())
+                .workerResult(WorkerResult.builder()
+                        .workerId(state.getWorkerId() == null && snapshot != null ? snapshot.getWorkerId() : state.getWorkerId())
+                        .appId(state.getAppId())
+                        .workDirPath(state.getWorkDirPath())
+                        .message(resultText(state.getResult(), "message"))
+                        .pluginLogUri(resultText(state.getResult(), "pluginLogUri"))
+                        .build())
                 .build();
+    }
+
+    private String resultText(JsonNode result, String fieldName) {
+        if (result == null || !result.hasNonNull(fieldName)) {
+            return null;
+        }
+        return result.get(fieldName).asText();
     }
 
     private static String mappingKey(String pluginType, String runMode) {

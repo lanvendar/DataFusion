@@ -1,11 +1,14 @@
 package com.datafusion.scheduler.worker.context;
 
+import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.Variable;
+import com.datafusion.scheduler.model.WorkerResult;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.Data;
 
 import java.util.Map;
@@ -117,9 +120,10 @@ public class RunningTaskContext {
         context.setTaskInstanceId(request.getTaskInstanceId());
         context.setFlowInstanceId(request.getFlowInstanceId());
         context.setTaskName(request.getTaskName());
-        context.setWorkerId(request.getWorkerId());
+        WorkerResult workerResult = request.getWorkerResult();
+        context.setWorkerId(workerResult == null ? null : workerResult.getWorkerId());
         context.setPluginType(request.getPluginType());
-        context.setAppId(request.getAppId());
+        context.setAppId(workerResult == null ? null : workerResult.getAppId());
         context.setTaskState(request.getTaskState());
         context.setSubmitMode(request.getSubmitMode());
         context.setTaskData(request.getTaskData());
@@ -137,29 +141,38 @@ public class RunningTaskContext {
     public void updateResult(TaskResult result) {
         this.submitted = true;
         if (result != null) {
+            WorkerResult workerResult = result.getWorkerResult();
             if (result.getTaskState() != null) {
                 this.taskState = result.getTaskState();
-            }
-            if (result.getWorkerId() != null) {
-                this.workerId = result.getWorkerId();
-            }
-            if (result.getAppId() != null) {
-                this.appId = result.getAppId();
-            }
-            if (result.getOutputVars() != null) {
-                this.outputVars = result.getOutputVars();
-            }
-            if (result.getWorkDirPath() != null) {
-                this.workDirPath = result.getWorkDirPath();
-            }
-            if (result.getResult() != null) {
-                this.result = result.getResult();
             }
             if (result.getSubmitMode() != null) {
                 this.submitMode = result.getSubmitMode();
             }
+            updateWorkerResult(workerResult);
         }
         this.updateTime = System.currentTimeMillis();
+    }
+
+    private void updateWorkerResult(WorkerResult workerResult) {
+        if (workerResult == null) {
+            return;
+        }
+        if (workerResult.getWorkerId() != null) {
+            this.workerId = workerResult.getWorkerId();
+        }
+        if (workerResult.getAppId() != null) {
+            this.appId = workerResult.getAppId();
+        }
+        if (workerResult.getOutputVars() != null) {
+            this.outputVars = workerResult.getOutputVars();
+        }
+        if (workerResult.getWorkDirPath() != null) {
+            this.workDirPath = workerResult.getWorkDirPath();
+        }
+        JsonNode resultJson = toResultJson(workerResult);
+        if (resultJson != null) {
+            this.result = resultJson;
+        }
     }
 
     /**
@@ -177,14 +190,9 @@ public class RunningTaskContext {
         if (request.getTaskName() != null) {
             this.taskName = request.getTaskName();
         }
-        if (request.getWorkerId() != null) {
-            this.workerId = request.getWorkerId();
-        }
+        updateWorkerResult(request.getWorkerResult());
         if (request.getPluginType() != null) {
             this.pluginType = request.getPluginType();
-        }
-        if (request.getAppId() != null) {
-            this.appId = request.getAppId();
         }
         if (request.getTaskState() != null) {
             this.taskState = request.getTaskState();
@@ -212,13 +220,54 @@ public class RunningTaskContext {
                 .flowInstanceId(flowInstanceId)
                 .taskName(taskName)
                 .taskState(taskState)
-                .outputVars(outputVars)
-                .workerId(workerId)
-                .appId(appId)
-                .workDirPath(workDirPath)
                 .submitMode(submitMode)
-                .result(result)
+                .workerResult(WorkerResult.builder()
+                        .outputVars(outputVars)
+                        .workerId(workerId)
+                        .appId(appId)
+                        .workDirPath(workDirPath)
+                        .message(resultText("message"))
+                        .pluginLogUri(resultText("pluginLogUri"))
+                        .build())
                 .build();
+    }
+
+    private String resultText(String fieldName) {
+        return result == null || !result.hasNonNull(fieldName) ? null : result.get(fieldName).asText();
+    }
+
+    private JsonNode toResultJson(WorkerResult workerResult) {
+        if (workerResult == null && result == null) {
+            return null;
+        }
+        if (workerResult == null) {
+            return result;
+        }
+        ObjectNode node = JacksonUtils.createObjectNode();
+        if (workerResult.getMessage() != null) {
+            node.put("message", workerResult.getMessage());
+        }
+        if (workerResult.getPluginLogUri() != null) {
+            node.put("pluginLogUri", workerResult.getPluginLogUri());
+        }
+        return node.isEmpty() ? result : node;
+    }
+
+    private void fillWorkerResult(TaskRequest request) {
+        WorkerResult workerResult = request.getWorkerResult();
+        if (workerResult == null) {
+            request.setWorkerResult(new WorkerResult());
+            workerResult = request.getWorkerResult();
+        }
+        if (workerResult.getWorkerId() == null) {
+            workerResult.setWorkerId(workerId);
+        }
+        if (workerResult.getAppId() == null) {
+            workerResult.setAppId(appId);
+        }
+        if (workerResult.getWorkDirPath() == null) {
+            workerResult.setWorkDirPath(workDirPath);
+        }
     }
 
     /**
@@ -234,14 +283,9 @@ public class RunningTaskContext {
         if (request.getTaskName() == null) {
             request.setTaskName(taskName);
         }
-        if (request.getWorkerId() == null) {
-            request.setWorkerId(workerId);
-        }
+        fillWorkerResult(request);
         if (request.getTaskState() == null) {
             request.setTaskState(taskState);
-        }
-        if (request.getAppId() == null) {
-            request.setAppId(appId);
         }
         if (request.getPluginType() == null) {
             request.setPluginType(pluginType);

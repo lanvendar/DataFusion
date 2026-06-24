@@ -2,13 +2,10 @@ package com.datafusion.scheduler.model;
 
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.enums.SubmitModeEnum;
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.Map;
 
 /**
  * 任务结果参数.
@@ -43,38 +40,18 @@ public class TaskResult {
      * 任务执行状态.
      */
     private StatusEnum taskState;
-    //endregion
-    //region 返回字段
-
-    /**
-     * 输出变量列表.
-     */
-    private Map<String, Variable> outputVars;
-
-    /**
-     * 获取worker id.
-     */
-    private String workerId;
-
-    /**
-     * 返回执行的application id.
-     */
-    private String appId;
-
-    /**
-     * 任务运行目录路径.
-     */
-    private String workDirPath;
 
     /**
      * worker 端提交模式，默认为同步提交.
      */
     @Builder.Default
     private SubmitModeEnum submitMode = SubmitModeEnum.SYNC;
+    //endregion
+    //region 返回字段
 
     /**
      * 执行节点返回结果.
      */
-    private JsonNode result;
+    private WorkerResult workerResult;
     //endregion
 }
