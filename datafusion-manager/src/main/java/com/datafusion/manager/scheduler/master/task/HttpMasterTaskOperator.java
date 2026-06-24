@@ -12,7 +12,8 @@ import com.datafusion.scheduler.model.PluginData;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.Worker;
-import com.datafusion.scheduler.worker.WorkerManager;
+import com.datafusion.scheduler.model.WorkerResult;
+import com.datafusion.scheduler.worker.WorkerListener;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -62,9 +63,9 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
     public static final String FINISH_TASK_URL = "http://host:port/internal/scheduler/finishTask";
 
     /**
-     * 工作节点存储服务.
+     * worker 运行时服务.
      */
-    private final WorkerManager manager;
+    private final WorkerListener workerListener;
 
     /**
      * http client.
@@ -82,25 +83,25 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
     /**
      * 构造器，初始化http client.
      *
-     * @param manager 工作节点管理服务
+     * @param workerListener worker 运行时服务
      */
-    public HttpMasterTaskOperator(WorkerManager manager) {
-        this(manager, 20, 10, 5000, 5000, 10000);
+    public HttpMasterTaskOperator(WorkerListener workerListener) {
+        this(workerListener, 20, 10, 5000, 5000, 10000);
     }
 
     /**
      * 构造器，初始化http client.
      *
-     * @param manager                  工作节点管理服务
+     * @param workerListener           worker 运行时服务
      * @param maxConcurrent            客户端总并行链接最大数
      * @param maxPerRoute              每个主机的最大并行链接数
      * @param connectionTimeout        连接超时时间
      * @param connectionRequestTimeout 从线程池中获取线程超时时间
      * @param socketTimeout            数据超时时间
      */
-    public HttpMasterTaskOperator(WorkerManager manager, int maxConcurrent, int maxPerRoute, int connectionTimeout,
+    public HttpMasterTaskOperator(WorkerListener workerListener, int maxConcurrent, int maxPerRoute, int connectionTimeout,
                                   int connectionRequestTimeout, int socketTimeout) {
-        this.manager = manager;
+        this.workerListener = workerListener;
         PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
         //客户端总并行链接最大数
         connectionManager.setMaxTotal(maxConcurrent);
@@ -132,7 +133,7 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
         Worker worker = getLastExecutedWorker(taskIns);
         if (null == worker) {
             PluginData pluginData = taskIns.getPluginData();
-            worker = manager.lookupWorker(pluginData.getPluginType());
+            worker = workerListener.lookupWorker(pluginData.getPluginType());
         }
 
         if (null == worker || !worker.isAlive()) {
@@ -144,7 +145,7 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
             TaskResult response = requestToWorker(SUBMIT_TASK_URL, worker, taskIns);
             // 设置任务实例对应的工作节点ID.
             if (response != null) {
-                response.setWorkerId(worker.getId());
+                fillWorkerId(response, worker.getId());
             }
             return response;
         } catch (Exception e) {
@@ -227,8 +228,9 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
     private Worker getLastExecutedWorker(TaskInstance taskIns) {
         // 任务已经在工作节点上执行,那么使用当时的工作节点
         TaskResult taskResult = taskIns.getTaskResult();
-        if (taskResult != null && StringUtils.isNotBlank(taskResult.getWorkerId())) {
-            return manager.getWorker(taskResult.getWorkerId());
+        WorkerResult workerResult = taskResult == null ? null : taskResult.getWorkerResult();
+        if (workerResult != null && StringUtils.isNotBlank(workerResult.getWorkerId())) {
+            return workerListener.getWorker(workerResult.getWorkerId());
         }
 
         return null;
@@ -258,16 +260,14 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
         if (result != null && ErrorCodeEnum.SUCCESS.getCode().equals(result.getCode())) {
             response = result.getData();
             if (response == null) {
-                response = TaskResult.builder().result(JacksonUtils.createObjectNode()
-                        .put("message", "worker响应数据为空")).build();
+                response = errorResult("worker响应数据为空");
             }
         } else {
             String errorMsg = result == null ? "worker响应为空或解析失败" : result.getErrorMsg();
             Object code = result == null ? null : result.getCode();
             log.warn("[{}] - 发送请求给工作节点失败,错误码:{}, 错误信息:{}",
                     taskIns.getInstanceId(), code, errorMsg);
-            response = TaskResult.builder().result(JacksonUtils.createObjectNode()
-                    .put("message", errorMsg)).build();
+            response = errorResult(errorMsg);
         }
         return response;
     }
@@ -289,8 +289,8 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
         request.setTaskData(taskIns.getTaskData());
 
         TaskResult taskResult = taskIns.getTaskResult();
-        if (null != taskResult) {
-            request.setAppId(taskResult.getAppId());
+        if (null != taskResult && taskResult.getWorkerResult() != null) {
+            request.setAppId(taskResult.getWorkerResult().getAppId());
         }
         request.setSubmitMode(SubmitModeEnum.SYNC);
 
@@ -333,6 +333,21 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
                 return null;
             }
         }
+    }
+
+    private void fillWorkerId(TaskResult response, String workerId) {
+        if (response.getWorkerResult() == null) {
+            response.setWorkerResult(new WorkerResult());
+        }
+        response.getWorkerResult().setWorkerId(workerId);
+    }
+
+    private TaskResult errorResult(String message) {
+        return TaskResult.builder()
+                .workerResult(WorkerResult.builder()
+                        .message(message)
+                        .build())
+                .build();
     }
     // endregion
 

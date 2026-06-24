@@ -62,7 +62,7 @@ public interface WorkerRegistryService extends IService<WorkerRegistryEntity> {
     boolean updateWorkerRegistry(WorkerRegistryUpdateDto dto);
 
     /**
-     * 逻辑删除 worker 注册信息.
+     * 删除 worker 注册信息.
      *
      * @param id worker 注册记录ID
      * @return 是否成功

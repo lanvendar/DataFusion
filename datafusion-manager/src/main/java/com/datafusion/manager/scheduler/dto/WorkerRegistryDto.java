@@ -50,7 +50,7 @@ public class WorkerRegistryDto {
     /**
      * worker 状态.
      */
-    @Schema(name = "status", description = "worker 状态: 0-下线 1-上线 2-清除")
+    @Schema(name = "status", description = "worker 状态: 0-下线 1-上线")
     private Integer status;
 
     /**

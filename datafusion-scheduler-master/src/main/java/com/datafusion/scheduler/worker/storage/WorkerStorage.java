@@ -23,15 +23,6 @@ public interface WorkerStorage {
     Worker getWorker(String workerId);
 
     /**
-     * 根据主机名+端口号获取工作节点.
-     *
-     * @param hostName 主机名
-     * @param port     端口号
-     * @return 工作节点信息
-     */
-    Worker getWorker(String hostName, int port);
-
-    /**
      * 获取全部工作节点.
      *
      * @return 工作节点列表
@@ -71,12 +62,43 @@ public interface WorkerStorage {
     Worker offline(String workerId);
 
     /**
+     * 将所有在线 worker 标记为下线.
+     *
+     * @return 更新数量
+     */
+    int offlineAllWorkers();
+
+    /**
      * 将心跳超时的 worker 标记为下线.
      *
      * @param timeoutMs 超时时间，单位毫秒
      * @return 更新数量
      */
     int timeoutOffline(Long timeoutMs);
+
+    /**
+     * 将 worker 标记为有效.
+     *
+     * @param workerId worker ID
+     * @return 更新后的 worker
+     */
+    Worker active(String workerId);
+
+    /**
+     * 将 worker 标记为无效.
+     *
+     * @param workerId worker ID
+     * @return 更新后的 worker
+     */
+    Worker inactive(String workerId);
+
+    /**
+     * 删除 worker.
+     *
+     * @param workerId worker ID
+     * @return 是否删除成功
+     */
+    boolean delete(String workerId);
 
     /**
      * 获取监控任务清单.

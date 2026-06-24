@@ -28,6 +28,7 @@ import com.datafusion.scheduler.master.task.model.TaskInstance;
 import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.PluginData;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.model.TaskRuntimeFiles;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
@@ -281,12 +282,8 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
         if (workerResult == null || workerResult.isNull()) {
             return null;
         }
-        if (workerResult.hasNonNull("result")) {
-            JsonNode result = workerResult.get("result");
-            if (result.hasNonNull("message")) {
-                return result.get("message").asText();
-            }
-            return result.isTextual() ? result.asText() : result.toString();
+        if (workerResult.hasNonNull("message")) {
+            return workerResult.get("message").asText();
         }
         if (workerResult.hasNonNull("appId")) {
             return "appId: " + workerResult.get("appId").asText();
@@ -390,9 +387,23 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
         instance.setEventId(ImplUtil.uuidToStr(entity.getEventId()));
         instance.setTaskParam(toParamData(entity.getTaskParam()));
         instance.setTaskData(entity.getTaskData());
-        instance.setTaskResult(JacksonUtils.tryObj2Bean(entity.getWorkerResult(), TaskResult.class));
+        instance.setTaskResult(toTaskResult(entity));
         instance.setPluginData(JacksonUtils.tryObj2Bean(entity.getPluginData(), PluginData.class));
         return instance;
+    }
+
+    private TaskResult toTaskResult(TaskInstanceEntity entity) {
+        WorkerResult workerResult = JacksonUtils.tryObj2Bean(entity.getWorkerResult(), WorkerResult.class);
+        if (workerResult == null && JacksonUtils.isEmpty(entity.getWorkerResult())) {
+            return null;
+        }
+        return TaskResult.builder()
+                .taskInstanceId(ImplUtil.uuidToStr(entity.getId()))
+                .flowInstanceId(ImplUtil.uuidToStr(entity.getFlowInstanceId()))
+                .taskName(entity.getTaskName())
+                .taskState(entity.getStatus() == null ? null : StatusEnum.fromString(entity.getStatus()))
+                .workerResult(workerResult)
+                .build();
     }
 
     private ParamData toParamData(JsonNode jsonNode) {

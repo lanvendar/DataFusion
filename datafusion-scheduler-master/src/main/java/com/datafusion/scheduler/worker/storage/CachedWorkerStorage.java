@@ -9,8 +9,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * 工作节点缓存.
@@ -73,27 +71,6 @@ public class CachedWorkerStorage implements WorkerStorage {
     }
 
     /**
-     * 根据主机名+端口号获取工作节点.
-     *
-     * @param hostName 主机名
-     * @param port     端口号
-     * @return 工作节点信息
-     */
-    @Override
-    public Worker getWorker(String hostName, int port) {
-        Set<Map.Entry<String, Worker>> entries = workerCache.asMap().entrySet();
-        if (CollectionUtil.isNotEmpty(entries)) {
-            for (Map.Entry<String, Worker> entry : entries) {
-                Worker worker = entry.getValue();
-                if (StrUtil.equals(hostName, worker.getHostName()) && port == worker.getPort()) {
-                    return worker;
-                }
-            }
-        }
-        return workerStorage.getWorker(hostName, port);
-    }
-
-    /**
      * 获取全部工作节点.
      *
      * @return 工作节点列表
@@ -144,11 +121,41 @@ public class CachedWorkerStorage implements WorkerStorage {
     }
 
     @Override
+    public int offlineAllWorkers() {
+        int updated = workerStorage.offlineAllWorkers();
+        workerCache.invalidateAll();
+        return updated;
+    }
+
+    @Override
     public int timeoutOffline(Long timeoutMs) {
         int updated = workerStorage.timeoutOffline(timeoutMs);
         workerCache.invalidateAll();
         getWorkers();
         return updated;
+    }
+
+    @Override
+    public Worker active(String workerId) {
+        Worker worker = workerStorage.active(workerId);
+        refreshCache(worker);
+        return worker;
+    }
+
+    @Override
+    public Worker inactive(String workerId) {
+        Worker worker = workerStorage.inactive(workerId);
+        refreshCache(worker);
+        return worker;
+    }
+
+    @Override
+    public boolean delete(String workerId) {
+        boolean deleted = workerStorage.delete(workerId);
+        if (deleted) {
+            workerCache.invalidate(workerId);
+        }
+        return deleted;
     }
 
     @Override

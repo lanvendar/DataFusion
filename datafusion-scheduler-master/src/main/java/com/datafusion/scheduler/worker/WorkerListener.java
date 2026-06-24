@@ -1,6 +1,9 @@
 package com.datafusion.scheduler.worker;
 
+import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.Worker;
+
+import java.util.List;
 
 /**
  * 工作节点上下线事件监听器.
@@ -43,4 +46,28 @@ public interface WorkerListener {
      * @return 更新数量
      */
     int timeoutOffline(Long timeoutMs);
+
+    /**
+     * 获取指定 worker 的未完成任务清单.
+     *
+     * @param workerId worker ID
+     * @return 未完成任务清单
+     */
+    List<TaskRequest> getTaskInsByWorkerId(String workerId);
+
+    /**
+     * 获取指定 worker.
+     *
+     * @param workerId worker ID
+     * @return worker 信息
+     */
+    Worker getWorker(String workerId);
+
+    /**
+     * 选择支持指定插件的可用 worker.
+     *
+     * @param pluginType 插件类型
+     * @return worker 信息
+     */
+    Worker lookupWorker(String pluginType);
 }

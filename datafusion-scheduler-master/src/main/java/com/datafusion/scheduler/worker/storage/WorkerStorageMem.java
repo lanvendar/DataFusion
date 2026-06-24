@@ -37,14 +37,6 @@ public class WorkerStorageMem implements WorkerStorage {
     }
 
     @Override
-    public Worker getWorker(String hostName, int port) {
-        return workerMap.values().stream()
-                .filter(worker -> hostName.equals(worker.getHostName()) && port == worker.getPort())
-                .findFirst()
-                .orElse(null);
-    }
-
-    @Override
     public List<Worker> getWorkers() {
         return new ArrayList<>(workerMap.values());
     }
@@ -101,6 +93,18 @@ public class WorkerStorageMem implements WorkerStorage {
     }
 
     @Override
+    public int offlineAllWorkers() {
+        int count = 0;
+        for (Worker worker : workerMap.values()) {
+            if (worker.isAlive()) {
+                offline(worker.getId());
+                count++;
+            }
+        }
+        return count;
+    }
+
+    @Override
     public int timeoutOffline(Long timeoutMs) {
         long timeout = timeoutMs == null ? 0L : timeoutMs;
         long expireBefore = System.currentTimeMillis() - timeout;
@@ -113,6 +117,21 @@ public class WorkerStorageMem implements WorkerStorage {
             }
         }
         return count;
+    }
+
+    @Override
+    public Worker active(String workerId) {
+        return getWorker(workerId);
+    }
+
+    @Override
+    public Worker inactive(String workerId) {
+        return getWorker(workerId);
+    }
+
+    @Override
+    public boolean delete(String workerId) {
+        return workerMap.remove(workerId) != null;
     }
 
     @Override

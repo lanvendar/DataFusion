@@ -2,6 +2,7 @@ package com.datafusion.manager.config;
 
 import com.datafusion.common.options.ConfigOption;
 import com.datafusion.common.options.Options;
+import com.datafusion.manager.scheduler.dao.TaskInstanceMapper;
 import com.datafusion.manager.scheduler.dao.WorkerRegistryMapper;
 import com.datafusion.manager.scheduler.master.task.HttpMasterTaskOperator;
 import com.datafusion.manager.scheduler.storage.EventStorageImpl;
@@ -13,13 +14,16 @@ import com.datafusion.scheduler.master.MasterConfigOptions;
 import com.datafusion.scheduler.master.MasterService;
 import com.datafusion.scheduler.master.MasterStorage;
 import com.datafusion.scheduler.master.task.MasterTaskOperator;
+import com.datafusion.scheduler.worker.WorkerListener;
 import com.datafusion.scheduler.worker.WorkerManager;
+import com.datafusion.scheduler.worker.WorkerOperator;
 import com.datafusion.scheduler.worker.storage.CachedWorkerStorage;
 import com.datafusion.scheduler.worker.storage.WorkerStorage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 
 /**
@@ -109,8 +113,9 @@ public class SchedulerMasterConfig {
      */
     @Bean
     @ConditionalOnMissingBean
-    public WorkerStorage schedulerWorkerStorage(WorkerRegistryMapper workerRegistryMapper, Options options) {
-        return new CachedWorkerStorage(new WorkerStorageImpl(workerRegistryMapper), options);
+    public WorkerStorage schedulerWorkerStorage(WorkerRegistryMapper workerRegistryMapper,
+                                                TaskInstanceMapper taskInstanceMapper, Options options) {
+        return new CachedWorkerStorage(new WorkerStorageImpl(workerRegistryMapper, taskInstanceMapper), options);
     }
 
     /**
@@ -126,15 +131,41 @@ public class SchedulerMasterConfig {
     }
 
     /**
-     * 创建 MasterTaskOperator.
+     * 创建 WorkerListener.
      *
      * @param workerManager worker 管理器
+     * @return WorkerListener
+     */
+    @Bean
+    @Primary
+    @ConditionalOnMissingBean(WorkerListener.class)
+    public WorkerListener workerListener(WorkerManager workerManager) {
+        return workerManager;
+    }
+
+    /**
+     * 创建 WorkerOperator.
+     *
+     * @param workerManager worker 管理器
+     * @return WorkerOperator
+     */
+    @Bean
+    @Primary
+    @ConditionalOnMissingBean(WorkerOperator.class)
+    public WorkerOperator workerOperator(WorkerManager workerManager) {
+        return workerManager;
+    }
+
+    /**
+     * 创建 MasterTaskOperator.
+     *
+     * @param workerListener worker 运行时服务
      * @return MasterTaskOperator
      */
     @Bean
     @ConditionalOnMissingBean
-    public MasterTaskOperator masterTaskOperator(WorkerManager workerManager) {
-        return new HttpMasterTaskOperator(workerManager);
+    public MasterTaskOperator masterTaskOperator(WorkerListener workerListener) {
+        return new HttpMasterTaskOperator(workerListener);
     }
 
     /**

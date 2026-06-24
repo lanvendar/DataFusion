@@ -17,10 +17,13 @@ import com.datafusion.manager.scheduler.po.WorkerRegistryEntity;
 import com.datafusion.manager.scheduler.service.WorkerRegistryService;
 import com.datafusion.manager.utils.HttpUtils;
 import com.datafusion.scheduler.model.Worker;
+import com.datafusion.scheduler.worker.WorkerOperator;
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -35,6 +38,7 @@ import java.util.stream.Collectors;
  * @since 1.0.0
  */
 @Service
+@RequiredArgsConstructor
 public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper, WorkerRegistryEntity>
         implements WorkerRegistryService {
 
@@ -52,6 +56,11 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
      * 插件字段最大长度.
      */
     private static final int PLUGINS_MAX_LENGTH = 256;
+
+    /**
+     * worker 人工操作接口.
+     */
+    private final WorkerOperator workerOperator;
 
     @Override
     public PageResponse<WorkerRegistryDto> pageWorkerRegistry(PageQuery<WorkerRegistryQueryDto> query) {
@@ -76,7 +85,7 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
     @Override
     public WorkerRegistryDto getWorkerRegistryById(UUID id) {
         WorkerRegistryEntity entity = getById(id);
-        if (entity == null || Worker.STATUS_DELETED.equals(entity.getStatus())) {
+        if (entity == null) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker不存在");
         }
         return toDto(entity);
@@ -92,7 +101,7 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         checkHostPortUnique(dto.getHost(), dto.getPort(), null);
 
         WorkerRegistryEntity entity = new WorkerRegistryEntity();
-        entity.setId(UUID.randomUUID());
+        entity.setId(workerIdFromCode(dto.getWorkerCode()));
         entity.setWorkerCode(dto.getWorkerCode());
         entity.setHostName(dto.getHostName());
         entity.setHost(dto.getHost());
@@ -112,12 +121,12 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
     @Transactional(rollbackFor = Exception.class)
     public boolean updateWorkerRegistry(WorkerRegistryUpdateDto dto) {
         WorkerRegistryEntity entity = getById(dto.getId());
-        if (entity == null || Worker.STATUS_DELETED.equals(entity.getStatus())) {
+        if (entity == null) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker不存在");
         }
 
         if (StringUtils.isNotBlank(dto.getWorkerCode())) {
-            entity.setWorkerCode(dto.getWorkerCode());
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker编码不允许修改");
         }
         if (StringUtils.isNotBlank(dto.getHostName())) {
             entity.setHostName(dto.getHostName());
@@ -153,14 +162,8 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteWorkerRegistry(UUID id) {
-        WorkerRegistryEntity entity = getById(id);
-        if (entity == null) {
-            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker不存在");
-        }
-        entity.setStatus(Worker.STATUS_DELETED);
-        entity.setIsActive(INACTIVE);
-        fillUpdateAudit(entity);
-        return updateById(entity);
+        assertWorkerExists(id);
+        return workerOperator.delete(id.toString());
     }
 
     // region 私有方法
@@ -173,7 +176,6 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
      */
     private LambdaQueryWrapper<WorkerRegistryEntity> buildQueryWrapper(WorkerRegistryQueryDto query) {
         LambdaQueryWrapper<WorkerRegistryEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.ne(WorkerRegistryEntity::getStatus, Worker.STATUS_DELETED);
         if (query != null) {
             if (StringUtils.isNotBlank(query.getWorkerCode())) {
                 wrapper.like(WorkerRegistryEntity::getWorkerCode, query.getWorkerCode());
@@ -198,6 +200,12 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         return wrapper;
     }
 
+    private void assertWorkerExists(UUID id) {
+        if (getById(id) == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker不存在");
+        }
+    }
+
     private void checkWorkerCodeUnique(String workerCode, UUID excludeId) {
         if (StringUtils.isBlank(workerCode)) {
             return;
@@ -210,6 +218,10 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
         if (baseMapper.selectCount(wrapper) > 0) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker编码已存在");
         }
+    }
+
+    private UUID workerIdFromCode(String workerCode) {
+        return UUID.nameUUIDFromBytes(workerCode.trim().getBytes(StandardCharsets.UTF_8));
     }
 
     private void checkHostPortUnique(String host, Integer port, UUID excludeId) {

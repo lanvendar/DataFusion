@@ -21,6 +21,7 @@ import com.datafusion.scheduler.master.task.storage.TaskStorage;
 import com.datafusion.scheduler.model.ParamData;
 import com.datafusion.scheduler.model.PluginData;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.WorkerResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -172,7 +173,7 @@ public class TaskStorageImpl implements TaskStorage {
         ins.setEventId(ImplUtil.uuidToStr(entity.getEventId()));
         ins.setTaskParam(toParamData(entity.getTaskParam()));
         ins.setTaskData(entity.getTaskData());
-        ins.setTaskResult(toBean(entity.getWorkerResult(), TaskResult.class));
+        ins.setTaskResult(toTaskResult(entity));
         ins.setPluginData(toBean(entity.getPluginData(), PluginData.class));
         return ins;
     }
@@ -195,7 +196,7 @@ public class TaskStorageImpl implements TaskStorage {
         entity.setEventId(ImplUtil.strToUuid(ins.getEventId()));
         entity.setTaskParam(toJsonNode(ins.getTaskParam()));
         entity.setTaskData(ins.getTaskData());
-        entity.setWorkerResult(toJsonNode(ins.getTaskResult()));
+        entity.setWorkerResult(toWorkerResultJson(ins.getTaskResult()));
         entity.setWorkerId(resolveWorkerId(ins.getTaskResult()));
         entity.setPluginData(toJsonNode(ins.getPluginData()));
         fillTaskDefinitionFields(entity);
@@ -285,15 +286,34 @@ public class TaskStorageImpl implements TaskStorage {
     }
 
     private UUID resolveWorkerId(TaskResult taskResult) {
-        if (taskResult == null || taskResult.getWorkerId() == null) {
+        if (taskResult == null || taskResult.getWorkerResult() == null
+                || taskResult.getWorkerResult().getWorkerId() == null) {
             return null;
         }
         try {
-            return UUID.fromString(taskResult.getWorkerId());
+            return UUID.fromString(taskResult.getWorkerResult().getWorkerId());
         } catch (IllegalArgumentException e) {
-            log.warn("workerId不是UUID格式, workerId={}", taskResult.getWorkerId());
+            log.warn("workerId不是UUID格式, workerId={}", taskResult.getWorkerResult().getWorkerId());
             return null;
         }
+    }
+
+    private TaskResult toTaskResult(TaskInstanceEntity entity) {
+        WorkerResult workerResult = toBean(entity.getWorkerResult(), WorkerResult.class);
+        if (workerResult == null && JacksonUtils.isEmpty(entity.getWorkerResult())) {
+            return null;
+        }
+        return TaskResult.builder()
+                .taskInstanceId(ImplUtil.uuidToStr(entity.getId()))
+                .flowInstanceId(ImplUtil.uuidToStr(entity.getFlowInstanceId()))
+                .taskName(entity.getTaskName())
+                .taskState(entity.getStatus() == null ? null : StatusEnum.fromString(entity.getStatus()))
+                .workerResult(workerResult)
+                .build();
+    }
+
+    private JsonNode toWorkerResultJson(TaskResult taskResult) {
+        return taskResult == null ? null : toJsonNode(taskResult.getWorkerResult());
     }
 
     private <T> T toBean(JsonNode jsonNode, Class<T> targetClass) {

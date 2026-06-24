@@ -1,15 +1,21 @@
 package com.datafusion.manager.scheduler.storage;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.datafusion.common.utils.JacksonUtils;
+import com.datafusion.manager.scheduler.dao.TaskInstanceMapper;
 import com.datafusion.manager.scheduler.dao.WorkerRegistryMapper;
+import com.datafusion.manager.scheduler.po.TaskInstanceEntity;
 import com.datafusion.manager.scheduler.po.WorkerRegistryEntity;
 import com.datafusion.manager.utils.HttpUtils;
+import com.datafusion.scheduler.enums.StatusEnum;
+import com.datafusion.scheduler.model.PluginData;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.Worker;
 import com.datafusion.scheduler.worker.storage.WorkerStorage;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
@@ -37,23 +43,20 @@ public class WorkerStorageImpl implements WorkerStorage {
      */
     private final WorkerRegistryMapper workerRegistryMapper;
 
-    @Override
-    public Worker getWorker(String workerId) {
-        WorkerRegistryEntity entity = getSchedulableWorkerById(workerId);
-        return toWorker(entity);
-    }
+    /**
+     * task instance Mapper.
+     */
+    private final TaskInstanceMapper taskInstanceMapper;
 
     @Override
-    public Worker getWorker(String hostName, int port) {
-        WorkerRegistryEntity entity = getSchedulableWorkerByHostAndPort(hostName, port);
+    public Worker getWorker(String workerId) {
+        WorkerRegistryEntity entity = getWorkerById(workerId);
         return toWorker(entity);
     }
 
     @Override
     public List<Worker> getWorkers() {
-        return workerRegistryMapper.selectList(buildSchedulableWrapper()).stream()
-                .map(this::toWorker)
-                .collect(Collectors.toList());
+        return listWorkers(buildSchedulableWrapper());
     }
 
     @Override
@@ -66,16 +69,7 @@ public class WorkerStorageImpl implements WorkerStorage {
         if (worker == null || StringUtils.isBlank(worker.getWorkerCode())) {
             return null;
         }
-        WorkerRegistryEntity existing = getWorkerById(worker.getId());
-        if (existing == null) {
-            existing = findByWorkerCode(worker.getWorkerCode());
-        }
-        if (existing == null) {
-            existing = findByHostAndPort(worker.getIp(), worker.getPort());
-        }
-        if (existing != null && Worker.STATUS_DELETED.equals(existing.getStatus())) {
-            return null;
-        }
+        WorkerRegistryEntity existing = findByWorkerCode(worker.getWorkerCode());
         WorkerRegistryEntity entity = toEntity(worker, existing);
         if (existing == null) {
             workerRegistryMapper.insert(entity);
@@ -88,7 +82,7 @@ public class WorkerStorageImpl implements WorkerStorage {
     @Override
     public Worker heartbeat(String workerId, Long lastHeartbeatTime) {
         WorkerRegistryEntity entity = getWorkerById(workerId);
-        if (entity == null || Worker.STATUS_DELETED.equals(entity.getStatus())) {
+        if (entity == null) {
             return null;
         }
         entity.setStatus(Worker.STATUS_UP);
@@ -101,13 +95,23 @@ public class WorkerStorageImpl implements WorkerStorage {
     @Override
     public Worker offline(String workerId) {
         WorkerRegistryEntity entity = getWorkerById(workerId);
-        if (entity == null || Worker.STATUS_DELETED.equals(entity.getStatus())) {
+        if (entity == null) {
             return null;
         }
         entity.setStatus(Worker.STATUS_DOWN);
         fillSystemUpdateAudit(entity);
         workerRegistryMapper.updateById(entity);
         return toWorker(entity);
+    }
+
+    @Override
+    public int offlineAllWorkers() {
+        WorkerRegistryEntity entity = new WorkerRegistryEntity();
+        entity.setStatus(Worker.STATUS_DOWN);
+        fillSystemUpdateAudit(entity);
+        LambdaQueryWrapper<WorkerRegistryEntity> wrapper = new LambdaQueryWrapper<WorkerRegistryEntity>()
+                .eq(WorkerRegistryEntity::getStatus, Worker.STATUS_UP);
+        return workerRegistryMapper.update(entity, wrapper);
     }
 
     @Override
@@ -129,29 +133,33 @@ public class WorkerStorageImpl implements WorkerStorage {
 
     @Override
     public List<TaskRequest> getTaskInsByWorkerId(String workerId) {
-        return Collections.emptyList();
-    }
-
-    private WorkerRegistryEntity getSchedulableWorkerById(String workerId) {
         UUID id = parseWorkerId(workerId);
         if (id == null) {
-            return null;
+            return Collections.emptyList();
         }
-        LambdaQueryWrapper<WorkerRegistryEntity> wrapper = buildSchedulableWrapper()
-                .eq(WorkerRegistryEntity::getId, id);
-        return workerRegistryMapper.selectOne(wrapper);
+        LambdaQueryWrapper<TaskInstanceEntity> wrapper = new LambdaQueryWrapper<TaskInstanceEntity>()
+                .eq(TaskInstanceEntity::getWorkerId, id);
+        return taskInstanceMapper.selectList(wrapper)
+                .stream()
+                .filter(this::isUnfinished)
+                .map(this::toTaskRequest)
+                .collect(Collectors.toList());
     }
 
-    private WorkerRegistryEntity getSchedulableWorkerByHostAndPort(String host, Integer port) {
-        if (StringUtils.isBlank(host) || port == null) {
-            return null;
-        }
-        LambdaQueryWrapper<WorkerRegistryEntity> wrapper = buildSchedulableWrapper()
-                .eq(WorkerRegistryEntity::getPort, port)
-                .and(item -> item.eq(WorkerRegistryEntity::getHost, host)
-                        .or()
-                        .eq(WorkerRegistryEntity::getHostName, host));
-        return workerRegistryMapper.selectOne(wrapper);
+    @Override
+    public Worker active(String workerId) {
+        return updateActive(workerId, ACTIVE);
+    }
+
+    @Override
+    public Worker inactive(String workerId) {
+        return updateActive(workerId, 0);
+    }
+
+    @Override
+    public boolean delete(String workerId) {
+        UUID id = parseWorkerId(workerId);
+        return id != null && workerRegistryMapper.deleteById(id) > 0;
     }
 
     private WorkerRegistryEntity getWorkerById(String workerId) {
@@ -168,28 +176,24 @@ public class WorkerStorageImpl implements WorkerStorage {
         return workerRegistryMapper.selectOne(wrapper);
     }
 
-    private WorkerRegistryEntity findByHostAndPort(String host, Integer port) {
-        if (StringUtils.isBlank(host) || port == null) {
-            return null;
-        }
-        LambdaQueryWrapper<WorkerRegistryEntity> wrapper = new LambdaQueryWrapper<WorkerRegistryEntity>()
-                .eq(WorkerRegistryEntity::getHost, host)
-                .eq(WorkerRegistryEntity::getPort, port);
-        return workerRegistryMapper.selectOne(wrapper);
-    }
-
     private LambdaQueryWrapper<WorkerRegistryEntity> buildSchedulableWrapper() {
         return new LambdaQueryWrapper<WorkerRegistryEntity>()
                 .eq(WorkerRegistryEntity::getIsActive, ACTIVE)
                 .eq(WorkerRegistryEntity::getStatus, Worker.STATUS_UP);
     }
 
+    private List<Worker> listWorkers(LambdaQueryWrapper<WorkerRegistryEntity> wrapper) {
+        return workerRegistryMapper.selectList(wrapper)
+                .stream()
+                .map(this::toWorker)
+                .collect(Collectors.toList());
+    }
+
     private WorkerRegistryEntity toEntity(Worker worker, WorkerRegistryEntity existing) {
         WorkerRegistryEntity entity = existing != null ? existing : new WorkerRegistryEntity();
         Date now = new Date();
         if (entity.getId() == null) {
-            UUID workerId = parseWorkerId(worker.getId());
-            entity.setId(workerId == null ? UUID.randomUUID() : workerId);
+            entity.setId(workerIdFromCode(worker.getWorkerCode()));
             fillSystemCreateAudit(entity, now);
         } else {
             fillSystemUpdateAudit(entity, now);
@@ -198,7 +202,7 @@ public class WorkerStorageImpl implements WorkerStorage {
         entity.setHost(worker.getIp());
         entity.setHostName(worker.getHostName());
         entity.setPort(worker.getPort());
-        entity.setStatus(worker.getStatus() == null ? Worker.STATUS_UP : worker.getStatus());
+        entity.setStatus(Worker.STATUS_UP);
         entity.setPlugins(joinPlugins(worker.getPluginTypes()));
         if (entity.getRegisterTime() == null) {
             entity.setRegisterTime(toDate(worker.getRegisterTime(), now));
@@ -261,6 +265,66 @@ public class WorkerStorageImpl implements WorkerStorage {
         } catch (IllegalArgumentException e) {
             return null;
         }
+    }
+
+    private UUID workerIdFromCode(String workerCode) {
+        return UUID.nameUUIDFromBytes(workerCode.trim().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private Worker updateActive(String workerId, int active) {
+        WorkerRegistryEntity entity = getWorkerById(workerId);
+        if (entity == null) {
+            return null;
+        }
+        entity.setIsActive(active);
+        fillSystemUpdateAudit(entity);
+        workerRegistryMapper.updateById(entity);
+        return toWorker(entity);
+    }
+
+    private boolean isUnfinished(TaskInstanceEntity entity) {
+        if (entity == null || StringUtils.isBlank(entity.getStatus())) {
+            return false;
+        }
+        StatusEnum status = status(entity.getStatus());
+        return status != null && !status.isFinalState();
+    }
+
+    private TaskRequest toTaskRequest(TaskInstanceEntity entity) {
+        PluginData pluginData = pluginData(entity);
+        TaskRequest request = new TaskRequest();
+        request.setFlowInstanceId(uuidText(entity.getFlowInstanceId()));
+        request.setTaskInstanceId(uuidText(entity.getId()));
+        request.setTaskName(entity.getTaskName());
+        request.setWorkerId(uuidText(entity.getWorkerId()));
+        request.setTaskState(status(entity.getStatus()));
+        request.setTaskData(entity.getTaskData());
+        request.setWorkDirPath(workDirPath(entity));
+        request.setPluginType(pluginData == null ? null : pluginData.getPluginType());
+        request.setPluginParam(pluginData == null ? null : pluginData.getPluginParam());
+        return request;
+    }
+
+    private PluginData pluginData(TaskInstanceEntity entity) {
+        if (entity == null || entity.getPluginData() == null) {
+            return null;
+        }
+        return JacksonUtils.tryObj2Bean(entity.getPluginData(), PluginData.class);
+    }
+
+    private String workDirPath(TaskInstanceEntity entity) {
+        if (entity == null || entity.getWorkerResult() == null || !entity.getWorkerResult().hasNonNull("workDirPath")) {
+            return null;
+        }
+        return entity.getWorkerResult().get("workDirPath").asText();
+    }
+
+    private StatusEnum status(String status) {
+        return StringUtils.isBlank(status) ? null : StatusEnum.fromString(status);
+    }
+
+    private String uuidText(UUID id) {
+        return id == null ? null : id.toString();
     }
 
     private void fillSystemCreateAudit(WorkerRegistryEntity entity, Date now) {

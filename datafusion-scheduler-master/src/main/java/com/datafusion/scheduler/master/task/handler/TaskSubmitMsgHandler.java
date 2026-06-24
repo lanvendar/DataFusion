@@ -5,7 +5,6 @@ import cn.hutool.core.lang.Pair;
 import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.scheduler.enums.ActionType;
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.master.actor.ActorSysContext;
 import com.datafusion.scheduler.master.event.GlobalEventOperator;
 import com.datafusion.scheduler.master.flow.FlowMsg;
@@ -85,7 +84,7 @@ public class TaskSubmitMsgHandler extends AbstractTaskMsgHandler {
             StatusEnum taskState = StatusEnum.SUBMIT_SUCCESS;
             taskIns.setTaskData(submitTaskIns.getTaskData());
             if (null != taskResult) {
-                if (taskResult.getSubmitMode() == SubmitModeEnum.SYNC) {
+                if (taskResult.getTaskState() != null) {
                     taskState = taskResult.getTaskState();
                 }
                 taskIns.setState(taskState);

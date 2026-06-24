@@ -1,6 +1,7 @@
 package com.datafusion.scheduler.worker;
 
 import cn.hutool.core.collection.CollectionUtil;
+import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.Worker;
 import com.datafusion.scheduler.worker.storage.WorkerStorage;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +20,7 @@ import java.util.stream.Collectors;
  * @since 3.7.4, 2024/11/19
  */
 @Slf4j
-public class WorkerManager implements WorkerListener {
+public class WorkerManager implements WorkerListener, WorkerOperator {
 
     // region 成员属性
 
@@ -49,31 +50,17 @@ public class WorkerManager implements WorkerListener {
      */
     public WorkerManager(WorkerStorage storage) {
         this.storage = storage;
-        inactiveAllNodes();
+        offlineAllWorkers();
     }
 
     /**
-     * 设置全部节点不可用.
+     * 设置全部 worker 下线.
      */
-    private void inactiveAllNodes() {
+    public int offlineAllWorkers() {
         if (null == storage) {
-            return;
+            return 0;
         }
-
-        List<Worker> workers = storage.getWorkers();
-        if (CollectionUtil.isNotEmpty(workers)) {
-            workers.stream().filter(Worker::isAlive).forEach(w -> {
-                Worker worker = new Worker();
-                worker.setId(w.getId());
-                worker.setWorkerCode(w.getWorkerCode());
-                worker.setIp(w.getIp());
-                worker.setPort(w.getPort());
-                worker.setHostName(w.getHostName());
-                worker.setPluginTypes(w.getPluginTypes());
-                worker.setWorkerLogDir(w.getWorkerLogDir());
-                offline(worker.getId());
-            });
-        }
+        return storage.offlineAllWorkers();
     }
 
     // endregion
@@ -101,12 +88,33 @@ public class WorkerManager implements WorkerListener {
         return storage.timeoutOffline(timeoutMs);
     }
 
+    @Override
+    public List<TaskRequest> getTaskInsByWorkerId(String workerId) {
+        return storage.getTaskInsByWorkerId(workerId);
+    }
+
+    @Override
+    public Worker active(String workerId) {
+        return storage.active(workerId);
+    }
+
+    @Override
+    public Worker inactive(String workerId) {
+        return storage.inactive(workerId);
+    }
+
+    @Override
+    public boolean delete(String workerId) {
+        return storage.delete(workerId);
+    }
+
     /**
      * 根据工作节点ID获取工作节点.
      *
      * @param workerId 工作节点ID
      * @return 工作节点
      */
+    @Override
     public Worker getWorker(String workerId) {
         return storage.getWorker(workerId);
     }
@@ -118,6 +126,7 @@ public class WorkerManager implements WorkerListener {
      * @param pluginType 插件类型
      * @return 工作节点
      */
+    @Override
     public Worker lookupWorker(String pluginType) {
         return lookupWorker(pluginType, LoadBalanceStrategy.RANDOM);
     }
