@@ -102,7 +102,7 @@ class WorkerTaskServiceTest {
         }
 
         @Override
-        public void remove(String taskInstanceId) {
+        public void removeContext(String taskInstanceId) {
             operations.add("remove:" + taskInstanceId);
             context = null;
         }
