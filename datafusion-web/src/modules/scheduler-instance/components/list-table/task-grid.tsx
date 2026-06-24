@@ -151,7 +151,7 @@ export function TaskInstanceGrid({
                 </Button>
                 {workDirPath ? (
                   <Button type="link" onClick={() => openWorkDir(record)}>
-                    打开目录
+                    工作目录
                   </Button>
                 ) : null}
                 {(record.availableActions || []).map((action) => (

@@ -154,6 +154,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `WorkerRegistryUpdateDto` -> existing `WorkerRegistryEntity` | 非空字符串/数值和非 `null` 可清空字段合并 | 不接收 `status`、`workerLogDir` 和 `workerCode` 修改；合并后校验有效值、端口、插件长度、`host + port` 唯一 |
 | `WorkerRegistryService.delete` | 按 `id` 真删除记录 | 删除后同一 `workerCode` 再次注册会按稳定 UUID 重新插入记录 |
 | `WorkerRegistryEntity` -> `WorkerRegistryDto` | 字段逐一复制 | 不转换 `status/isActive`，由前端映射展示 |
+| `WorkerRegistryDto` -> 前端表格 | `registerTime`、`lastHeartbeatTime`、`updateTime` 按本地时区格式化为 `YYYY-MM-DD HH:mm:ss` | 后端可返回带 offset 的 ISO 时间字符串，前端不原样展示 |
 | `WorkerRegistryQueryDto` -> `LambdaQueryWrapper` | 字符串字段按定义 `like/eq`；数值字段 `eq` | 默认 `updateTime desc` |
 | `WorkerRegistryEntity` -> scheduler `Worker` | `id` -> `id`，`workerCode` -> `workerCode`，`host` -> `ip`，`plugins` 逗号拆分为 `pluginTypes`，`logDir` -> `workerLogDir` | `timestamp(6)` 转毫秒时间戳 |
 | scheduler `Worker` -> `WorkerRegistryEntity` | `id` 由 `workerCode` 稳定生成，`workerCode` -> `workerCode`，`ip` -> `host`，`pluginTypes` -> `plugins` 逗号字符串，首次非空 `workerLogDir` -> `logDir` | 注册由 `WorkerStorageImpl` 按 `workerCode` upsert；注册和心跳都会置 `status=1`；已有记录保留 `isActive`；`logDir` 已存在时不被覆盖 |

@@ -46,12 +46,12 @@ export function getTaskWorkDirPath(task: TaskInstanceItem) {
 export function getTaskWorkerResultRows(task: TaskInstanceItem) {
   const workerResult = task.workerResult;
   return [
-    { label: "返回摘要", value: task.workerResultText },
-    { label: "消息", value: workerResult?.message },
-    { label: "应用ID", value: workerResult?.appId },
-    { label: "Worker ID", value: workerResult?.workerId || task.workerId },
-    { label: "任务运行目录", value: getTaskWorkDirPath(task) },
-    { label: "插件日志", value: getTaskPluginLogUri(task) },
+    { label: "workerResultText", value: task.workerResultText },
+    { label: "message", value: workerResult?.message },
+    { label: "appId", value: workerResult?.appId },
+    { label: "workerId", value: workerResult?.workerId || task.workerId },
+    { label: "workDirPath", value: getTaskWorkDirPath(task) },
+    { label: "pluginLogUri", value: getTaskPluginLogUri(task) },
   ].filter((item) => item.value);
 }
 

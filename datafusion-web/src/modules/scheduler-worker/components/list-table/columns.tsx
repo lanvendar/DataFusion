@@ -1,6 +1,7 @@
 import { DeleteOutlined, EditOutlined } from "@ant-design/icons";
 import { Button, Popconfirm, Space, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import dayjs from "dayjs";
 import { activeOptions, workerStatusOptions } from "../../constants";
 import { PageActionEnum, type WorkerRegistryItem } from "../../dto";
 
@@ -32,6 +33,13 @@ function renderPlugins(value?: string) {
   );
 }
 
+function renderTime(value?: string) {
+  if (!value) return "-";
+  const time = dayjs(value);
+  if (!time.isValid()) return value;
+  return time.format("YYYY-MM-DD HH:mm:ss");
+}
+
 export function useColumns({ onAction }: UseColumnsProps): ColumnsType<WorkerRegistryItem> {
   return [
     { title: "节点编码", dataIndex: "workerCode", key: "workerCode", width: 180, ellipsis: true },
@@ -43,9 +51,9 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<WorkerReg
     { title: "区域", dataIndex: "zone", key: "zone", width: 120, ellipsis: true },
     { title: "插件", dataIndex: "plugins", key: "plugins", width: 260, render: renderPlugins },
     { title: "日志目录", dataIndex: "workerLogDir", key: "workerLogDir", width: 280, ellipsis: true },
-    { title: "注册时间", dataIndex: "registerTime", key: "registerTime", width: 180 },
-    { title: "最近心跳", dataIndex: "lastHeartbeatTime", key: "lastHeartbeatTime", width: 180 },
-    { title: "更新时间", dataIndex: "updateTime", key: "updateTime", width: 180 },
+    { title: "注册时间", dataIndex: "registerTime", key: "registerTime", width: 180, render: renderTime },
+    { title: "最近心跳", dataIndex: "lastHeartbeatTime", key: "lastHeartbeatTime", width: 180, render: renderTime },
+    { title: "更新时间", dataIndex: "updateTime", key: "updateTime", width: 180, render: renderTime },
     {
       title: "操作",
       key: "action",
