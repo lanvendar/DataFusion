@@ -86,11 +86,14 @@ PLUGIN -> workerResult.pluginLogUri
 `workDirPath` 目录下的本地插件日志文件。`workerResult` 缺失路径或目标文件不存在时，
 接口返回空内容和实际尝试路径；日志读取不新增数据库表。
 
-任务实例“返回结果”第一行展示 `workerResultText || workDirPath || "-"` 摘要；长字段页面可截断，鼠标悬浮展示
-完整内容。当 `workerResult.pluginLogUri` 存在时额外渲染插件日志入口链接，新页面通过 `logType=PLUGIN`
-分段读取日志内容。
+任务实例“返回结果”按文本行展示 `workerResultText`、`workerResult.message`、`appId`、`workerId`、`workDirPath`
+和 `pluginLogUri` 等后端返回字段；长字段页面可截断，鼠标悬浮展示完整内容。返回结果列不承载跳转操作。
+鼠标移入返回结果区域时，以气泡展示当前任务返回结果的完整多行文本。
+插件日志通过任务“查看日志”抽屉中的“插件日志”tab 查看，使用 `logType=PLUGIN` 分段读取日志内容。
+日志抽屉中的 `LOG`、`ERROR`、`STATUS`、`PLUGIN` 四种日志均支持打开独立页面，独立页复用同一日志读取接口和
+“加载更多”能力。
 
-当任务实例存在 `workDirPath` 时，返回结果区域展示“打开目录”入口，前端调用
+当任务实例存在 `workDirPath` 时，操作列展示“打开目录”入口，前端调用
 `/api/scheduler/task/instance/log/filebrowser/{taskInstanceId}` 并由后端重定向到 FileBrowser。前端不拼接
 FileBrowser 地址，也不保存或展示 FileBrowser 用户名密码。
 

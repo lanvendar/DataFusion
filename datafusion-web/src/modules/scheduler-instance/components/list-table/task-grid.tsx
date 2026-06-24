@@ -1,5 +1,5 @@
 import { ReloadOutlined } from "@ant-design/icons";
-import { App, Button, Space, Typography } from "antd";
+import { App, Button, Space, Tooltip, Typography } from "antd";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { taskInstanceApi } from "../../api";
 import {
@@ -13,8 +13,7 @@ import type {
   TaskInstanceItem,
 } from "../../dto";
 import {
-  getTaskPluginLogUri,
-  getTaskWorkerResultSummary,
+  getTaskWorkerResultRows,
   getTaskWorkDirPath,
   renderCopyableId,
   renderStatus,
@@ -54,15 +53,6 @@ export function TaskInstanceGrid({
     );
   };
 
-  const openPluginLog = (record: TaskInstanceItem) => {
-    const params = new URLSearchParams({
-      flowInstanceId: record.flowInstanceId,
-      taskInstanceId: record.id,
-      taskName: record.taskName || record.id,
-    });
-    window.open(`/scheduler-instance/plugin-log?${params.toString()}`, "_blank", "noopener,noreferrer");
-  };
-
   const openWorkDir = (record: TaskInstanceItem) => {
     window.open(`/api/scheduler/task/instance/log/filebrowser/${record.id}`, "_blank");
   };
@@ -87,9 +77,11 @@ export function TaskInstanceGrid({
           <div className="scheduler-instance-task-grid-empty">暂无任务实例</div>
         ) : null}
         {tasks.map((record) => {
-          const pluginLogUri = getTaskPluginLogUri(record);
           const workDirPath = getTaskWorkDirPath(record);
-          const resultSummary = getTaskWorkerResultSummary(record);
+          const resultRows = getTaskWorkerResultRows(record);
+          const resultTooltip = resultRows.length > 0
+            ? resultRows.map((item) => `${item.label}: ${item.value}`).join("\n")
+            : EMPTY_PLACEHOLDER;
 
           return (
             <div
@@ -119,25 +111,23 @@ export function TaskInstanceGrid({
             <div className="scheduler-instance-task-grid-cell">{renderType(record.taskType)}</div>
             <div className="scheduler-instance-task-grid-cell">{renderStatus(record.status)}</div>
             <div className="scheduler-instance-task-grid-cell">
-              <Space direction="vertical" size={2} style={{ maxWidth: "100%" }}>
-                <Typography.Text ellipsis={{ tooltip: resultSummary }} style={{ maxWidth: "100%" }}>
-                  {resultSummary}
-                </Typography.Text>
-                {workDirPath || pluginLogUri ? (
-                  <Space size={8}>
-                    {workDirPath ? (
-                      <Typography.Link onClick={() => openWorkDir(record)}>
-                        打开目录
-                      </Typography.Link>
-                    ) : null}
-                    {pluginLogUri ? (
-                      <Typography.Link onClick={() => openPluginLog(record)}>
-                        插件日志
-                      </Typography.Link>
-                    ) : null}
-                  </Space>
-                ) : null}
-              </Space>
+              <Tooltip
+                placement="topLeft"
+                title={<span style={{ whiteSpace: "pre-wrap" }}>{resultTooltip}</span>}
+              >
+                <Space direction="vertical" size={2} style={{ maxWidth: "100%", width: "100%" }}>
+                  {resultRows.length === 0 ? <Typography.Text>{EMPTY_PLACEHOLDER}</Typography.Text> : null}
+                  {resultRows.map((item) => (
+                    <Typography.Text
+                      ellipsis
+                      key={item.label}
+                      style={{ display: "block", maxWidth: "100%" }}
+                    >
+                      {item.label}: {item.value}
+                    </Typography.Text>
+                  ))}
+                </Space>
+              </Tooltip>
             </div>
             <div className="scheduler-instance-task-grid-cell">
               {renderTimeBlock(record.startTime, record.endTime, record.costTime)}
@@ -159,6 +149,11 @@ export function TaskInstanceGrid({
                 <Button type="link" onClick={() => onOpenLog(record)}>
                   查看日志
                 </Button>
+                {workDirPath ? (
+                  <Button type="link" onClick={() => openWorkDir(record)}>
+                    打开目录
+                  </Button>
+                ) : null}
                 {(record.availableActions || []).map((action) => (
                   <Button
                     key={action.actionType}

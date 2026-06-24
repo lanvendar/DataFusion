@@ -43,8 +43,16 @@ export function getTaskWorkDirPath(task: TaskInstanceItem) {
   return task.workDirPath || task.workerResult?.workDirPath;
 }
 
-export function getTaskWorkerResultSummary(task: TaskInstanceItem) {
-  return task.workerResultText || getTaskWorkDirPath(task) || EMPTY_PLACEHOLDER;
+export function getTaskWorkerResultRows(task: TaskInstanceItem) {
+  const workerResult = task.workerResult;
+  return [
+    { label: "返回摘要", value: task.workerResultText },
+    { label: "消息", value: workerResult?.message },
+    { label: "应用ID", value: workerResult?.appId },
+    { label: "Worker ID", value: workerResult?.workerId || task.workerId },
+    { label: "任务运行目录", value: getTaskWorkDirPath(task) },
+    { label: "插件日志", value: getTaskPluginLogUri(task) },
+  ].filter((item) => item.value);
 }
 
 export function renderStatus(value?: string) {

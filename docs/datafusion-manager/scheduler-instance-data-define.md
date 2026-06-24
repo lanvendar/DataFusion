@@ -240,7 +240,7 @@
 | 对象 | 场景 | 字段 | 类型 | 来源 | 格式化 / 展示规则 | 说明 |
 |--------|----------|-------|------|--------|---------------------------|-------|
 | `FlowInstanceRow` | 主表行 | `flowName`、`id`、`status`、`scheduleTime`、`startTime`、`endTime`、`duration`、`availableActions` | `string/number/list` | `FlowInstanceDto` | 时间戳格式化为日期时间；状态用 Tag；起止时间按开始/结束两行展示；操作按钮按 `availableActions` 渲染 | 可展开 |
-| `TaskInstanceRow` | 展开行 | `taskName`、`id`、`status`、`workerResultText`、`workDirPath`、`workerResult.pluginLogUri`、`startTime`、`endTime`、`costTime`、`availableActions` | `string/number/list` | `TaskInstanceDto` | 返回结果第一行展示 `workerResultText || workDirPath || "-"`；`workDirPath` 存在时渲染“打开目录”并调用后端 FileBrowser 重定向接口；`pluginLogUri` 存在时渲染“插件日志”超链接；起止时间按开始/结束/耗时展示；操作按钮按 `availableActions` 渲染 | 行操作含查看依赖图、查看日志和已开放的 `taskAction` 操作；前端不拼接 FileBrowser 地址或展示账号密码 |
+| `TaskInstanceRow` | 展开行 | `taskName`、`id`、`status`、`workerResultText`、`workerResult.message`、`workerResult.appId`、`workerResult.workerId`、`workDirPath`、`workerResult.pluginLogUri`、`startTime`、`endTime`、`costTime`、`availableActions` | `string/number/list` | `TaskInstanceDto` | 返回结果列按文本行展示后端返回字段，不承载跳转操作；`workDirPath` 存在时操作列渲染“打开目录”并调用后端 FileBrowser 重定向接口；插件日志通过“查看日志”抽屉的“插件日志”tab 查看；起止时间按开始/结束/耗时展示；操作按钮按 `availableActions` 渲染 | 行操作含查看依赖图、查看日志和已开放的 `taskAction` 操作；前端不拼接 FileBrowser 地址或展示账号密码 |
 | `EventInstanceRow` | 事件页 | `eventName`、`eventType`、`flowInstanceId`、`taskInstanceId`、`effectTime` | `string/number` | `EventInstanceDto` | 时间戳格式化 | 可独立页面或详情页 |
 | `TaskInstanceDependencyPanel` | 依赖图抽屉 | `flowDagSnapshot`、`lastInstanceId`、`nextInstanceId`、当前任务实例 ID | `JsonNode/string` | `TaskInstanceDependencyDto` | 只读展示流程 DAG 和当前任务上下游关系 | 不修改定义 |
 | `TaskInstanceLogPanel` | 日志弹窗/抽屉 | `content`、`hasMore` | `string/boolean` | `TaskInstanceLogDto` | 等宽字体、按偏移加载更多 | 不展示完整路径给普通用户也可 |
@@ -294,7 +294,7 @@
 | `SchedulerInstanceQueryDto` -> Mapper 条件 | 先按 `viewType` 选择实时表或历史表，再在目标表上应用 `flowKeyword/taskKeyword/status/time range` | UUID 解析失败时只按名称模糊匹配；`status` 使用 `StatusEnum.stateType` |
 | `FlowInstanceTaskQueryDto` -> Mapper 条件 | 先按 `viewType` 选择 `scheduler_task_instance` 或 `scheduler_task_instance_his`，再按 `flow_instance_id` 查询 | `viewType` 缺省为 `REALTIME` |
 | `FlowInstanceEntity` / `FlowInstanceHisEntity` -> `FlowInstanceDto` | 字段复制 | `duration=endTime-startTime`，缺失时间则为空 |
-| `TaskInstanceEntity` / `TaskInstanceHisEntity` -> `TaskInstanceDto` | 字段复制 | `workerResult` 按 `WorkerResult` 结构返回，另派生摘要文本和 `workDirPath`；前端从 `workerResult.pluginLogUri` 渲染插件日志入口 |
+| `TaskInstanceEntity` / `TaskInstanceHisEntity` -> `TaskInstanceDto` | 字段复制 | `workerResult` 按 `WorkerResult` 结构返回，另派生摘要文本和 `workDirPath`；前端在返回结果文本中展示 `workerResult.pluginLogUri` |
 | `FlowInstanceDto` + `TaskInstanceDto` -> `TaskInstanceDependencyDto` | 前端组合当前流程 DAG 快照和任务上下游实例 ID | 只读展示，不回写定义 |
 | `FlowInstanceEntity` / `TaskInstanceEntity` -> 历史 Entity | 归档时字段镜像复制，保留原主键和审计字段 | 插入历史表后删除实时表；同批次事务提交 |
 | `EventInstanceEntity` -> `EventInstanceDto` | 字段复制 | `eventType` 保存值为 `1/2`，展示时映射任务/流程 |
@@ -315,7 +315,7 @@
 | `FlowInstanceService` / `TaskInstanceService` / `EventInstanceService` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/service` | 基础查询能力 | 可扩展页面查询 |
 | `StatusEnum` | `datafusion-common-data/src/main/java/com/datafusion/scheduler/enums/StatusEnum.java` | 状态存储、展示和成功归档判断 | `stateType` 落库，`fromString()` 读取，`isSuccess()` 触发归档 |
 | `TaskResult` | `datafusion-common-data/src/main/java/com/datafusion/scheduler/model/TaskResult.java` | worker 返回结果 | 只承载任务身份、状态和 `workerResult` |
-| `WorkerResult` | `datafusion-common-data/src/main/java/com/datafusion/scheduler/model/WorkerResult.java` | worker 执行结果 | 通过 `workDirPath` 承载 agent 任务运行目录，通过 `pluginLogUri` 承载插件日志入口 |
+| `WorkerResult` | `datafusion-common-data/src/main/java/com/datafusion/scheduler/model/WorkerResult.java` | worker 执行结果 | 通过 `workDirPath` 承载 agent 任务运行目录，通过 `pluginLogUri` 承载插件日志路径 |
 | `TaskRuntimeFiles` | `datafusion-common-data/src/main/java/com/datafusion/scheduler/model/TaskRuntimeFiles.java` | 标准日志路径 | manager 根据 `WorkerResult.workDirPath` 拼接 `stdout.log`、`stderr.log`、`state.log` |
 | `ActionType` | `datafusion-common-data/src/main/java/com/datafusion/scheduler/enums/ActionType.java` | 操作类型 | 实例操作 DTO 使用其名称作为 `actionType` |
 | `MasterService` | `datafusion-scheduler-master` | 实例操作入口 | `getFlowAction()` / `getTaskAction()` |
