@@ -135,6 +135,9 @@ public class AgentTaskStateReportScheduler {
             reportFinalState(snapshot, state);
             return;
         }
+        if (isWaitingForRuntimeRef(state)) {
+            return;
+        }
         if (mapping == null) {
             log.warn("未匹配到插件运行模式状态映射, taskInstanceId={}, pluginType={}, runMode={}",
                     state.getTaskInstanceId(), snapshot == null ? null : snapshot.getPluginType(),
@@ -207,6 +210,13 @@ public class AgentTaskStateReportScheduler {
             return state.getStatus();
         }
         return StatusEnum.UNKNOWN;
+    }
+
+    private boolean isWaitingForRuntimeRef(WorkerTaskExecutionState state) {
+        if (state == null || !isBlank(state.getAppId())) {
+            return false;
+        }
+        return state.getStatus() == StatusEnum.SUBMITTING || state.getStatus() == StatusEnum.SUBMIT_SUCCESS;
     }
 
     private TaskResult toTaskResult(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {

@@ -23,8 +23,6 @@ API 前缀：`/api/scheduler/worker`
 | `POST` | `/list` | 查询执行节点列表 |
 | `POST` | `/add` | 新增执行节点 |
 | `POST` | `/update` | 修改执行节点 |
-| `POST` | `/{id}/active` | 手工置为有效 |
-| `POST` | `/{id}/inactive` | 手工置为无效 |
 | `GET` | `/{id}` | 查询执行节点详情 |
 | `DELETE` | `/{id}` | 真删除执行节点，前端必须二次确认 |
 
@@ -50,7 +48,7 @@ agent 注册、心跳、下线走内部接口：`/internal/schedule/worker/*`。
 - 查询支持节点编码、主机名称、IP、状态、区域和有效标记。
 - 表格展示节点编码、主机、地址、端口、状态、插件能力、区域、心跳时间和更新时间。
 - `plugins` 第一版使用逗号分隔文本维护和展示，不拆成多选字典。
-- 页面通过有效/无效操作修改 `isActive`，用于控制节点是否可执行任务。
+- 页面通过新增/编辑表单维护 `isActive`，用于控制节点是否可执行任务。
 - 页面不允许手动修改 `status`。
 - 删除操作必须二次确认，确认后真删除数据库记录。
 
@@ -58,7 +56,7 @@ agent 注册、心跳、下线走内部接口：`/internal/schedule/worker/*`。
 
 - `WorkerStorageImpl` 将数据库注册表适配为 master 的 `WorkerStorage`。
 - `WorkerRpcProvider` 通过 `WorkerManager` 处理 agent 注册、心跳和下线。
-- `WorkerOperator` 处理 UI 手工有效、无效和删除操作，不与 agent 生命周期接口混用。
+- `WorkerOperator` 处理 UI 删除操作，不与 agent 生命周期接口混用。
 - `WorkerRegistryService` 只服务执行节点管理页面；master 运行时生命周期不经过该 UI 服务。
 - manager 启动时调用 `WorkerManager.offlineAllWorkers()` 将已有上线节点置为下线，并由运行中心跳超时扫描兜底；节点需要等待 agent 注册或心跳后再参与调度。
 - agent 注册成功后按返回的 `Worker.id` 请求属于自己的未完成任务清单，再结合本地 `.snap/.state` 恢复监听；agent 不扫描全部 `taskRuntimeDir` 作为恢复来源。

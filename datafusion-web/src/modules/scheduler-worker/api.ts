@@ -4,6 +4,7 @@ import type {
   WorkerRegistryPageReq,
   WorkerRegistryPageRes,
   WorkerRegistrySaveReq,
+  WorkerRegistryUpdateReq,
 } from "./dto";
 
 const prefix = "/api/scheduler/worker";
@@ -29,7 +30,7 @@ export const workerRegistryApi = {
     return request<string>({ url: `${prefix}/add`, method: "POST", data: params });
   },
 
-  update(params: WorkerRegistrySaveReq): Promise<boolean> {
+  update(params: WorkerRegistryUpdateReq): Promise<boolean> {
     return request<boolean>({ url: `${prefix}/update`, method: "POST", data: params });
   },
 

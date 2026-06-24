@@ -5,6 +5,7 @@ import type {
   WorkerRegistryFormMode,
   WorkerRegistryItem,
   WorkerRegistrySaveReq,
+  WorkerRegistryUpdateReq,
 } from "../../dto";
 
 interface UseWorkerRegistrySubmitOptions {
@@ -27,15 +28,23 @@ export function useWorkerRegistrySubmit({
 
   const submit = async () => {
     const values = await form.validateFields();
-    const params: WorkerRegistrySaveReq = {
-      ...values,
-      id: mode === "edit" ? currentRecord?.id : undefined,
-    };
 
     if (mode === "edit") {
+      if (!currentRecord?.id) return;
+      const params: WorkerRegistryUpdateReq = {
+        id: currentRecord.id,
+        hostName: values.hostName,
+        host: values.host,
+        port: values.port,
+        zone: values.zone,
+        plugins: values.plugins,
+        isActive: values.isActive,
+        remark: values.remark,
+      };
       await workerRegistryApi.update(params);
       message.success("编辑成功");
     } else {
+      const params: WorkerRegistrySaveReq = values;
       await workerRegistryApi.add(params);
       message.success("新增成功");
     }

@@ -3,6 +3,7 @@ package com.datafusion.agent.runtime.worker.reporter;
 import com.datafusion.agent.runtime.worker.InMemoryWorkerTaskExecutionStore;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -82,6 +84,23 @@ class AgentTaskStateReportSchedulerTest {
         scheduler.shutdownNow();
     }
 
+    @Test
+    void shouldNotMapSubmittingStateWithoutAppIdToUnknown() throws Exception {
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        stateStore.saveSnapshot(snapshot());
+        stateStore.saveState(state(StatusEnum.SUBMITTING));
+        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        AgentTaskStateReportScheduler reportScheduler = new AgentTaskStateReportScheduler(stateStore, reporter,
+                scheduler, List.of(new UnknownStateMapping()), 1000L, 1);
+
+        refreshStates(reportScheduler);
+
+        assertEquals(0, reporter.reportCount);
+        assertEquals(StatusEnum.SUBMITTING, stateStore.readState("task-1").orElseThrow().getStatus());
+        scheduler.shutdownNow();
+    }
+
     private void refreshStates(AgentTaskStateReportScheduler scheduler) throws Exception {
         Method method = AgentTaskStateReportScheduler.class.getDeclaredMethod("refreshStates");
         method.setAccessible(true);
@@ -128,6 +147,27 @@ class AgentTaskStateReportSchedulerTest {
         public boolean report(TaskResult result) {
             reportCount++;
             return this.result;
+        }
+    }
+
+    /**
+     * Unknown state mapping.
+     */
+    private static class UnknownStateMapping implements PluginRunModeStateMapping {
+
+        @Override
+        public String pluginType() {
+            return "SHELL";
+        }
+
+        @Override
+        public String runMode() {
+            return "LOCAL";
+        }
+
+        @Override
+        public StatusEnum mapState(WorkerTaskExecutionState state) {
+            return StatusEnum.UNKNOWN;
         }
     }
 }

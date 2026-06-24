@@ -112,7 +112,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `isActive` | `Integer` | 可空，默认 `1` | 是否有效 |
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `remark` | `String` | 可空 | 资源说明 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `id` | `UUID` | `@NotNull` | worker 注册记录 ID |
-| `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `workerCode` | `String` | 非空时合并并校验唯一 | 节点编码 |
+| `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `workerCode` | `String` | 不允许修改，前端编辑时不提交 | 节点编码 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `hostName` | `String` | 非空时合并 | 主机名称 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `host` | `String` | 非空时合并并校验 `host + port` 唯一 | IP 地址 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `port` | `Integer` | 非空时合并并校验 `host + port` 唯一 | 端口 |
@@ -143,8 +143,6 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `POST /api/scheduler/worker/list` | `WorkerRegistryQueryDto` | `List<WorkerRegistryDto>` | `Result<T>` | 列表查询 worker |
 | `POST /api/scheduler/worker/add` | `WorkerRegistrySaveDto` | `UUID` | `Result<T>` | 新增 worker |
 | `POST /api/scheduler/worker/update` | `WorkerRegistryUpdateDto` | `Boolean` | `Result<T>` | 修改 worker |
-| `POST /api/scheduler/worker/{id}/active` | path `UUID id` | `Boolean` | `Result<T>` | 手工置为有效 |
-| `POST /api/scheduler/worker/{id}/inactive` | path `UUID id` | `Boolean` | `Result<T>` | 手工置为无效 |
 | `GET /api/scheduler/worker/{id}` | path `UUID id` | `WorkerRegistryDto` | `Result<T>` | 查询详情 |
 | `DELETE /api/scheduler/worker/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 真删除 worker，前端必须二次确认 |
 
@@ -153,8 +151,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
 | `WorkerRegistrySaveDto` -> `WorkerRegistryEntity` | 复制主机、端口、分组、插件、有效标记和备注 | `id` 使用 `workerCode` 生成稳定 UUID；`status` 默认 `0`；`isActive` 默认 `1`；不接收 `workerLogDir`；审计字段由 Service 设置 |
-| `WorkerRegistryUpdateDto` -> existing `WorkerRegistryEntity` | 非空字符串/数值和非 `null` 可清空字段合并 | 不接收 `status` 和 `workerLogDir` 修改；`workerCode` 不允许修改；合并后校验有效值、端口、插件长度、`host + port` 唯一 |
-| `WorkerRegistryService.active/inactive` | 按 `id` 更新 `isActive` | 只改变人工调度开关，不修改 `status` 和心跳时间 |
+| `WorkerRegistryUpdateDto` -> existing `WorkerRegistryEntity` | 非空字符串/数值和非 `null` 可清空字段合并 | 不接收 `status`、`workerLogDir` 和 `workerCode` 修改；合并后校验有效值、端口、插件长度、`host + port` 唯一 |
 | `WorkerRegistryService.delete` | 按 `id` 真删除记录 | 删除后同一 `workerCode` 再次注册会按稳定 UUID 重新插入记录 |
 | `WorkerRegistryEntity` -> `WorkerRegistryDto` | 字段逐一复制 | 不转换 `status/isActive`，由前端映射展示 |
 | `WorkerRegistryQueryDto` -> `LambdaQueryWrapper` | 字符串字段按定义 `like/eq`；数值字段 `eq` | 默认 `updateTime desc` |

@@ -49,7 +49,6 @@ export interface WorkerRegistryPageRes {
 }
 
 export interface WorkerRegistrySaveReq {
-  id?: string;
   workerCode?: string;
   hostName?: string;
   host?: string;
@@ -58,6 +57,10 @@ export interface WorkerRegistrySaveReq {
   plugins?: string;
   isActive?: number;
   remark?: string;
+}
+
+export interface WorkerRegistryUpdateReq extends Omit<WorkerRegistrySaveReq, "workerCode"> {
+  id: string;
 }
 
 export type WorkerRegistryFormMode = "add" | "edit";
