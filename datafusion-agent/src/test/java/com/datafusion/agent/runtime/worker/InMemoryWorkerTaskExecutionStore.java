@@ -75,18 +75,14 @@ public class InMemoryWorkerTaskExecutionStore implements WorkerTaskExecutionStor
     }
 
     @Override
-    public Optional<RunningTaskContext> readContext(String taskInstanceId) {
-        return Optional.ofNullable(contexts.get(taskInstanceId));
-    }
-
-    @Override
     public RunningTaskContext get(String taskInstanceId) {
-        return readContext(taskInstanceId).orElse(null);
+        return contexts.get(taskInstanceId);
     }
 
     @Override
     public RunningTaskContext getOrCreate(TaskRequest request) {
-        return contexts.computeIfAbsent(request.getTaskInstanceId(), taskInstanceId -> RunningTaskContext.fromRequest(request));
+        return contexts.computeIfAbsent(request.getTaskInstanceId(),
+                taskInstanceId -> RunningTaskContext.fromRequest(request));
     }
 
     @Override

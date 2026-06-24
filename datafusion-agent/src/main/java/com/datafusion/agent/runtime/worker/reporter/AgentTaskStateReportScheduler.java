@@ -127,11 +127,14 @@ public class AgentTaskStateReportScheduler {
 
     private void refreshState(WorkerTaskExecutionState state) {
         WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(state.getTaskInstanceId()).orElse(null);
+        PluginRunModeStateMapping mapping = stateMapping(snapshot);
         if (state.getStatus() != null && state.getStatus().isFinalState()) {
+            if (mapping != null) {
+                mapping.beforeFinalReport(state);
+            }
             reportFinalState(snapshot, state);
             return;
         }
-        PluginRunModeStateMapping mapping = stateMapping(snapshot);
         if (mapping == null) {
             log.warn("未匹配到插件运行模式状态映射, taskInstanceId={}, pluginType={}, runMode={}",
                     state.getTaskInstanceId(), snapshot == null ? null : snapshot.getPluginType(),
@@ -148,6 +151,7 @@ public class AgentTaskStateReportScheduler {
             stateStore.saveState(state);
         }
         if (nextStatus.isFinalState()) {
+            mapping.beforeFinalReport(state);
             reportFinalState(snapshot, state);
         } else {
             resultReporter.report(toTaskResult(snapshot, state));

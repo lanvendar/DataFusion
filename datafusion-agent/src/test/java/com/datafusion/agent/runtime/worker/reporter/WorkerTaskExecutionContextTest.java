@@ -18,6 +18,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -129,7 +130,7 @@ class WorkerTaskExecutionContextTest {
         assertEquals(StatusEnum.RUN_FAILURE, store.readState("task-1").orElseThrow().getStatus());
         assertTrue(store.readSnapshot("task-1").isPresent());
 
-        assertTrue(store.readContext("task-1").isEmpty());
+        assertNull(store.get("task-1"));
         assertEquals(0, store.listListeningStates().size());
     }
 

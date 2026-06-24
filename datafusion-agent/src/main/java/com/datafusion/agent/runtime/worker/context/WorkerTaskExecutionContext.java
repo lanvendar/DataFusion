@@ -141,14 +141,8 @@ public class WorkerTaskExecutionContext implements WorkerTaskExecutionStore, Wor
     }
 
     @Override
-    public Optional<RunningTaskContext> readContext(String taskInstanceId) {
-        return executionEntry(taskInstanceId)
-                .map(WorkerTaskExecutionEntry::getContext);
-    }
-
-    @Override
     public RunningTaskContext get(String taskInstanceId) {
-        return readContext(taskInstanceId).orElse(null);
+        return context(taskInstanceId).orElse(null);
     }
 
     @Override
@@ -156,7 +150,7 @@ public class WorkerTaskExecutionContext implements WorkerTaskExecutionStore, Wor
         if (request == null || isBlank(request.getTaskInstanceId())) {
             return RunningTaskContext.fromRequest(request);
         }
-        return readContext(request.getTaskInstanceId())
+        return context(request.getTaskInstanceId())
                 .orElseGet(() -> {
                     RunningTaskContext context = RunningTaskContext.fromRequest(request);
                     save(context);
@@ -435,10 +429,15 @@ public class WorkerTaskExecutionContext implements WorkerTaskExecutionStore, Wor
         if (isBlank(taskInstanceId) || updater == null) {
             return;
         }
-        RunningTaskContext context = readContext(taskInstanceId).orElseGet(RunningTaskContext::new);
+        RunningTaskContext context = context(taskInstanceId).orElseGet(RunningTaskContext::new);
         context.setTaskInstanceId(taskInstanceId);
         updater.update(context);
         executionCache.put(taskInstanceId, new WorkerTaskExecutionEntry(context));
+    }
+
+    private Optional<RunningTaskContext> context(String taskInstanceId) {
+        return executionEntry(taskInstanceId)
+                .map(WorkerTaskExecutionEntry::getContext);
     }
 
     private void mergeExistingState(WorkerTaskExecutionState state) {

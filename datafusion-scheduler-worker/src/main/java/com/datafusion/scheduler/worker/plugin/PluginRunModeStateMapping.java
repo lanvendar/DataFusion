@@ -33,4 +33,12 @@ public interface PluginRunModeStateMapping {
      * @return 调度状态
      */
     StatusEnum mapState(WorkerTaskExecutionState state);
+
+    /**
+     * 终态上报前执行插件侧收尾动作.
+     *
+     * @param state 任务执行状态
+     */
+    default void beforeFinalReport(WorkerTaskExecutionState state) {
+    }
 }

@@ -9,9 +9,6 @@
     "logMaxSize": "100MB",
     "logMaxIndex": 100,
     "jobId": -1,
-    "env": {
-      "TZ": "Asia/Shanghai"
-    },
     "jvmOptions": [
       "--add-opens",
       "java.base/java.lang=ALL-UNNAMED"
@@ -49,7 +46,9 @@
       "deleteJobOnFinish": false,
       "labels": {},
       "annotations": {},
-      "env": {},
+      "env": {
+        "TZ": "Asia/Shanghai"
+      },
       "nodeSelector": {},
       "resources": {}
     }

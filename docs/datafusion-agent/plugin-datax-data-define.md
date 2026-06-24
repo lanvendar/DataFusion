@@ -69,9 +69,6 @@ LOCAL 模式下，`pluginParam` 外层字段只能通过修改 `system_plugin_co
   "logLevel": "INFO",
   "logMaxSize": "100MB",
   "logMaxIndex": 100,
-  "env": {
-    "TZ": "Asia/Shanghai"
-  },
   "jvmOptions": [
     "-Xms512m",
     "-Xmx2g"
@@ -95,6 +92,7 @@ LOCAL 模式下，`pluginParam` 外层字段只能通过修改 `system_plugin_co
       "datafusion.io/log-owner": "scheduler"
     },
     "env": {
+      "TZ": "Asia/Shanghai",
       "DATAX_EXTRA_ENV": "value"
     },
     "nodeSelector": {

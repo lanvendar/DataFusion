@@ -64,14 +64,12 @@ class DataxParamResolverTest {
     void shouldResolveKubernetesTaskOverrideFromTaskData() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
         pluginParam.put("runMode", "K8S");
-        ObjectNode pluginEnv = OBJECT_MAPPER.createObjectNode();
-        pluginEnv.put("PLUGIN_ENV", "plugin");
-        pluginParam.set("env", pluginEnv);
         ObjectNode pluginKubernetes = OBJECT_MAPPER.createObjectNode();
         pluginKubernetes.put("namespace", "plugin-ns");
         pluginKubernetes.put("image", "datafusion/datax:plugin");
         pluginKubernetes.put("collectLogsOnFinish", true);
         ObjectNode pluginKubernetesEnv = OBJECT_MAPPER.createObjectNode();
+        pluginKubernetesEnv.put("PLUGIN_ENV", "plugin");
         pluginKubernetesEnv.put("K8S_ENV", "plugin-k8s");
         pluginKubernetes.set("env", pluginKubernetesEnv);
         pluginParam.set("kubernetes", pluginKubernetes);

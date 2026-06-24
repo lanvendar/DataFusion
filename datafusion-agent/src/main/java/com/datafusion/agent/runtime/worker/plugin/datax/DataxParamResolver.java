@@ -207,8 +207,7 @@ public class DataxParamResolver {
         Map<String, String> labels = mergeMap(object(pluginKubernetes, "labels"), object(taskKubernetes, "labels"));
         Map<String, String> annotations = mergeMap(object(pluginKubernetes, "annotations"),
                 object(taskKubernetes, "annotations"));
-        Map<String, String> env = mergeMap(object(pluginParam, "env"), object(pluginKubernetes, "env"),
-                object(taskKubernetes, "env"));
+        Map<String, String> env = mergeMap(object(pluginKubernetes, "env"), object(taskKubernetes, "env"));
         return DataxKubernetesParam.builder()
                 .namespace(namespace)
                 .image(firstText(text(taskKubernetes, "image"), text(pluginKubernetes, "image")))

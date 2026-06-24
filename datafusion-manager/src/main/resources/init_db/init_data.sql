@@ -86,10 +86,7 @@ VALUES
 	   "logMaxSize": "100MB",
 	   "logMaxIndex": 100,
 	   "jobId": -1,
-	   "env": {
-	     "TZ": "Asia/Shanghai"
-	   },
-   "jvmOptions": [
+	   "jvmOptions": [
 	     "--add-opens",
 	     "java.base/java.lang=ALL-UNNAMED"
 	   ],
@@ -123,14 +120,16 @@ VALUES
 	     "secretNamePrefix": "df-datax-job-",
 	     "logStorageUri": "",
 	     "collectLogsOnFinish": true,
-     "deleteJobOnFinish": false,
-     "labels": {},
-     "annotations": {},
-     "env": {},
-     "nodeSelector": {},
-     "resources": {}
-   }
- }'::jsonb,
+         "deleteJobOnFinish": false,
+		 "labels": {},
+		 "annotations": {},
+		 "env": {
+		    "TZ": "Asia/Shanghai"
+		 },
+		 "nodeSelector": {},
+		 "resources": {}
+	   }
+    }'::jsonb,
  true, 0, 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
  '00000000-0000-0000-0000-000000000001'::uuid),
 ('82a2e64f-47cb-3545-96f1-be547a1f5253'::uuid, 'Shell LOCAL 模板', 'SHELL', 'LOCAL',
