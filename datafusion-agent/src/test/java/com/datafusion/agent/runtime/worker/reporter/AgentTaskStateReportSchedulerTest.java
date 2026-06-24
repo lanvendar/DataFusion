@@ -101,6 +101,28 @@ class AgentTaskStateReportSchedulerTest {
         scheduler.shutdownNow();
     }
 
+    @Test
+    void shouldStopListeningAfterUnknownStateReportedSuccessfully() throws Exception {
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        stateStore.saveSnapshot(snapshot());
+        WorkerTaskExecutionState state = state(StatusEnum.RUNNING);
+        state.setAppId("app-1");
+        stateStore.saveState(state);
+        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        AgentTaskStateReportScheduler reportScheduler = new AgentTaskStateReportScheduler(stateStore, reporter,
+                scheduler, List.of(new UnknownStateMapping()), 1000L, 1);
+
+        refreshStates(reportScheduler);
+        refreshStates(reportScheduler);
+
+        assertEquals(1, reporter.reportCount);
+        assertTrue(stateStore.listListeningStates().isEmpty());
+        assertEquals(StatusEnum.UNKNOWN, stateStore.readState("task-1").orElseThrow().getStatus());
+        assertTrue(stateStore.readSnapshot("task-1").isPresent());
+        scheduler.shutdownNow();
+    }
+
     private void refreshStates(AgentTaskStateReportScheduler scheduler) throws Exception {
         Method method = AgentTaskStateReportScheduler.class.getDeclaredMethod("refreshStates");
         method.setAccessible(true);

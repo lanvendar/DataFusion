@@ -110,6 +110,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
                 return result;
             }
             context.updateRequest(preparedRequest);
+            context.markSubmitted();
             contextStore.save(context);
 
             if (preparedRequest.getSubmitMode() == SubmitModeEnum.ASYNC) {

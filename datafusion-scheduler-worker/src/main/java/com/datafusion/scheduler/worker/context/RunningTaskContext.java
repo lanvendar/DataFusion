@@ -34,6 +34,11 @@ public class RunningTaskContext {
     private WorkerTaskExecutionState executionState = new WorkerTaskExecutionState();
 
     /**
+     * Worker 已接收并开始提交.
+     */
+    private boolean submitted;
+
+    /**
      * 根据任务请求创建上下文.
      *
      * @param request 任务请求
@@ -551,7 +556,20 @@ public class RunningTaskContext {
      * @return 是否已经提交
      */
     public boolean isSubmitted() {
-        return getTaskState() != null || getAppId() != null || getWorkDirPath() != null;
+        return submitted || getAppId() != null || getWorkDirPath() != null || getResult() != null
+                || isSubmittedState(getTaskState());
+    }
+
+    /**
+     * 标记任务已进入 Worker 提交流程.
+     */
+    public void markSubmitted() {
+        this.submitted = true;
+    }
+
+    private boolean isSubmittedState(StatusEnum state) {
+        return state == StatusEnum.RUNNING || state == StatusEnum.STOPPING || state == StatusEnum.KILLING
+                || state == StatusEnum.UNKNOWN || state != null && state.isFinalState();
     }
 
     private void updateWorkerResult(WorkerResult workerResult) {

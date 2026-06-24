@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Tests for {@link WorkerTaskService}.
@@ -48,6 +49,21 @@ class WorkerTaskServiceTest {
         assertEquals(StatusEnum.STOP_SUCCESS, result.getTaskState());
         assertEquals(List.of("get:task-1", "save:STOP_SUCCESS", "remove:task-1"),
                 contextStorage.getOperations());
+    }
+
+    @Test
+    void shouldSubmitFirstRequestWhenRequestStateIsSubmitting() {
+        RecordingContextStorage contextStorage = new RecordingContextStorage();
+        SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor();
+        WorkerTaskService taskService = taskService(contextStorage, executor);
+        TaskRequest request = finishRequest();
+        request.setTaskState(StatusEnum.SUBMITTING);
+
+        TaskResult result = taskService.submitTask(request);
+
+        assertEquals(1, executor.submitCount);
+        assertEquals(StatusEnum.RUNNING, result.getTaskState());
+        assertNull(result.getWorkerResult().getMessage());
     }
 
     private WorkerTaskService taskService(RecordingContextStorage contextStorage, PluginTaskExecutor executor) {
@@ -117,6 +133,11 @@ class WorkerTaskServiceTest {
      */
     private static class SuccessPluginTaskExecutor implements PluginTaskExecutor {
 
+        /**
+         * Submit count.
+         */
+        private int submitCount;
+
         @Override
         public String pluginType() {
             return "TEST";
@@ -124,6 +145,7 @@ class WorkerTaskServiceTest {
 
         @Override
         public TaskResult submitTask(TaskRequest request) {
+            submitCount++;
             return null;
         }
 

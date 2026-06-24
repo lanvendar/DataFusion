@@ -103,6 +103,8 @@ public class AgentTaskStateReportScheduler {
      */
     public void start() {
         long interval = Math.max(refreshIntervalMs, 1000L);
+        log.info("启动agent任务状态刷新上报调度, intervalMs={}, unknownThreshold={}, stateMappingCount={}",
+                interval, unknownThreshold, stateMappingMap.size());
         scheduler.scheduleWithFixedDelay(this::refreshStates, interval, interval, TimeUnit.MILLISECONDS);
     }
 
@@ -112,11 +114,16 @@ public class AgentTaskStateReportScheduler {
      * @param requests 任务请求清单
      */
     public void restoreTasks(List<TaskRequest> requests) {
+        log.info("恢复agent待监听任务, taskCount={}", requests == null ? 0 : requests.size());
         stateStore.restoreListeningTasks(requests);
     }
 
     private void refreshStates() {
-        for (WorkerTaskExecutionState state : stateStore.listListeningStates()) {
+        List<WorkerTaskExecutionState> states = stateStore.listListeningStates();
+        if (!states.isEmpty()) {
+            log.info("开始刷新agent任务状态, taskCount={}", states.size());
+        }
+        for (WorkerTaskExecutionState state : states) {
             try {
                 refreshState(state);
             } catch (Exception e) {
@@ -129,6 +136,8 @@ public class AgentTaskStateReportScheduler {
         WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(state.getTaskInstanceId()).orElse(null);
         PluginRunModeStateMapping mapping = stateMapping(snapshot);
         if (state.getStatus() != null && state.getStatus().isFinalState()) {
+            log.info("任务已是终态, 准备上报最终状态, taskInstanceId={}, status={}, pluginType={}, runMode={}",
+                    state.getTaskInstanceId(), state.getStatus(), pluginType(snapshot), runMode(snapshot));
             if (mapping != null) {
                 mapping.beforeFinalReport(state);
             }
@@ -136,40 +145,67 @@ public class AgentTaskStateReportScheduler {
             return;
         }
         if (isWaitingForRuntimeRef(state)) {
+            log.info("任务缺少运行时引用, 暂不上报状态, taskInstanceId={}, status={}, appId={}, workDirPath={}",
+                    state.getTaskInstanceId(), state.getStatus(), state.getAppId(), state.getWorkDirPath());
             return;
         }
         if (mapping == null) {
             log.warn("未匹配到插件运行模式状态映射, taskInstanceId={}, pluginType={}, runMode={}",
-                    state.getTaskInstanceId(), snapshot == null ? null : snapshot.getPluginType(),
-                    snapshot == null ? null : snapshot.getRunMode());
+                    state.getTaskInstanceId(), pluginType(snapshot), runMode(snapshot));
             return;
         }
         StatusEnum mappedStatus = mapping.mapState(state);
         StatusEnum nextStatus = normalizeUnknown(state, mappedStatus);
         if (nextStatus == null) {
+            log.info("插件状态映射结果为空, 暂不上报状态, taskInstanceId={}, currentStatus={}, pluginType={}, runMode={}",
+                    state.getTaskInstanceId(), state.getStatus(), pluginType(snapshot), runMode(snapshot));
             return;
         }
         if (nextStatus != state.getStatus()) {
+            log.info("刷新任务状态, taskInstanceId={}, oldStatus={}, newStatus={}, mappedStatus={}",
+                    state.getTaskInstanceId(), state.getStatus(), nextStatus, mappedStatus);
             state.setStatus(nextStatus);
             stateStore.saveState(state);
         }
-        if (nextStatus.isFinalState()) {
+        if (nextStatus.isFinalState() || nextStatus == StatusEnum.UNKNOWN) {
+            log.info("准备上报最终任务状态, taskInstanceId={}, status={}, mappedStatus={}, pluginType={}, runMode={}",
+                    state.getTaskInstanceId(), nextStatus, mappedStatus, pluginType(snapshot), runMode(snapshot));
             mapping.beforeFinalReport(state);
             reportFinalState(snapshot, state);
         } else {
-            resultReporter.report(toTaskResult(snapshot, state));
+            reportRunningState(snapshot, state);
+        }
+    }
+
+    private void reportRunningState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
+        TaskResult result = toTaskResult(snapshot, state);
+        log.info("准备上报运行中任务状态, taskInstanceId={}, status={}, workerId={}, appId={}, workDirPath={}",
+                state.getTaskInstanceId(), state.getStatus(), workerId(result), appId(result), workDirPath(result));
+        boolean reported = resultReporter.report(result);
+        if (reported) {
+            log.info("上报运行中任务状态成功, taskInstanceId={}, status={}", state.getTaskInstanceId(), state.getStatus());
+        } else {
+            log.warn("上报运行中任务状态失败, taskInstanceId={}, status={}", state.getTaskInstanceId(), state.getStatus());
         }
     }
 
     private void reportFinalState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
-        boolean reported = resultReporter.report(toTaskResult(snapshot, state));
+        TaskResult result = toTaskResult(snapshot, state);
+        log.info("开始上报最终任务状态, taskInstanceId={}, status={}, workerId={}, appId={}, workDirPath={}",
+                state.getTaskInstanceId(), state.getStatus(), workerId(result), appId(result), workDirPath(result));
+        boolean reported = resultReporter.report(result);
         if (!reported) {
+            log.warn("上报最终任务状态失败, taskInstanceId={}, status={}", state.getTaskInstanceId(), state.getStatus());
             return;
         }
+        log.info("上报最终任务状态成功, taskInstanceId={}, status={}", state.getTaskInstanceId(), state.getStatus());
         removeQueryFailureMap(state.getTaskInstanceId());
         if (state.getStatus() != null && state.getStatus().isSuccess()) {
+            log.info("任务成功完成, 删除执行上下文, taskInstanceId={}", state.getTaskInstanceId());
             stateStore.deleteExecution(state.getTaskInstanceId());
         } else {
+            log.info("任务非成功终态, 停止监听任务, taskInstanceId={}, status={}",
+                    state.getTaskInstanceId(), state.getStatus());
             stateStore.stopListening(state.getTaskInstanceId());
         }
     }
@@ -207,8 +243,12 @@ public class AgentTaskStateReportScheduler {
         }
         int failureCount = queryFailureCountMap.merge(state.getTaskInstanceId(), 1, Integer::sum);
         if (failureCount < Math.max(unknownThreshold, 1)) {
+            log.info("插件状态映射返回UNKNOWN, 未达到上报阈值, taskInstanceId={}, failureCount={}, threshold={}",
+                    state.getTaskInstanceId(), failureCount, Math.max(unknownThreshold, 1));
             return state.getStatus();
         }
+        log.warn("插件状态映射返回UNKNOWN且达到上报阈值, taskInstanceId={}, failureCount={}, threshold={}",
+                state.getTaskInstanceId(), failureCount, Math.max(unknownThreshold, 1));
         return StatusEnum.UNKNOWN;
     }
 
@@ -240,6 +280,29 @@ public class AgentTaskStateReportScheduler {
             return null;
         }
         return result.get(fieldName).asText();
+    }
+
+    private String pluginType(WorkerTaskExecutionSnap snapshot) {
+        return snapshot == null ? null : snapshot.getPluginType();
+    }
+
+    private String runMode(WorkerTaskExecutionSnap snapshot) {
+        return snapshot == null ? null : snapshot.getRunMode();
+    }
+
+    private String workerId(TaskResult result) {
+        WorkerResult workerResult = result == null ? null : result.getWorkerResult();
+        return workerResult == null ? null : workerResult.getWorkerId();
+    }
+
+    private String appId(TaskResult result) {
+        WorkerResult workerResult = result == null ? null : result.getWorkerResult();
+        return workerResult == null ? null : workerResult.getAppId();
+    }
+
+    private String workDirPath(TaskResult result) {
+        WorkerResult workerResult = result == null ? null : result.getWorkerResult();
+        return workerResult == null ? null : workerResult.getWorkDirPath();
     }
 
     private static String mappingKey(String pluginType, String runMode) {
