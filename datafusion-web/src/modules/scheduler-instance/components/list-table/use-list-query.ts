@@ -1,6 +1,7 @@
 import type { Dayjs } from "dayjs";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { flowInstanceApi } from "../../api";
 import {
   DEFAULT_PAGE_SIZE,
@@ -32,9 +33,18 @@ export const initialFilter: SchedulerInstanceFilterState = {
   finishRange: null,
 };
 
+const FLOW_KEYWORD_PARAM = "flowKeyword";
+
 function trimValue(value?: string) {
   const next = value?.trim();
   return next || undefined;
+}
+
+function createInitialFilter(flowKeyword?: string): SchedulerInstanceFilterState {
+  return {
+    ...initialFilter,
+    flowKeyword: trimValue(flowKeyword),
+  };
 }
 
 function toTimeRange(range?: DateRange) {
@@ -85,11 +95,20 @@ function sameFilter(left: SchedulerInstanceFilterState, right: SchedulerInstance
 }
 
 export function useSchedulerInstanceListQuery() {
-  const [filter, setFilter] = useState<SchedulerInstanceFilterState>(initialFilter);
-  const [appliedFilter, setAppliedFilter] = useState<SchedulerInstanceFilterState>(initialFilter);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlFlowKeyword = searchParams.get(FLOW_KEYWORD_PARAM) || undefined;
+  const urlFilter = useMemo(() => createInitialFilter(urlFlowKeyword), [urlFlowKeyword]);
+  const [filter, setFilter] = useState<SchedulerInstanceFilterState>(urlFilter);
+  const [appliedFilter, setAppliedFilter] = useState<SchedulerInstanceFilterState>(urlFilter);
   const [viewType, setViewTypeState] = useState<SchedulerInstanceViewType>("REALTIME");
   const [current, setCurrent] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+
+  useEffect(() => {
+    setFilter(urlFilter);
+    setAppliedFilter(urlFilter);
+    setCurrent(1);
+  }, [urlFilter]);
 
   const option = useMemo(
     () => toQueryOption(appliedFilter, viewType),
@@ -105,6 +124,16 @@ export function useSchedulerInstanceListQuery() {
   const search = () => {
     setCurrent(1);
     setAppliedFilter({ ...filter });
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params);
+      const flowKeyword = trimValue(filter.flowKeyword);
+      if (flowKeyword) {
+        next.set(FLOW_KEYWORD_PARAM, flowKeyword);
+      } else {
+        next.delete(FLOW_KEYWORD_PARAM);
+      }
+      return next;
+    }, { replace: true });
     if (current === 1 && sameFilter(filter, appliedFilter)) {
       void query.refetch();
     }
@@ -115,6 +144,11 @@ export function useSchedulerInstanceListQuery() {
     setFilter(nextFilter);
     setAppliedFilter(nextFilter);
     setViewTypeState("REALTIME");
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params);
+      next.delete(FLOW_KEYWORD_PARAM);
+      return next;
+    }, { replace: true });
     setCurrent(1);
     if (current === 1 && viewType === "REALTIME" && sameFilter(appliedFilter, initialFilter)) {
       void query.refetch();

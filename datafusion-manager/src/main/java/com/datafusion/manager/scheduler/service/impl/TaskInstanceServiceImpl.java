@@ -90,6 +90,11 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
     private static final String LOG_TYPE_STATUS = "STATUS";
 
     /**
+     * 插件日志类型.
+     */
+    private static final String LOG_TYPE_PLUGIN = "PLUGIN";
+
+    /**
      * 历史任务实例Mapper.
      */
     private final TaskInstanceHisMapper taskInstanceHisMapper;
@@ -295,13 +300,20 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
     }
 
     private String extractWorkDirPath(JsonNode workerResult) {
-        if (workerResult == null || workerResult.isNull() || !workerResult.hasNonNull("workDirPath")) {
+        return extractText(workerResult, "workDirPath");
+    }
+
+    private String extractText(JsonNode workerResult, String fieldName) {
+        if (workerResult == null || workerResult.isNull() || !workerResult.hasNonNull(fieldName)) {
             return null;
         }
-        return workerResult.get("workDirPath").asText();
+        return workerResult.get(fieldName).asText();
     }
 
     private Path resolveLogPath(TaskInstanceEntity entity, String logType) {
+        if (LOG_TYPE_PLUGIN.equals(logType)) {
+            return resolvePluginLogPath(entity);
+        }
         String workDirPath = extractWorkDirPath(entity.getWorkerResult());
         if (StringUtils.isBlank(workDirPath)) {
             return null;
@@ -316,6 +328,23 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
             default:
                 return TaskRuntimeFiles.stdoutLog(workDir);
         }
+    }
+
+    private Path resolvePluginLogPath(TaskInstanceEntity entity) {
+        String workDirPath = extractWorkDirPath(entity.getWorkerResult());
+        String pluginLogUri = extractText(entity.getWorkerResult(), "pluginLogUri");
+        if (StringUtils.isAnyBlank(workDirPath, pluginLogUri) || pluginLogUri.contains("://")) {
+            return null;
+        }
+        Path workDir = Path.of(workDirPath).normalize();
+        Path pluginLogPath = Path.of(pluginLogUri);
+        Path normalizedPluginLogPath = pluginLogPath.isAbsolute()
+                ? pluginLogPath.normalize()
+                : workDir.resolve(pluginLogPath).normalize();
+        if (!normalizedPluginLogPath.startsWith(workDir)) {
+            return null;
+        }
+        return normalizedPluginLogPath;
     }
 
     private TaskInstanceLogDto readLogFile(Path path, String logType, Long offsetValue, Integer limitValue) {

@@ -20,6 +20,13 @@ mybatis-plus:
 oss:
   enabled: false
 
+filebrowser:
+  enabled: true
+  base-url: ${FILEBROWSER_BASE_URL:https://sz-dev-filebrowser.indusmind.me/files}
+  root-path: ${FILEBROWSER_ROOT_PATH:/opt/datafusion}
+  username: ${FILEBROWSER_USERNAME:admin}
+  password: ${FILEBROWSER_PASSWORD:9UMC-8cnoj5tW01v}
+
 skywalking:
   graphql:
     url: ${SKYWALKING_GRAPHQL_URL:http://127.0.0.1:12800/graphql}

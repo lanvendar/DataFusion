@@ -1,5 +1,6 @@
-import { Button, Space, Typography } from "antd";
-import { useQuery } from "@tanstack/react-query";
+import { ReloadOutlined } from "@ant-design/icons";
+import { App, Button, Space, Typography } from "antd";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { taskInstanceApi } from "../../api";
 import {
   EMPTY_PLACEHOLDER,
@@ -13,6 +14,8 @@ import type {
 } from "../../dto";
 import {
   getTaskPluginLogUri,
+  getTaskWorkerResultSummary,
+  getTaskWorkDirPath,
   renderCopyableId,
   renderStatus,
   renderTimeBlock,
@@ -34,12 +37,35 @@ export function TaskInstanceGrid({
   onOpenLog,
   onTaskAction,
 }: TaskInstanceGridProps) {
+  const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: [SCHEDULER_INSTANCE_TASK_QUERY_KEY, flow.id, viewType],
     queryFn: () => taskInstanceApi.listByFlowInstance({ flowInstanceId: flow.id, viewType }),
   });
 
   const tasks = query.data || [];
+
+  const refreshTask = async (record: TaskInstanceItem) => {
+    const task = await taskInstanceApi.detail(record.id);
+    queryClient.setQueryData<TaskInstanceItem[]>(
+      [SCHEDULER_INSTANCE_TASK_QUERY_KEY, flow.id, viewType],
+      (items) => items?.map((item) => (item.id === task.id ? { ...item, ...task } : item)) || [task],
+    );
+  };
+
+  const openPluginLog = (record: TaskInstanceItem) => {
+    const params = new URLSearchParams({
+      flowInstanceId: record.flowInstanceId,
+      taskInstanceId: record.id,
+      taskName: record.taskName || record.id,
+    });
+    window.open(`/scheduler-instance/plugin-log?${params.toString()}`, "_blank", "noopener,noreferrer");
+  };
+
+  const openWorkDir = (record: TaskInstanceItem) => {
+    window.open(`/api/scheduler/task/instance/log/filebrowser/${record.id}`, "_blank");
+  };
 
   return (
     <div className="scheduler-instance-expanded-content">
@@ -62,7 +88,8 @@ export function TaskInstanceGrid({
         ) : null}
         {tasks.map((record) => {
           const pluginLogUri = getTaskPluginLogUri(record);
-          const resultText = record.workerResultText || record.workDirPath || EMPTY_PLACEHOLDER;
+          const workDirPath = getTaskWorkDirPath(record);
+          const resultSummary = getTaskWorkerResultSummary(record);
 
           return (
             <div
@@ -93,19 +120,22 @@ export function TaskInstanceGrid({
             <div className="scheduler-instance-task-grid-cell">{renderStatus(record.status)}</div>
             <div className="scheduler-instance-task-grid-cell">
               <Space direction="vertical" size={2} style={{ maxWidth: "100%" }}>
-                <Typography.Text ellipsis={{ tooltip: resultText }} style={{ maxWidth: "100%" }}>
-                  {resultText}
+                <Typography.Text ellipsis={{ tooltip: resultSummary }} style={{ maxWidth: "100%" }}>
+                  {resultSummary}
                 </Typography.Text>
-                {pluginLogUri ? (
-                  <Typography.Link
-                    ellipsis
-                    href={pluginLogUri}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                    title={pluginLogUri}
-                  >
-                    插件日志
-                  </Typography.Link>
+                {workDirPath || pluginLogUri ? (
+                  <Space size={8}>
+                    {workDirPath ? (
+                      <Typography.Link onClick={() => openWorkDir(record)}>
+                        打开目录
+                      </Typography.Link>
+                    ) : null}
+                    {pluginLogUri ? (
+                      <Typography.Link onClick={() => openPluginLog(record)}>
+                        插件日志
+                      </Typography.Link>
+                    ) : null}
+                  </Space>
                 ) : null}
               </Space>
             </div>
@@ -114,6 +144,15 @@ export function TaskInstanceGrid({
             </div>
             <div className="scheduler-instance-task-grid-cell scheduler-instance-task-grid-action-cell">
               <Space className="scheduler-instance-actions" size={[4, 4]} wrap>
+                <Button
+                  type="link"
+                  icon={<ReloadOutlined />}
+                  onClick={() => void refreshTask(record).catch((error) => {
+                    message.error(error instanceof Error ? error.message : "刷新失败");
+                  })}
+                >
+                  刷新
+                </Button>
                 <Button type="link" onClick={() => onOpenDependency(flow, record)}>
                   查看依赖图
                 </Button>

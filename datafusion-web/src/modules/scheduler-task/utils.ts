@@ -6,14 +6,14 @@ export function formatJsonText(value?: unknown, space = 2) {
     if (!trimmedValue) return "";
     try {
       return JSON.stringify(JSON.parse(trimmedValue), null, space);
-    } catch (_error) {
+    } catch {
       return value;
     }
   }
 
   try {
     return JSON.stringify(value, null, space);
-  } catch (_error) {
+  } catch {
     return "";
   }
 }
@@ -30,7 +30,7 @@ export function normalizeJsonText(value: string | undefined, fieldLabel: string)
 
   try {
     return JSON.stringify(JSON.parse(trimmedValue));
-  } catch (_error) {
+  } catch {
     throw new Error(`${fieldLabel}不是合法的 JSON`);
   }
 }

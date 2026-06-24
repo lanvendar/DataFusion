@@ -2,6 +2,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   EyeOutlined,
+  HistoryOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
   RocketOutlined,
@@ -68,7 +69,7 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<FlowItem>
     {
       title: "操作",
       key: "action",
-      width: 420,
+      width: 520,
       fixed: "right",
       render: (_, record) => {
         const published = Boolean(record.publishState);
@@ -90,6 +91,9 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<FlowItem>
             </Button>
             <Button type="link" icon={<ShareAltOutlined />} onClick={() => onAction(PageActionEnum.DAG_EDIT, record)}>
               {readOnly ? "查看编排" : "编排"}
+            </Button>
+            <Button type="link" icon={<HistoryOutlined />} onClick={() => onAction(PageActionEnum.VIEW_INSTANCE, record)}>
+              查看实例
             </Button>
             {published ? (
               <Button type="link" icon={<StopOutlined />} onClick={() => onAction(PageActionEnum.UNPUBLISH, record)}>

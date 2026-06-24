@@ -10,6 +10,7 @@ export enum PageActionEnum {
   UNPUBLISH = "UNPUBLISH",
   ENABLE = "ENABLE",
   DISABLE = "DISABLE",
+  VIEW_INSTANCE = "VIEW_INSTANCE",
 }
 
 export interface FlowItem {

@@ -17,7 +17,8 @@
 | 展开流程下任务 | `TaskInstanceController.listByFlowInstance` | 实时表或历史表 |
 | 任务实例分页 | `TaskInstanceController.page` | 实时表或历史表 |
 | 事件实例分页 | `EventInstanceController.page` | `scheduler_event_instance` |
-| 任务日志 | `TaskInstanceLogController.content` | agent 写入的日志目录 |
+| 任务日志 | `TaskInstanceLogController.content` | agent 写入的日志目录或插件日志文件 |
+| 任务运行目录 | `TaskInstanceLogController.fileBrowser` | 后端重定向到 FileBrowser 对应目录 |
 | 实例操作 | `FlowInstanceController.action` / `TaskInstanceController.action` | 实时实例 + master actor |
 
 `viewType=REALTIME` 查询实时表，`viewType=HISTORY` 查询历史表；数据归属不根据状态临时判断。
@@ -71,20 +72,27 @@
 
 ## 日志
 
-只使用 `TaskResult.workerResult.workDirPath` 定位 agent 标准任务日志，不按 `startTime` 或 `${modules}` 兜底推导路径。
+标准任务日志只使用 `TaskResult.workerResult.workDirPath` 定位，不按 `startTime` 或 `${modules}` 兜底推导路径。
 日志类型固定映射：
 
 ```text
 LOG    -> {workDirPath}/stdout.log
 ERROR  -> {workDirPath}/stderr.log
 STATUS -> {workDirPath}/state.log
+PLUGIN -> workerResult.pluginLogUri
 ```
 
-`stdout.log`、`stderr.log`、`state.log` 的文件名由 `TaskRuntimeFiles` 统一定义。`workerResult` 缺失
-`workDirPath` 或目标文件不存在时，接口返回空内容和实际尝试路径；日志读取不新增数据库表。
+`stdout.log`、`stderr.log`、`state.log` 的文件名由 `TaskRuntimeFiles` 统一定义。`PLUGIN` 只读取当前任务
+`workDirPath` 目录下的本地插件日志文件。`workerResult` 缺失路径或目标文件不存在时，
+接口返回空内容和实际尝试路径；日志读取不新增数据库表。
 
-任务实例“返回结果”展示 `workerResultText`，当 `workerResult.pluginLogUri` 存在时额外渲染插件日志入口链接。
-agent 自身服务日志属于 worker 级信息，不进入任务实例 `workerResult`，实例查询页面不展示该属性。
+任务实例“返回结果”第一行展示 `workerResultText || workDirPath || "-"` 摘要；长字段页面可截断，鼠标悬浮展示
+完整内容。当 `workerResult.pluginLogUri` 存在时额外渲染插件日志入口链接，新页面通过 `logType=PLUGIN`
+分段读取日志内容。
+
+当任务实例存在 `workDirPath` 时，返回结果区域展示“打开目录”入口，前端调用
+`/api/scheduler/task/instance/log/filebrowser/{taskInstanceId}` 并由后端重定向到 FileBrowser。前端不拼接
+FileBrowser 地址，也不保存或展示 FileBrowser 用户名密码。
 
 ## 归档
 

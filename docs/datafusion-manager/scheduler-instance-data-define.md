@@ -16,7 +16,8 @@
 
 第一版不新增 `scheduler_event_instance_his`。事件实例继续查询 `scheduler_event_instance`。
 
-`TaskInstanceLog` 第一版不新增表。日志能力基于实时或历史任务实例的 `worker_result.workDirPath` 定位 agent 标准任务日志。
+`TaskInstanceLog` 第一版不新增表。日志能力基于实时或历史任务实例的 `worker_result.workDirPath` 定位 agent 标准任务日志，
+基于 `worker_result.pluginLogUri` 定位插件日志。
 
 ### 1.2 DDL / 迁移
 
@@ -151,7 +152,7 @@
 | `EventInstanceQueryDto` | `Query` | 事件实例查询 | `effectStartTime` / `effectEndTime` | `Long` | `effect_time between` | 事件生效时间范围 |
 | `TaskInstanceLogQueryDto` | `Query` | 日志读取 | `flowInstanceId` | `UUID` | 必填 | 流程实例 ID |
 | `TaskInstanceLogQueryDto` | `Query` | 日志读取 | `taskInstanceId` | `UUID` | 必填 | 任务实例 ID |
-| `TaskInstanceLogQueryDto` | `Query` | 日志读取 | `logType` | `String` | 必填，`LOG` / `ERROR` / `STATUS` | 日志类型 |
+| `TaskInstanceLogQueryDto` | `Query` | 日志读取 | `logType` | `String` | 必填，`LOG` / `ERROR` / `STATUS` / `PLUGIN` | 日志类型 |
 | `TaskInstanceLogQueryDto` | `Query` | 日志读取 | `offset` / `limit` | `Long` / `Integer` | 可选 | 分段读取 |
 | `SchedulerInstanceActionDto` | `Action` | 流程实例操作 | `flowInstanceId` | `UUID` | 必填 | 流程实例 ID |
 | `SchedulerInstanceActionDto` | `Action` | 流程实例操作 | `actionType` | `String` | 必填，允许 `SUBMIT` / `STOP`；第一版不开放 `REINIT` | 映射 `MasterService.getFlowAction()` 公开能力；`REINIT` 待 `TaskAction.taskReInit(FlowInstance)` 补齐后再开放 |
@@ -189,7 +190,7 @@
 | `TaskInstanceEntity` | `datafusion-scheduler-master` / worker result | master/worker -> manager DB | `status`、`workerId`、`workerResult` | `String/UUID/WorkerResult` | `TaskStorageImpl` 转换并保存；`status` 使用 `StatusEnum.stateType`；`workerResult` 保存 `TaskResult.workerResult` | 任务运行态、返回值和日志路径 |
 | `EventInstanceEntity` | `datafusion-scheduler-master` | master -> manager DB | `eventId`、`effectTime`、`eventType` | `UUID/Long/String` | `EventStorageImpl` 转换并保存；`eventType` 使用 `EventTypeEnum.getType()` 的字符串值 | 事件实例 |
 | `FlowInstanceHisEntity` / `TaskInstanceHisEntity` | 归档定时任务 | realtime DB -> his DB | 与实时表一致 | 与实时表一致 | 实时表记录状态满足 `StatusEnum.isSuccess()` 后复制到对应历史表，再删除实时表记录；仍存在流程定义版本时保留最新实时实例，流程定义版本不存在时不保留 | 成功实例归档 |
-| `TaskInstanceLogDto` | agent / 共享日志目录 | file -> API | `content`、`nextOffset` | `String/Long` | 只按 `TaskResult.workerResult.workDirPath` 和 `TaskRuntimeFiles` 拼接标准日志文件 | 日志读取 |
+| `TaskInstanceLogDto` | agent / 共享日志目录 | file -> API | `content`、`nextOffset` | `String/Long` | 标准日志按 `TaskResult.workerResult.workDirPath` 和 `TaskRuntimeFiles` 拼接；插件日志读取 `workerResult.pluginLogUri` | 日志读取 |
 
 ### 2.6 状态 / 枚举模型
 
@@ -198,7 +199,7 @@
 | `status` | `FlowInstanceDto` / `TaskInstanceDto` | `StatusEnum` | `varchar` | 前端按枚举映射展示 | 保存和查询均使用 `StatusEnum.stateType`，后端通过 `StatusEnum.fromString()` 转换 | 成功归档判断使用 `StatusEnum.isSuccess()`，即 `RUN_SUCCESS` / `ENFORCE_SUCCESS` |
 | `eventType` | `EventInstanceDto` | `EventTypeEnum` | `varchar` | `1=任务`、`2=流程` | 实例表保存 `EventTypeEnum.getType()` 的字符串值，前端展示时映射为业务标签 | 保持现有实例表存储方式 |
 | `viewType` | `SchedulerInstanceQueryDto` / `FlowInstanceTaskQueryDto` | `REALTIME`、`HISTORY` | 不落库 | 实时、历史 | `REALTIME` 路由实时表，`HISTORY` 路由历史表 | 页面 tab，不参与状态判断 |
-| `logType` | `TaskInstanceLogQueryDto` | `LOG`、`ERROR`、`STATUS` | 不落库 | 标准日志、错误日志、状态日志 | 映射到不同日志文件 | 第一版约定值 |
+| `logType` | `TaskInstanceLogQueryDto` | `LOG`、`ERROR`、`STATUS`、`PLUGIN` | 不落库 | 标准日志、错误日志、状态日志、插件日志 | 映射到不同日志文件 | 日志读取类型 |
 | `flowActionType` | `SchedulerInstanceActionDto` | `SUBMIT`、`STOP` | 不落库 | 提交、停止 | `FlowInstanceService` 映射到 `FlowAction.flowSubmit`、`flowStop` | 仅操作实时流程实例；第一版不开放 `REINIT` |
 | `taskActionType` | `SchedulerInstanceActionDto` | `SUBMIT`、`STOP`、`KILL`、`RESTART`、`ENFORCE_SUCCESS` | 不落库 | 提交、停止、强制停止、重启、强制成功 | `TaskInstanceService` 映射到 `TaskAction.taskSubmit`、`taskStop`、`taskKill`、`taskRestart`、`taskEnforceSuccess` | 不开放任务实例 `REINIT`；`TaskAction.taskReInit(FlowInstance)` 仅作为流程重新初始化的联动入口 |
 | `flowAvailableActions` | `FlowInstanceDto.availableActions` | `SUBMIT`、`STOP` | 不落库 | 提交、停止 | `SchedulerInstanceActionPolicy` 根据流程状态计算 | `INIT_SUCCESS` / `WAIT_DEPENDENT` 显示 `SUBMIT`；`RUNNING` 显示 `STOP`；第一版不显示 `REINIT` |
@@ -218,6 +219,7 @@
 | `POST /api/scheduler/event/instance/page` | `PageQuery<EventInstanceQueryDto>` | `PageResponse<EventInstanceDto>` | `Result<T>` | `scheduler-instance-event` | 事件实例 |
 | `GET /api/scheduler/event/instance/{id}` | 路径参数 `UUID id` | `EventInstanceDto` | `Result<T>` | `scheduler-instance-event-detail` | 详情 |
 | `POST /api/scheduler/task/instance/log/content` | `TaskInstanceLogQueryDto` | `TaskInstanceLogDto` | `Result<T>` | `scheduler-instance-log` | 日志内容 |
+| `GET /api/scheduler/task/instance/log/filebrowser/{taskInstanceId}` | 路径参数 `UUID taskInstanceId` | 重定向响应 | HTTP Redirect / Error | `scheduler-instance-filebrowser` | 后端按任务运行目录跳转 FileBrowser |
 | `POST /api/scheduler/flow/instance/action` | `SchedulerInstanceActionDto` | `Boolean` | `Result<T>` | `scheduler-instance-flow-action` | 流程实例操作 |
 | `POST /api/scheduler/task/instance/action` | `SchedulerInstanceActionDto` | `Boolean` | `Result<T>` | `scheduler-instance-task-action` | 任务实例操作 |
 
@@ -238,7 +240,7 @@
 | 对象 | 场景 | 字段 | 类型 | 来源 | 格式化 / 展示规则 | 说明 |
 |--------|----------|-------|------|--------|---------------------------|-------|
 | `FlowInstanceRow` | 主表行 | `flowName`、`id`、`status`、`scheduleTime`、`startTime`、`endTime`、`duration`、`availableActions` | `string/number/list` | `FlowInstanceDto` | 时间戳格式化为日期时间；状态用 Tag；起止时间按开始/结束两行展示；操作按钮按 `availableActions` 渲染 | 可展开 |
-| `TaskInstanceRow` | 展开行 | `taskName`、`id`、`status`、`workerResultText`、`workDirPath`、`workerResult.pluginLogUri`、`startTime`、`endTime`、`costTime`、`availableActions` | `string/number/list` | `TaskInstanceDto` | worker 结果摘要和任务运行目录展示；`pluginLogUri` 存在时渲染插件日志超链接；起止时间按开始/结束/耗时展示；操作按钮按 `availableActions` 渲染 | 行操作含查看依赖图、查看日志和已开放的 `taskAction` 操作；worker 服务日志不属于任务实例 |
+| `TaskInstanceRow` | 展开行 | `taskName`、`id`、`status`、`workerResultText`、`workDirPath`、`workerResult.pluginLogUri`、`startTime`、`endTime`、`costTime`、`availableActions` | `string/number/list` | `TaskInstanceDto` | 返回结果第一行展示 `workerResultText || workDirPath || "-"`；`workDirPath` 存在时渲染“打开目录”并调用后端 FileBrowser 重定向接口；`pluginLogUri` 存在时渲染“插件日志”超链接；起止时间按开始/结束/耗时展示；操作按钮按 `availableActions` 渲染 | 行操作含查看依赖图、查看日志和已开放的 `taskAction` 操作；前端不拼接 FileBrowser 地址或展示账号密码 |
 | `EventInstanceRow` | 事件页 | `eventName`、`eventType`、`flowInstanceId`、`taskInstanceId`、`effectTime` | `string/number` | `EventInstanceDto` | 时间戳格式化 | 可独立页面或详情页 |
 | `TaskInstanceDependencyPanel` | 依赖图抽屉 | `flowDagSnapshot`、`lastInstanceId`、`nextInstanceId`、当前任务实例 ID | `JsonNode/string` | `TaskInstanceDependencyDto` | 只读展示流程 DAG 和当前任务上下游关系 | 不修改定义 |
 | `TaskInstanceLogPanel` | 日志弹窗/抽屉 | `content`、`hasMore` | `string/boolean` | `TaskInstanceLogDto` | 等宽字体、按偏移加载更多 | 不展示完整路径给普通用户也可 |
@@ -296,7 +298,7 @@
 | `FlowInstanceDto` + `TaskInstanceDto` -> `TaskInstanceDependencyDto` | 前端组合当前流程 DAG 快照和任务上下游实例 ID | 只读展示，不回写定义 |
 | `FlowInstanceEntity` / `TaskInstanceEntity` -> 历史 Entity | 归档时字段镜像复制，保留原主键和审计字段 | 插入历史表后删除实时表；同批次事务提交 |
 | `EventInstanceEntity` -> `EventInstanceDto` | 字段复制 | `eventType` 保存值为 `1/2`，展示时映射任务/流程 |
-| `TaskInstanceLogQueryDto` -> 文件路径 | 只读取 `workerResult.workDirPath`，再按 `LOG -> stdout.log`、`ERROR -> stderr.log`、`STATUS -> state.log` 拼接 | `workDirPath` 缺失或文件不存在时返回空内容和尝试路径 |
+| `TaskInstanceLogQueryDto` -> 文件路径 | `LOG -> {workDirPath}/stdout.log`、`ERROR -> {workDirPath}/stderr.log`、`STATUS -> {workDirPath}/state.log`、`PLUGIN -> workerResult.pluginLogUri` | 路径缺失或文件不存在时返回空内容和尝试路径；`PLUGIN` 必须位于当前任务 `workDirPath` 下 |
 | `SchedulerInstanceActionDto` -> scheduler action | 根据 `actionType` 调用 `MasterService.getFlowAction()` 或 `MasterService.getTaskAction()` 中已公开的方法 | 仅允许实时实例；操作前查询实例是否存在；操作后只记录日志，不新增审计表 |
 | `FlowInstanceEntity` / `TaskInstanceEntity` -> `availableActions` | 后端按实例状态调用 `SchedulerInstanceActionPolicy` 计算 | 历史实例返回空列表；action 接口提交时再次按同一策略校验，避免页面数据过期 |
 

@@ -97,4 +97,5 @@ export const logTypeOptions = [
   { label: "标准日志", value: "LOG" },
   { label: "错误日志", value: "ERROR" },
   { label: "状态日志", value: "STATUS" },
+  { label: "插件日志", value: "PLUGIN" },
 ];

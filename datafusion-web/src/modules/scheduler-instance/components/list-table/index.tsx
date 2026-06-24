@@ -1,6 +1,7 @@
 import { App, Card, Segmented, Space, Table } from "antd";
 import type { TablePaginationConfig } from "antd";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { flowInstanceApi, taskInstanceApi } from "../../api";
 import {
   DEFAULT_PAGE_SIZE,
@@ -51,6 +52,7 @@ export function SchedulerInstanceListTable({
   onOpenLog,
 }: SchedulerInstanceListTableProps) {
   const { message, modal } = App.useApp();
+  const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
   const {
     filter,
     setFilter,
@@ -104,6 +106,27 @@ export function SchedulerInstanceListTable({
     queryClient.setQueryData<PageResponse<FlowInstanceItem>>(queryKey, (page) => (
       replaceFlowInstance(page, flow)
     ));
+  };
+
+  const collapseTaskDetails = () => {
+    setExpandedRowKeys([]);
+    queryClient.removeQueries({ queryKey: [SCHEDULER_INSTANCE_TASK_QUERY_KEY] });
+  };
+
+  const handleSearch = () => {
+    collapseTaskDetails();
+    search();
+  };
+
+  const handleExpand = (expanded: boolean, record: FlowInstanceItem) => {
+    if (expanded) {
+      setExpandedRowKeys((keys) => (keys.includes(record.id) ? keys : [...keys, record.id]));
+      void refreshFlowInstance(record).catch((error) => {
+        message.error(error instanceof Error ? error.message : "刷新失败");
+      });
+      return;
+    }
+    setExpandedRowKeys((keys) => keys.filter((key) => key !== record.id));
   };
 
   const handleFlowAction = (record: FlowInstanceItem, actionType: string) => {
@@ -164,9 +187,8 @@ export function SchedulerInstanceListTable({
         <ListToolbar
           filter={filter}
           onFilterChange={setFilter}
-          onSearch={search}
+          onSearch={handleSearch}
           onReset={reset}
-          onRefresh={() => void query.refetch()}
         />
 
         <Table<FlowInstanceItem>
@@ -178,6 +200,8 @@ export function SchedulerInstanceListTable({
           pagination={pagination}
           onChange={handleTableChange}
           expandable={{
+            expandedRowKeys,
+            onExpand: handleExpand,
             expandedRowRender: (record) => (
               <TaskInstanceGrid
                 flow={record}

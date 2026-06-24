@@ -1,6 +1,6 @@
 export type SchedulerInstanceViewType = "REALTIME" | "HISTORY";
 
-export type TaskInstanceLogType = "LOG" | "ERROR" | "STATUS";
+export type TaskInstanceLogType = "LOG" | "ERROR" | "STATUS" | "PLUGIN";
 
 export type SchedulerInstanceActionType =
   | "SUBMIT"
@@ -101,7 +101,12 @@ export interface TaskInstanceItem {
 }
 
 export interface TaskWorkerResult {
+  workerId?: string;
+  appId?: string;
   workDirPath?: string;
+  message?: string;
+  pluginLogUri?: string;
+  outputVars?: Record<string, unknown>;
   result?: TaskWorkerPluginResult | string;
 }
 

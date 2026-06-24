@@ -1,6 +1,7 @@
 import { App, Checkbox, Space } from "antd";
 import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/page-layout";
 import { flowApi } from "./api";
 import { FlowDetail, FlowForm, FlowListTable } from "./components";
@@ -11,6 +12,7 @@ import { PageActionEnum, type FlowFormMode, type FlowItem } from "./dto";
 export default function SchedulerFlowPage() {
   const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [dagOpen, setDagOpen] = useState(false);
@@ -119,6 +121,11 @@ export default function SchedulerFlowPage() {
           setCurrentRecord(record);
           setDagOpen(true);
           break;
+        case PageActionEnum.VIEW_INSTANCE:
+          if (record?.flowName) {
+            navigate(`/scheduler-instance?flowKeyword=${encodeURIComponent(record.flowName)}`);
+          }
+          break;
         case PageActionEnum.DELETE:
           if (!record?.id) return;
           if (record.enabled) {
@@ -160,6 +167,7 @@ export default function SchedulerFlowPage() {
       confirmUnpublish,
       deleteMutation,
       message,
+      navigate,
       openForm,
     ],
   );

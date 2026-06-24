@@ -33,9 +33,18 @@ export function formatJson(value?: unknown) {
 }
 
 export function getTaskPluginLogUri(task: TaskInstanceItem) {
+  if (task.workerResult?.pluginLogUri) return task.workerResult.pluginLogUri;
   const result = task.workerResult?.result;
   if (!result || typeof result === "string") return undefined;
   return (result as TaskWorkerPluginResult).pluginLogUri || undefined;
+}
+
+export function getTaskWorkDirPath(task: TaskInstanceItem) {
+  return task.workDirPath || task.workerResult?.workDirPath;
+}
+
+export function getTaskWorkerResultSummary(task: TaskInstanceItem) {
+  return task.workerResultText || getTaskWorkDirPath(task) || EMPTY_PLACEHOLDER;
 }
 
 export function renderStatus(value?: string) {
