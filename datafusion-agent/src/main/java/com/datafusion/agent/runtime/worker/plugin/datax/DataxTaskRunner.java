@@ -2,7 +2,7 @@ package com.datafusion.agent.runtime.worker.plugin.datax;
 
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 
 /**
  * DataX task runner.

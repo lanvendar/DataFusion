@@ -42,9 +42,10 @@ com.datafusion.scheduler.worker.reporter
 - `WorkerTaskService`：默认实现，负责参数校验、插件路由、提交语义、上下文幂等和结果上报。
 - `PluginTaskExecutor`：插件执行器，负责某一 `pluginType` 的 prepare、submit、stop、kill、finish/destroy。
 - `PluginRunModeStateMapping`：插件状态映射器，按 `pluginType + runMode` 把终端状态映射为 `StatusEnum`。
-- `RunningTaskContext`：进程内运行快照，不内嵌完整 `TaskRequest` / `TaskResult`。
-- `WorkerTaskExecutionSnap`：可持久化的任务提交快照，保存恢复上下文和插件参数。
-- `WorkerTaskExecutionState`：可持久化的任务运行态 envelope，只保存状态刷新持续监听字段。
+- `RunningTaskContext`：进程内运行上下文，直接组合 `WorkerTaskExecutionSnap` 和
+  `WorkerTaskExecutionState`，不重复声明二者已有属性，也不内嵌完整 `TaskRequest` / `TaskResult`。
+- `WorkerTaskExecutionSnap`：可持久化的任务提交快照，保存恢复上下文、提交语义和插件参数。
+- `WorkerTaskExecutionState`：可持久化的任务运行态 envelope，只保存状态刷新、监听和结果上报字段。
 - `WorkerTaskExecutionStore`：任务执行快照和运行态存储 SPI。worker 只定义契约，文件或 Redis 实现由 agent 提供。
 - `TaskResultReporter`：任务结果上报端口。HTTP 调用 manager 的实现由 agent 提供。
 

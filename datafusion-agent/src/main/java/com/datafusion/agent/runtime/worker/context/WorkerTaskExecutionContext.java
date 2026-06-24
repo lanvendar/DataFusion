@@ -1,13 +1,15 @@
-package com.datafusion.agent.runtime.worker.reporter;
+package com.datafusion.agent.runtime.worker.context;
 
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskRuntimeFiles;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStore;
+import com.datafusion.scheduler.worker.context.RunningTaskContext;
+import com.datafusion.scheduler.worker.context.WorkerTaskContextStorage;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.Cache;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,7 +33,7 @@ import java.util.stream.Stream;
  * @since 1.0.0
  */
 @Slf4j
-public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
+public class WorkerTaskExecutionContext implements WorkerTaskExecutionStore, WorkerTaskContextStorage {
 
     /**
      * 日期格式.
@@ -61,16 +63,16 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
     /**
      * 任务执行索引缓存.
      */
-    private final LoadingCache<String, WorkerTaskExecutionEntry> executionCache;
+    private final Cache<String, WorkerTaskExecutionEntry> executionCache;
 
     /**
      * 构造函数.
      *
      * @param properties agent 配置
      */
-    public FileWorkerTaskExecutionStore(AgentProperties properties) {
+    public WorkerTaskExecutionContext(AgentProperties properties) {
         this.properties = properties;
-        this.executionCache = Caffeine.newBuilder().build(this::loadExecutionEntry);
+        this.executionCache = Caffeine.newBuilder().build();
     }
 
     @Override
@@ -83,7 +85,8 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
             Files.createDirectories(snapshotFile.getParent());
             Files.writeString(snapshotFile, json(snapshot), StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            registerExecution(snapshot.getTaskInstanceId(), snapshotFile.getParent());
+            updateContext(snapshot.getTaskInstanceId(),
+                    context -> context.mergeSnapshot(snapshot, pathText(snapshotFile.getParent())));
         } catch (Exception e) {
             log.warn("记录任务提交快照失败, taskInstanceId={}", snapshot.getTaskInstanceId(), e);
         }
@@ -95,13 +98,11 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
             return Optional.empty();
         }
         return executionEntry(taskInstanceId)
-                .map(entry -> snapshotFile(entry.getExecutionDir(), taskInstanceId))
+                .flatMap(entry -> workDir(entry.getContext()))
+                .map(path -> snapshotFile(path, taskInstanceId))
                 .filter(Files::exists)
                 .flatMap(this::readSnapshotFile)
-                .or(() -> findSnapshotFile(taskInstanceId).flatMap(path -> {
-                    registerExecution(taskInstanceId, path.getParent());
-                    return readSnapshotFile(path);
-                }));
+                .or(() -> findSnapshotFile(taskInstanceId).flatMap(this::readSnapshotFile));
     }
 
     @Override
@@ -116,7 +117,8 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
             WorkerTaskExecutionState oldState = Files.exists(stateFile) ? readStateFile(stateFile).orElse(null) : null;
             Files.writeString(stateFile, json(state), StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            registerExecution(state.getTaskInstanceId(), stateFile.getParent());
+            updateContext(state.getTaskInstanceId(),
+                    context -> context.mergeState(state, pathText(stateFile.getParent())));
             if (shouldAppendStatusLog(oldState, state)) {
                 appendStatusLog(stateFile.getParent(), state);
             }
@@ -131,14 +133,53 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
             return Optional.empty();
         }
         return executionEntry(taskInstanceId)
-                .map(entry -> stateFile(entry.getExecutionDir(), taskInstanceId))
+                .flatMap(entry -> workDir(entry.getContext()))
+                .map(path -> stateFile(path, taskInstanceId))
                 .filter(Files::exists)
                 .flatMap(this::readStateFile)
-                .or(() -> findStateFile(taskInstanceId).flatMap(path -> readStateFile(path)
-                        .map(state -> {
-                            registerExecution(taskInstanceId, path.getParent());
-                            return state;
-                        })));
+                .or(() -> findStateFile(taskInstanceId).flatMap(this::readStateFile));
+    }
+
+    @Override
+    public Optional<RunningTaskContext> readContext(String taskInstanceId) {
+        return executionEntry(taskInstanceId)
+                .map(WorkerTaskExecutionEntry::getContext);
+    }
+
+    @Override
+    public RunningTaskContext get(String taskInstanceId) {
+        return readContext(taskInstanceId).orElse(null);
+    }
+
+    @Override
+    public RunningTaskContext getOrCreate(TaskRequest request) {
+        if (request == null || isBlank(request.getTaskInstanceId())) {
+            return RunningTaskContext.fromRequest(request);
+        }
+        return readContext(request.getTaskInstanceId())
+                .orElseGet(() -> {
+                    RunningTaskContext context = RunningTaskContext.fromRequest(request);
+                    save(context);
+                    return context;
+                });
+    }
+
+    @Override
+    public void save(RunningTaskContext context) {
+        if (context == null || isBlank(context.getTaskInstanceId())) {
+            return;
+        }
+        executionCache.put(context.getTaskInstanceId(), new WorkerTaskExecutionEntry(context));
+        WorkerTaskExecutionSnap snapshot = copySnapshot(context.getSnapshot());
+        if (readSnapshot(context.getTaskInstanceId()).isEmpty()) {
+            saveSnapshot(snapshot);
+        } else {
+            updateContext(context.getTaskInstanceId(), current -> current.mergeSnapshot(snapshot,
+                    workDir(context).map(Path::toString).orElse(null)));
+        }
+        WorkerTaskExecutionState state = copyState(context.getExecutionState());
+        mergeExistingState(state);
+        saveState(state);
     }
 
     @Override
@@ -146,8 +187,9 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
         return executionCache.asMap()
                 .entrySet()
                 .stream()
-                .filter(entry -> entry.getValue() != null && entry.getValue().getExecutionDir() != null)
-                .map(entry -> stateFile(entry.getValue().getExecutionDir(), entry.getKey()))
+                .filter(entry -> entry.getValue() != null)
+                .map(entry -> stateFile(entry.getValue().getContext(), entry.getKey()))
+                .flatMap(Optional::stream)
                 .filter(Files::exists)
                 .map(this::readStateFile)
                 .flatMap(Optional::stream)
@@ -164,17 +206,18 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
             if (request == null || isBlank(request.getTaskInstanceId())) {
                 continue;
             }
-            workDir(request).ifPresent(path -> registerExecution(request.getTaskInstanceId(), path));
+            restoreContext(request).ifPresent(context -> executionCache.put(request.getTaskInstanceId(),
+                    new WorkerTaskExecutionEntry(context)));
         }
     }
 
     @Override
-    public void remove(String taskInstanceId) {
+    public void deleteExecution(String taskInstanceId) {
         if (isBlank(taskInstanceId)) {
             return;
         }
         Optional<Path> executionDir = executionEntry(taskInstanceId)
-                .map(WorkerTaskExecutionEntry::getExecutionDir)
+                .flatMap(entry -> workDir(entry.getContext()))
                 .or(() -> findStateFile(taskInstanceId).map(Path::getParent))
                 .or(() -> findSnapshotFile(taskInstanceId).map(Path::getParent));
         executionDir.ifPresent(path -> {
@@ -191,6 +234,11 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
 
     @Override
     public void stopListening(String taskInstanceId) {
+        removeContext(taskInstanceId);
+    }
+
+    @Override
+    public void removeContext(String taskInstanceId) {
         if (isBlank(taskInstanceId)) {
             return;
         }
@@ -199,7 +247,7 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
 
     private Path snapshotFile(WorkerTaskExecutionSnap snapshot) {
         return executionEntry(snapshot.getTaskInstanceId())
-                .map(WorkerTaskExecutionEntry::getExecutionDir)
+                .flatMap(entry -> workDir(entry.getContext()))
                 .map(path -> snapshotFile(path, snapshot.getTaskInstanceId()))
                 .orElseGet(() -> executionDir(snapshot.getFlowInstanceId(), snapshot.getTaskInstanceId())
                         .resolve(snapshotFileName(snapshot.getTaskInstanceId())));
@@ -211,7 +259,7 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
 
     private Path stateFile(WorkerTaskExecutionState state) {
         return executionEntry(state.getTaskInstanceId())
-                .map(WorkerTaskExecutionEntry::getExecutionDir)
+                .flatMap(entry -> workDir(entry.getContext()))
                 .map(path -> stateFile(path, state.getTaskInstanceId()))
                 .orElseGet(() -> findSnapshotFile(state.getTaskInstanceId()).flatMap(this::readSnapshotFile)
                         .map(snapshot -> stateFile(executionDir(snapshot.getFlowInstanceId(), state.getTaskInstanceId()),
@@ -222,6 +270,10 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
 
     private Path stateFile(Path executionDir, String taskInstanceId) {
         return executionDir.resolve(stateFileName(taskInstanceId));
+    }
+
+    private Optional<Path> stateFile(RunningTaskContext context, String taskInstanceId) {
+        return workDir(context).map(path -> stateFile(path, taskInstanceId));
     }
 
     private Path statusLogFile(Path executionDir) {
@@ -318,27 +370,7 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
         if (isBlank(taskInstanceId)) {
             return Optional.empty();
         }
-        WorkerTaskExecutionEntry entry = executionCache.get(taskInstanceId);
-        return entry == null || entry.getExecutionDir() == null ? Optional.empty() : Optional.of(entry);
-    }
-
-    private WorkerTaskExecutionEntry loadExecutionEntry(String taskInstanceId) {
-        Optional<Path> stateFile = findStateFile(taskInstanceId);
-        if (stateFile.isPresent()) {
-            return new WorkerTaskExecutionEntry(stateFile.get().getParent());
-        }
-        Optional<Path> snapshotFile = findSnapshotFile(taskInstanceId);
-        if (snapshotFile.isPresent()) {
-            return new WorkerTaskExecutionEntry(snapshotFile.get().getParent());
-        }
-        return new WorkerTaskExecutionEntry(null);
-    }
-
-    private void registerExecution(String taskInstanceId, Path executionDir) {
-        if (isBlank(taskInstanceId) || executionDir == null) {
-            return;
-        }
-        executionCache.put(taskInstanceId, new WorkerTaskExecutionEntry(executionDir));
+        return Optional.ofNullable(executionCache.getIfPresent(taskInstanceId));
     }
 
     private boolean shouldAppendStatusLog(WorkerTaskExecutionState oldState, WorkerTaskExecutionState newState) {
@@ -374,6 +406,90 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
             return Optional.of(workDir);
         }
         return Optional.empty();
+    }
+
+    private Optional<Path> workDir(RunningTaskContext context) {
+        if (context == null || isBlank(context.getWorkDirPath())) {
+            return Optional.empty();
+        }
+        return Optional.of(Path.of(context.getWorkDirPath()));
+    }
+
+    private Optional<RunningTaskContext> restoreContext(TaskRequest request) {
+        return workDir(request).map(path -> {
+            WorkerTaskExecutionSnap snapshot = readSnapshotFile(snapshotFile(path, request.getTaskInstanceId()))
+                    .orElse(null);
+            WorkerTaskExecutionState state = readStateFile(stateFile(path, request.getTaskInstanceId()))
+                    .orElse(null);
+            RunningTaskContext context = state == null ? RunningTaskContext.fromRequest(request)
+                    : RunningTaskContext.fromSnapshotAndState(snapshot, state);
+            context.updateRequest(request);
+            if (context.getWorkDirPath() == null) {
+                context.setWorkDirPath(path.toString());
+            }
+            return context;
+        });
+    }
+
+    private void updateContext(String taskInstanceId, ContextUpdater updater) {
+        if (isBlank(taskInstanceId) || updater == null) {
+            return;
+        }
+        RunningTaskContext context = readContext(taskInstanceId).orElseGet(RunningTaskContext::new);
+        context.setTaskInstanceId(taskInstanceId);
+        updater.update(context);
+        executionCache.put(taskInstanceId, new WorkerTaskExecutionEntry(context));
+    }
+
+    private void mergeExistingState(WorkerTaskExecutionState state) {
+        findStateFile(state.getTaskInstanceId())
+                .flatMap(this::readStateFile)
+                .ifPresent(existing -> {
+                    if (state.getAppId() == null) {
+                        state.setAppId(existing.getAppId());
+                    }
+                    if (state.getWorkerId() == null) {
+                        state.setWorkerId(existing.getWorkerId());
+                    }
+                    if (state.getWorkDirPath() == null) {
+                        state.setWorkDirPath(existing.getWorkDirPath());
+                    }
+                    if (state.getExitCode() == null) {
+                        state.setExitCode(existing.getExitCode());
+                    }
+                });
+    }
+
+    private WorkerTaskExecutionSnap copySnapshot(WorkerTaskExecutionSnap snapshot) {
+        return WorkerTaskExecutionSnap.builder()
+                .flowInstanceId(snapshot.getFlowInstanceId())
+                .taskInstanceId(snapshot.getTaskInstanceId())
+                .taskName(snapshot.getTaskName())
+                .workerId(snapshot.getWorkerId())
+                .pluginType(snapshot.getPluginType())
+                .runMode(snapshot.getRunMode())
+                .taskData(snapshot.getTaskData())
+                .pluginParam(snapshot.getPluginParam())
+                .submitMode(snapshot.getSubmitMode())
+                .build();
+    }
+
+    private WorkerTaskExecutionState copyState(WorkerTaskExecutionState state) {
+        return WorkerTaskExecutionState.builder()
+                .taskInstanceId(state.getTaskInstanceId())
+                .workerId(state.getWorkerId())
+                .appId(state.getAppId())
+                .workDirPath(state.getWorkDirPath())
+                .status(state.getStatus())
+                .exitCode(state.getExitCode())
+                .updateTime(state.getUpdateTime())
+                .result(state.getResult())
+                .outputVars(state.getOutputVars())
+                .build();
+    }
+
+    private String pathText(Path path) {
+        return path == null ? null : path.toString();
     }
 
     private String json(Object value) throws Exception {
@@ -412,21 +528,35 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
     private static final class WorkerTaskExecutionEntry {
 
         /**
-         * Execution directory.
+         * Running task context.
          */
-        private final Path executionDir;
+        private final RunningTaskContext context;
 
         /**
          * Constructor.
          *
-         * @param executionDir Execution directory
+         * @param context Running task context
          */
-        private WorkerTaskExecutionEntry(Path executionDir) {
-            this.executionDir = executionDir;
+        private WorkerTaskExecutionEntry(RunningTaskContext context) {
+            this.context = context;
         }
 
-        private Path getExecutionDir() {
-            return executionDir;
+        private RunningTaskContext getContext() {
+            return context;
         }
+    }
+
+    /**
+     * Context updater.
+     */
+    @FunctionalInterface
+    private interface ContextUpdater {
+
+        /**
+         * Update context.
+         *
+         * @param context Running task context
+         */
+        void update(RunningTaskContext context);
     }
 }

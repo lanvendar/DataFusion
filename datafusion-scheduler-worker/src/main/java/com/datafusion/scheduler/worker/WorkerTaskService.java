@@ -192,7 +192,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
                 updateContext(finalContext, result);
             }
             executor.destroyTask(resolvedRequest);
-            contextStore.remove(resolvedRequest.getTaskInstanceId());
+            contextStore.removeContext(resolvedRequest.getTaskInstanceId());
         }
         return result;
     }
@@ -201,7 +201,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
             TaskResult result) {
         if (context != null && isFinalState(result.getTaskState())) {
             executor.destroyTask(request);
-            contextStore.remove(request.getTaskInstanceId());
+            contextStore.removeContext(request.getTaskInstanceId());
         }
     }
 

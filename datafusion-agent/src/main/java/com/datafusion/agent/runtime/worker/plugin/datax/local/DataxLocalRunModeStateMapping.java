@@ -4,7 +4,7 @@ import com.datafusion.agent.runtime.worker.plugin.datax.DataxPluginTaskExecutor;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxRunMode;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;

@@ -6,9 +6,9 @@ import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStore;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 
@@ -161,7 +161,7 @@ public class AgentTaskStateReportScheduler {
         }
         removeQueryFailureMap(state.getTaskInstanceId());
         if (state.getStatus() != null && state.getStatus().isSuccess()) {
-            stateStore.remove(state.getTaskInstanceId());
+            stateStore.deleteExecution(state.getTaskInstanceId());
         } else {
             stateStore.stopListening(state.getTaskInstanceId());
         }

@@ -4,8 +4,8 @@ import com.datafusion.agent.runtime.worker.InMemoryWorkerTaskExecutionStore;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;

@@ -4,21 +4,19 @@ import com.datafusion.agent.rpc.HttpManagerClient;
 import com.datafusion.agent.rpc.ManagerClient;
 import com.datafusion.agent.rpc.ManagerTaskResultReporter;
 import com.datafusion.agent.runtime.AgentRuntimeState;
-import com.datafusion.agent.runtime.worker.context.AgentWorkerTaskContextStorage;
 import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateReportScheduler;
-import com.datafusion.agent.runtime.worker.reporter.FileWorkerTaskExecutionStore;
+import com.datafusion.agent.runtime.worker.context.WorkerTaskExecutionContext;
 import com.datafusion.common.threadpool.NamedThreadFactory;
 import com.datafusion.common.threadpool.ThreadPoolBuilder;
 import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.datafusion.scheduler.worker.WorkerTaskOperator;
 import com.datafusion.scheduler.worker.WorkerTaskService;
-import com.datafusion.scheduler.worker.context.WorkerTaskContextStorage;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import com.datafusion.scheduler.worker.plugin.WorkerPluginLoader;
 import com.datafusion.scheduler.worker.plugin.WorkerTaskOperatorRouter;
 import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStore;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
@@ -155,26 +153,14 @@ public class AgentConfiguration {
     }
 
     /**
-     * worker 任务上下文存储.
-     *
-     * @param stateStore 任务执行状态存储
-     * @return worker 任务上下文存储
-     */
-    @Bean
-    public WorkerTaskContextStorage workerTaskContextStore(WorkerTaskExecutionStore stateStore,
-            AgentTaskStateReportScheduler taskStateReportScheduler) {
-        return new AgentWorkerTaskContextStorage(stateStore, taskStateReportScheduler);
-    }
-
-    /**
      * worker 任务执行状态存储.
      *
      * @param properties agent 配置
      * @return worker 任务执行状态存储
      */
     @Bean
-    public WorkerTaskExecutionStore workerTaskExecutionStore(AgentProperties properties) {
-        return new FileWorkerTaskExecutionStore(properties);
+    public WorkerTaskExecutionContext workerTaskExecutionStore(AgentProperties properties) {
+        return new WorkerTaskExecutionContext(properties);
     }
 
     /**
@@ -213,15 +199,15 @@ public class AgentConfiguration {
      * worker 任务操作入口.
      *
      * @param router        插件路由
-     * @param contextStore  上下文存储
+     * @param stateStore    任务执行状态存储
      * @param reporter      结果上报器
      * @param taskPool      任务运行线程池
      * @return worker 任务操作入口
      */
     @Bean
-    public WorkerTaskOperator workerTaskOperator(WorkerTaskOperatorRouter router, WorkerTaskContextStorage contextStore,
+    public WorkerTaskOperator workerTaskOperator(WorkerTaskOperatorRouter router, WorkerTaskExecutionContext stateStore,
             TaskResultReporter reporter, @Qualifier("agentTaskPool") ThreadPoolExecutor taskPool) {
-        return new WorkerTaskService(router, contextStore, reporter, taskPool, SubmitModeEnum.SYNC);
+        return new WorkerTaskService(router, stateStore, reporter, taskPool, SubmitModeEnum.SYNC);
     }
 
     private ThreadPoolExecutor buildThreadPool(String poolName, AgentProperties.ThreadPoolConfig config) {

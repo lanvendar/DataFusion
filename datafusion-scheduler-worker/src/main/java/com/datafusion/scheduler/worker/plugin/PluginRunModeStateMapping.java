@@ -1,7 +1,7 @@
 package com.datafusion.scheduler.worker.plugin;
 
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 
 /**
  * 插件运行模式状态映射.

@@ -1,5 +1,6 @@
-package com.datafusion.scheduler.worker.state;
+package com.datafusion.scheduler.worker.context;
 
+import com.datafusion.scheduler.enums.SubmitModeEnum;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -58,4 +59,9 @@ public class WorkerTaskExecutionSnap {
      * 插件参数.
      */
     private JsonNode pluginParam;
+
+    /**
+     * 提交模式.
+     */
+    private SubmitModeEnum submitMode;
 }

@@ -39,7 +39,7 @@ public class CachedWorkerTaskContextStorage implements WorkerTaskContextStorage 
     }
 
     @Override
-    public void remove(String taskInstanceId) {
+    public void removeContext(String taskInstanceId) {
         contextMap.remove(contextKey(taskInstanceId));
     }
 

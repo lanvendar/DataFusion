@@ -144,11 +144,17 @@ state.log
 
 规则：
 
-- `.snap` 保存提交快照，包含 `workerId`、`pluginType`、`runMode`、`taskData`、`pluginParam`。
-- `.state` 保存运行态，包含 `workerId`、`appId`、`workDirPath`、`status`、`exitCode`、`result`。
+- `.snap` 保存提交快照，包含 `workerId`、`pluginType`、`runMode`、`submitMode`、`taskData`、`pluginParam`。
+- `.state` 保存运行态，包含 `workerId`、`appId`、`workDirPath`、`status`、`exitCode`、`result`、`outputVars`。
 - `stdout.log`、`stderr.log`、`state.log` 是 agent 标准任务日志，文件名由 `TaskRuntimeFiles` 统一定义。
 - `state.log` 保存状态变化流水，终态后保留。
 - 终态结果上报成功后停止监听；成功终态删除 `.snap` 和 `.state`，非成功终态保留 `.snap` 和 `.state` 用于排查。
+- `WorkerTaskExecutionStore` 是 agent 本地运行态的唯一缓存入口；`executionCache` 中存在 `taskInstanceId`
+  表示任务仍是当前运行上下文并参与状态监听，不存在则不再监听，也不作为 submit/stop/kill/finish 的当前上下文。
+- `executionCache` 中保存 `RunningTaskContext`，上下文直接组合 `.snap` 对应的
+  `WorkerTaskExecutionSnap` 和 `.state` 对应的 `WorkerTaskExecutionState`，避免在内存态重复声明同一批属性。
+- `AgentWorkerTaskContextStorage` 只做 `RunningTaskContext` 与 `WorkerTaskExecutionStore` 的适配，不再维护独立
+  `contextMap`。
 - `saveState` 更新 `.state` 时同步比较旧 `.state`，当 `status`、`appId` 或 `exitCode` 变化时追加 `state.log`，避免 watcher 或状态刷新器原地修改运行态对象导致终态漏记。
 - `exitCode` 是本地运行态诊断字段，不进入 `TaskResult.workerResult`。
 - 控制请求可以只携带 `taskInstanceId`；agent 通过 `.snap + .state` 恢复插件类型、运行模式和运行引用。
@@ -168,6 +174,9 @@ WorkerTaskExecutionStore.listListeningStates
 状态刷新只查询终端状态，不主动停止、强杀或重启任务。manager 不可用或结果上报失败时保留监听，
 等待下一轮继续上报。终态上报成功后不再重复上报；其中 `StatusEnum.isSuccess()` 为 true 的终态删除
 `.snap/.state`，其他终态保留 `.snap/.state`。
+
+`readState` / `readSnapshot` 可以读取保留的 `.state/.snap` 用于诊断或插件控制，但不会把任务重新加入
+`executionCache`；只有 `saveContext` / `saveState` / `saveSnapshot` 和 `restoreListeningTasks` 会主动恢复当前运行上下文。
 
 agent 启动恢复不扫描全部 `${taskRuntimeDir}`。恢复流程为：
 

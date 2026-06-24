@@ -1,11 +1,12 @@
 package com.datafusion.agent.runtime.worker.reporter;
 
 import com.datafusion.agent.config.AgentProperties;
+import com.datafusion.agent.runtime.worker.context.WorkerTaskExecutionContext;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.WorkerResult;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -20,20 +21,20 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for {@link FileWorkerTaskExecutionStore}.
+ * Tests for {@link WorkerTaskExecutionContext}.
  *
  * @author datafusion
  * @version 1.0.0, 2026/6/17
  * @since 1.0.0
  */
-class FileWorkerTaskExecutionStoreTest {
+class WorkerTaskExecutionContextTest {
 
     @TempDir
     private Path tempDir;
 
     @Test
     void shouldRestoreStateOnlyByManagerTaskRequestsAndKeepLogWhenRemovingRuntimeFiles() throws Exception {
-        FileWorkerTaskExecutionStore store = new FileWorkerTaskExecutionStore(properties());
+        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
         store.saveSnapshot(snapshot());
         store.saveState(state(StatusEnum.RUNNING));
         store.saveState(state(StatusEnum.RUNNING));
@@ -44,14 +45,14 @@ class FileWorkerTaskExecutionStoreTest {
         assertEquals(1, store.listListeningStates().size());
         assertEquals(2, Files.readAllLines(logFile).size());
 
-        FileWorkerTaskExecutionStore reloadedStore = new FileWorkerTaskExecutionStore(properties());
+        WorkerTaskExecutionContext reloadedStore = new WorkerTaskExecutionContext(properties());
         assertEquals(0, reloadedStore.listListeningStates().size());
 
         reloadedStore.restoreListeningTasks(List.of(restoreRequest()));
         assertEquals(1, reloadedStore.listListeningStates().size());
         assertEquals(StatusEnum.RUN_SUCCESS, reloadedStore.readState("task-1").orElseThrow().getStatus());
 
-        reloadedStore.remove("task-1");
+        reloadedStore.deleteExecution("task-1");
 
         assertTrue(Files.exists(logFile));
         assertFalse(Files.exists(executionDir.resolve("task-1.state")));
@@ -61,7 +62,7 @@ class FileWorkerTaskExecutionStoreTest {
 
     @Test
     void shouldAppendStatusLogWhenReadStateIsMutatedBeforeSave() throws Exception {
-        FileWorkerTaskExecutionStore store = new FileWorkerTaskExecutionStore(properties());
+        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
         store.saveSnapshot(snapshot());
         store.saveState(state(StatusEnum.RUNNING));
 
@@ -77,7 +78,7 @@ class FileWorkerTaskExecutionStoreTest {
 
     @Test
     void shouldAppendStatusLogWhenAppIdChanges() throws Exception {
-        FileWorkerTaskExecutionStore store = new FileWorkerTaskExecutionStore(properties());
+        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
         store.saveSnapshot(snapshot());
         store.saveState(state(StatusEnum.RUNNING));
 
@@ -92,7 +93,7 @@ class FileWorkerTaskExecutionStoreTest {
 
     @Test
     void shouldStopListeningWithoutDeletingRuntimeFiles() {
-        FileWorkerTaskExecutionStore store = new FileWorkerTaskExecutionStore(properties());
+        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
         store.saveSnapshot(snapshot());
         store.saveState(state(StatusEnum.RUN_FAILURE));
 
@@ -102,6 +103,34 @@ class FileWorkerTaskExecutionStoreTest {
         assertEquals(0, store.listListeningStates().size());
         assertTrue(Files.exists(executionDir.resolve("task-1.state")));
         assertTrue(Files.exists(executionDir.resolve("task-1.snap")));
+    }
+
+    @Test
+    void shouldRemoveContextWithoutDeletingRuntimeFiles() {
+        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
+        store.saveSnapshot(snapshot());
+        store.saveState(state(StatusEnum.RUN_FAILURE));
+
+        store.removeContext("task-1");
+
+        Path executionDir = executionDir();
+        assertEquals(0, store.listListeningStates().size());
+        assertTrue(Files.exists(executionDir.resolve("task-1.state")));
+        assertTrue(Files.exists(executionDir.resolve("task-1.snap")));
+    }
+
+    @Test
+    void shouldNotRestoreListeningContextWhenReadingStoppedRuntimeFiles() {
+        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
+        store.saveSnapshot(snapshot());
+        store.saveState(state(StatusEnum.RUN_FAILURE));
+        store.stopListening("task-1");
+
+        assertEquals(StatusEnum.RUN_FAILURE, store.readState("task-1").orElseThrow().getStatus());
+        assertTrue(store.readSnapshot("task-1").isPresent());
+
+        assertTrue(store.readContext("task-1").isEmpty());
+        assertEquals(0, store.listListeningStates().size());
     }
 
     private AgentProperties properties() {

@@ -11,9 +11,9 @@ import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.WorkerResult;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionSnap;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionState;
-import com.datafusion.scheduler.worker.state.WorkerTaskExecutionStore;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
 

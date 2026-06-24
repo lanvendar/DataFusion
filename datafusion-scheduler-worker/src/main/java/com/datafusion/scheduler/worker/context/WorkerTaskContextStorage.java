@@ -35,9 +35,9 @@ public interface WorkerTaskContextStorage {
     void save(RunningTaskContext context);
 
     /**
-     * 删除上下文.
+     * 移除当前运行上下文.
      *
      * @param taskInstanceId 任务实例ID
      */
-    void remove(String taskInstanceId);
+    void removeContext(String taskInstanceId);
 }

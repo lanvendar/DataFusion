@@ -1,7 +1,6 @@
-package com.datafusion.scheduler.worker.state;
+package com.datafusion.scheduler.worker.context;
 
 import com.datafusion.scheduler.model.TaskRequest;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -68,9 +67,9 @@ public interface WorkerTaskExecutionStore {
     }
 
     /**
-     * 删除任务执行状态.
+     * 删除任务执行记录.
      *
      * @param taskInstanceId 任务实例 ID
      */
-    void remove(String taskInstanceId);
+    void deleteExecution(String taskInstanceId);
 }
