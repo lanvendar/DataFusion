@@ -43,23 +43,27 @@ datafusion-agent/src/main/resources/plugins/shell/templates/shell-local-plugin-c
 |------|------|------|----------|------|
 | `LocalShellProcess` | LOCAL 模板渲染产物 | `kind`, `command` | 单次提交 | 模板只描述启动命令 |
 | `WorkerTaskExecutionSnap` | 提交快照 | `pluginType=SHELL`, `runMode=LOCAL`, `taskData`, `pluginParam` | 提交后到 finish | 控制请求恢复上下文 |
-| `WorkerTaskExecutionState` | 运行态 | `appId`, `workDirPath`, `status`, `exitCode`, `result` | 提交后到 finish | `appId` 为顶层 shell PID |
+| `WorkerTaskExecutionState` | 运行态 | `appId`, `workDirPath`, `status`, `exitCode`, `result` | 提交后到 finish | `appId` 为顶层 shell PID；`result` 保存轻量摘要；`exitCode` 只用于本地状态映射，不进入 `WorkerResult` |
 
-## 5. TaskResult.result
+## 5. WorkerResult
 
 ```json
 {
+  "workerId": "{workerId}",
+  "appId": "12345",
+  "workDirPath": "/opt/datafusion/task-runtime/20260623/flow-1/task-1",
   "message": "LOCAL shell task submitted",
-  "pluginType": "SHELL",
-  "runMode": "LOCAL",
-  "exitCode": 0
+  "pluginLogUri": ""
 }
 ```
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `message` | `String` | 是 | 简短执行说明 |
-| `pluginType` | `String` | 是 | 固定 `SHELL` |
-| `runMode` | `String` | 是 | 固定 `LOCAL` |
+| `outputVars` | `Map<String, Variable>` | 否 | 输出变量 |
+| `workerId` | `String` | 否 | worker ID |
+| `appId` | `String` | 否 | 顶层 shell PID |
+| `workDirPath` | `String` | 否 | 任务运行目录 |
+| `message` | `String` | 否 | 简短执行说明 |
 | `pluginLogUri` | `String` | 否 | 用户显式配置的插件日志入口；默认不写 |
-| `exitCode` | `Integer` | 否 | 顶层 shell 退出码 |
+
+Shell 顶层进程退出码只保存在 `.state.exitCode` 和 `state.log`，不写入 `WorkerResult`。
