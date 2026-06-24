@@ -102,7 +102,7 @@ Manager scheduler
 |------|------|----------|
 | stop | `ProcessHandle.destroy()` | `STOP_SUCCESS`；进程不存在也返回成功，保证幂等 |
 | kill | `ProcessHandle.destroyForcibly()` | `KILLED`；进程不存在也返回已强杀 |
-| finish | 终态后删除状态文件 | 当前终态 |
+| finish | 读取当前终态；状态文件清理由 agent 终态上报规则决定 | 当前终态 |
 
 LOCAL 状态映射优先使用 `.state.status` 终态，其次使用 `exitCode`，最后用 pid 存活判断 `RUNNING` 或 `UNKNOWN`。
 
@@ -153,7 +153,7 @@ Job 约定：
 |------|------|----------|
 | stop | 删除 Job 和本次任务 Secret，Job 使用默认 grace period | `STOPPING`，待状态映射转终态 |
 | kill | 删除 Job 和本次任务 Secret，Job 使用 `gracePeriodSeconds=0` | `KILLING`，待状态映射转终态 |
-| finish | 终态后采集日志并清理 Secret / Job | 当前终态 |
+| finish | 终态后采集日志并清理 Secret / Job；状态文件清理由 agent 终态上报规则决定 | 当前终态 |
 
 ## 日志
 

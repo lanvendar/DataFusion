@@ -189,12 +189,24 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
         });
     }
 
+    @Override
+    public void stopListening(String taskInstanceId) {
+        if (isBlank(taskInstanceId)) {
+            return;
+        }
+        executionCache.invalidate(taskInstanceId);
+    }
+
     private Path snapshotFile(WorkerTaskExecutionSnap snapshot) {
         return executionEntry(snapshot.getTaskInstanceId())
                 .map(WorkerTaskExecutionEntry::getExecutionDir)
                 .map(path -> snapshotFile(path, snapshot.getTaskInstanceId()))
                 .orElseGet(() -> executionDir(snapshot.getFlowInstanceId(), snapshot.getTaskInstanceId())
                         .resolve(snapshotFileName(snapshot.getTaskInstanceId())));
+    }
+
+    private Path snapshotFile(Path executionDir, String taskInstanceId) {
+        return executionDir.resolve(snapshotFileName(taskInstanceId));
     }
 
     private Path stateFile(WorkerTaskExecutionState state) {
@@ -206,10 +218,6 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
                                 state.getTaskInstanceId()))
                         .orElseGet(() -> stateFile(executionDir(null, state.getTaskInstanceId()),
                                 state.getTaskInstanceId())));
-    }
-
-    private Path snapshotFile(Path executionDir, String taskInstanceId) {
-        return executionDir.resolve(snapshotFileName(taskInstanceId));
     }
 
     private Path stateFile(Path executionDir, String taskInstanceId) {
@@ -232,12 +240,12 @@ public class FileWorkerTaskExecutionStore implements WorkerTaskExecutionStore {
         return fileName(path).endsWith(SNAPSHOT_FILE_SUFFIX);
     }
 
-    private boolean isStateFile(Path path) {
-        return fileName(path).endsWith(STATE_FILE_SUFFIX);
-    }
-
     private boolean isSnapshotFile(Path path, String taskInstanceId) {
         return fileName(path).equals(snapshotFileName(taskInstanceId));
+    }
+
+    private boolean isStateFile(Path path) {
+        return fileName(path).endsWith(STATE_FILE_SUFFIX);
     }
 
     private boolean isStateFile(Path path, String taskInstanceId) {

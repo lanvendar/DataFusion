@@ -147,7 +147,8 @@ state.log
 - `.snap` 保存提交快照，包含 `workerId`、`pluginType`、`runMode`、`taskData`、`pluginParam`。
 - `.state` 保存运行态，包含 `workerId`、`appId`、`workDirPath`、`status`、`exitCode`、`result`。
 - `stdout.log`、`stderr.log`、`state.log` 是 agent 标准任务日志，文件名由 `TaskRuntimeFiles` 统一定义。
-- `state.log` 保存状态变化流水，finish 后保留；`.snap` 和 `.state` 在 finish 确认终态后删除。
+- `state.log` 保存状态变化流水，终态后保留。
+- 终态结果上报成功后停止监听；成功终态删除 `.snap` 和 `.state`，非成功终态保留 `.snap` 和 `.state` 用于排查。
 - `saveState` 更新 `.state` 时同步比较旧 `.state`，当 `status`、`appId` 或 `exitCode` 变化时追加 `state.log`，避免 watcher 或状态刷新器原地修改运行态对象导致终态漏记。
 - `exitCode` 是本地运行态诊断字段，不进入 `TaskResult.workerResult`。
 - 控制请求可以只携带 `taskInstanceId`；agent 通过 `.snap + .state` 恢复插件类型、运行模式和运行引用。
@@ -161,10 +162,12 @@ WorkerTaskExecutionStore.listListeningStates
     -> mapState(state) 得到 StatusEnum
     -> 状态变化后 saveState
     -> TaskResultReporter.report
-    -> manager 调用 finishTask 后 remove
+    -> 终态上报成功后停止监听
 ```
 
-状态刷新只查询终端状态，不主动停止、强杀或重启任务。manager 不可用时保留状态，等待下一轮继续上报。
+状态刷新只查询终端状态，不主动停止、强杀或重启任务。manager 不可用或结果上报失败时保留监听，
+等待下一轮继续上报。终态上报成功后不再重复上报；其中 `StatusEnum.isSuccess()` 为 true 的终态删除
+`.snap/.state`，其他终态保留 `.snap/.state`。
 
 agent 启动恢复不扫描全部 `${taskRuntimeDir}`。恢复流程为：
 

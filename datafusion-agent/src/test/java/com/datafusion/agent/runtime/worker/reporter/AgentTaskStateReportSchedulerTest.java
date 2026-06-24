@@ -14,6 +14,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -29,7 +30,7 @@ class AgentTaskStateReportSchedulerTest {
     void shouldRemoveFinalStateAfterSuccessfulReport() throws Exception {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         stateStore.saveSnapshot(snapshot());
-        stateStore.saveState(state(StatusEnum.STOP_SUCCESS));
+        stateStore.saveState(state(StatusEnum.RUN_SUCCESS));
         RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         AgentTaskStateReportScheduler reportScheduler = new AgentTaskStateReportScheduler(stateStore, reporter,
@@ -39,6 +40,27 @@ class AgentTaskStateReportSchedulerTest {
 
         assertEquals(1, reporter.reportCount);
         assertTrue(stateStore.listListeningStates().isEmpty());
+        assertTrue(stateStore.readState("task-1").isEmpty());
+        assertTrue(stateStore.readSnapshot("task-1").isEmpty());
+        scheduler.shutdownNow();
+    }
+
+    @Test
+    void shouldStopListeningAndKeepFailedFinalStateAfterSuccessfulReport() throws Exception {
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        stateStore.saveSnapshot(snapshot());
+        stateStore.saveState(state(StatusEnum.RUN_FAILURE));
+        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        AgentTaskStateReportScheduler reportScheduler = new AgentTaskStateReportScheduler(stateStore, reporter,
+                scheduler, Collections.emptyList(), 1000L, 1);
+
+        refreshStates(reportScheduler);
+
+        assertEquals(1, reporter.reportCount);
+        assertTrue(stateStore.listListeningStates().isEmpty());
+        assertTrue(stateStore.readState("task-1").isPresent());
+        assertTrue(stateStore.readSnapshot("task-1").isPresent());
         scheduler.shutdownNow();
     }
 
@@ -56,6 +78,7 @@ class AgentTaskStateReportSchedulerTest {
 
         assertEquals(1, reporter.reportCount);
         assertEquals(1, stateStore.listListeningStates().size());
+        assertFalse(stateStore.readState("task-1").isEmpty());
         scheduler.shutdownNow();
     }
 

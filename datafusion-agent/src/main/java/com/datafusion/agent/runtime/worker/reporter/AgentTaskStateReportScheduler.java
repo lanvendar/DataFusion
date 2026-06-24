@@ -155,7 +155,16 @@ public class AgentTaskStateReportScheduler {
     }
 
     private void reportFinalState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
-        resultReporter.report(toTaskResult(snapshot, state));
+        boolean reported = resultReporter.report(toTaskResult(snapshot, state));
+        if (!reported) {
+            return;
+        }
+        removeQueryFailureMap(state.getTaskInstanceId());
+        if (state.getStatus() != null && state.getStatus().isSuccess()) {
+            stateStore.remove(state.getTaskInstanceId());
+        } else {
+            stateStore.stopListening(state.getTaskInstanceId());
+        }
     }
 
     /**

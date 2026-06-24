@@ -90,6 +90,20 @@ class FileWorkerTaskExecutionStoreTest {
         assertTrue(Files.readString(logFile).contains("appId:200|status:RUNNING"));
     }
 
+    @Test
+    void shouldStopListeningWithoutDeletingRuntimeFiles() {
+        FileWorkerTaskExecutionStore store = new FileWorkerTaskExecutionStore(properties());
+        store.saveSnapshot(snapshot());
+        store.saveState(state(StatusEnum.RUN_FAILURE));
+
+        store.stopListening("task-1");
+
+        Path executionDir = executionDir();
+        assertEquals(0, store.listListeningStates().size());
+        assertTrue(Files.exists(executionDir.resolve("task-1.state")));
+        assertTrue(Files.exists(executionDir.resolve("task-1.snap")));
+    }
+
     private AgentProperties properties() {
         AgentProperties properties = new AgentProperties();
         properties.setModules(tempDir.toString());

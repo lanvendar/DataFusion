@@ -45,7 +45,7 @@ TaskRequest(pluginType=SHELL, taskData, pluginParam)
 |------|------|----------|
 | stop | `ProcessHandle.destroy()` | `STOP_SUCCESS`；进程不存在也返回成功，保证幂等 |
 | kill | `ProcessHandle.destroyForcibly()` | `KILLED`；进程不存在也返回已强杀 |
-| finish | 终态后删除 `.state` / `.snap` | 当前终态 |
+| finish | 读取当前终态；状态文件清理由 agent 终态上报规则决定 | 当前终态 |
 
 stop / kill / finish 支持最小控制请求。只要请求携带 `taskInstanceId`，agent 会通过 `.snap + .state`
 恢复 `pluginType`、`taskData`、`pluginParam`、`appId` 和任务运行目录。

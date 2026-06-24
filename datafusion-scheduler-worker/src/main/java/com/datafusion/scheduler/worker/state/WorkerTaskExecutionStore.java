@@ -60,6 +60,14 @@ public interface WorkerTaskExecutionStore {
     }
 
     /**
+     * 停止监听任务执行状态, 但保留本地状态文件.
+     *
+     * @param taskInstanceId 任务实例 ID
+     */
+    default void stopListening(String taskInstanceId) {
+    }
+
+    /**
      * 删除任务执行状态.
      *
      * @param taskInstanceId 任务实例 ID

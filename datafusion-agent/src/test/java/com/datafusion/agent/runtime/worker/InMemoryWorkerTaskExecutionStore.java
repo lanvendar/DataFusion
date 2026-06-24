@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * In-memory worker task execution state store for tests.
@@ -29,6 +30,11 @@ public class InMemoryWorkerTaskExecutionStore implements WorkerTaskExecutionStor
      */
     private final Map<String, WorkerTaskExecutionSnap> snapshots = new ConcurrentHashMap<>();
 
+    /**
+     * Listening task IDs.
+     */
+    private final Map<String, Boolean> listeningRecords = new ConcurrentHashMap<>();
+
     @Override
     public void saveSnapshot(WorkerTaskExecutionSnap snapshot) {
         snapshots.put(snapshot.getTaskInstanceId(), snapshot);
@@ -42,6 +48,7 @@ public class InMemoryWorkerTaskExecutionStore implements WorkerTaskExecutionStor
     @Override
     public void saveState(WorkerTaskExecutionState state) {
         records.put(state.getTaskInstanceId(), state);
+        listeningRecords.put(state.getTaskInstanceId(), Boolean.TRUE);
     }
 
     @Override
@@ -51,12 +58,21 @@ public class InMemoryWorkerTaskExecutionStore implements WorkerTaskExecutionStor
 
     @Override
     public List<WorkerTaskExecutionState> listListeningStates() {
-        return new ArrayList<>(records.values());
+        return listeningRecords.keySet()
+                .stream()
+                .map(records::get)
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     @Override
     public void remove(String taskInstanceId) {
         records.remove(taskInstanceId);
         snapshots.remove(taskInstanceId);
+        listeningRecords.remove(taskInstanceId);
+    }
+
+    @Override
+    public void stopListening(String taskInstanceId) {
+        listeningRecords.remove(taskInstanceId);
     }
 }
