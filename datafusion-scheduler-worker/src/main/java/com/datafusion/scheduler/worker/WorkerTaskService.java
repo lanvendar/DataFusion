@@ -268,11 +268,6 @@ public class WorkerTaskService implements WorkerTaskOperator {
             StatusEnum state = context.getSubmitMode() == SubmitModeEnum.ASYNC ? StatusEnum.SUBMIT_SUCCESS : StatusEnum.RUNNING;
             result.setTaskState(state);
         }
-        if (result.getWorkerResult() == null) {
-            result.setWorkerResult(WorkerResult.builder().message("重复请求返回当前任务上下文").build());
-        } else if (context.getResult() == null && result.getWorkerResult().getMessage() == null) {
-            result.getWorkerResult().setMessage("重复请求返回当前任务上下文");
-        }
         return result;
     }
 

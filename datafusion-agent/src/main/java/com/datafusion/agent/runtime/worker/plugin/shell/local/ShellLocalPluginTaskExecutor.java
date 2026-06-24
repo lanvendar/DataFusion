@@ -120,6 +120,8 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
             String appId = String.valueOf(process.pid());
             String pluginLogUri = pluginLogUri(request);
             String workDirPath = workDir.toString();
+            log.info("SHELL LOCAL任务提交成功, taskInstanceId={}, appId={}, workDirPath={}, pluginLogUri={}",
+                    request.getTaskInstanceId(), appId, workDirPath, pluginLogUri);
             WorkerResult requestWorkerResult = request.getWorkerResult();
             WorkerTaskExecutionState state = baseState(request, StatusEnum.RUNNING)
                     .appId(appId)
@@ -138,6 +140,8 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                             appId, workDirPath, "LOCAL shell task submitted", pluginLogUri))
                     .build();
         } catch (Exception e) {
+            log.warn("SHELL LOCAL任务提交失败, taskInstanceId={}, pluginLogUri={}",
+                    request.getTaskInstanceId(), pluginLogUri(request), e);
             WorkerResult requestWorkerResult = request.getWorkerResult();
             return TaskResult.builder()
                     .taskInstanceId(request.getTaskInstanceId())

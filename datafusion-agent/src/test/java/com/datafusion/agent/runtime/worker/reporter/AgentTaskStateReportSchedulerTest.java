@@ -102,6 +102,26 @@ class AgentTaskStateReportSchedulerTest {
     }
 
     @Test
+    void shouldMapSubmittingStateWithWorkDirWhenAppIdMissing() throws Exception {
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        stateStore.saveSnapshot(snapshot());
+        WorkerTaskExecutionState state = state(StatusEnum.SUBMITTING);
+        state.setWorkDirPath("/opt/datafusion/task-runtime/20260624/flow-1/task-1");
+        stateStore.saveState(state);
+        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        AgentTaskStateReportScheduler reportScheduler = new AgentTaskStateReportScheduler(stateStore, reporter,
+                scheduler, List.of(new UnknownStateMapping()), 1000L, 1);
+
+        refreshStates(reportScheduler);
+
+        assertEquals(1, reporter.reportCount);
+        assertTrue(stateStore.listListeningStates().isEmpty());
+        assertEquals(StatusEnum.UNKNOWN, stateStore.readState("task-1").orElseThrow().getStatus());
+        scheduler.shutdownNow();
+    }
+
+    @Test
     void shouldStopListeningAfterUnknownStateReportedSuccessfully() throws Exception {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         stateStore.saveSnapshot(snapshot());

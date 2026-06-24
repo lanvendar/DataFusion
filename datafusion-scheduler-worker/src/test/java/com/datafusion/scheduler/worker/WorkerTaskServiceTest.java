@@ -66,6 +66,21 @@ class WorkerTaskServiceTest {
         assertNull(result.getWorkerResult().getMessage());
     }
 
+    @Test
+    void shouldNotExposeDuplicateSubmitMessageAsWorkerResult() {
+        RecordingContextStorage contextStorage = new RecordingContextStorage();
+        contextStorage.context = RunningTaskContext.fromRequest(finishRequest());
+        contextStorage.context.markSubmitted();
+        SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor();
+        WorkerTaskService taskService = taskService(contextStorage, executor);
+
+        TaskResult result = taskService.submitTask(finishRequest());
+
+        assertEquals(0, executor.submitCount);
+        assertEquals(StatusEnum.RUNNING, result.getTaskState());
+        assertNull(result.getWorkerResult().getMessage());
+    }
+
     private WorkerTaskService taskService(RecordingContextStorage contextStorage, PluginTaskExecutor executor) {
         WorkerTaskOperatorRouter router = new WorkerTaskOperatorRouter(List.of(executor));
         Executor sameThreadExecutor = Runnable::run;

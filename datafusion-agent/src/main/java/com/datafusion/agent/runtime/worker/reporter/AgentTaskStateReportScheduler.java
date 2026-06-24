@@ -253,7 +253,7 @@ public class AgentTaskStateReportScheduler {
     }
 
     private boolean isWaitingForRuntimeRef(WorkerTaskExecutionState state) {
-        if (state == null || !isBlank(state.getAppId())) {
+        if (state == null || !isBlank(state.getAppId()) || !isBlank(state.getWorkDirPath())) {
             return false;
         }
         return state.getStatus() == StatusEnum.SUBMITTING || state.getStatus() == StatusEnum.SUBMIT_SUCCESS;
