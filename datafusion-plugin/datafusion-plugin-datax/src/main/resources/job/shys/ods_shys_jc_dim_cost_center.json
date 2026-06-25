@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql.bigdata.svc:3306/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `cost_center_code`,`cost_center_desc`,`parent_code`,`company_code`,`company_desc`,`control_scope`,`function_scope_code`,`function_scope_desc`,`cc_type_code`,`cc_type_desc`,`business_scope`,`currency`,`profit_center_code`,`frez_flag`,`etl_time`,`_id` FROM `shjc_ods_dim_cost_center_jc`"

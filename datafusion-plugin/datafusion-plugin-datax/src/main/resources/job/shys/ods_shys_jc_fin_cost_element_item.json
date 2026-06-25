@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql.bigdata.svc:3306/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `ds`,`fiscal_year`,`fiscal_month`,`year_month`,`cost_control_field`,`company_code`,`company_desc`,`cost_bill_no`,`create_date`,`posting_date`,`item_no`,`cost_center_code`,`cost_center_desc`,`initial_object`,`source_name`,`cost_element_code`,`cost_element_desc`,`amount`,`currency`,`seg_text`,`source_code`,`source_desc`,`create_time`,`creator`,`update_time`,`updator`,`etl_time`,`modify_time`,`modifier`,`_id`,`day_pt` FROM `shjc_ods_fin_cost_element_item_jc`"
