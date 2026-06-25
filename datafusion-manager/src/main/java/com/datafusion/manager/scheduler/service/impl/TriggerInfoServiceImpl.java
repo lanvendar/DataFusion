@@ -4,11 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.datafusion.common.cron.CronUtil;
 import com.datafusion.common.exception.CommonException;
 import com.datafusion.common.exception.ErrorCodeEnum;
 import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.manager.scheduler.dao.TriggerInfoMapper;
+import com.datafusion.manager.scheduler.dto.TriggerCronPreviewDto;
+import com.datafusion.manager.scheduler.dto.TriggerCronPreviewResultDto;
 import com.datafusion.manager.scheduler.dto.TriggerInfoDto;
 import com.datafusion.manager.scheduler.dto.TriggerInfoQueryDto;
 import com.datafusion.manager.scheduler.dto.TriggerInfoSaveDto;
@@ -24,8 +27,10 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -40,6 +45,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TriggerInfoServiceImpl extends ServiceImpl<TriggerInfoMapper, TriggerInfoEntity>
         implements TriggerInfoService {
+
+    /**
+     * 默认cron预览数量.
+     */
+    private static final int DEFAULT_CRON_PREVIEW_COUNT = 5;
+
+    /**
+     * 最大cron预览数量.
+     */
+    private static final int MAX_CRON_PREVIEW_COUNT = 20;
 
     /**
      * 流程信息Service, 用于删除时的引用检查.
@@ -147,6 +162,30 @@ public class TriggerInfoServiceImpl extends ServiceImpl<TriggerInfoMapper, Trigg
         return removeById(id);
     }
 
+    @Override
+    public TriggerCronPreviewResultDto previewCron(TriggerCronPreviewDto dto) {
+        if (dto == null || StringUtils.isBlank(dto.getCron())) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "cron表达式不能为空");
+        }
+        int count = normalizeCronPreviewCount(dto.getCount());
+        Date next = new Date();
+        List<Long> nextTimes = new ArrayList<>(count);
+        try {
+            for (int i = 0; i < count; i++) {
+                next = CronUtil.next(dto.getCron(), next);
+                nextTimes.add(next.getTime());
+            }
+        } catch (RuntimeException e) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "cron表达式不合法");
+        }
+
+        TriggerCronPreviewResultDto result = new TriggerCronPreviewResultDto();
+        result.setCron(dto.getCron());
+        result.setTimeZone(TimeZone.getDefault().getID());
+        result.setNextTimes(nextTimes);
+        return result;
+    }
+
     // region 私有方法
 
     /**
@@ -226,6 +265,13 @@ public class TriggerInfoServiceImpl extends ServiceImpl<TriggerInfoMapper, Trigg
                 throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "INTERVAL类型触发器必须填写大于0的周期间隔");
             }
         }
+    }
+
+    private int normalizeCronPreviewCount(Integer count) {
+        if (count == null || count <= 0) {
+            return DEFAULT_CRON_PREVIEW_COUNT;
+        }
+        return Math.min(count, MAX_CRON_PREVIEW_COUNT);
     }
 
     /**

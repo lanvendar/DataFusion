@@ -3,6 +3,8 @@ package com.datafusion.manager.scheduler.controller;
 import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.common.spring.dto.response.Result;
+import com.datafusion.manager.scheduler.dto.TriggerCronPreviewDto;
+import com.datafusion.manager.scheduler.dto.TriggerCronPreviewResultDto;
 import com.datafusion.manager.scheduler.dto.TriggerInfoDto;
 import com.datafusion.manager.scheduler.dto.TriggerInfoQueryDto;
 import com.datafusion.manager.scheduler.dto.TriggerInfoSaveDto;
@@ -111,5 +113,17 @@ public class TriggerController {
     @Operation(summary = "删除触发器")
     public Result<Boolean> delete(@PathVariable("id") UUID id) {
         return Result.success(triggerInfoService.deleteTriggerInfo(id));
+    }
+
+    /**
+     * 预览cron后续运行时间.
+     *
+     * @param dto cron预览参数
+     * @return cron预览结果
+     */
+    @PostMapping("/cron/preview")
+    @Operation(summary = "预览cron后续运行时间")
+    public Result<TriggerCronPreviewResultDto> previewCron(@RequestBody @Validated TriggerCronPreviewDto dto) {
+        return Result.success(triggerInfoService.previewCron(dto));
     }
 }

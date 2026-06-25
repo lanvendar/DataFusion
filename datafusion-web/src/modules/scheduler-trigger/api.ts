@@ -1,5 +1,7 @@
 import { request } from "@/api/http";
 import type {
+  TriggerCronPreviewReq,
+  TriggerCronPreviewRes,
   TriggerItem,
   TriggerPageReq,
   TriggerPageRes,
@@ -39,5 +41,13 @@ export const triggerApi = {
 
   delete(id: string): Promise<boolean> {
     return request<boolean>({ url: `${prefix}/${id}`, method: "DELETE" });
+  },
+
+  previewCron(params: TriggerCronPreviewReq): Promise<TriggerCronPreviewRes> {
+    return request<TriggerCronPreviewRes>({
+      url: `${prefix}/cron/preview`,
+      method: "POST",
+      data: params,
+    });
   },
 };

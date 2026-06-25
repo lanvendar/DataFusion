@@ -73,6 +73,11 @@ CREATE TABLE scheduler_trigger_info (
 | `TriggerInfoSaveDto` | `Request` | 新增触发器 | `policy` | `String` | `@NotBlank` + enum name 解析 | 调度策略 |
 | `TriggerInfoSaveDto` | `Request` | 新增触发器 | `cron` | `String` | `type=CRON` 时必填 | cron 表达式 |
 | `TriggerInfoSaveDto` | `Request` | 新增触发器 | `interval` | `Integer` | `type=INTERVAL` 时必须大于 0 | 周期间隔，单位分钟 |
+| `TriggerCronPreviewDto` | `Request` | cron 运行查看 | `cron` | `String` | 必填 | cron 表达式 |
+| `TriggerCronPreviewDto` | `Request` | cron 运行查看 | `count` | `Integer` | 可选，默认 5，最大 20 | 预览数量 |
+| `TriggerCronPreviewResultDto` | `Response` | cron 运行查看 | `cron` | `String` | 无 | cron 表达式 |
+| `TriggerCronPreviewResultDto` | `Response` | cron 运行查看 | `timeZone` | `String` | 无 | 服务端时区 |
+| `TriggerCronPreviewResultDto` | `Response` | cron 运行查看 | `nextTimes` | `List<Long>` | 无 | 后续运行时间戳 |
 | `TriggerInfoUpdateDto` | `Request` | 修改触发器 | `id` | `UUID` | `@NotNull` | 触发器 ID |
 | `TriggerInfoUpdateDto` | `Request` | 修改触发器 | `name` | `String` | 非空时合并 | 触发器名称 |
 | `TriggerInfoUpdateDto` | `Request` | 修改触发器 | `type` | `String` | 非空时合并并解析 enum name | 触发器类型 |
@@ -98,6 +103,7 @@ CREATE TABLE scheduler_trigger_info (
 | `POST /api/scheduler/trigger/list` | `TriggerInfoQueryDto` | `List<TriggerInfoDto>` | `Result<T>` | 列表查询 |
 | `POST /api/scheduler/trigger/add` | `TriggerInfoSaveDto` | `UUID` | `Result<T>` | 新增触发器 |
 | `POST /api/scheduler/trigger/update` | `TriggerInfoUpdateDto` | `Boolean` | `Result<T>` | 修改触发器 |
+| `POST /api/scheduler/trigger/cron/preview` | `TriggerCronPreviewDto` | `TriggerCronPreviewResultDto` | `Result<T>` | Java cron 后续运行时间预览 |
 | `GET /api/scheduler/trigger/{id}` | path `UUID id` | `TriggerInfoDto` | `Result<T>` | 查询详情 |
 | `DELETE /api/scheduler/trigger/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 删除触发器 |
 
@@ -108,6 +114,7 @@ CREATE TABLE scheduler_trigger_info (
 | `TriggerInfoSaveDto` -> `TriggerInfoEntity` | 复制 `name`、`cron`、`interval` | `id` 使用 `UUID.randomUUID()`；`type/policy` 由 enum name 转 ordinal 字符串；审计字段由 Service 设置 |
 | `TriggerInfoUpdateDto` -> existing `TriggerInfoEntity` | 非空字符串字段和非 `null` 数值字段合并 | 合并后重新校验 `type` 与 `cron/interval` 一致性 |
 | `TriggerInfoEntity` -> `TriggerInfoDto` | 字段逐一复制 | `type/policy` 由 ordinal 字符串转 enum name |
+| `TriggerCronPreviewDto` -> `TriggerCronPreviewResultDto` | 使用 `com.datafusion.common.cron.CronUtil` 计算后续运行时间 | 前端只在 `type=CRON` 时显示“运行查看”；返回时间戳由前端格式化展示 |
 | `TriggerInfoQueryDto` -> `LambdaQueryWrapper` | `name` 使用 `like`；`type/policy` 转 ordinal 后 `eq` | 默认 `createTime desc` |
 | `TriggerInfoEntity` -> scheduler `TriggerInfo` | `TriggerStorageImpl` 组合 `FlowInfoEntity` 和 `TriggerInfoEntity` | `INTERVAL` 从分钟转换为毫秒字符串 |
 | scheduler `TriggerInfo` -> `TriggerInfoEntity` | `TriggerStorageImpl` 从调度模型转换实体 | `INTERVAL` 从毫秒字符串转换为分钟 |

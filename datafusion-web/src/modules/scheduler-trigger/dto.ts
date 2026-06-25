@@ -47,4 +47,15 @@ export interface TriggerSaveReq {
   interval?: number;
 }
 
+export interface TriggerCronPreviewReq {
+  cron: string;
+  count?: number;
+}
+
+export interface TriggerCronPreviewRes {
+  cron: string;
+  timeZone?: string;
+  nextTimes?: number[];
+}
+
 export type TriggerFormMode = "add" | "edit";

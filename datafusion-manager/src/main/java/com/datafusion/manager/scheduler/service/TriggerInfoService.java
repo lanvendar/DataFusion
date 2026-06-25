@@ -3,6 +3,8 @@ package com.datafusion.manager.scheduler.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
+import com.datafusion.manager.scheduler.dto.TriggerCronPreviewDto;
+import com.datafusion.manager.scheduler.dto.TriggerCronPreviewResultDto;
 import com.datafusion.manager.scheduler.dto.TriggerInfoDto;
 import com.datafusion.manager.scheduler.dto.TriggerInfoQueryDto;
 import com.datafusion.manager.scheduler.dto.TriggerInfoSaveDto;
@@ -76,4 +78,12 @@ public interface TriggerInfoService extends IService<TriggerInfoEntity> {
      * @return 是否成功
      */
     boolean deleteTriggerInfo(UUID id);
+
+    /**
+     * 预览cron后续运行时间.
+     *
+     * @param dto cron预览参数
+     * @return cron预览结果
+     */
+    TriggerCronPreviewResultDto previewCron(TriggerCronPreviewDto dto);
 }
