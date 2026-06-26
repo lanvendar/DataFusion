@@ -60,6 +60,22 @@ export function renderStatus(value?: string) {
   return <Tag color={value ? statusColorMap[value] || "default" : "default"}>{label}</Tag>;
 }
 
+export function renderFlowType(value?: string) {
+  const labelMap: Record<string, string> = {
+    "1": "Stream 流任务",
+    "2": "Batch 批任务",
+  };
+  const colorMap: Record<string, string> = {
+    "1": "green",
+    "2": "blue",
+  };
+  return (
+    <Tag color={value ? colorMap[value] || "default" : "default"}>
+      {value ? labelMap[value] || value : EMPTY_PLACEHOLDER}
+    </Tag>
+  );
+}
+
 export function renderType(value?: string) {
   return <Tag>{value || EMPTY_PLACEHOLDER}</Tag>;
 }

@@ -38,6 +38,10 @@ function renderEnabled(value?: boolean) {
   return <Tag color={value ? "green" : "default"}>{value ? "调度中" : "未调度"}</Tag>;
 }
 
+function renderTriggerName(value: string | undefined, record: FlowItem) {
+  return value || record.triggerId || EMPTY_PLACEHOLDER;
+}
+
 export function useColumns({ onAction }: UseColumnsProps): ColumnsType<FlowItem> {
   return [
     { title: "流程名称", dataIndex: "flowName", key: "flowName", width: 180, ellipsis: true },
@@ -49,7 +53,14 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<FlowItem>
       width: 140,
       render: renderFlowType,
     },
-    { title: "触发器", dataIndex: "triggerName", key: "triggerName", width: 160, ellipsis: true },
+    {
+      title: "触发器",
+      dataIndex: "triggerName",
+      key: "triggerName",
+      width: 160,
+      ellipsis: true,
+      render: renderTriggerName,
+    },
     {
       title: "发布状态",
       dataIndex: "publishState",

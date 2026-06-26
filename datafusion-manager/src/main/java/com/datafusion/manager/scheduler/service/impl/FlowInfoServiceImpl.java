@@ -11,6 +11,7 @@ import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.manager.scheduler.dao.FlowInfoMapper;
+import com.datafusion.manager.scheduler.dao.TriggerInfoMapper;
 import com.datafusion.manager.scheduler.dto.DagSaveDto;
 import com.datafusion.manager.scheduler.dto.EdgeDto;
 import com.datafusion.manager.scheduler.dto.EdgeViewDto;
@@ -27,6 +28,7 @@ import com.datafusion.manager.scheduler.dto.PositionDto;
 import com.datafusion.manager.scheduler.po.FlowInfoEntity;
 import com.datafusion.manager.scheduler.po.TaskInfoEntity;
 import com.datafusion.manager.scheduler.po.TaskLinkEntity;
+import com.datafusion.manager.scheduler.po.TriggerInfoEntity;
 import com.datafusion.manager.scheduler.service.FlowInfoService;
 import com.datafusion.manager.scheduler.service.TaskInfoService;
 import com.datafusion.manager.scheduler.service.TaskLinkService;
@@ -44,8 +46,11 @@ import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -73,6 +78,11 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
     private final TaskLinkService taskLinkService;
 
     /**
+     * 触发器信息Mapper.
+     */
+    private final TriggerInfoMapper triggerInfoMapper;
+
+    /**
      * master 服务.
      */
     private final ObjectProvider<MasterService> masterServiceProvider;
@@ -92,9 +102,11 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         LambdaQueryWrapper<FlowInfoEntity> wrapper = buildQueryWrapper(query.getOption());
         IPage<FlowInfoEntity> page = baseMapper.selectPage(
                 new Page<>(query.getCurrent(), query.getSize()), wrapper);
+        List<FlowInfoEntity> records = page.getRecords();
+        Map<UUID, String> triggerNameMap = buildTriggerNameMap(records);
 
         PageResponse<FlowInfoDto> response = new PageResponse<>();
-        response.setDataList(page.getRecords().stream().map(this::toDto).collect(Collectors.toList()));
+        response.setDataList(records.stream().map(entity -> toDto(entity, triggerNameMap)).collect(Collectors.toList()));
         response.setCurrent((int) page.getCurrent());
         response.setSize((int) page.getSize());
         response.setTotal((int) page.getTotal());
@@ -104,7 +116,9 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
     @Override
     public List<FlowInfoDto> listFlowInfo(FlowInfoQueryDto query) {
         LambdaQueryWrapper<FlowInfoEntity> wrapper = buildQueryWrapper(query);
-        return baseMapper.selectList(wrapper).stream().map(this::toDto).collect(Collectors.toList());
+        List<FlowInfoEntity> records = baseMapper.selectList(wrapper);
+        Map<UUID, String> triggerNameMap = buildTriggerNameMap(records);
+        return records.stream().map(entity -> toDto(entity, triggerNameMap)).collect(Collectors.toList());
     }
 
     @Override
@@ -113,7 +127,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         if (entity == null) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程不存在");
         }
-        return toDto(entity);
+        return toDto(entity, buildTriggerNameMap(List.of(entity)));
     }
 
     @Override
@@ -588,6 +602,28 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
     }
 
     /**
+     * 批量查询流程关联的触发器名称.
+     *
+     * @param entities 流程实体列表
+     * @return 触发器ID到触发器名称的映射
+     */
+    private Map<UUID, String> buildTriggerNameMap(List<FlowInfoEntity> entities) {
+        if (CollectionUtils.isEmpty(entities)) {
+            return Collections.emptyMap();
+        }
+        List<UUID> triggerIds = entities.stream()
+                .map(FlowInfoEntity::getTriggerId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (CollectionUtils.isEmpty(triggerIds)) {
+            return Collections.emptyMap();
+        }
+        return triggerInfoMapper.selectBatchIds(triggerIds).stream()
+                .collect(Collectors.toMap(TriggerInfoEntity::getId, TriggerInfoEntity::getName, (left, right) -> left));
+    }
+
+    /**
      * 将已启用流程加入运行中的 master 调度缓存.
      *
      * @param flowId 流程ID
@@ -634,10 +670,11 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
     /**
      * Entity转Dto.
      *
-     * @param entity 流程实体
+     * @param entity         流程实体
+     * @param triggerNameMap 触发器名称映射
      * @return 流程Dto
      */
-    private FlowInfoDto toDto(FlowInfoEntity entity) {
+    private FlowInfoDto toDto(FlowInfoEntity entity, Map<UUID, String> triggerNameMap) {
         FlowInfoDto dto = new FlowInfoDto();
         dto.setId(entity.getId());
         dto.setFlowName(entity.getFlowName());
@@ -652,6 +689,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         dto.setDepEventIds(splitDepEventIds(entity.getDepEventIds()));
         dto.setEventId(entity.getEventId());
         dto.setTriggerId(entity.getTriggerId());
+        dto.setTriggerName(triggerNameMap.get(entity.getTriggerId()));
         dto.setPublishState(entity.getPublishState());
         dto.setPublishVersion(entity.getPublishVersion());
         dto.setCreator(entity.getCreator());

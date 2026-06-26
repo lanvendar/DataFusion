@@ -149,7 +149,7 @@ CREATE TABLE scheduler_task_link (
 | `FlowInfoDto` | `Response` | 查询响应 | `flowParam` | `String` | `JsonNode` -> JSON 字符串 | 流程变量参数 |
 | `FlowInfoDto` | `Response` | 查询响应 | `startTime/endTime/enabled` | 多类型 | 无 | 调度窗口和启用状态 |
 | `FlowInfoDto` | `Response` | 查询响应 | `depEventIds` | `List<String>` | 逗号字符串拆分 | 依赖事件 ID |
-| `FlowInfoDto` | `Response` | 查询响应 | `eventId/triggerId/publishState/publishVersion` | 多类型 | 无 | 事件、触发器和发布信息 |
+| `FlowInfoDto` | `Response` | 查询响应 | `eventId/triggerId/triggerName/publishState/publishVersion` | 多类型 | `triggerName` 由 `scheduler_trigger_info.name` 关联补充 | 事件、触发器和发布信息 |
 | `FlowDagDto` | `Response` | 查询流程 DAG | `flowId` | `UUID` | 无 | 流程 ID |
 | `FlowDagDto` | `Response` | 查询流程 DAG | `nodes` | `List<NodeDto>` | 无 | 节点列表 |
 | `FlowDagDto` | `Response` | 查询流程 DAG | `edges` | `List<EdgeDto>` | 无 | 连线列表 |

@@ -109,6 +109,12 @@ public class FlowInfoDto {
     private UUID triggerId;
 
     /**
+     * 触发器名称.
+     */
+    @Schema(name = "triggerName", description = "触发器名称")
+    private String triggerName;
+
+    /**
      * 创建人.
      */
     @Schema(name = "creator", description = "创建人")

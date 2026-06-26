@@ -13,9 +13,9 @@ import type { FlowInstanceItem } from "../../dto";
 import {
   formatTime,
   renderCopyableId,
+  renderFlowType,
   renderStatus,
   renderTimeBlock,
-  renderType,
 } from "../../utils";
 
 interface UseColumnsProps {
@@ -44,7 +44,7 @@ export function useColumns({ onRefresh, onFlowAction }: UseColumnsProps): Column
       dataIndex: "flowType",
       key: "flowType",
       width: TYPE_COLUMN_WIDTH,
-      render: renderType,
+      render: renderFlowType,
     },
     {
       title: "实例状态",

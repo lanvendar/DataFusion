@@ -10,6 +10,7 @@
 
 ```text
 FlowController -> FlowInfoService -> FlowInfoServiceImpl -> FlowInfoMapper -> scheduler_flow_info
+                                           -> TriggerInfoMapper -> scheduler_trigger_info
 ```
 
 流程定义承担三类职责：
@@ -55,6 +56,7 @@ API 前缀：`/api/scheduler/flow`
 - 取消发布时不二次确认；先取消调度，再取消发布，最终 `enabled=false`、`publishState=false`。
 - 开始调度要求流程已发布、至少绑定一个任务节点且存在有效触发器。
 - 取消调度只修改当前流程调度启用状态，并调用 master 停止后续调度生成。
+- 流程分页、列表和详情响应需要根据 `triggerId` 批量关联 `scheduler_trigger_info.name`，返回 `triggerName` 供页面展示。
 
 ## DAG 页面规则
 
