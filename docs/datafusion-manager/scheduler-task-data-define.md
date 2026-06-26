@@ -29,7 +29,7 @@ CREATE TABLE scheduler_task_info (
     "view" json NULL,
     dep_event_ids varchar NULL,
     event_id uuid NULL,
-    enabled bool DEFAULT false NOT NULL,
+    enabled bool DEFAULT true NOT NULL,
     sync_flag bool DEFAULT false NOT NULL,
     source_route text NULL,
     creator varchar(100) NOT NULL,
@@ -175,7 +175,7 @@ CREATE TABLE scheduler_task_info (
 
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
-| `TaskInfoSaveDto` -> `TaskInfoEntity` | 复制任务定义属性 | `id` 使用 `UUID.nameUUIDFromBytes(taskCode)`；`taskParam/definition` JSON 字符串转 `JsonNode`；`pluginId` 由后端按 `taskType` 解析默认值；默认 `isBound/enabled/syncFlag=false` |
+| `TaskInfoSaveDto` -> `TaskInfoEntity` | 复制任务定义属性 | `id` 使用 `UUID.nameUUIDFromBytes(taskCode)`；`taskParam/definition` JSON 字符串转 `JsonNode`；`pluginId` 由后端按 `taskType` 解析默认值；默认 `isBound=false/enabled=true/syncFlag=false` |
 | `TaskInfoUpdateDto` -> existing `TaskInfoEntity` | 合并任务定义属性和流程编排属性的非空字段 | 不更新 `isBound/flowId`；`clearEventId=true` 时清空 `eventId`，否则 `eventId` 非空时更新；更新后置 `syncFlag=false`；`taskCode` 非空时重新校验唯一 |
 | `TaskInfoEntity` -> `TaskInfoDto` | 字段逐一复制 | `taskParam/definition/view` 从 `JsonNode` 转 JSON 字符串；任务定义页面只展示任务定义属性和必要系统审计字段 |
 | `TaskInfoQueryDto` -> `LambdaQueryWrapper` | `taskName/taskCode` 使用 `ILIKE`，`taskType` 精确匹配；调度编排查询可继续使用 `flowId/enabled/isBound` | 默认 `createTime desc` |

@@ -261,7 +261,7 @@ bizref:v1:key=value:key=value
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
 | `TaskDefinitionRegisterDto` -> existing `TaskInfoEntity` | 根据 `definition.bizRef` 查询并更新 | 保留调度编排字段，尤其不更新 `flowId`；成功后置 `syncFlag=true` |
-| `TaskDefinitionRegisterDto` -> new `TaskInfoEntity` | 根据 `definition.bizRef` 新建任务定义 | `pluginId` 按 `taskType` 解析默认值；默认 `isBound/enabled=false`；成功后置 `syncFlag=true` |
+| `TaskDefinitionRegisterDto` -> new `TaskInfoEntity` | 根据 `definition.bizRef` 新建任务定义 | `pluginId` 按 `taskType` 解析默认值；默认 `isBound=false/enabled=true`；成功后置 `syncFlag=true` |
 | `TaskDefinitionMarkUnsyncedDto` -> existing `TaskInfoEntity` | 根据 `bizRef` 定位后只更新 `syncFlag/sourceRoute` | 不更新 `definition`、`taskParam` 和调度编排字段；成功后置 `syncFlag=false` |
 | `TaskInfoEntity` -> `TaskDefinitionRegisterResultDto` | 复制关键结果字段 | `created` 由 Service 判定 |
 | `TaskInfoEntity` -> `TaskDefinitionMarkUnsyncedResultDto` | 返回任务 ID 与同步状态 | `syncFlag=false` |

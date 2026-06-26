@@ -620,7 +620,7 @@ plugin_id uuid NOT NULL, -- 执行组件ID
 "view" json NULL, -- 任务前端视图
 dep_event_ids varchar NULL, -- 依赖事件ID
 event_id uuid NULL, -- 事件ID
-enabled bool DEFAULT false NOT NULL, -- 是否启用
+enabled bool DEFAULT true NOT NULL, -- 是否启用
 sync_flag bool DEFAULT false NOT NULL, -- 任务同步标识:修改业务任务时更新false,提交时置为true
 source_route text NULL, -- 原始业务跳转定位信息
 creator varchar(100) NOT NULL, -- 创建人

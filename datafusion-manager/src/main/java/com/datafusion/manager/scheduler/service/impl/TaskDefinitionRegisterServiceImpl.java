@@ -127,7 +127,7 @@ public class TaskDefinitionRegisterServiceImpl implements TaskDefinitionRegister
         entity.setDefinition(dto.getDefinition());
         entity.setPluginId(taskTypeConfigService.getDefaultPluginIdByTaskType(dto.getTaskType()));
         entity.setIsBound(false);
-        entity.setEnabled(false);
+        entity.setEnabled(true);
         entity.setSyncFlag(true);
         entity.setSourceRoute(dto.getSourceRoute());
         fillCreateAudit(entity);

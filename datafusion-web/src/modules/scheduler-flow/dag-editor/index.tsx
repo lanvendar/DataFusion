@@ -138,7 +138,7 @@ function createNodeFromTask(task: TaskListItem, position: { x: number; y: number
       taskType: task.taskType,
       description: task.description,
       syncFlag: task.syncFlag,
-      enabled: false,
+      enabled: true,
     },
   };
 }
@@ -425,7 +425,7 @@ function ScheduleInfoPanel({
       pluginId: scheduleData?.pluginId,
       depEventIds: normalizeStringArray(scheduleData?.depEventIds),
       eventId: scheduleData?.eventId && !closedEventIds.has(scheduleData.eventId) ? scheduleData.eventId : undefined,
-      enabled: Boolean(scheduleData?.enabled),
+      enabled: scheduleData?.enabled ?? true,
       varsText: formatJsonText(paramData.vars || {}),
     };
     form.setFieldsValue(nextValues);

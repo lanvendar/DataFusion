@@ -106,7 +106,7 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
         entity.setDepEventIds(dto.getDepEventIds());
         entity.setEventId(dto.getEventId());
         entity.setIsBound(false);
-        entity.setEnabled(false);
+        entity.setEnabled(true);
         entity.setSyncFlag(false);
 
         Date now = new Date();
