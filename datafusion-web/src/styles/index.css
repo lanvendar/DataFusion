@@ -414,10 +414,18 @@ body {
 
 .flow-task-node.enabled {
   background: #ffffff;
+  border-color: #16a34a;
 }
 
 .flow-task-node.disabled {
-  background: #f3f4f6;
+  color: #334155;
+  background: #e2e8f0;
+  border-color: #94a3b8;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+}
+
+.flow-task-node.disabled .flow-task-node-code {
+  color: #475569;
 }
 
 .flow-task-node.selected {
