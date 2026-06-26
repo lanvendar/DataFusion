@@ -21,7 +21,7 @@
                   "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
-                  "SELECT `ds`,`fiscal_year`,`fiscal_month`,`year_month`,`company_code`,`company_desc`,`account_code`,`account_desc`,`begining_bfr_elim`,`periodic_bfr_elim`,`ytd_bfr_elim`,`begining_elim`,`periodic_elim`,`ytd_elim`,`begining_aft_elim`,`periodic_aft_elim`,`ytd_aft_elim`,`etl_time`,`modify_time`,`modifier`,`source_table_name`,`source_table_decs`,`_id`,`day_pt` FROM `shjc_ods_fin_bs_pl_cf_si_dtl_jc`"
+                  "SELECT `ds`,`fiscal_year`,`fiscal_month`,`year_month`,`company_code`,`company_desc`,`account_code`,`account_desc`,`begining_bfr_elim`,`periodic_bfr_elim`,`ytd_bfr_elim`,`begining_elim`,`periodic_elim`,`ytd_elim`,`begining_aft_elim`,`periodic_aft_elim`,`ytd_aft_elim`,`etl_time`,`modify_time`,`modifier`,`source_table_name`,`source_table_decs`,`_id`,STR_TO_DATE(`ds`, '%Y-%m-%d') AS `day_pt` FROM `shjc_ods_fin_bs_pl_cf_si_dtl_jc` WHERE (`etl_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `etl_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d')) OR (`modify_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `modify_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d'))"
                 ]
               }
             ]
@@ -175,7 +175,7 @@
               {
                 "name": "day_pt",
                 "type": "DATE",
-                "comment": "分区键"
+                "comment": "分区键，来源字段:ds"
               }
             ]
           }

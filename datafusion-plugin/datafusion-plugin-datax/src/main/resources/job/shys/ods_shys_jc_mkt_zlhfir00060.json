@@ -21,7 +21,7 @@
                   "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
-                  "SELECT `fiscal_year`,`fiscal_month`,`year_month`,`factory_code`,`factory_desc`,`company_code`,`company_desc`,`customer_code`,`customer_desc`,`trading_partner_code`,`material_code`,`material_desc`,`order_type_code`,`order_type_desc`,`unit`,`delivery_qty`,`pod_adj_qty`,`mt_sales_qty`,`currency`,`sales_invoice`,`sales_order_no`,`contract_no`,`contract_type`,`price_type`,`sap_contract_no`,`delivery_no`,`operating_income_local_currency`,`operating_income`,`income_voucher_no`,`income_account_code`,`refer_voucher_no`,`sales_tax`,`operating_costs`,`gross_profit`,`income_account_desc`,`profit_costcenter`,`transport_mode_desc`,`sales_area`,`transport_expense`,`gross_profit_rate`,`costs_account_code`,`costs_account_desc`,`transport_mode_code`,`sales_contract`,`specification`,`posting_time`,`etl_time`,`_id`,`trading_partner_company_code`,`modify_time`,`modifier`,`day_pt` FROM `shjc_ods_mkt_zlhfir00060_jc`"
+                  "SELECT `fiscal_year`,`fiscal_month`,`year_month`,`factory_code`,`factory_desc`,`company_code`,`company_desc`,`customer_code`,`customer_desc`,`trading_partner_code`,`material_code`,`material_desc`,`order_type_code`,`order_type_desc`,`unit`,`delivery_qty`,`pod_adj_qty`,`mt_sales_qty`,`currency`,`sales_invoice`,`sales_order_no`,`contract_no`,`contract_type`,`price_type`,`sap_contract_no`,`delivery_no`,`operating_income_local_currency`,`operating_income`,`income_voucher_no`,`income_account_code`,`refer_voucher_no`,`sales_tax`,`operating_costs`,`gross_profit`,`income_account_desc`,`profit_costcenter`,`transport_mode_desc`,`sales_area`,`transport_expense`,`gross_profit_rate`,`costs_account_code`,`costs_account_desc`,`transport_mode_code`,`sales_contract`,`specification`,`posting_time`,`etl_time`,`_id`,`trading_partner_company_code`,`modify_time`,`modifier`,STR_TO_DATE(CONCAT(`year_month`, '-01'), '%Y-%m-%d') AS `day_pt` FROM `shjc_ods_mkt_zlhfir00060_jc` WHERE (`etl_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `etl_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d')) OR (`modify_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `modify_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d'))"
                 ]
               }
             ]
@@ -315,7 +315,7 @@
               {
                 "name": "day_pt",
                 "type": "DATE",
-                "comment": "分区键"
+                "comment": "分区键，来源字段:year_month"
               }
             ]
           }

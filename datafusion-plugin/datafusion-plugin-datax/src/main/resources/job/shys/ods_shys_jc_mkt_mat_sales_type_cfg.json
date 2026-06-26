@@ -21,7 +21,7 @@
                   "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
-                  "SELECT `_id`,`ds`,`fiscal_year`,`fiscal_month`,`year_month`,`company_code`,`company_desc`,`material_code`,`material_desc`,`sales_type_code`,`sales_type_desc`,`etl_time`,`modify_time`,`modifier`,`day_pt` FROM `shjc_ods_mkt_mat_sales_type_cfg_jc`"
+                  "SELECT `_id`,`ds`,`fiscal_year`,`fiscal_month`,`year_month`,`company_code`,`company_desc`,`material_code`,`material_desc`,`sales_type_code`,`sales_type_desc`,`etl_time`,`modify_time`,`modifier`,STR_TO_DATE(`ds`, '%Y-%m-%d') AS `day_pt` FROM `shjc_ods_mkt_mat_sales_type_cfg_jc` WHERE (`etl_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `etl_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d')) OR (`modify_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `modify_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d'))"
                 ]
               }
             ]
@@ -130,7 +130,7 @@
               {
                 "name": "day_pt",
                 "type": "DATE",
-                "comment": "分区键"
+                "comment": "分区键，来源字段:ds"
               }
             ]
           }

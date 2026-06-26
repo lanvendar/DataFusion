@@ -21,7 +21,7 @@
                   "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
-                  "SELECT `ds`,`fiscal_year`,`fiscal_month`,`company_code`,`company_desc`,`asset_type_code`,`asset_type_desc`,`asset_subclass_code`,`asset_subclass_desc`,`cost_center_code`,`cost_center_desc`,`local_amount`,`local_currency`,`group_amt`,`group_currency`,`mgt_org_code`,`mgt_org_desc`,`asset_p_type_code`,`asset_p_type_desc`,`etl_time`,`modify_time`,`modifier`,`_id` FROM `shjc_ods_cap_asset_post_acct_rpt_jc`"
+                  "SELECT `ds`,`fiscal_year`,`fiscal_month`,`company_code`,`company_desc`,`asset_type_code`,`asset_type_desc`,`asset_subclass_code`,`asset_subclass_desc`,`cost_center_code`,`cost_center_desc`,`local_amount`,`local_currency`,`group_amt`,`group_currency`,`mgt_org_code`,`mgt_org_desc`,`asset_p_type_code`,`asset_p_type_desc`,`etl_time`,`modify_time`,`modifier`,`_id`,STR_TO_DATE(`ds`, '%Y-%m-%d') AS `day_pt` FROM `shjc_ods_cap_asset_post_acct_rpt_jc` WHERE (`etl_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `etl_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d')) OR (`modify_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `modify_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d'))"
                 ]
               }
             ]
@@ -54,8 +54,8 @@
               "enabled": false,
               "partition": {}
             },
-            "primaryKey": "_id",
-            "partitionKey": "",
+            "primaryKey": "_id,day_pt",
+            "partitionKey": "day_pt",
             "column": [
               {
                 "name": "ds",
@@ -171,6 +171,11 @@
                 "name": "_id",
                 "type": "INT",
                 "comment": "技术主键"
+              },
+              {
+                "name": "day_pt",
+                "type": "DATE",
+                "comment": "分区键，来源字段:ds"
               }
             ]
           }

@@ -21,7 +21,7 @@
                   "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
-                  "SELECT `fiscal_year`,`fiscal_month`,`fiscal_year_month`,`factory_code`,`factory_name`,`company_code`,`company_desc`,`home_or_abroad`,`trading_direction`,`supplier_code`,`supplier_desc`,`trading_parter_code`,`trading_partner_company_code`,`material_code`,`material_desc`,`item_unit`,`acct_voucher_no`,`acct_voucher_source`,`voucher_type`,`voucher_type_desc`,`voucher_head_text`,`item_no`,`account_code`,`account_desc`,`negative_posting_flag`,`voucher_date`,`post_date`,`expense_type_qty`,`item_qty`,`exc_rate`,`orig_currency`,`item_original_amount`,`item_original_tax_amount`,`local_currency`,`local_amt`,`local_tax_amt`,`cny_currency`,`cny_amt`,`cny_tax_amt`,`dc_flag`,`dc_flag_desc`,`oil_currency`,`oil_qty`,`oil_amt`,`item_tax_code`,`item_tax_rate`,`oil_p_contract`,`etl_time`,`expense_type`,`acct_voucher_source_code`,`modify_time`,`modifier`,`bgt_pd_mat_type_code`,`bgt_pd_mat_type_desc`,`bgt_prog_mat_type_code`,`bgt_prog_mat_type_desc`,`work_center_code`,`_id`,`day_pt` FROM `shjc_ods_pur_so_ord_rcpt_inv_dtl_jc`"
+                  "SELECT `fiscal_year`,`fiscal_month`,`fiscal_year_month`,`factory_code`,`factory_name`,`company_code`,`company_desc`,`home_or_abroad`,`trading_direction`,`supplier_code`,`supplier_desc`,`trading_parter_code`,`trading_partner_company_code`,`material_code`,`material_desc`,`item_unit`,`acct_voucher_no`,`acct_voucher_source`,`voucher_type`,`voucher_type_desc`,`voucher_head_text`,`item_no`,`account_code`,`account_desc`,`negative_posting_flag`,`voucher_date`,`post_date`,`expense_type_qty`,`item_qty`,`exc_rate`,`orig_currency`,`item_original_amount`,`item_original_tax_amount`,`local_currency`,`local_amt`,`local_tax_amt`,`cny_currency`,`cny_amt`,`cny_tax_amt`,`dc_flag`,`dc_flag_desc`,`oil_currency`,`oil_qty`,`oil_amt`,`item_tax_code`,`item_tax_rate`,`oil_p_contract`,`etl_time`,`expense_type`,`acct_voucher_source_code`,`modify_time`,`modifier`,`bgt_pd_mat_type_code`,`bgt_pd_mat_type_desc`,`bgt_prog_mat_type_code`,`bgt_prog_mat_type_desc`,`work_center_code`,`_id`,STR_TO_DATE(CONCAT(`fiscal_year_month`, '-01'), '%Y-%m-%d') AS `day_pt` FROM `shjc_ods_pur_so_ord_rcpt_inv_dtl_jc` WHERE (`etl_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `etl_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d')) OR (`modify_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `modify_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d'))"
                 ]
               }
             ]
@@ -350,7 +350,7 @@
               {
                 "name": "day_pt",
                 "type": "DATE",
-                "comment": "分区键"
+                "comment": "分区键，来源字段:fiscal_year_month"
               }
             ]
           }

@@ -21,7 +21,7 @@
                   "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
-                  "SELECT `ds`,`fiscal_year`,`fiscal_month`,`year_month`,`factory_code`,`factory_desc`,`company_code`,`company_desc`,`material_code`,`material_desc`,`mat_basic_unit`,`measure_unit`,`evaluation_type`,`evaluation_class`,`special_stock_flag`,`begin_stock_num`,`begin_stock_amt`,`product_store_num`,`product_store_amt`,`purchase_store_num`,`purchase_store_amt`,`material_store_num`,`material_store_amt`,`inventory_profit_num`,`inventory_profit_amt`,`other_store_num`,`other_store_amt`,`total_store_num`,`total_store_amt`,`stock_adj_amt`,`production_outbound_num`,`production_outbound_amt`,`sales_outbound_num`,`sales_outbound_amt`,`sample_outbound_num`,`sample_outbound_amt`,`project_outbound_num`,`project_outbound_amt`,`costcenter_outbound_num`,`costcenter_outbound_amt`,`material_outbound_num`,`material_outbound_amt`,`inventory_loss_num`,`inventory_loss_amt`,`other_outbound_num`,`other_outbound_amt`,`total_outbound_num`,`total_outbound_amt`,`ytd_stock_num`,`ytd_stock_amt`,`inappropriate_diff_amt`,`etl_time`,`modify_time`,`modifier`,`_id`,`day_pt` FROM `shjc_ods_wh_zfir00189_jc`"
+                  "SELECT `ds`,`fiscal_year`,`fiscal_month`,`year_month`,`factory_code`,`factory_desc`,`company_code`,`company_desc`,`material_code`,`material_desc`,`mat_basic_unit`,`measure_unit`,`evaluation_type`,`evaluation_class`,`special_stock_flag`,`begin_stock_num`,`begin_stock_amt`,`product_store_num`,`product_store_amt`,`purchase_store_num`,`purchase_store_amt`,`material_store_num`,`material_store_amt`,`inventory_profit_num`,`inventory_profit_amt`,`other_store_num`,`other_store_amt`,`total_store_num`,`total_store_amt`,`stock_adj_amt`,`production_outbound_num`,`production_outbound_amt`,`sales_outbound_num`,`sales_outbound_amt`,`sample_outbound_num`,`sample_outbound_amt`,`project_outbound_num`,`project_outbound_amt`,`costcenter_outbound_num`,`costcenter_outbound_amt`,`material_outbound_num`,`material_outbound_amt`,`inventory_loss_num`,`inventory_loss_amt`,`other_outbound_num`,`other_outbound_amt`,`total_outbound_num`,`total_outbound_amt`,`ytd_stock_num`,`ytd_stock_amt`,`inappropriate_diff_amt`,`etl_time`,`modify_time`,`modifier`,`_id`,STR_TO_DATE(`ds`, '%Y-%m-%d') AS `day_pt` FROM `shjc_ods_wh_zfir00189_jc` WHERE (`etl_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `etl_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d')) OR (STR_TO_DATE(`modify_time`, '%Y-%m-%d %H:%i:%s') >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND STR_TO_DATE(`modify_time`, '%Y-%m-%d %H:%i:%s') < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d'))"
                 ]
               }
             ]
@@ -335,7 +335,7 @@
               {
                 "name": "day_pt",
                 "type": "DATE",
-                "comment": "分区键"
+                "comment": "分区键，来源字段:ds"
               }
             ]
           }
