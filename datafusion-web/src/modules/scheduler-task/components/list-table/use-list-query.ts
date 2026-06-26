@@ -14,7 +14,10 @@ function sameFilter(left: TaskPageOption, right: TaskPageOption) {
   return (
     left.taskName === right.taskName &&
     left.taskCode === right.taskCode &&
-    left.taskType === right.taskType
+    left.taskType === right.taskType &&
+    left.isBound === right.isBound &&
+    left.enabled === right.enabled &&
+    left.syncFlag === right.syncFlag
   );
 }
 
@@ -32,6 +35,9 @@ export function useTaskListQuery() {
         taskName: appliedFilter.taskName || undefined,
         taskCode: appliedFilter.taskCode || undefined,
         taskType: appliedFilter.taskType || undefined,
+        isBound: appliedFilter.isBound,
+        enabled: appliedFilter.enabled,
+        syncFlag: appliedFilter.syncFlag,
       },
     }),
     [appliedFilter, current, pageSize],

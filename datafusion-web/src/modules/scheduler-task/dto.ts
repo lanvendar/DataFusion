@@ -15,6 +15,8 @@ export interface TaskItem {
   taskParam?: string;
   definition?: string;
   isBound?: boolean;
+  enabled?: boolean;
+  syncFlag?: boolean;
   creator?: string;
   updater?: string;
   createTime?: string;
@@ -25,6 +27,9 @@ export interface TaskPageOption {
   taskName?: string;
   taskCode?: string;
   taskType?: string;
+  isBound?: boolean;
+  enabled?: boolean;
+  syncFlag?: boolean;
 }
 
 export interface TaskPageReq {

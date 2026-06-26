@@ -10,12 +10,30 @@ export const defaultFilter: TaskPageOption = {
   taskName: "",
   taskCode: "",
   taskType: undefined,
+  isBound: undefined,
+  enabled: undefined,
+  syncFlag: undefined,
 };
 
 export const taskTypeOptions = [
   { label: "DataX 任务", value: "DATAX" },
   { label: "Shell 任务", value: "SHELL" },
   { label: "SQL 任务", value: "SQL" },
+];
+
+export const boundOptions = [
+  { label: "已绑定", value: true },
+  { label: "未绑定", value: false },
+];
+
+export const enabledOptions = [
+  { label: "已启用", value: true },
+  { label: "未启用", value: false },
+];
+
+export const syncFlagOptions = [
+  { label: "已同步", value: true },
+  { label: "未同步", value: false },
 ];
 
 export const taskTypeColorMap: Record<string, string> = {

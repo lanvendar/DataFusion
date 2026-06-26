@@ -1,5 +1,10 @@
 import { Input, Select, Space } from "antd";
-import { taskTypeOptions } from "../../constants";
+import {
+  boundOptions,
+  enabledOptions,
+  syncFlagOptions,
+  taskTypeOptions,
+} from "../../constants";
 import type { TaskPageOption } from "../../dto";
 
 interface TaskFiltersProps {
@@ -32,6 +37,30 @@ export function TaskFilters({ value, onChange, onSearch }: TaskFiltersProps) {
         value={value.taskType}
         options={taskTypeOptions}
         onChange={(taskType) => onChange({ ...value, taskType })}
+      />
+      <Select
+        allowClear
+        className="filter-select"
+        placeholder="是否绑定流程"
+        value={value.isBound}
+        options={boundOptions}
+        onChange={(isBound) => onChange({ ...value, isBound })}
+      />
+      <Select
+        allowClear
+        className="filter-select"
+        placeholder="是否启用"
+        value={value.enabled}
+        options={enabledOptions}
+        onChange={(enabled) => onChange({ ...value, enabled })}
+      />
+      <Select
+        allowClear
+        className="filter-select"
+        placeholder="是否同步"
+        value={value.syncFlag}
+        options={syncFlagOptions}
+        onChange={(syncFlag) => onChange({ ...value, syncFlag })}
       />
     </Space>
   );

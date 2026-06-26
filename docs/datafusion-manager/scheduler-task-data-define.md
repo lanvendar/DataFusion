@@ -70,7 +70,7 @@ CREATE TABLE scheduler_task_info (
 | `view` | `view` | `JsonNode` | 否 | 无 | 前端流程画布视图 JSON，属于调度编排属性 |
 | `dep_event_ids` | `depEventIds` | `String` | 否 | 无 | 依赖事件 ID，属于调度编排属性，当前按逗号分隔字符串保存 |
 | `event_id` | `eventId` | `UUID` | 否 | 无 | 本任务产生的事件 ID，属于调度编排属性 |
-| `enabled` | `enabled` | `Boolean` | 是 | `false` | 是否启用调度，属于调度编排属性 |
+| `enabled` | `enabled` | `Boolean` | 是 | `true` | 是否启用调度，属于调度编排属性 |
 | `sync_flag` | `syncFlag` | `Boolean` | 是 | `false` | 任务同步标识，修改业务任务时置为 `false` |
 | `source_route` | `sourceRoute` | `String` | 否 | 无 | 原始业务跳转定位信息 |
 | `creator` | `creator` | `String` | 是 | 当前用户 | 创建人，继承自 `BaseEntity` |
@@ -112,8 +112,9 @@ CREATE TABLE scheduler_task_info (
 | `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `taskCode` | `String` | `ILIKE` | 任务编码模糊查询 |
 | `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `taskType` | `String` | `eq` | 任务类型过滤 |
 | `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `flowId` | `UUID` | 调度编排查询保留；任务定义页面不使用 | 所属流程 ID 过滤 |
-| `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `enabled` | `Boolean` | 调度编排查询保留；任务定义页面不使用 | 启用状态过滤 |
-| `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `isBound` | `Boolean` | 调度编排查询保留；任务定义页面不使用 | 绑定状态过滤 |
+| `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `enabled` | `Boolean` | `eq` | 启用状态过滤 |
+| `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `isBound` | `Boolean` | `eq` | 绑定状态过滤 |
+| `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `syncFlag` | `Boolean` | `eq` | 同步状态过滤 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `taskName` | `String` | `@NotBlank` | 任务名称 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `taskCode` | `String` | `@NotBlank` + 唯一性校验 | 任务编码 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `description` | `String` | 可选 | 任务描述 |
@@ -178,7 +179,7 @@ CREATE TABLE scheduler_task_info (
 | `TaskInfoSaveDto` -> `TaskInfoEntity` | 复制任务定义属性 | `id` 使用 `UUID.nameUUIDFromBytes(taskCode)`；`taskParam/definition` JSON 字符串转 `JsonNode`；`pluginId` 由后端按 `taskType` 解析默认值；默认 `isBound=false/enabled=true/syncFlag=false` |
 | `TaskInfoUpdateDto` -> existing `TaskInfoEntity` | 合并任务定义属性和流程编排属性的非空字段 | 不更新 `isBound/flowId`；`clearEventId=true` 时清空 `eventId`，否则 `eventId` 非空时更新；更新后置 `syncFlag=false`；`taskCode` 非空时重新校验唯一 |
 | `TaskInfoEntity` -> `TaskInfoDto` | 字段逐一复制 | `taskParam/definition/view` 从 `JsonNode` 转 JSON 字符串；任务定义页面只展示任务定义属性和必要系统审计字段 |
-| `TaskInfoQueryDto` -> `LambdaQueryWrapper` | `taskName/taskCode` 使用 `ILIKE`，`taskType` 精确匹配；调度编排查询可继续使用 `flowId/enabled/isBound` | 默认 `createTime desc` |
+| `TaskInfoQueryDto` -> `LambdaQueryWrapper` | `taskName/taskCode` 使用 `ILIKE`，`taskType/flowId/enabled/isBound/syncFlag` 精确匹配 | 默认 `createTime desc` |
 | `TaskInfoEntity` -> scheduler `TaskInfo` | `TaskStorageImpl` 转换为调度框架模型 | `taskParam` 转 `ParamData.vars`；`definition` 透传为 `JsonNode`；`depEventIds` 按逗号转集合；`enabled` 转 `isAble` |
 | `TaskInstanceEntity` -> scheduler `TaskInstance` | `TaskStorageImpl` 转换任务实例模型 | `task_param` 转运行期 `ParamData.vars`；`task_data` 转渲染后的任务定义 |
 

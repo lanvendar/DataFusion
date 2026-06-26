@@ -231,6 +231,9 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
             if (query.getIsBound() != null) {
                 wrapper.eq(TaskInfoEntity::getIsBound, query.getIsBound());
             }
+            if (query.getSyncFlag() != null) {
+                wrapper.eq(TaskInfoEntity::getSyncFlag, query.getSyncFlag());
+            }
         }
         wrapper.orderByDesc(TaskInfoEntity::getCreateTime);
         return wrapper;

@@ -51,4 +51,10 @@ public class TaskInfoQueryDto {
      */
     @Schema(name = "isBound", description = "绑定状态过滤")
     private Boolean isBound;
+
+    /**
+     * 同步状态过滤.
+     */
+    @Schema(name = "syncFlag", description = "同步状态过滤")
+    private Boolean syncFlag;
 }
