@@ -124,7 +124,7 @@ export function canvasNodeToDag(node: FlowCanvasNode): FlowDagNodeDto {
       taskCode: node.data.taskCode,
       taskType: node.data.taskType,
       description: node.data.description,
-      syncFlag: node.data.syncFlag,
+      enabled: node.data.enabled,
       taskParam: node.data.taskParam,
       definition: node.data.definition,
     },

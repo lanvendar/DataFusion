@@ -535,7 +535,6 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
                     .set(TaskInfoEntity::getIsBound, false)
                     .set(TaskInfoEntity::getFlowId, null)
                     .set(TaskInfoEntity::getView, null)
-                    .set(TaskInfoEntity::getSyncFlag, false)
                     .set(TaskInfoEntity::getUpdater, HttpUtils.getCurrentUserName())
                     .set(TaskInfoEntity::getUpdateTime, new Date());
             taskInfoService.update(wrapper);
@@ -554,9 +553,12 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         wrapper.eq(TaskInfoEntity::getId, taskId)
                 .set(TaskInfoEntity::getIsBound, true)
                 .set(TaskInfoEntity::getFlowId, flowId)
-                .set(TaskInfoEntity::getSyncFlag, false)
                 .set(TaskInfoEntity::getUpdater, HttpUtils.getCurrentUserName())
                 .set(TaskInfoEntity::getUpdateTime, new Date());
+
+        if (node.getData() != null && node.getData().getEnabled() != null) {
+            wrapper.set(TaskInfoEntity::getEnabled, node.getData().getEnabled());
+        }
 
         if (node.getNodeView() != null) {
             wrapper.set(TaskInfoEntity::getView, JacksonUtils.convertPojoToJsonNodeSafely(node.getNodeView()));
