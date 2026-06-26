@@ -12,6 +12,18 @@ function renderTaskType(value?: string) {
   return <Tag color={value ? taskTypeColorMap[value] || "default" : "default"}>{value || EMPTY_PLACEHOLDER}</Tag>;
 }
 
+function renderBound(value?: boolean) {
+  return <Tag color={value ? "blue" : "default"}>{value ? "已绑定" : "未绑定"}</Tag>;
+}
+
+function renderEnabled(value?: boolean) {
+  return <Tag color={value ? "green" : "default"}>{value ? "已启用" : "未启用"}</Tag>;
+}
+
+function renderSyncFlag(value?: boolean) {
+  return <Tag color={value ? "success" : "warning"}>{value ? "已同步" : "未同步"}</Tag>;
+}
+
 export function useColumns({ onAction }: UseColumnsProps): ColumnsType<TaskItem> {
   return [
     { title: "任务名称", dataIndex: "taskName", key: "taskName", width: 180, ellipsis: true },
@@ -23,7 +35,9 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<TaskItem>
       width: 120,
       render: renderTaskType,
     },
-    { title: "任务描述", dataIndex: "description", key: "description", width: 220, ellipsis: true },
+    { title: "是否绑定流程", dataIndex: "isBound", key: "isBound", width: 130, render: renderBound },
+    { title: "是否启用", dataIndex: "enabled", key: "enabled", width: 110, render: renderEnabled },
+    { title: "是否同步", dataIndex: "syncFlag", key: "syncFlag", width: 110, render: renderSyncFlag },
     { title: "创建人", dataIndex: "creator", key: "creator", width: 120 },
     { title: "更新时间", dataIndex: "updateTime", key: "updateTime", width: 180 },
     {

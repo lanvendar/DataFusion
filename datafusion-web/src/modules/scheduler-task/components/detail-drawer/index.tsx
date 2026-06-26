@@ -12,6 +12,18 @@ interface TaskDetailProps {
   onClose: () => void;
 }
 
+function renderBound(value?: boolean) {
+  return <Tag color={value ? "blue" : "default"}>{value ? "已绑定" : "未绑定"}</Tag>;
+}
+
+function renderEnabled(value?: boolean) {
+  return <Tag color={value ? "green" : "default"}>{value ? "已启用" : "未启用"}</Tag>;
+}
+
+function renderSyncFlag(value?: boolean) {
+  return <Tag color={value ? "success" : "warning"}>{value ? "已同步" : "未同步"}</Tag>;
+}
+
 export function TaskDetail({ open, taskId, onClose }: TaskDetailProps) {
   const [detailData, setDetailData] = useState<TaskItem>();
   const [loading, setLoading] = useState(false);
@@ -73,6 +85,15 @@ export function TaskDetail({ open, taskId, onClose }: TaskDetailProps) {
                 <Tag color={taskTypeColorMap[detailData.taskType] || "default"}>
                   {detailData.taskType || EMPTY_PLACEHOLDER}
                 </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="是否绑定流程">
+                {renderBound(detailData.isBound)}
+              </Descriptions.Item>
+              <Descriptions.Item label="是否启用">
+                {renderEnabled(detailData.enabled)}
+              </Descriptions.Item>
+              <Descriptions.Item label="是否同步">
+                {renderSyncFlag(detailData.syncFlag)}
               </Descriptions.Item>
               <Descriptions.Item label="创建人">
                 {detailData.creator || EMPTY_PLACEHOLDER}

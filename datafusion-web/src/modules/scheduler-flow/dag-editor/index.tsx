@@ -113,7 +113,10 @@ function TaskNode({ data, selected }: NodeProps<FlowCanvasNode>) {
         <span>{data.taskName || data.taskId || "-"}</span>
       </div>
       <div className="flow-task-node-code">{data.taskCode || "-"}</div>
-      <Tag className="flow-task-node-type">{data.taskType || "-"}</Tag>
+      <div className="flow-task-node-meta">
+        <Tag className="flow-task-node-type">{data.taskType || "-"}</Tag>
+        {isUnsynced(data.syncFlag) ? <Tag color="warning">未同步</Tag> : <Tag color="success">已同步</Tag>}
+      </div>
       <Handle type="target" position={Position.Right} id="right-target" />
       <Handle type="source" position={Position.Right} id="right-source" />
       <Handle type="target" position={Position.Bottom} id="bottom-target" />

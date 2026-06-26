@@ -457,8 +457,22 @@ body {
   white-space: nowrap;
 }
 
-.flow-task-node-type {
+.flow-task-node-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-top: 8px;
+}
+
+.flow-task-node-meta .ant-tag {
+  margin-inline-end: 0;
+}
+
+.flow-task-node-type {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .flow-task-node .react-flow__handle {
