@@ -21,7 +21,7 @@
                   "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
-                  "SELECT `id`,`decimal_val`,`string_val`,`period`,`year`,`scenario`,`version`,`entity`,`account`,`flow`,`interco`,`product`,`material`,`project`,`object`,`type`,`misc`,`trail`,`other1`,`other2`,`createdate`,`createtime`,`day_pt` FROM `shys_main_table_5potm_ys`"
+                  "SELECT `decimal_val`,`string_val`,`period`,`year`,`scenario`,`version`,`entity`,`account`,`flow`,`interco`,`product`,`material`,`project`,`object`,`type`,`misc`,`trail`,`other1`,`other2`,`createdate`,`createtime`,`createdate` AS `day_pt` FROM `shys_main_table_5potm_ys` WHERE `createdate` = #day(_biz_date_, -60D, yyyyMMdd)"
                 ]
               }
             ]
@@ -54,14 +54,11 @@
               "enabled": false,
               "partition": {}
             },
-            "primaryKey": "id,day_pt",
+            "primaryKey": "period,year,scenario,version,entity,account,flow,interco,product,material,project,object,type,misc,trail,other1,other2",
+            "primaryKeyMode": "PROXY",
+            "primaryKeyAlgorithm": "UUID",
             "partitionKey": "day_pt",
             "column": [
-              {
-                "name": "id",
-                "type": "BIGINT",
-                "comment": "主键ID"
-              },
               {
                 "name": "decimal_val",
                 "type": "DECIMAL(19,6)",
