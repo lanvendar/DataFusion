@@ -59,6 +59,18 @@ class TaskRunMsgHandlerTest {
         assertNotNull(taskStorage.taskInstance.getStartTime());
     }
 
+    @Test
+    void shouldMarkUnknownAsFinalFailureWhenWorkerReportsUnknown() {
+        RecordingTaskStorage taskStorage = new RecordingTaskStorage(taskInstance(StatusEnum.RUNNING));
+        TaskRunMsgHandler handler = taskRunMsgHandler(taskStorage);
+
+        handler.handleAction(taskMsg(taskResult(StatusEnum.UNKNOWN)), null);
+
+        assertEquals(StatusEnum.UNKNOWN, taskStorage.taskInstance.getState());
+        assertNotNull(taskStorage.taskInstance.getStartTime());
+        assertNotNull(taskStorage.taskInstance.getEndTime());
+    }
+
     private TaskRunMsgHandler taskRunMsgHandler(RecordingTaskStorage taskStorage) {
         return new TaskRunMsgHandler(taskStorage, null, new NoopMasterTaskOperator());
     }

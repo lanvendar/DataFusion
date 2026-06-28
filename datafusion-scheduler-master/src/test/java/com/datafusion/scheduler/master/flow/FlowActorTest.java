@@ -78,6 +78,17 @@ class FlowActorTest {
     }
 
     @Test
+    void shouldAggregateToUnknownBeforeRunFailureWhenUnknownTaskExists() {
+        FlowMsgHandlerRegister register = new FlowMsgHandlerRegister();
+        FlowActor actor = new FlowActor("flow-instance-1", register);
+
+        actor.updateTaskState("task-1", StatusEnum.RUN_FAILURE);
+        StatusEnum flowState = actor.updateTaskState("task-2", StatusEnum.UNKNOWN);
+
+        assertEquals(StatusEnum.UNKNOWN, flowState);
+    }
+
+    @Test
     void shouldIgnoreNonFlowMessage() {
         FlowMsgHandlerRegister register = new FlowMsgHandlerRegister();
         FlowMsgHandler handler = mock(FlowMsgHandler.class);

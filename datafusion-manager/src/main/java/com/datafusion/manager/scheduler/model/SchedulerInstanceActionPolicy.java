@@ -51,7 +51,7 @@ public final class SchedulerInstanceActionPolicy {
     /**
      * 可强制停止任务状态.
      */
-    private static final Set<StatusEnum> TASK_KILL_STATES = EnumSet.of(StatusEnum.STOP_FAILURE);
+    private static final Set<StatusEnum> TASK_KILL_STATES = EnumSet.of(StatusEnum.STOP_FAILURE, StatusEnum.UNKNOWN);
 
     /**
      * 可重启任务状态.

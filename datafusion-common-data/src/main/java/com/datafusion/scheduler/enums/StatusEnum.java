@@ -166,7 +166,7 @@ public enum StatusEnum {
      * @return true：成功 false：失败
      */
     public boolean isFailure() {
-        return this == SUBMIT_FAILURE || this == RUN_FAILURE || this == STOP_FAILURE;
+        return this == SUBMIT_FAILURE || this == RUN_FAILURE || this == STOP_FAILURE || this == UNKNOWN;
     }
     
     /**

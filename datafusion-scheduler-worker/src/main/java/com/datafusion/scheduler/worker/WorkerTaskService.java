@@ -165,7 +165,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
         normalizeRequest(request);
         validateTaskInstanceId(request);
         RunningTaskContext context = contextStore.get(request.getTaskInstanceId());
-        if (context != null && isFinalState(context.getTaskState())) {
+        if (context != null && shouldReturnFinalContextForKill(context.getTaskState())) {
             return responseFromContext(context);
         }
         TaskRequest resolvedRequest = context == null ? request : context.fillRequest(request);
@@ -173,7 +173,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
         if (executor == null) {
             return failureResult(resolvedRequest, StatusEnum.KILLED, "未匹配到插件执行器: " + resolvedRequest.getPluginType());
         }
-        TaskResult result = safeExecuteControl(executor, resolvedRequest, StatusEnum.KILLED, TaskControlAction.KILL);
+        TaskResult result = safeExecuteControl(executor, resolvedRequest, StatusEnum.UNKNOWN, TaskControlAction.KILL);
         updateContext(context, result);
         resultReporter.report(result);
         removeFinalContext(context, executor, resolvedRequest, result);
@@ -371,6 +371,10 @@ public class WorkerTaskService implements WorkerTaskOperator {
 
     private boolean isFinalState(StatusEnum state) {
         return state != null && state.isFinalState();
+    }
+
+    private boolean shouldReturnFinalContextForKill(StatusEnum state) {
+        return isFinalState(state) && state != StatusEnum.UNKNOWN;
     }
 
     private boolean isBlank(String value) {

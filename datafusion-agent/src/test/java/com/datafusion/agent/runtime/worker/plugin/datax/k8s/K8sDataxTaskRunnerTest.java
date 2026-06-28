@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -46,6 +47,41 @@ class K8sDataxTaskRunnerTest {
 
         assertEquals(StatusEnum.STOPPING, result.getTaskState());
         assertEquals(false, client.forcibly);
+    }
+
+    @Test
+    void shouldReturnKilledWhenKubernetesKillDeletesJob() {
+        FakeKubernetesClient client = new FakeKubernetesClient();
+        K8sDataxTaskRunner runner = runner(client);
+
+        TaskResult result = runner.kill(request(), state(StatusEnum.UNKNOWN));
+
+        assertEquals(StatusEnum.KILLED, result.getTaskState());
+        assertEquals(true, client.forcibly);
+        assertEquals("df-datax-task-1", client.lastRuntimeRef.getJobName());
+    }
+
+    @Test
+    void shouldReturnUnknownWhenKubernetesKillFails() {
+        FakeKubernetesClient client = new FakeKubernetesClient();
+        client.stopException = new IllegalStateException("delete failed");
+        K8sDataxTaskRunner runner = runner(client);
+
+        TaskResult result = runner.kill(request(), state(StatusEnum.UNKNOWN));
+
+        assertEquals(StatusEnum.UNKNOWN, result.getTaskState());
+        assertEquals("K8S DataX kill failed: delete failed", result.getWorkerResult().getMessage());
+    }
+
+    @Test
+    void shouldReturnKilledWhenKubernetesRuntimeRefIsMissingOnKill() {
+        FakeKubernetesClient client = new FakeKubernetesClient();
+        K8sDataxTaskRunner runner = runner(client);
+
+        TaskResult result = runner.kill(request(), stateWithoutAppId(StatusEnum.UNKNOWN));
+
+        assertEquals(StatusEnum.KILLED, result.getTaskState());
+        assertNull(client.forcibly);
     }
 
     @Test
@@ -166,6 +202,15 @@ class K8sDataxTaskRunnerTest {
                 .build();
     }
 
+    private WorkerTaskExecutionState stateWithoutAppId(StatusEnum status) {
+        return WorkerTaskExecutionState.builder()
+                .taskInstanceId("task-1")
+                .workDirPath(tempDir.resolve("task-runtime").resolve("20260621").resolve("flow-1")
+                        .resolve("task-1").toString())
+                .status(status)
+                .build();
+    }
+
     private DataxKubernetesRuntimeRef runtimeRef() {
         return DataxKubernetesRuntimeRef.builder()
                 .namespace("df")
@@ -207,6 +252,11 @@ class K8sDataxTaskRunnerTest {
          */
         private DataxKubernetesRuntimeRef lastRuntimeRef;
 
+        /**
+         * Stop exception.
+         */
+        private RuntimeException stopException;
+
         @Override
         public DataxKubernetesRuntimeRef submit(DataxExecutionParam param) {
             return null;
@@ -214,6 +264,9 @@ class K8sDataxTaskRunnerTest {
 
         @Override
         public void stop(DataxKubernetesRuntimeRef runtimeRef, boolean forcibly) {
+            if (stopException != null) {
+                throw stopException;
+            }
             this.lastRuntimeRef = runtimeRef;
             this.forcibly = forcibly;
         }

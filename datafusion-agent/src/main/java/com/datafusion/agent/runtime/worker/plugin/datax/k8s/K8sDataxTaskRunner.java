@@ -100,9 +100,16 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
 
     @Override
     public TaskResult kill(TaskRequest request, WorkerTaskExecutionState state) {
-        DataxKubernetesRuntimeRef runtimeRef = runtimeRef(request, state);
-        kubernetesClient.stop(runtimeRef, true);
-        return result(request, state, StatusEnum.KILLING, "K8S DataX kill requested", null);
+        if (state == null || isBlank(state.getAppId())) {
+            return result(request, state, StatusEnum.KILLED, "K8S DataX runtime ref not found, nothing to kill", null);
+        }
+        try {
+            DataxKubernetesRuntimeRef runtimeRef = runtimeRef(request, state);
+            kubernetesClient.stop(runtimeRef, true);
+            return result(request, state, StatusEnum.KILLED, "K8S DataX kill completed", null);
+        } catch (RuntimeException e) {
+            return result(request, state, StatusEnum.UNKNOWN, "K8S DataX kill failed: " + e.getMessage(), null);
+        }
     }
 
     @Override
@@ -141,7 +148,7 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
     private TaskResult result(TaskRequest request, WorkerTaskExecutionState state, StatusEnum status, String message,
             String pluginLogPath) {
         TaskRequest resolvedRequest = resolveRequest(request);
-        DataxKubernetesRuntimeRef runtimeRef = state == null ? null : runtimeRef(request, state);
+        DataxKubernetesRuntimeRef runtimeRef = state == null || isBlank(state.getAppId()) ? null : runtimeRef(request, state);
         WorkerResult requestWorkerResult = resolvedRequest.getWorkerResult();
         String pluginLogUri = firstText(pluginLogPath, firstText(pluginLogUri(state),
                 runtimeRef == null ? null : pluginLogUri(runtimeRef)));
@@ -212,6 +219,13 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
         return "k8s://" + runtimeRef.getNamespace() + "/jobs/" + runtimeRef.getJobName();
     }
 
+    private String pluginLogUri(WorkerTaskExecutionState state) {
+        if (state == null || state.getResult() == null || !state.getResult().hasNonNull("pluginLogUri")) {
+            return null;
+        }
+        return state.getResult().get("pluginLogUri").asText();
+    }
+
     private Path taskRuntimeDir(TaskRequest request, WorkerTaskExecutionState state) {
         if (state != null && firstText(state.getWorkDirPath(), null) != null) {
             return Path.of(state.getWorkDirPath());
@@ -225,18 +239,15 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
         return PluginResultJson.build(message, "DATAX", DataxRunMode.K8S.name(), pluginLogUri, null);
     }
 
-    private String pluginLogUri(WorkerTaskExecutionState state) {
-        if (state == null || state.getResult() == null || !state.getResult().hasNonNull("pluginLogUri")) {
-            return null;
-        }
-        return state.getResult().get("pluginLogUri").asText();
-    }
-
     private String firstText(String first, String second) {
         if (first != null && !first.trim().isEmpty()) {
             return first;
         }
         return second;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
 }

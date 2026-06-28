@@ -133,6 +133,23 @@ class WorkerTaskServiceTest {
                 contextStorage.getOperations());
     }
 
+    @Test
+    void shouldInvokeKillExecutorWhenContextStateIsUnknown() {
+        RecordingContextStorage contextStorage = new RecordingContextStorage();
+        contextStorage.context = RunningTaskContext.fromRequest(finishRequest());
+        contextStorage.context.setTaskState(StatusEnum.UNKNOWN);
+        SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor();
+        executor.killState = StatusEnum.KILLED;
+        WorkerTaskService taskService = taskService(contextStorage, executor);
+
+        TaskResult result = taskService.killTask(finishRequest());
+
+        assertEquals(1, executor.killCount);
+        assertEquals(StatusEnum.KILLED, result.getTaskState());
+        assertEquals(List.of("get:task-1", "save:KILLED", "remove:task-1"),
+                contextStorage.getOperations());
+    }
+
     private WorkerTaskService taskService(RecordingContextStorage contextStorage, PluginTaskExecutor executor) {
         WorkerTaskOperatorRouter router = new WorkerTaskOperatorRouter(List.of(executor));
         Executor sameThreadExecutor = Runnable::run;
@@ -221,6 +238,16 @@ class WorkerTaskServiceTest {
          */
         private int submitCount;
 
+        /**
+         * Kill count.
+         */
+        private int killCount;
+
+        /**
+         * Kill state.
+         */
+        private StatusEnum killState;
+
         @Override
         public String pluginType() {
             return "TEST";
@@ -244,7 +271,13 @@ class WorkerTaskServiceTest {
 
         @Override
         public TaskResult killTask(TaskRequest request) {
-            return null;
+            killCount++;
+            return TaskResult.builder()
+                    .taskInstanceId(request.getTaskInstanceId())
+                    .flowInstanceId(request.getFlowInstanceId())
+                    .taskName(request.getTaskName())
+                    .taskState(killState)
+                    .build();
         }
 
         @Override

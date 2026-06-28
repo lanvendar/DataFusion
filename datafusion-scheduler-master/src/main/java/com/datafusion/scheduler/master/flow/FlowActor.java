@@ -127,8 +127,9 @@ public class FlowActor extends AbstractActor {
                 + stateCountMap.getOrDefault(RUNNING, 0) + stateCountMap.getOrDefault(STOPPING, 0)
                 + stateCountMap.getOrDefault(KILLING, 0) + stateCountMap.getOrDefault(ENFORCING_SUCCESS, 0);
         int successCount = stateCountMap.getOrDefault(RUN_SUCCESS, 0) + stateCountMap.getOrDefault(ENFORCE_SUCCESS, 0);
+        int unknownCount = stateCountMap.getOrDefault(UNKNOWN, 0);
         int failureCount = stateCountMap.getOrDefault(SUBMIT_FAILURE, 0) + stateCountMap.getOrDefault(RUN_FAILURE, 0)
-                + stateCountMap.getOrDefault(STOP_FAILURE, 0);
+                + stateCountMap.getOrDefault(STOP_FAILURE, 0) + unknownCount;
         int stoppedCount = stateCountMap.getOrDefault(STOP_SUCCESS, 0) + stateCountMap.getOrDefault(KILLED, 0);
         //最终状态计数
         int finalCount = successCount + failureCount + stoppedCount;
@@ -150,11 +151,16 @@ public class FlowActor extends AbstractActor {
             if (stoppedCount + successCount == taskStateMap.size()) {
                 return STOP_SUCCESS;
             }
+            if (unknownCount > 0) {
+                return UNKNOWN;
+            }
             //兜底状态,等价条件(failureCount+stoppedCount+successCount=taskStateMap.size())
             if (failureCount > 0) {
                 return RUN_FAILURE;
             }
         }
+        log.warn("流程状态聚合进入非预期兜底, flowInstanceId={}, taskCount={}, stateCountMap={}",
+                actorId, taskStateMap.size(), stateCountMap);
         return UNKNOWN;
     }
 

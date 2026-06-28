@@ -49,8 +49,8 @@ public class TaskKillMsgHandler extends AbstractTaskMsgHandler {
 
     @Override
     public EnumSet<StatusEnum> getManualPreState() {
-        // 手工动作可以从 STOP_FAILURE Kill
-        return EnumSet.of(StatusEnum.STOP_FAILURE);
+        // 手工动作可以从 STOP_FAILURE/UNKNOWN Kill
+        return EnumSet.of(StatusEnum.STOP_FAILURE, StatusEnum.UNKNOWN);
     }
 
     @Override
@@ -65,15 +65,9 @@ public class TaskKillMsgHandler extends AbstractTaskMsgHandler {
         if (null != acceptState) {
             if (StatusEnum.KILLED == acceptState.getTaskState()) {
                 taskIns.setState(StatusEnum.KILLED);
+                taskIns.setTaskResult(acceptState);
                 super.saveTaskInstance(taskIns);
-                FlowMsg flowMsg = FlowMsg.builder()
-                        .flowInstanceId(taskIns.getFlowInstanceId())
-                        //.flowId(taskIns.getFlowId())
-                        .taskState(Pair.of(taskIns.getInstanceId(), StatusEnum.KILLED))
-                        .actionType(ActionType.RUN)
-                        .isManualAction(false)
-                        .build();
-                super.notifyFlowActor(flowMsg, context);
+                notifyFlow(taskIns, StatusEnum.KILLED, context, false);
                 return;
             }
         }
@@ -82,48 +76,72 @@ public class TaskKillMsgHandler extends AbstractTaskMsgHandler {
 
     private void handleRecoveryKill(TaskInstance taskIns, ActorSysContext context) {
         StatusEnum finalState;
+        TaskResult taskResult = null;
         try {
             finalState = StatusEnum.KILLING;
-            TaskResult taskResult = super.getMasterTaskOperator().killTask(taskIns);
-            if (taskResult != null && taskResult.getTaskState() == StatusEnum.KILLED) {
-                finalState = StatusEnum.KILLED;
-            }
+            taskResult = super.getMasterTaskOperator().killTask(taskIns);
+            finalState = resolveRecoveryKillState(taskResult);
         } catch (Exception e) {
             log.error("[{}] - 任务实例恢复强杀失败.", taskIns.getInstanceId(), e);
             finalState = StatusEnum.UNKNOWN;
         }
         taskIns.setState(finalState);
+        if (taskResult != null) {
+            taskIns.setTaskResult(taskResult);
+        }
         super.saveTaskInstance(taskIns);
-        FlowMsg flowMsg = FlowMsg.builder()
-                .flowInstanceId(taskIns.getFlowInstanceId())
-                .taskState(Pair.of(taskIns.getInstanceId(), finalState))
-                .actionType(ActionType.RUN)
-                .isManualAction(false)
-                .build();
-        super.notifyFlowActor(flowMsg, context);
+        notifyFlow(taskIns, finalState, context, false);
     }
 
     @Override
     protected void handleManualAction(TaskMsg msg, ActorSysContext context) {
         TaskInstance taskIns = getTaskInstance(msg.getTaskInstanceId());
+        StatusEnum originalState = taskIns.getState();
+        taskIns.setState(StatusEnum.KILLING);
+        super.saveTaskInstance(taskIns);
+        notifyFlow(taskIns, StatusEnum.KILLING, context, true);
+
         StatusEnum finalState;
+        TaskResult taskResult = null;
         try {
-            finalState = StatusEnum.KILLING;
-            super.getMasterTaskOperator().killTask(taskIns);
+            taskResult = super.getMasterTaskOperator().killTask(taskIns);
+            finalState = resolveKillState(originalState, taskResult);
         } catch (Exception e) {
-            String taskInsId = taskIns.getTaskId();
-            log.error("[{}] - 任务实例强杀失败.", taskInsId);
-            // 异常则直接从 STOP_FAILURE -> UNKNOWN.
+            log.error("[{}] - 任务实例强杀失败.", taskIns.getInstanceId(), e);
             finalState = StatusEnum.UNKNOWN;
         }
         taskIns.setState(finalState);
+        if (taskResult != null) {
+            taskIns.setTaskResult(taskResult);
+        }
         super.saveTaskInstance(taskIns);
+        notifyFlow(taskIns, finalState, context, true);
+    }
+
+    private StatusEnum resolveKillState(StatusEnum originalState, TaskResult taskResult) {
+        if (taskResult == null || taskResult.getTaskState() == null) {
+            return StatusEnum.UNKNOWN;
+        }
+        StatusEnum taskState = taskResult.getTaskState();
+        if (taskState == StatusEnum.KILLING && originalState == StatusEnum.UNKNOWN) {
+            return StatusEnum.KILLED;
+        }
+        return taskState;
+    }
+
+    private StatusEnum resolveRecoveryKillState(TaskResult taskResult) {
+        if (taskResult == null || taskResult.getTaskState() == null) {
+            return StatusEnum.KILLING;
+        }
+        return taskResult.getTaskState();
+    }
+
+    private void notifyFlow(TaskInstance taskIns, StatusEnum finalState, ActorSysContext context, boolean manualAction) {
         FlowMsg flowMsg = FlowMsg.builder()
                 .flowInstanceId(taskIns.getFlowInstanceId())
-                //.flowId(taskIns.getFlowId())
                 .taskState(Pair.of(taskIns.getInstanceId(), finalState))
                 .actionType(ActionType.RUN)
-                .isManualAction(true)
+                .isManualAction(manualAction)
                 .build();
         super.notifyFlowActor(flowMsg, context);
     }

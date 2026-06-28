@@ -322,6 +322,7 @@ public class TaskAction implements TaskResultHandler {
             case RUNNING:
             case RUN_SUCCESS:
             case RUN_FAILURE:
+            case UNKNOWN:
                 actionType = ActionType.RUN;
                 break;
             case STOP_SUCCESS:

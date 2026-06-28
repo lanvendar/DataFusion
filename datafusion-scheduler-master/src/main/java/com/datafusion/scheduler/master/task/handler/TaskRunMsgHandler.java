@@ -47,7 +47,7 @@ public class TaskRunMsgHandler extends AbstractTaskMsgHandler {
     @Override
     public EnumSet<StatusEnum> getPreState() {
         return EnumSet.of(StatusEnum.SUBMITTING, StatusEnum.SUBMIT_FAILURE, StatusEnum.SUBMIT_SUCCESS,
-                StatusEnum.RUNNING, StatusEnum.STOPPING);
+                StatusEnum.RUNNING, StatusEnum.STOPPING, StatusEnum.KILLING);
     }
 
     @Override
@@ -76,6 +76,10 @@ public class TaskRunMsgHandler extends AbstractTaskMsgHandler {
         }
         if (targetState == StatusEnum.RUN_SUCCESS) {
             handleRunSuccess(taskIns, acceptState, context);
+            return;
+        }
+        if (targetState == StatusEnum.UNKNOWN) {
+            handleUnknown(taskIns, acceptState, context);
             return;
         }
         if (targetState == StatusEnum.SUBMIT_FAILURE || targetState == StatusEnum.RUN_FAILURE) {
@@ -135,6 +139,19 @@ public class TaskRunMsgHandler extends AbstractTaskMsgHandler {
                 .isManualAction(false)//
                 .build();
         context.notify(taskMsg);
+    }
+
+    private void handleUnknown(TaskInstance taskIns, TaskResult taskResult, ActorSysContext context) {
+        long endTime = System.currentTimeMillis();
+        if (taskIns.getStartTime() == null || taskIns.getStartTime() <= 0) {
+            taskIns.setStartTime(endTime);
+        }
+        taskIns.setState(StatusEnum.UNKNOWN);
+        taskIns.setEndTime(endTime);
+        taskIns.setCostTime(endTime - taskIns.getStartTime());
+        taskIns.setTaskResult(taskResult);
+        super.saveTaskInstance(taskIns);
+        notifyFlow(taskIns, StatusEnum.UNKNOWN, context);
     }
 
     private void updateTaskState(TaskInstance taskIns, TaskResult taskResult, StatusEnum targetState,
