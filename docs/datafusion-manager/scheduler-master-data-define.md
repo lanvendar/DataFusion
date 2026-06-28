@@ -63,7 +63,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `host` | `varchar(45)` | `host` | `String` | 是 | agent 上报 | unique(`host`,`port`) | IP地址 | agent HTTP 地址 IP 或 hostname |
 | `port` | `int4` | `port` | `Integer` | 是 | agent 上报 | unique(`host`,`port`) | 端口 | agent HTTP 端口 |
 | `status` | `int4` | `status` | `Integer` | 是 | `1` | 无 | 状态：0-下线 1-上线 | 对应 `Worker.STATUS_DOWN/STATUS_UP` |
-| `zone` | `varchar(64)` | `zone` | `String` | 否 | 无 | 无 | 区域/分组，预留字段 | 预留 worker 分组能力，第一版不参与调度选择 |
+| `zone` | `varchar(64)` | `zone` | `String` | 否 | 无 | 无 | 区域/分组 | 当前不参与调度选择 |
 | `plugins` | `varchar(256)` | `plugins` | `String` | 否 | 无 | 无 | 组件类型列表，逗号分隔 | 对应 `Worker.pluginTypes`，按英文逗号保存 |
 | `register_time` | `timestamp(6)` | `registerTime` | `Date` | 否 | 注册时当前时间 | 无 | 注册时间 | agent 注册或首次恢复上线时间 |
 | `last_heartbeat_time` | `timestamp(6)` | `lastHeartbeatTime` | `Date` | 否 | 心跳时当前时间 | 无 | 最近心跳时间 | agent 心跳更新，不代表界面修改 |
@@ -73,7 +73,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `updater` | `varchar(100)` | `updater` | `String` | 是 | 当前用户 / `system` | 无 | 修改人 | 界面或系统修改记录的审计字段，agent 心跳不更新 |
 | `create_time` | `timestamp(6)` | `createTime` | `Date` | 是 | 当前时间 | 无 | 创建时间 | 记录创建时间 |
 | `update_time` | `timestamp(6)` | `updateTime` | `Date` | 是 | 当前时间 | 无 | 修改时间 | 记录更新时间；注册、心跳、下线都会更新 |
-| `tenant_id` | `uuid` | `tenantId` | `UUID` | 否 | 无 | 无 | 租户ID | 预留字段，第一版不做租户隔离调度 |
+| `tenant_id` | `uuid` | `tenantId` | `UUID` | 否 | 无 | 无 | 租户ID | 当前不做租户隔离调度 |
 
 ### 1.4 种子 / 初始化数据
 
@@ -147,7 +147,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 |-------------|--------------|--------|--------------|---------------|-----------------|-------|
 | `status` | `Worker` / `scheduler_worker_registry` | `0` / `1` | `int4` | 下线 / 上线 | 直接映射 `Worker.STATUS_DOWN`、`Worker.STATUS_UP` | 调度查找仅使用 `status = 1` |
 | `is_active` | `scheduler_worker_registry` | `0` / `1` | `int2` | 无效 / 有效 | manager 查询过滤 | 调度查找必须同时满足 `is_active = 1` |
-| `tenant_id` | `scheduler_worker_registry` | UUID | `uuid` | 租户 ID | 第一版不参与过滤 | 暂无租户隔离调度 |
+| `tenant_id` | `scheduler_worker_registry` | UUID | `uuid` | 租户 ID | 不参与过滤 | 当前不做租户隔离调度 |
 
 ## 3. 前端数据模型
 
@@ -182,7 +182,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `Worker` -> `WorkerRegistryEntity` | `id` 由 `workerCode` 稳定生成，`workerCode` -> `workerCode`，`ip` -> `host`，`hostName` -> `hostName`，`port` -> `port`，`status` -> `status`，`pluginTypes` -> `plugins` | 注册写入 `register_time`；心跳只按 `id` 更新 `last_heartbeat_time`、`status`、`update_time` |
 | `WorkerRegistryEntity` -> `Worker` | `id` -> `id`，`workerCode` -> `workerCode`，`host` -> `ip`，`hostName` -> `hostName`，`port` -> `port`，`status` -> `status`，`plugins` -> `pluginTypes` | DB 恢复时仅加载 `is_active = 1` 的记录；启动后可先恢复已有 worker，再等待 agent 心跳刷新状态和插件能力 |
 | `WorkerStorage.getWorker` | `workerId` 只查 `scheduler_worker_registry.id` | 任务链路使用 `workerId`，scheduler 框架层不按 `workerCode` 查询 |
-| `WorkerStorageImpl.getWorkers` -> `WorkerManager.lookupWorker` | 查询 `is_active = 1` 且状态可用的 worker，再由 `WorkerManager` 按插件类型过滤 | 第一版不按 `tenant_id`、`zone` 过滤 |
+| `WorkerStorageImpl.getWorkers` -> `WorkerManager.lookupWorker` | 查询 `is_active = 1` 且状态可用的 worker，再由 `WorkerManager` 按插件类型过滤 | 不按 `tenant_id`、`zone` 过滤 |
 | agent 注册 -> existing worker | 只按 `worker_code` 定位；找不到时使用 `workerCode` 派生 UUID 新增记录 | heartbeat/offline 只按 `id` 定位；注册不覆盖已有 `is_active` |
 | agent 启动恢复任务 | 注册成功后调用 `WorkerListener.getTaskInsByWorkerId(workerId)` | 只返回属于当前 worker 且未完成的任务清单，agent 再结合本地状态文件恢复监听 |
 

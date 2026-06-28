@@ -7,7 +7,7 @@
 
 ## 1. 表结构
 
-无。`datafusion-agent` 第一版不直接持久化数据库表。
+无。`datafusion-agent` 不直接持久化数据库表。
 
 ## 2. 配置模型
 
@@ -120,7 +120,7 @@ time:1780000001000|workerId:{workerId}|appId:123|status:RUN_SUCCESS|exitCode:0
 
 - `.state.status` 使用 `StatusEnum.name()`。
 - `workerId` 使用 manager 返回的 `Worker.id`，即 `scheduler_worker_registry.id` 的 UUID 字符串，并随 `TaskRequest` / `TaskResult` / `.snap` / `.state` 透传。
-- `Worker.workerCode` 使用 agent 配置或推导出的稳定编码，落到 `scheduler_worker_registry.worker_code`，不写入 `TaskRequest.workerId`。
+- `Worker.workerCode` 使用 agent 配置或推导出的稳定编码，落到 `scheduler_worker_registry.worker_code`，不在 `TaskRequest` 中新增顶层 `workerId` 字段。
 - `appId` 统一表示终端任务 ID。
 - `.snap` 只保存提交快照和插件配置参数，不保存运行时观测字段。
 - `.state` 只保存通用运行态，不回写 `taskData` / `pluginParam`。

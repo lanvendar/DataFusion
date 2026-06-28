@@ -34,8 +34,8 @@ API 前缀：`/api/system/variable`
 - 删除变量当前不检查任务、脚本或其他配置引用。
 - 当前用户通过 `HttpUtils.getCurrentUserName()` 写入审计字段。
 
-## 风险
+## 当前约束
 
-- `code` 唯一性只在 Service 层校验，并发写入建议补数据库唯一约束。
+- `code` 唯一性只在 Service 层校验，当前 DDL 没有数据库唯一约束。
 - `id` 由 `code` 稳定生成，修改 `code` 后 `id` 不再可由新编码推导。
-- `type/valueType` 是字符串，后续应收敛为枚举和白名单校验。
+- `type/valueType` 是字符串，当前校验以 Service 规则为准。

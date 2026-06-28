@@ -14,9 +14,9 @@
 | `scheduler_task_instance_his` | 新增 | `id uuid` | 无 | 无 | 任务运行实例历史表 | 结构镜像 `scheduler_task_instance`，保存归档后的成功任务实例 |
 | `scheduler_event_instance` | 复用 | `id uuid` | 无 | 无 | 事件实例表 | DDL 参照 `datafusion-manager/src/main/resources/init_db/init_ddl.sql` |
 
-第一版不新增 `scheduler_event_instance_his`。事件实例继续查询 `scheduler_event_instance`。
+当前不新增 `scheduler_event_instance_his`。事件实例继续查询 `scheduler_event_instance`。
 
-`TaskInstanceLog` 第一版不新增表。日志能力基于实时或历史任务实例的 `worker_result.workDirPath` 定位 agent 标准任务日志，
+`TaskInstanceLog` 不新增表。日志能力基于实时或历史任务实例的 `worker_result.workDirPath` 定位 agent 标准任务日志，
 基于 `worker_result.pluginLogUri` 定位插件日志。
 
 ### 1.2 DDL / 迁移
@@ -155,7 +155,7 @@
 | `TaskInstanceLogQueryDto` | `Query` | 日志读取 | `logType` | `String` | 必填，`LOG` / `ERROR` / `STATUS` / `PLUGIN` | 日志类型 |
 | `TaskInstanceLogQueryDto` | `Query` | 日志读取 | `offset` / `limit` | `Long` / `Integer` | 可选 | 分段读取 |
 | `SchedulerInstanceActionDto` | `Action` | 流程实例操作 | `flowInstanceId` | `UUID` | 必填 | 流程实例 ID |
-| `SchedulerInstanceActionDto` | `Action` | 流程实例操作 | `actionType` | `String` | 必填，允许 `SUBMIT` / `STOP`；第一版不开放 `REINIT` | 映射 `MasterService.getFlowAction()` 公开能力；`REINIT` 待 `TaskAction.taskReInit(FlowInstance)` 补齐后再开放 |
+| `SchedulerInstanceActionDto` | `Action` | 流程实例操作 | `actionType` | `String` | 必填，允许 `SUBMIT` / `STOP`；不开放 `REINIT` | 映射 `MasterService.getFlowAction()` 公开能力 |
 | `SchedulerInstanceActionDto` | `Action` | 任务实例操作 | `taskInstanceId` | `UUID` | 必填 | 任务实例 ID |
 | `SchedulerInstanceActionDto` | `Action` | 任务实例操作 | `actionType` | `String` | 必填，允许 `SUBMIT` / `STOP` / `KILL` / `RESTART` / `ENFORCE_SUCCESS`；任务实例行不开放 `REINIT` | 映射 `MasterService.getTaskAction()` 公开能力；`TaskAction.taskReInit(FlowInstance)` 是 `flowReInit` 联动重建任务实例的内部入口，不是单任务实例操作 |
 
@@ -200,9 +200,9 @@
 | `eventType` | `EventInstanceDto` | `EventTypeEnum` | `varchar` | `1=任务`、`2=流程` | 实例表保存 `EventTypeEnum.getType()` 的字符串值，前端展示时映射为业务标签 | 保持现有实例表存储方式 |
 | `viewType` | `SchedulerInstanceQueryDto` / `FlowInstanceTaskQueryDto` | `REALTIME`、`HISTORY` | 不落库 | 实时、历史 | `REALTIME` 路由实时表，`HISTORY` 路由历史表 | 页面 tab，不参与状态判断 |
 | `logType` | `TaskInstanceLogQueryDto` | `LOG`、`ERROR`、`STATUS`、`PLUGIN` | 不落库 | 标准日志、错误日志、状态日志、插件日志 | 映射到不同日志文件 | 日志读取类型 |
-| `flowActionType` | `SchedulerInstanceActionDto` | `SUBMIT`、`STOP` | 不落库 | 提交、停止 | `FlowInstanceService` 映射到 `FlowAction.flowSubmit`、`flowStop` | 仅操作实时流程实例；第一版不开放 `REINIT` |
+| `flowActionType` | `SchedulerInstanceActionDto` | `SUBMIT`、`STOP` | 不落库 | 提交、停止 | `FlowInstanceService` 映射到 `FlowAction.flowSubmit`、`flowStop` | 仅操作实时流程实例；不开放 `REINIT` |
 | `taskActionType` | `SchedulerInstanceActionDto` | `SUBMIT`、`STOP`、`KILL`、`RESTART`、`ENFORCE_SUCCESS` | 不落库 | 提交、停止、强制停止、重启、强制成功 | `TaskInstanceService` 映射到 `TaskAction.taskSubmit`、`taskStop`、`taskKill`、`taskRestart`、`taskEnforceSuccess` | 不开放任务实例 `REINIT`；`TaskAction.taskReInit(FlowInstance)` 仅作为流程重新初始化的联动入口 |
-| `flowAvailableActions` | `FlowInstanceDto.availableActions` | `SUBMIT`、`STOP` | 不落库 | 提交、停止 | `SchedulerInstanceActionPolicy` 根据流程状态计算 | `INIT_SUCCESS` / `WAIT_DEPENDENT` 显示 `SUBMIT`；`RUNNING` 显示 `STOP`；第一版不显示 `REINIT` |
+| `flowAvailableActions` | `FlowInstanceDto.availableActions` | `SUBMIT`、`STOP` | 不落库 | 提交、停止 | `SchedulerInstanceActionPolicy` 根据流程状态计算 | `INIT_SUCCESS` / `WAIT_DEPENDENT` 显示 `SUBMIT`；`RUNNING` 显示 `STOP`；不显示 `REINIT` |
 | `taskAvailableActions` | `TaskInstanceDto.availableActions` | `SUBMIT`、`STOP`、`KILL`、`RESTART`、`ENFORCE_SUCCESS` | 不落库 | 提交、停止、强制停止、重启、强制成功 | `SchedulerInstanceActionPolicy` 根据任务状态计算 | 状态矩阵见设计文档；所有操作 `confirmRequired=true` |
 
 ## 3. 前端数据模型
@@ -258,7 +258,7 @@
 | `expandFlow` | 流程实例展开 | `FlowInstanceTaskQueryDto` | 加载任务实例列表 | 展开区展示错误 | 懒加载，携带当前 `viewType` |
 | `refreshFlowRow` | 流程实例行 | `flowInstanceId`、`viewType` | 刷新当前行和已展开任务列表 | 展示错误提示 | 读操作，不改变调度状态 |
 | `openDependency` | 任务实例行 | `TaskInstanceDependencyDto` | 打开依赖图抽屉 | 展示错误提示 | 只读展示 |
-| `openLog` | 任务实例行 | `TaskInstanceLogQueryDto` | 打开日志抽屉并读取日志 | 展示错误提示 | 第一版只读 |
+| `openLog` | 任务实例行 | `TaskInstanceLogQueryDto` | 打开日志抽屉并读取日志 | 展示错误提示 | 只读 |
 | `flowAction` | 流程实例行 | `SchedulerInstanceActionDto` | 打印操作日志并提交 master `FlowAction`，刷新当前行 | 展示错误提示 | 操作只针对实时实例 |
 | `taskAction` | 任务实例行 | `SchedulerInstanceActionDto` | 打印操作日志并提交 master `TaskAction`，刷新当前行和所在流程 | 展示错误提示 | 操作只针对实时实例；不开放任务实例 `REINIT` |
 | `confirmAction` | 流程/任务实例行 | `SchedulerInstanceAvailableActionDto` | 弹出二次确认，确认后提交对应 action API | 关闭确认框并展示错误提示 | 前端只展示后端返回的可用操作；所有操作均二次确认 |

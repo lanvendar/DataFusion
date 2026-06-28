@@ -35,7 +35,7 @@ API 前缀：`/api/scheduler/task`
 | 调度编排 | `isBound`、`flowId`、`pluginId`、`view`、`depEventIds`、`eventId`、`enabled` | 流程编排或调度节点配置维护 |
 | 系统属性 | `id`、`syncFlag`、`sourceRoute`、审计字段 | 后端生成或维护 |
 
-`pluginId` 短期由后端按 `taskType` 解析默认执行插件并写入，用于满足表结构非空约束；任务定义页面不展示、不提交该字段。
+`pluginId` 由后端按 `taskType` 解析默认执行插件并写入，用于满足表结构非空约束；任务定义页面不展示、不提交该字段。
 
 ## 业务规则
 

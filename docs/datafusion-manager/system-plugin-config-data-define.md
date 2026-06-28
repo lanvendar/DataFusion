@@ -110,8 +110,8 @@ COMMENT ON COLUMN system_task_type_config.tenant_id IS '租户ID';
 |-------|-----------|-----------|------|--------|------|
 | `id` | `id` | `UUID` | 是 | 新增时由 `pluginName + pluginType + runMode + tenantId` 拼接后通过 `UUID.nameUUIDFromBytes(...)` 生成 | 主键，继承自 `BaseIdEntity` |
 | `plugin_name` | `pluginName` | `String` | 是 | 无 | 插件名称，同一租户同插件类型同运行模式下应保持唯一 |
-| `plugin_type` | `pluginType` | `String` | 是 | 无 | 插件类型，建议作为字典值维护 |
-| `run_mode` | `runMode` | `String` | 是 | `DEFAULT` | 运行模式，建议作为字典值维护，例如 `DEFAULT`、`YARN`、`K8S` |
+| `plugin_type` | `pluginType` | `String` | 是 | 无 | 插件类型 |
+| `run_mode` | `runMode` | `String` | 是 | `DEFAULT` | 运行模式，例如 `DEFAULT`、`YARN`、`K8S` |
 | `description` | `description` | `String` | 否 | 无 | 描述 |
 | `plugin_param` | `pluginParam` | `JsonNode` | 否 | 无 | 插件配置，使用 JSONB 存储 |
 | `is_template` | `isTemplate` | `Boolean` | 否 | `false` | 是否模板数据 |
@@ -120,7 +120,7 @@ COMMENT ON COLUMN system_task_type_config.tenant_id IS '租户ID';
 | `updater` | `updater` | `String` | 是 | 当前用户 | 修改人，继承自 `BaseEntity` |
 | `create_time` | `createTime` | `Date` | 是 | 当前时间 | 创建时间，继承自 `BaseEntity` |
 | `update_time` | `updateTime` | `Date` | 是 | 当前时间 | 修改时间，继承自 `BaseEntity` |
-| `tenant_id` | `tenantId` | `UUID` | 是 | 当前阶段固定为 `00000000-0000-0000-0000-000000000001` | 租户 ID，作为数据隔离边界 |
+| `tenant_id` | `tenantId` | `UUID` | 是 | 固定为 `00000000-0000-0000-0000-000000000001` | 租户 ID，作为数据隔离边界 |
 
 ### 1.7 任务类型配置表字段定义
 
@@ -242,12 +242,12 @@ COMMENT ON COLUMN system_task_type_config.tenant_id IS '租户ID';
 
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
-| `PluginConfigSaveDto` -> `PluginConfigEntity` | 复制 `pluginName`、`pluginType`、`runMode`、`description`、`pluginParam` | `id` 使用 `UUID.nameUUIDFromBytes((pluginName + pluginType + runMode + tenantId).getBytes(StandardCharsets.UTF_8))` 生成；`isTemplate=false`；`isDel=0`；`tenantId` 当前阶段使用固定默认租户；审计字段由 Service 设置 |
+| `PluginConfigSaveDto` -> `PluginConfigEntity` | 复制 `pluginName`、`pluginType`、`runMode`、`description`、`pluginParam` | `id` 使用 `UUID.nameUUIDFromBytes((pluginName + pluginType + runMode + tenantId).getBytes(StandardCharsets.UTF_8))` 生成；`isTemplate=false`；`isDel=0`；`tenantId` 使用固定默认租户；审计字段由 Service 设置 |
 | `PluginConfigSaveDto` -> copied `PluginConfigEntity` | 复制 `pluginType`、`runMode`、`description`、`pluginParam` | `pluginName` 使用请求体 `pluginName + "_" + 4位随机码`；不接收 `id`；`isTemplate` 强制为 `false`；其余主键、租户和审计规则与新增一致 |
 | `PluginConfigUpdateDto` -> existing `PluginConfigEntity` | 按非空字段合并 | 不修改 `tenantId`、`isDel`、`creator`、`createTime`、`isTemplate` |
 | `PluginConfigEntity` -> `PluginConfigDto` | 字段逐一复制 | `pluginParam` 以 `JsonNode` 直接返回 |
 | `PluginConfigQueryDto` -> `LambdaQueryWrapper` | `pluginName` 使用 `like`，`pluginType`、`runMode`、`isTemplate`、`isDel` 使用 `eq` | 默认只查 `isDel=0` 且当前租户数据 |
-| `TaskTypeConfigSaveDto` -> `TaskTypeConfigEntity` | 复制 `taskType`、`defaultPluginId`、`pluginType` | `defaultPluginId` 必填；`taskType` trim 后转大写；`id` 使用 `UUID.nameUUIDFromBytes(taskType.getBytes(StandardCharsets.UTF_8))` 生成；`tenantId` 当前阶段使用固定默认租户；审计字段由 Service 设置 |
+| `TaskTypeConfigSaveDto` -> `TaskTypeConfigEntity` | 复制 `taskType`、`defaultPluginId`、`pluginType` | `defaultPluginId` 必填；`taskType` trim 后转大写；`id` 使用 `UUID.nameUUIDFromBytes(taskType.getBytes(StandardCharsets.UTF_8))` 生成；`tenantId` 使用固定默认租户；审计字段由 Service 设置 |
 | `TaskTypeConfigUpdateDto` -> existing `TaskTypeConfigEntity` | 按字段合并 `defaultPluginId`、`pluginType` | `defaultPluginId` 必填；不修改 `taskType`、`tenantId`、`creator`、`createTime` |
 | `TaskTypeConfigEntity` -> `TaskTypeConfigDto` | 字段逐一复制 | 无 |
 | `TaskTypeConfigQueryDto` -> `LambdaQueryWrapper` | `taskType` 使用 `like`，`defaultPluginId`、`pluginType` 使用 `eq` | 默认只查当前租户数据 |
@@ -260,7 +260,7 @@ COMMENT ON COLUMN system_task_type_config.tenant_id IS '租户ID';
 | `is_template` | `bool` | `Boolean` | `true` 表示模板数据，`false` 表示普通用户配置 | 模板标记 |
 | `is_del` | `int2` | `Short` | `0` 表示正常，`1` 表示删除 | 软删除状态 |
 | `run_mode` | `varchar(255)` | `String` | 作为模板选择维度，与 `plugin_type` 共同决定 `pluginParam` 结构 | 运行模式 |
-| `tenant_id` | `uuid` | `UUID` | 当前阶段固定默认租户，后续接入正式租户上下文 | 临时默认值为 `00000000-0000-0000-0000-000000000001` |
+| `tenant_id` | `uuid` | `UUID` | 固定默认租户 | 默认值为 `00000000-0000-0000-0000-000000000001` |
 
 ## 7. 初始化数据
 

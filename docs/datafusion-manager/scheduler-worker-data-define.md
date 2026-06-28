@@ -68,7 +68,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `updater` | `updater` | `String` | 是 | 当前用户或 `system` | 修改人，继承自 `BaseEntity` |
 | `create_time` | `createTime` | `Date` | 是 | 当前时间 | 创建时间，继承自 `BaseEntity` |
 | `update_time` | `updateTime` | `Date` | 是 | 当前时间 | 修改时间，继承自 `BaseEntity` |
-| `tenant_id` | `tenantId` | `UUID` | 否 | 无 | 租户 ID，第一版不参与过滤 |
+| `tenant_id` | `tenantId` | `UUID` | 否 | 无 | 租户 ID，当前不参与过滤 |
 
 ## 2. Entity / PO 映射
 

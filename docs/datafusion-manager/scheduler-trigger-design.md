@@ -44,8 +44,8 @@ API 前缀：`/api/scheduler/trigger`
 - 单独启用调度时，后端更新流程启用状态后调用 `MasterService.addSchedule`。
 - 停用调度时，后端更新流程启用状态后调用 `MasterService.stopSchedule`。
 
-## 风险
+## 当前约束
 
 - `type/policy` 使用 ordinal 存储，枚举顺序变化会影响历史数据语义。
 - `CRON` 保存目前只做非空校验；“运行查看”使用 Java cron 解析器提前暴露明显语法错误。
-- `name` 唯一性只靠 Service 层校验，并发写入仍建议补数据库唯一约束。
+- `name` 唯一性只靠 Service 层校验，当前 DDL 没有数据库唯一约束。

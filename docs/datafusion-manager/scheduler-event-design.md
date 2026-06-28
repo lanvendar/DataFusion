@@ -43,9 +43,9 @@ API 前缀：`/api/scheduler/event`
 - `EventStorageImpl` 将 `GlobalEvent` 持久化为事件实例，并供等待依赖的任务查询。
 - `CachedEventStorage` 可缓存 `loadByEventKey` 结果，但数据库仍是运行期事实来源。
 
-## 风险
+## 当前约束
 
-- `eventType` 当前是字符串编码，应继续收敛到枚举校验。
-- 新增/修改只校验关联 ID 是否传入，是否校验实体真实存在由后续业务规则补齐。
+- `eventType` 当前是字符串编码，Service 按字符串值处理。
+- 新增/修改只校验关联 ID 是否传入，不校验关联的任务或流程实体是否真实存在。
 - `eventName` 是否唯一未形成数据库约束。
 - 事件实例字段与 `EventStorageImpl` 的转换需保持一致，避免运行期保存失败。

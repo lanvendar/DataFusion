@@ -2,35 +2,34 @@
 
 > 数据结构见 [task-definition-register-data-define.md](./task-definition-register-data-define.md)。本文定义 `TaskDefinitionRegister` 的接口职责、`sync_flag` 时序和 `definition.bizRef` 的使用边界。
 
-## 1. 设计目标
+## 1. 能力边界
 
-- 为业务模块提供尽量简单的统一任务定义接入能力。
-- 用一个 `register` 接口替代业务侧区分 `add/update` 的心智负担。
-- 用一个 `markUnsynced` 接口显式通知 `sync_flag=false`。
-- 让调度侧只理解 `bizRef` 和调度属性，不理解复杂业务表结构。
+`TaskDefinitionRegister` 为业务模块提供统一任务定义接入能力。业务方通过 `register` 提交最新任务定义快照，通过 `markUnsynced` 显式通知业务源已变化但尚未重新登记。
 
-## 2. 现状问题
+本能力只维护 `scheduler_task_info` 中的定义快照和同步状态，不直接参与流程编排、实例执行或 worker 提交。
 
-当前调度域只有：
+## 2. 接口与链路
 
-- `POST /api/scheduler/task/add`
-- `POST /api/scheduler/task/update`
+API 前缀：`/api/scheduler/task-definition`
 
-现状不足：
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/register` | 按 `definition.bizRef` 新增或更新任务定义，成功后 `sync_flag=true` |
+| `POST` | `/mark-unsynced` | 按 `bizRef` 标记任务定义未同步，成功后 `sync_flag=false` |
 
-- 业务方需要知道自己是在新增还是更新。
-- `sync_flag` 只有字段，没有统一通知入口。
-- 业务身份定位分散，没有约定 `definition` 主结构。
-- 原生 DTO 混有调度编排字段，不适合业务域直接使用。
+核心链路：
 
-## 3. 最终方案
+```text
+TaskDefinitionRegisterController
+    -> TaskDefinitionRegisterService
+    -> TaskDefinitionRegisterServiceImpl
+    -> TaskInfoMapper.getTaskInfoByBizRef
+    -> scheduler_task_info
+```
 
-统一命名使用 `TaskDefinitionRegister`，但接口只保留两类动作：
+## 3. 行为概览
 
-- `register`
-- `markUnsynced`
-
-调用关系：
+业务侧始终提交或标记业务定义，不需要判断调度任务当前是新增还是更新：
 
 ```text
 业务模块
@@ -50,7 +49,7 @@
              +--> 返回 taskId
 ```
 
-核心原则：
+核心规则：
 
 - 业务方永远提交最新 `definition` 快照，而不是自己决定调用 `add` 还是 `update`。
 - `sync_flag` 的变化由接口显式驱动，不依赖调度侧猜测。
@@ -112,19 +111,19 @@
 | `register` | 提交最新 `definition` 快照 | `true` |
 | `markUnsynced` | 通知业务源已变化但未重新提交定义 | `false` |
 
-### 5.3 推荐触发时机
+### 5.3 触发时机
 
-主方案：
+主链路：
 
 - 业务主服务在事务提交成功后，主动调用 `markUnsynced`
 - 当业务侧生成最新调度定义并准备提交时，再调用 `register`
 
-补偿方案：
+补偿链路：
 
 - 可使用 outbox / MQ / 领域事件异步触发 `markUnsynced`
 - 定时 job 只做兜底对账，不作为主链路
 
-不建议的方案：
+不作为主链路：
 
 - 让调度后台定时全表扫描业务表作为主机制
 
@@ -241,23 +240,20 @@
 
 `TaskDefinitionRegister` 只负责维护定义快照和同步状态，不直接参与实例执行。
 
-## 9. 建议实现清单
+## 9. 文件和对象
 
-建议新增或改造以下内容：
+当前实现包含以下对象：
 
-- `scheduler/service/TaskDefinitionRegisterService`
-  - 定义 `register` 和 `markUnsynced`
-- `scheduler/service/impl/TaskDefinitionRegisterServiceImpl`
-  - 实现 `bizRef` 提取、幂等查找、状态保护和 `sync_flag` 更新
-- `scheduler/controller/TaskDefinitionRegisterController`
-  - 暴露统一接口
-- `scheduler/dto`
-  - 新增 `TaskDefinitionRegisterDto`
-  - 新增 `TaskDefinitionRegisterResultDto`
-  - 新增 `TaskDefinitionMarkUnsyncedDto`
-  - 新增 `TaskDefinitionMarkUnsyncedResultDto`
-- `scheduler/dao/TaskInfoMapper`
-  - 新增按 `definition.bizRef` 查询方法
+| 对象 | 路径 | 职责 |
+|------|------|------|
+| `TaskDefinitionRegisterController` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/controller` | 暴露 `register` 和 `markUnsynced` |
+| `TaskDefinitionRegisterService` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/service` | 定义统一登记服务接口 |
+| `TaskDefinitionRegisterServiceImpl` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/service/impl` | 提取 `bizRef`、幂等查找、状态保护和 `sync_flag` 更新 |
+| `TaskDefinitionRegisterDto` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto` | `register` 请求 |
+| `TaskDefinitionRegisterResultDto` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto` | `register` 响应 |
+| `TaskDefinitionMarkUnsyncedDto` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto` | `markUnsynced` 请求 |
+| `TaskDefinitionMarkUnsyncedResultDto` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto` | `markUnsynced` 响应 |
+| `TaskInfoMapper.getTaskInfoByBizRef` | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dao` | 按 `bizRef` 核心字段查找任务定义 |
 
 ## 10. 非目标
 

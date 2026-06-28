@@ -35,7 +35,7 @@ manager 注册成功前默认不接收新任务；`acceptTasksBeforeRegistered=t
 agent 启动时先生成 `workerCode`：配置了 `datafusion.agent.worker.worker-code` 时使用配置值；
 未配置时使用 `hostName:ip:port` 生成稳定 UUID 字符串；主机名、IP、端口都不可用时使用
 `00000000-0000-0000-0000-000000000001`。manager 注册成功后返回
-`scheduler_worker_registry.id`，agent 将该 UUID 保存为 `Worker.id`，后续 `TaskRequest.workerId`、
+`scheduler_worker_registry.id`，agent 将该 UUID 保存为 `Worker.id`，后续 `TaskRequest.workerResult.workerId`、
 `TaskResult.workerResult.workerId`、`.snap`、`.state`、`state.log` 都使用这个 `workerId`。注册成功返回的
 `Worker` 同时写入 `/opt/datafusion-builtin/datafusion-agent/worker.config`；agent 重启后如果
 本地 `workerCode` 未变化，则先恢复该 `Worker.id`，后续 heartbeat/offline 只用 `id`。
@@ -189,9 +189,7 @@ register 成功返回 Worker.id
 
 如果 manager 已人工处理某个任务，该任务不会出现在清单中，agent 即使本地残留 `.state` 也不恢复、不上报。
 
-## 第一版范围
-
-实现：
+## 当前范围
 
 - Spring Boot agent 运行时。
 - manager 注册、心跳、下线和任务结果上报。
@@ -201,7 +199,7 @@ register 成功返回 Worker.id
 - 文件版任务执行状态存储。
 - `SHELL + LOCAL`、`DATAX + LOCAL`、`DATAX + K8S`。
 
-暂不实现：
+## 当前不包含
 
 - Redis 状态存储。
 - K8S / YARN 通用提交器。

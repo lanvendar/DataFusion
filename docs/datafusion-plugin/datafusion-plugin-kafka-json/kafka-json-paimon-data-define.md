@@ -48,7 +48,7 @@
 | `ExpressionSpec` | 从 Kafka JSON 或单条 record 中取值 | `defaultValue` | `Object` | 配置期定义，运行期兜底 | 当 `path` 为空、取不到、结果为 `null` 或空字符串时使用 |
 | `ExpressionSpec` | 从 Kafka JSON 或单条 record 中取值 | `jsonType` | `String` | 配置期定义，运行期校验 | 只校验顶层 JSON 类型，不递归校验数组元素或对象字段 |
 | `PaimonSinkConfig` | 配置 Paimon sink | `type` | `String` | 启动时加载，运行期只读 | 固定为 `PAIMON` |
-| `PaimonSinkConfig` | 配置 Paimon sink | `connectType` | `String` | 启动时加载，运行期只读 | 第一版支持 `S3` / filesystem catalog 相关 options |
+| `PaimonSinkConfig` | 配置 Paimon sink | `connectType` | `String` | 启动时加载，运行期只读 | 支持 `S3` / filesystem catalog 相关 options |
 | `PaimonSinkConfig` | 配置 Paimon sink | `options` | `Map<String, String>` | 启动时加载，运行期只读 | 全局 Paimon catalog options 和默认表 options |
 | `PaimonSinkConfig` | 配置 Paimon sink | `tables` | `List<PaimonTableConfig>` | 启动时加载，运行期只读 | 多表路由、字段定义与表级 options |
 | `PaimonSinkConfig` | 配置 Paimon sink | `loadMode` | `String` | 启动时加载，运行期只读 | 全局默认写入模式 |
@@ -178,7 +178,7 @@
 
 `length/precision/scale/nullable/comment/format/value` 都是可选配置。`VARCHAR` 未配置 `length` 时默认 `255`；`DECIMAL` 未配置 `precision/scale` 时默认 `18/4`；`nullable` 未配置时默认 `true`；`comment` 与 `format` 未配置时为空。
 
-`columns[].value.defaultValue` 是列值兜底值。第一版不再额外提供 `columns[].defaultValue`，避免同一默认值语义出现两份配置。
+`columns[].value.defaultValue` 是列值兜底值。不额外提供 `columns[].defaultValue`，避免同一默认值语义出现两份配置。
 
 Kafka 标准结构与 job.json 覆盖规则：
 
@@ -286,7 +286,7 @@ Kafka 标准结构与 job.json 覆盖规则：
 | `ExpressionSpec.path` -> extracted value | 使用 JMESPath 在消息级或记录级上下文求值 | `path` 为空时跳过求值，直接使用 `defaultValue` |
 | extracted value -> final expression value | 当取值为 `null`、缺失或空字符串时使用 `defaultValue` | 若最终仍为空，由调用方按必填规则处理 |
 | final expression value -> typed value | 按 `jsonType` 校验顶层类型 | `ANY` 不校验；`ARRAY` 不校验元素类型 |
-| Kafka JSON + `PaimonTableConfig` -> `ResolvedTableConfig` | 使用 `table.name.path` 从 Kafka JSON 读取目标表名；取不到时使用 `defaultValue`；最终仍为空则过滤消息 | 多表按 `tables[]` 顺序解析，第一张得到有效目标表名的配置命中；第一版不支持一条消息写多张表 |
+| Kafka JSON + `PaimonTableConfig` -> `ResolvedTableConfig` | 使用 `table.name.path` 从 Kafka JSON 读取目标表名；取不到时使用 `defaultValue`；最终仍为空则过滤消息 | 多表按 `tables[]` 顺序解析，第一张得到有效目标表名的配置命中；不支持一条消息写多张表 |
 | Kafka JSON + `columnsMapping` -> record JSON | 使用 `columnsMapping.path` 在整条 Kafka JSON 上求值，生成待映射记录 | 结果可以是对象数组或单层对象；单层对象自动包装为一条记录；数组元素必须是对象；可用 JMESPath 投影复杂 JSON 为标准行 |
 | record JSON + `columns[]` -> output record | 每列从 `columns[].value.path` 提取，取不到用 `defaultValue`，再按 `dataType` 转换 | 必输字段为空或转换失败时按 `recordErrorPolicy` 处理 |
 | `PrimaryKeyConfig.PROXY` -> output record | 按 `path/defaultValue` 解析出的源字段列表从输出 record 取值，用 `_` 拼接后生成 UUID/SHA 摘要 | 自动补充代理主键列；真实 Paimon 主键为代理主键列和分区字段 |
@@ -297,7 +297,7 @@ Kafka 标准结构与 job.json 覆盖规则：
 | Object | Path | Reuse method | Notes |
 |--------|------|--------------|-------|
 | Kafka source/runtime 配置语义 | `datafusion-plugin/plugin-flink-schema-paimon/src/main/java/com/datafusion/plugin/flink/schema/paimon/config/FlinkSchemaPaimonJobConfig.java` | 复制同构配置或抽公共对象 | 保持 Kafka/Flink 配置字段一致 |
-| Paimon writer registry 思路 | `datafusion-plugin/plugin-flink-schema-paimon/src/main/java/com/datafusion/plugin/flink/schema/paimon/sink` | 复用或迁移为通用 Paimon sink 组件 | 避免重复实现 writer 缓存、schema 校验、批量提交 |
+| Paimon writer registry 思路 | `datafusion-plugin/plugin-flink-schema-paimon/src/main/java/com/datafusion/plugin/flink/schema/paimon/sink` | 可作为 Paimon sink 组件参考 | 避免重复实现 writer 缓存、schema 校验、批量提交 |
 | Paimon 类型转换规则 | `datafusion-plugin/plugin-flink-schema-paimon/src/main/java/com/datafusion/plugin/flink/schema/paimon/sink/PaimonTableSchemaValidator.java` | 复用或抽公共工具 | 保持 `VARCHAR/DECIMAL/DATE/TIMESTAMP` 行为一致 |
 | 代理主键生成规则 | `datafusion-plugin/plugin-flink-schema-paimon/src/main/java/com/datafusion/plugin/flink/schema/paimon/resolve/ProxyPrimaryKeyGenerator.java` | 复用或移动到新插件 | 保持 `_id_`、`UUID/SHA-256/SHA-512` 行为一致 |
 | OilChem Kafka JSON 生产协议 | `/Users/lanvendar/PycharmProjects/sh-web-spider/src/sh_web_spider/sites/oilchem/parser.py` | 作为样例输入来源 | 现有生产端输出 `payload={"schema": ..., "data": rows}` |

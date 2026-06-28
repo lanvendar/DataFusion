@@ -50,7 +50,7 @@ CREATE TABLE scheduler_task_info (
 | 调度编排属性 | `is_bound`、`flow_id`、`plugin_id`、`view`、`dep_event_ids`、`event_id`、`enabled` | 不展示、不编辑、不提交 | 描述任务进入流程后的绑定、执行插件、画布、事件和启停信息 |
 | 系统属性 | `id`、`sync_flag`、`source_route`、`creator`、`updater`、`create_time`、`update_time` | 只读或不展示 | 由系统生成、维护或用于追踪 |
 
-`plugin_id` 虽然当前位于 `scheduler_task_info` 且非空，但它属于调度执行适配属性。新增任务定义时，后端根据 `taskType` 解析默认 `pluginId` 并写入；前端任务定义页不展示、不提交。后续若同一任务类型支持多个执行插件，应在流程节点配置阶段覆盖。
+`plugin_id` 虽然当前位于 `scheduler_task_info` 且非空，但它属于调度执行适配属性。新增任务定义时，后端根据 `taskType` 解析默认 `pluginId` 并写入；前端任务定义页不展示、不提交。流程节点配置可以覆盖执行插件。
 
 ### 1.4 字段定义
 
@@ -122,7 +122,7 @@ CREATE TABLE scheduler_task_info (
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `taskType` | `String` | `@NotBlank` | 任务类型 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `taskParam` | `String` | 可选，JSON 字符串 | 任务变量参数 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `definition` | `String` | 可选，JSON 字符串 | 任务定义 |
-| `TaskInfoSaveDto` | `Request` | 新增任务 | `pluginId` | `UUID` | 不由前端提交；后端按 `taskType` 填默认值 | 执行组件 ID，保留字段用于兼容旧调用方显式传值 |
+| `TaskInfoSaveDto` | `Request` | 新增任务 | `pluginId` | `UUID` | 不由前端提交；后端按 `taskType` 填默认值 | 执行组件 ID |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `view` | `String` | 不由任务定义页面提交 | 前端流程画布视图 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `depEventIds` | `String` | 不由任务定义页面提交 | 依赖事件 ID，逗号分隔 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `eventId` | `UUID` | 不由任务定义页面提交 | 事件 ID |

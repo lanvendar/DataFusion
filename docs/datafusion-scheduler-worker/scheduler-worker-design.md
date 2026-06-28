@@ -74,12 +74,12 @@ WorkerTaskExecutionStore.listListeningStates
 
 ## 5. 提交语义
 
-`SubmitModeEnum` 只表达提交方式，不表达任务本体同步运行。
+`SubmitModeEnum` 只表达提交确认方式，不表达任务本体同步运行。
 
-- `SYNC`：worker 等待插件确认任务提交成功或进入运行态，返回 `RUNNING`。
-- `ASYNC`：worker 接收请求后返回 `SUBMIT_SUCCESS`，后台执行提交并上报后续状态。
+- `SYNC`：worker 在当前请求线程调用插件 `submitTask`；提交成功响应统一归一为 `SUBMIT_SUCCESS`，提交失败返回 `SUBMIT_FAILURE`。
+- `ASYNC`：worker 接收请求后返回 `SUBMITTING`，后台执行插件提交并上报 `SUBMIT_SUCCESS` 或 `SUBMIT_FAILURE`。
 
-提交响应不应等待任务执行完成，也不应把最终成功/失败作为同步提交响应返回。最终状态必须通过 `TaskResultReporter` 异步上报。
+提交响应不等待任务执行完成，也不把最终成功/失败作为同步提交响应返回。插件观测到的 `RUNNING`、`RUN_SUCCESS`、`RUN_FAILURE` 等运行状态通过 `TaskResultReporter` 异步上报。
 
 ## 6. 状态映射规则
 
@@ -89,7 +89,7 @@ WorkerTaskExecutionStore.listListeningStates
 - `FLINK + K8S`：Flink CRD、Kubernetes Job、Pod 或插件自定义状态。
 - `SPARK + YARN`：Yarn application 状态。
 
-因此状态映射必须按 `pluginType + runMode` 路由。后续同一组合存在多种状态源时，可通过 `pluginParam.stateSource` 或 `supports(WorkerTaskExecutionState)` 扩展。
+因此状态映射必须按 `pluginType + runMode` 路由。同一组合如果存在多种状态源，应由该插件自己的 `PluginRunModeStateMapping` 在插件参数或运行态中选择来源。
 
 ## 7. 幂等与恢复边界
 

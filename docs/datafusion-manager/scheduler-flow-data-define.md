@@ -208,7 +208,7 @@ CREATE TABLE scheduler_task_link (
 | `TaskLinkEntity` -> `EdgeDto` | `id/startId/endId` 转字符串 | `task_link.view` 解析为 `EdgeViewDto` |
 | `TaskInfoQueryDto` -> 任务池查询 | `isBound=false` 且 `keyword` 对 `taskName/taskCode` 做 OR 模糊匹配 | 默认按 `updateTime desc` 排序；返回 `id/taskName/taskCode/taskType/syncFlag` 等任务池卡片字段 |
 | `FlowInfoEntity` -> scheduler `FlowInfo` | `FlowStorageImpl` 转换为调度框架模型 | `flowType` 转 `FlowTypeEnum`；`flowParam` 转 `ParamData`；`depEventIds` 转集合；`publishVersion` 转版本字符串 |
-| `FlowInfoEntity` + `TriggerInfoEntity` -> scheduler `TriggerInfo` | `TriggerStorageImpl` 组合流程调度窗口和触发器配置 | 当前触发器查询字段需确认，详见设计风险 |
+| `FlowInfoEntity` + `TriggerInfoEntity` -> scheduler `TriggerInfo` | `TriggerStorageImpl` 组合流程调度窗口和触发器配置 | 使用流程上的 `triggerId` 查询触发器 |
 
 ## 6. 枚举 / JSON / 特殊字段
 
@@ -217,7 +217,7 @@ CREATE TABLE scheduler_task_link (
 | `flowType` | `varchar` | `String` | `FlowStorageImpl` 中转 `FlowTypeEnum.fromString` | API 当前使用字符串，不做枚举校验 |
 | `flowParam` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 流程变量参数，遵循 `ParamData.vars` 结构 |
 | `taskParam` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 任务变量参数，遵循 `ParamData.vars` 结构；任务定义本体使用 `definition` |
-| `depEventIds` | `varchar` | `String` | API 使用 `List<String>`，DB 使用逗号分隔字符串 | 后续建议下沉为关联表或 JSON 数组 |
+| `depEventIds` | `varchar` | `String` | API 使用 `List<String>`，DB 使用逗号分隔字符串 | 当前不拆关联表 |
 | `view` | `json` | `JsonNode` | 当前流程接口不直接写入 | 流程画布级视图 |
 | `task_info.view` | `json` | `JsonNode` | `NodeViewDto` 与 `JsonNode` 互转 | DAG 节点视图；前端需要持久化的节点位置、样式和展示信息都可放入 `nodeView` |
 | `task_link.view` | `json` | `JsonNode` | `EdgeViewDto` 与 `JsonNode` 互转 | DAG 连线视图；前端需要持久化的边样式、展示信息和 `sourceHandle/targetHandle` 等连线锚点都可放入 `edgeView` |

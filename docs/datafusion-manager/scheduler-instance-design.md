@@ -50,14 +50,14 @@
 
 ## 实例操作
 
-流程实例第一版开放：
+流程实例当前开放：
 
 | 状态 | 操作 |
 |------|------|
 | `INIT_SUCCESS`、`WAIT_DEPENDENT` | `SUBMIT` |
 | `RUNNING` | `STOP` |
 
-任务实例第一版开放：
+任务实例当前开放：
 
 | 状态 | 操作 |
 |------|------|
@@ -66,9 +66,9 @@
 | `SUBMIT_SUCCESS`、`RUNNING` | `STOP` |
 | `SUBMIT_FAILURE`、`RUN_FAILURE`、`STOP_SUCCESS`、`KILLED` | `RESTART`、`ENFORCE_SUCCESS` |
 | `STOP_FAILURE` | `KILL`、`RESTART`、`ENFORCE_SUCCESS` |
-| `UNKNOWN` | `ENFORCE_SUCCESS` |
+| `UNKNOWN` | `KILL`、`ENFORCE_SUCCESS` |
 
-`REINIT` 暂不在页面开放；流程和任务实例操作均通过 `MasterService.getFlowAction()` / `getTaskAction()` 进入 actor 状态机。
+`REINIT` 不在页面开放；流程和任务实例操作均通过 `MasterService.getFlowAction()` / `getTaskAction()` 进入 actor 状态机。
 
 ## 日志
 

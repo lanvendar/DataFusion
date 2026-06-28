@@ -106,20 +106,19 @@ SchedulerMasterLifecycle.run
 
 现有闭环：
 
-- agent 上报 `RUNNING`、`RUN_SUCCESS`、`RUN_FAILURE`、`STOP_SUCCESS`、`STOP_FAILURE`、`KILLED`。
+- agent 上报 `SUBMITTING`、`SUBMIT_SUCCESS`、`SUBMIT_FAILURE`、`RUNNING`、`RUN_SUCCESS`、`RUN_FAILURE`、`STOP_SUCCESS`、`STOP_FAILURE`、`KILLED`、`UNKNOWN`。
 - manager 调用 `TaskAction.asyncHandle(taskResult)` 推进 master 状态机。
 - `HttpMasterTaskOperator` 调用 agent 的 submit / stop / kill / finish。
 
-后续能力：
+当前容错边界：
 
-- 任务超时检测。
-- 执行节点心跳超时检测。
-- failover 和失败重试。
-- 内部接口鉴权、签名或网络隔离。
+- 执行节点心跳超时通过 worker registry 超时下线逻辑处理。
+- 任务失败重试由 master 状态机的重启动作处理，不在 manager runtime 单独实现 failover。
+- 内部接口依赖部署网络边界，不在当前文档内定义签名或鉴权协议。
 
 ## 日志
 
-任务实例日志由 agent 写入任务运行目录，并通过 `TaskResult.workerResult.workDirPath` 供实例查询域只读获取。manager runtime 第一版不新增独立调度日志能力。
+任务实例日志由 agent 写入任务运行目录，并通过 `TaskResult.workerResult.workDirPath` 供实例查询域只读获取。manager runtime 不新增独立调度日志表。
 
 ## 验证
 

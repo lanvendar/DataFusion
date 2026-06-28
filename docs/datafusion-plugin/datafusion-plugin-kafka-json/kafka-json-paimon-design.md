@@ -59,7 +59,7 @@
 | `sink.tables[].table.includeKafkaMetadataFields` | No | 当前表是否自动补充 Kafka topic、partition、offset 字段 |
 | `sink.tables[].columns` | No | 完整字段定义；未配置时读取 Kafka `schema.columns` |
 | `sink.loadMode` | No | 全局默认写入模式，支持 `APPEND`、`UPSERT`，表级 `loadMode` 可覆盖 |
-| `sink.writer` | No | Paimon writer 缓冲、flush 和缓存控制；新插件只支持 `writer`，不兼容旧字段 `write` |
+| `sink.writer` | No | Paimon writer 缓冲、flush 和缓存控制；当前只支持 `writer` 字段 |
 
 OilChem 样例配置骨架：
 
@@ -232,7 +232,7 @@ OilChem 样例配置骨架：
 }
 ```
 
-当 job.json 已完整配置 table 元数据和 columns 定义且作业只写一张表时，Kafka 消息可以逐步简化到只保留 `columnsMapping.path` 能取到的记录数组。`columnsMapping.path` 也可以使用 JMESPath 投影复杂 JSON，例如把 `data[].{today: today, day_pt: day_pt}` 转成标准行数组。如果 `sink.tables[]` 配置多张表，建议保留 `schema.table.name` 或等价表名字段，用于多表路由、日志和排障。
+当 job.json 已完整配置 table 元数据和 columns 定义且作业只写一张表时，Kafka 消息可以只保留 `columnsMapping.path` 能取到的记录数组。`columnsMapping.path` 也可以使用 JMESPath 投影复杂 JSON，例如把 `data[].{today: today, day_pt: day_pt}` 转成标准行数组。如果 `sink.tables[]` 配置多张表，Kafka 消息需要保留 `schema.table.name` 或等价表名字段，用于多表路由、日志和排障。
 
 标准结构解析规则：
 
@@ -305,7 +305,7 @@ schema cache 状态 = MISSING_CONFIGURED:
 - `columns[].value.path` 在单条 record 上求值，目标是生成单列值。
 - `table.database` 来自 job；其它 `table.*` 元数据可以共享 Kafka 标准结构中的 `schema.table`，也可以由 job 整段覆盖；`columns[]` 是完整字段定义，不能只写局部字段覆盖 Kafka `schema.columns[]`。
 
-因此 `data[].today` 这类表达式适合放在 `columnsMapping.path` 的投影里，不建议直接作为列值表达式；列值表达式应保持相对于单条 record，例如 `today`。
+因此 `data[].today` 这类表达式放在 `columnsMapping.path` 的投影里；列值表达式保持相对于单条 record，例如 `today`。
 
 配置支持简写：常量值可以直接写字符串、布尔值或数组，并统一归一化为 `ExpressionSpec.defaultValue`；`columnsMapping` 可以直接写 JMESPath 字符串，并归一化为 `ExpressionSpec.path`；`columns[].value` 不写时默认按列名取值；`jsonType` 通常由字段语义或 `dataType` 推断，只有表达式返回类型不明显时才显式配置。
 
@@ -339,7 +339,7 @@ schema cache 状态 = MISSING_CONFIGURED:
 | Object | Path | Notes |
 |--------|------|-------|
 | Flink/Kafka runtime 配置 | `datafusion-plugin/plugin-flink-schema-paimon` | 复用字段命名和 Flink 初始化方式 |
-| Paimon writer/schema 校验 | `datafusion-plugin/plugin-flink-schema-paimon/src/main/java/com/datafusion/plugin/flink/schema/paimon/sink` | 迁移或抽公共组件 |
+| Paimon writer/schema 校验 | `datafusion-plugin/plugin-flink-schema-paimon/src/main/java/com/datafusion/plugin/flink/schema/paimon/sink` | 可作为 Paimon 写入组件参考 |
 | 代理主键生成 | `ProxyPrimaryKeyGenerator` | 保持 `_id_` 与算法行为一致 |
 | OilChem spider 输出 | `/Users/lanvendar/PycharmProjects/sh-web-spider/src/sh_web_spider/sites/oilchem/parser.py` | 作为真实 Kafka JSON 样例来源 |
 
@@ -370,7 +370,7 @@ schema cache 状态 = MISSING_CONFIGURED:
 | `ExpressionSpec.path` 取不到值 | 使用 `defaultValue` | 若最终仍为空，由调用方按必填规则处理 |
 | `jsonType` 不匹配 | 表达式最终值与顶层类型不一致 | 启动期能发现的配置错误直接 fail；运行期按 `recordErrorPolicy` 或 `schemaMismatchPolicy` 处理 |
 | 多表路由 | `table.name.path` 有值时以该值路由；取不到值时使用 `defaultValue`；最终仍为空则过滤消息 | 未命中或为空时记录 WARN 并跳过，日志包含 topic、partition、offset、tableName、reason |
-| 一条消息写多张表 | 第一版不支持 | 后续可增加 `multiMatch=true` |
+| 一条消息写多张表 | 不支持 | 一条消息只命中第一张有效目标表配置 |
 | `columnsMapping` 结果不是数组或对象 | 当前消息无法生成记录列表 | 按 `recordErrorPolicy` 处理 |
 | `columnsMapping` 结果是单层对象 | 自动包装为单条 record | 继续执行字段映射 |
 | `columnsMapping` 数组元素不是对象 | 当前元素跳过或失败 | 按 `recordErrorPolicy` 处理，不影响同一数组其他元素；日志包含 topic、partition、offset、tableName、recordIndex、reason |
@@ -416,7 +416,7 @@ schema cache 状态 = MISSING_CONFIGURED:
 | Paimon | Catalog API + Table Write API | 负责建库建表、真实表 schema 校验、批量写入和 commit |
 | S3 / 对象存储 | Paimon options 注入 | 推荐 `warehouse=s3://...` 配合 `s3.*` |
 | Flink Runtime | checkpoint、state backend、operator parallelism | 大表写入和失败恢复依赖 Flink 运行时 |
-| sh-web-spider | Kafka JSON 生产端 | OilChem 现有输出 `schema + data` 可直接作为第一版样例输入 |
+| sh-web-spider | Kafka JSON 生产端 | OilChem 现有输出 `schema + data` 可直接作为样例输入 |
 
 ## 8. Security and Context
 
@@ -427,12 +427,12 @@ schema cache 状态 = MISSING_CONFIGURED:
 
 ## 9. Out of Scope
 
-- 不在第一版实现 UI 页面化配置。
-- 不在第一版实现一条 Kafka 消息同时写入多张表。
-- 不在第一版实现 JSON Schema 或递归类型系统，`ExpressionSpec.jsonType` 只校验顶层类型。
-- 不在第一版支持脚本表达式或任意 Java/Groovy 代码执行。
-- 不在第一版实现 Paimon schema evolution，例如在线加列、改类型。
-- 不在第一版实现死信队列或死信队列平台化治理，仅保留 WARN 日志和失败策略。
+- 不实现 UI 页面化配置。
+- 不实现一条 Kafka 消息同时写入多张表。
+- 不实现 JSON Schema 或递归类型系统，`ExpressionSpec.jsonType` 只校验顶层类型。
+- 不支持脚本表达式或任意 Java/Groovy 代码执行。
+- 不实现 Paimon schema evolution，例如在线加列、改类型。
+- 不实现死信队列或死信队列平台化治理，仅保留 WARN 日志和失败策略。
 
 ## 10. Verification
 

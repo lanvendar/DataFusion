@@ -44,7 +44,7 @@ TaskTypeConfigController -> TaskTypeConfigService -> TaskTypeConfigMapper -> sys
 |------|----------|------|
 | 插件配置 | `pluginName`、`pluginType`、`runMode`、`description`、`pluginParam`、`isTemplate` | 描述插件身份、运行模式和配置模板；接口不修改 `isTemplate` |
 | 任务类型 | `taskType`、`defaultPluginId`、`pluginType` | 维护任务类型和默认执行插件绑定；`taskType` 新增后不修改 |
-| 租户 | `tenantId` | 当前使用固定默认租户，后续接入正式租户上下文 |
+| 租户 | `tenantId` | 当前使用固定默认租户 |
 
 `runMode` 是 `pluginType` 的第二维，例如 `FLINK + YARN`、`FLINK + K8S` 可对应不同配置结构。
 
@@ -92,8 +92,8 @@ TaskTypeConfigController -> TaskTypeConfigService -> TaskTypeConfigMapper -> sys
 - 不把 `system_plugin_config` 当作运行时任务实例表。
 - 不提供任务类型软删除，当前表没有删除状态字段。
 
-## 风险
+## 当前约束
 
-- 当前固定默认租户只是本地调试兼容方案，正式多租户接入时需要替换。
+- 当前固定默认租户为 `00000000-0000-0000-0000-000000000001`。
 - `plugin_param` 是宽松 JSONB，必须由插件协议约定结构，否则会出现能存不能用。
-- 唯一性主要靠 Service 层校验，并发写入仍建议补数据库约束。
+- 唯一性主要靠 Service 层校验，当前 DDL 没有数据库唯一约束。

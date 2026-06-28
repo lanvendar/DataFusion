@@ -152,7 +152,7 @@ Job 约定：
 | 动作 | 行为 | 返回状态 |
 |------|------|----------|
 | stop | 删除 Job 和本次任务 Secret，Job 使用默认 grace period | `STOPPING`，待状态映射转终态 |
-| kill | 删除 Job 和本次任务 Secret，Job 使用 `gracePeriodSeconds=0` | `KILLING`，待状态映射转终态 |
+| kill | 删除 Job/Secret，使用 `gracePeriodSeconds=0`；无 Job 引用视为无残留 | 成功/无资源返回 `KILLED`；失败返回 `UNKNOWN` |
 | finish | 终态后采集日志并清理 Secret / Job；状态文件清理由 agent 终态上报规则决定 | 当前终态 |
 
 ## 日志
