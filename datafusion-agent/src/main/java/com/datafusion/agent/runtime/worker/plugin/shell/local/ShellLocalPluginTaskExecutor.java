@@ -126,7 +126,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
             WorkerTaskExecutionState state = baseState(request, StatusEnum.RUNNING)
                     .appId(appId)
                     .workDirPath(workDirPath)
-                    .result(resultJson("LOCAL shell task submitted", pluginLogUri, null))
+                    .result(resultJson(request, "LOCAL shell task submitted", pluginLogUri, null))
                     .build();
             stateStore.saveSnapshot(snapshot(request));
             stateStore.saveState(state);
@@ -205,7 +205,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
         String workerId = workerResult == null ? null : workerResult.getWorkerId();
         if (handle == null) {
             recordControlResult(resolvedRequest, state, targetStatus, appId, workDirPath,
-                    resultJson("process not found", pluginLogUri, null));
+                    resultJson(resolvedRequest, "process not found", pluginLogUri, null));
             return TaskResult.builder()
                     .taskInstanceId(resolvedRequest.getTaskInstanceId())
                     .flowInstanceId(resolvedRequest.getFlowInstanceId())
@@ -220,7 +220,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
             handle.destroy();
         }
         recordControlResult(resolvedRequest, state, targetStatus, appId, workDirPath,
-                resultJson(forcibly ? "process killed" : "process stopped", pluginLogUri, null));
+                resultJson(resolvedRequest, forcibly ? "process killed" : "process stopped", pluginLogUri, null));
         return TaskResult.builder()
                 .taskInstanceId(resolvedRequest.getTaskInstanceId())
                 .flowInstanceId(resolvedRequest.getFlowInstanceId())
@@ -277,7 +277,8 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                 latestState.setExitCode(exitCode);
                 latestState.setStatus(hasLiveDescendant(process) ? StatusEnum.RUNNING
                         : exitCode == 0 ? StatusEnum.RUN_SUCCESS : StatusEnum.RUN_FAILURE);
-                latestState.setResult(resultJson("LOCAL process exited, exitCode=" + exitCode,
+                latestState.setResult(resultJson(pluginType(latestState.getTaskInstanceId()),
+                        "LOCAL process exited, exitCode=" + exitCode,
                         pluginLogUri(null, latestState), exitCode));
                 stateStore.saveState(latestState);
             } catch (InterruptedException e) {
@@ -315,7 +316,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                 .taskInstanceId(request.getTaskInstanceId())
                 .taskName(request.getTaskName())
                 .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
-                .pluginType(PLUGIN_TYPE)
+                .pluginType(pluginType(request))
                 .runMode(ShellLocalRunModeStateMapping.RUN_MODE)
                 .taskData(request.getTaskData())
                 .pluginParam(request.getPluginParam())
@@ -367,9 +368,26 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
         }
     }
 
-    private ObjectNode resultJson(String message, String pluginLogUri, Integer exitCode) {
-        return PluginResultJson.build(message, PLUGIN_TYPE, ShellLocalRunModeStateMapping.RUN_MODE, pluginLogUri,
+    private ObjectNode resultJson(TaskRequest request, String message, String pluginLogUri, Integer exitCode) {
+        return resultJson(pluginType(request), message, pluginLogUri, exitCode);
+    }
+
+    private ObjectNode resultJson(String pluginType, String message, String pluginLogUri, Integer exitCode) {
+        return PluginResultJson.build(message, pluginType, ShellLocalRunModeStateMapping.RUN_MODE, pluginLogUri,
                 exitCode);
+    }
+
+    private String pluginType(TaskRequest request) {
+        return request == null ? PLUGIN_TYPE : firstText(request.getPluginType(), PLUGIN_TYPE);
+    }
+
+    private String pluginType(String taskInstanceId) {
+        if (taskInstanceId == null) {
+            return PLUGIN_TYPE;
+        }
+        return stateStore.readSnapshot(taskInstanceId)
+                .map(WorkerTaskExecutionSnap::getPluginType)
+                .orElse(PLUGIN_TYPE);
     }
 
     private WorkerResult workerResult(String workerId, String appId, String workDirPath, String message,

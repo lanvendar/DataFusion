@@ -20,9 +20,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Agent 生命周期管理.
@@ -127,7 +129,7 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         worker.setIp(firstNonBlank(resolvedIp, workerProperties.getDefaultIp()));
         worker.setPort(workerProperties.getPort());
         worker.setHostName(firstNonBlank(resolvedHostName, workerProperties.getDefaultHostName()));
-        worker.setPluginTypes(new ArrayList<>(router.executors().keySet()));
+        worker.setPluginTypes(resolvePluginTypes(workerProperties));
         worker.setStatus(Worker.STATUS_UP);
         worker.setRegisterTime(now);
         worker.setLastHeartbeatTime(now);
@@ -199,6 +201,38 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
 
     private String resolveWorkerLogDir() {
         return properties.getWorker().getWorkerLogDir();
+    }
+
+    private List<String> resolvePluginTypes(AgentProperties.Worker workerProperties) {
+        List<String> loadedPluginTypes = new ArrayList<>(router.executors().keySet());
+        if (!isNotBlank(workerProperties.getPluginTypes())) {
+            return loadedPluginTypes;
+        }
+        Set<String> loadedPluginTypeSet = router.executors().keySet();
+        List<String> configuredPluginTypes = parsePluginTypes(workerProperties.getPluginTypes());
+        List<String> pluginTypes = configuredPluginTypes.stream()
+                .filter(loadedPluginTypeSet::contains)
+                .collect(Collectors.toList());
+        List<String> unknownPluginTypes = configuredPluginTypes.stream()
+                .filter(pluginType -> !loadedPluginTypeSet.contains(pluginType))
+                .collect(Collectors.toList());
+        if (!unknownPluginTypes.isEmpty()) {
+            log.warn("worker插件类型配置包含未加载插件, configured={}, loaded={}",
+                    unknownPluginTypes, loadedPluginTypes);
+        }
+        return pluginTypes;
+    }
+
+    private List<String> parsePluginTypes(String pluginTypes) {
+        String[] parts = pluginTypes.split(SystemConstant.COMMA);
+        List<String> result = new ArrayList<>();
+        for (String part : parts) {
+            String pluginType = part == null ? null : part.trim();
+            if (isNotBlank(pluginType) && !result.contains(pluginType)) {
+                result.add(pluginType);
+            }
+        }
+        return result;
     }
 
     private boolean isNotBlank(String value) {

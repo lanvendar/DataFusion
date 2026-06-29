@@ -15,6 +15,7 @@ datafusion:
       port: ${DATAFUSION_AGENT_WORKER_PORT:${DATAFUSION_WORKER_PORT:${server.port}}}
       worker-log-dir: ${DATAFUSION_WORKER_LOG_DIR:/opt/datafusion/logs/datafusion-agent}
       worker-config-path: ${DATAFUSION_WORKER_CONFIG_PATH:/opt/datafusion-builtin/datafusion-agent/worker.config}
+      plugin-types: ${DATAFUSION_WORKER_PLUGIN_TYPES:}
       accept-tasks-before-registered: ${DATAFUSION_ACCEPT_TASKS_BEFORE_REGISTERED:false}
     manager:
       base-url: ${DATAFUSION_MANAGER_URL:http://datafusion-manager}
@@ -31,6 +32,9 @@ datafusion:
       token: ${DATAFUSION_K8S_TOKEN:}
       token-file: ${DATAFUSION_K8S_TOKEN_FILE:/var/run/secrets/kubernetes.io/serviceaccount/token}
       ca-cert-file: ${DATAFUSION_K8S_CA_CERT_FILE:/var/run/secrets/kubernetes.io/serviceaccount/ca.crt}
+    plugin:
+      spider:
+        enabled: ${DATAFUSION_SPIDER_PLUGIN_ENABLED:false}
     task-pool:
       core-pool-size: ${DATAFUSION_TASK_POOL_CORE_SIZE:8}
       max-pool-size: ${DATAFUSION_TASK_POOL_MAX_SIZE:16}

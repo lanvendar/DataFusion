@@ -45,6 +45,11 @@ public class AgentProperties {
     private Kubernetes kubernetes = new Kubernetes();
 
     /**
+     * 插件配置.
+     */
+    private Plugin plugin = new Plugin();
+
+    /**
      * 任务运行线程池配置.
      */
     private ThreadPoolConfig taskPool = new ThreadPoolConfig(8, 16, 512, 60);
@@ -89,6 +94,11 @@ public class AgentProperties {
          * worker 本地配置文件路径.
          */
         private String workerConfigPath = "/opt/datafusion-builtin/datafusion-agent/worker.config";
+
+        /**
+         * worker 可承接的插件类型，逗号分隔. 为空时使用当前 agent 已加载的全部插件.
+         */
+        private String pluginTypes;
 
         /**
          * 无法获取 hostName/ip/port 时使用的默认 worker 编码.
@@ -192,6 +202,30 @@ public class AgentProperties {
          * CA 证书文件.
          */
         private String caCertFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt";
+    }
+
+    /**
+     * 插件配置.
+     */
+    @Data
+    public static class Plugin {
+
+        /**
+         * Spider 插件配置.
+         */
+        private Spider spider = new Spider();
+    }
+
+    /**
+     * Spider 插件配置.
+     */
+    @Data
+    public static class Spider {
+
+        /**
+         * 是否启用 Spider 插件入口.
+         */
+        private boolean enabled = false;
     }
 
     /**

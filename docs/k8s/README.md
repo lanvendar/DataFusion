@@ -32,6 +32,8 @@
    - `DATAFUSION_MANAGER_URL` 默认指向集群内 Service: `http://datafusion-manager:8080`。
    - `LOG_PATH` 在 Manager/Agent 的 Deployment 中分别设置为 `/opt/datafusion/logs/datafusion-manager` 和 `/opt/datafusion/logs/datafusion-agent`。
    - `DATAFUSION_INIT_OVERWRITE` 默认是 `false`，Agent initContainer 只从镜像内置 `/opt/datafusion-builtin` 补齐 PVC 缺失插件文件；改为 `true` 时会覆盖 PVC 中已有文件。
+   - `DATAFUSION_WORKER_PLUGIN_TYPES` 默认空，表示 Agent 上报已加载的全部插件；可设为 `SHELL`、`DATAX` 或逗号分隔列表限制 worker 承接插件。
+   - `DATAFUSION_SPIDER_PLUGIN_ENABLED` 默认是 `false`；spider 专用 agent 设为 `true` 并配合 `DATAFUSION_WORKER_PLUGIN_TYPES=SPIDER`。
    - `SKYWALKING_GRAPHQL_URL`、`DATAFUSION_ETL_*` 按实际外部依赖调整。
 
 3. 替换 `datafusion-secret` 中的敏感值：
