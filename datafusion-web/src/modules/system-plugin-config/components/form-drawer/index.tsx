@@ -1,5 +1,6 @@
 import { Button, Drawer, Form, Input, Space } from "antd";
 import { useEffect } from "react";
+import { PLUGIN_COPY_BASE_MAX_LENGTH } from "../../constants";
 import type { PluginConfigFormMode, PluginConfigItem } from "../../dto";
 import { usePluginConfigSubmit } from "./use-submit";
 
@@ -63,7 +64,17 @@ export function PluginConfigForm({
       }
     >
       <Form form={form} layout="vertical">
-        <Form.Item name="pluginName" label="插件名称" rules={[{ required: true }]}>
+        <Form.Item
+          name="pluginName"
+          label="插件名称"
+          rules={[
+            { required: true },
+            {
+              max: PLUGIN_COPY_BASE_MAX_LENGTH,
+              message: `插件名称不能超过${PLUGIN_COPY_BASE_MAX_LENGTH}个字符`,
+            },
+          ]}
+        >
           <Input placeholder="请输入插件名称" />
         </Form.Item>
         <Form.Item name="pluginType" label="插件类型" rules={[{ required: true }]}>

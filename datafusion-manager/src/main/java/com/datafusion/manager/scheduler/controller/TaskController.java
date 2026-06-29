@@ -3,6 +3,7 @@ package com.datafusion.manager.scheduler.controller;
 import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.common.spring.dto.response.Result;
+import com.datafusion.manager.scheduler.dto.TaskInfoCopyDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoQueryDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoSaveDto;
@@ -74,6 +75,18 @@ public class TaskController {
     @Operation(summary = "新增任务")
     public Result<UUID> add(@RequestBody @Validated TaskInfoSaveDto dto) {
         return Result.success(taskInfoService.addTaskInfo(dto));
+    }
+
+    /**
+     * 复制任务.
+     *
+     * @param dto 复制参数
+     * @return 新任务ID
+     */
+    @PostMapping("/copy")
+    @Operation(summary = "复制任务")
+    public Result<UUID> copy(@RequestBody @Validated TaskInfoCopyDto dto) {
+        return Result.success(taskInfoService.copyTaskInfo(dto));
     }
 
     /**

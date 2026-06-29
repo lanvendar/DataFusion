@@ -3,6 +3,7 @@ export enum PageActionEnum {
   EDIT = "EDIT",
   DELETE = "DELETE",
   VIEW = "VIEW",
+  COPY = "COPY",
 }
 
 export interface TaskItem {
@@ -56,6 +57,10 @@ export interface TaskSaveReq {
   taskType: string;
   taskParam?: string;
   definition?: string;
+}
+
+export interface TaskCopyReq {
+  sourceId: string;
 }
 
 export type TaskFormMode = "add" | "edit";

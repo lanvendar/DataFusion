@@ -1,7 +1,7 @@
 import { Button, Drawer, Form, Input, Select, Space, Spin } from "antd";
 import { useEffect, useState } from "react";
 import { taskApi } from "../../api";
-import { taskTypeOptions } from "../../constants";
+import { TASK_COPY_BASE_MAX_LENGTH, taskTypeOptions } from "../../constants";
 import type { TaskFormMode, TaskItem } from "../../dto";
 import { formatJsonText } from "../../utils";
 import { JsonEditor } from "../json-editor";
@@ -92,7 +92,7 @@ export function TaskForm({
             label="任务名称"
             rules={[
               { required: true, message: "请输入任务名称" },
-              { max: 255, message: "任务名称不能超过255个字符" },
+              { max: TASK_COPY_BASE_MAX_LENGTH, message: "任务名称不能超过235个字符" },
             ]}
           >
             <Input placeholder="请输入任务名称" />
@@ -102,7 +102,7 @@ export function TaskForm({
             label="任务编码"
             rules={[
               { required: true, message: "请输入任务编码" },
-              { max: 255, message: "任务编码不能超过255个字符" },
+              { max: TASK_COPY_BASE_MAX_LENGTH, message: "任务编码不能超过235个字符" },
             ]}
           >
             <Input placeholder="请输入任务编码" disabled={mode === "edit"} />

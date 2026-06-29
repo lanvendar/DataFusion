@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 import java.util.UUID;
 
 /**
@@ -29,6 +30,7 @@ public class PluginConfigUpdateDto {
      * 插件名称.
      */
     @Schema(name = "pluginName", description = "插件名称")
+    @Size(max = 235, message = "插件名称不能超过235个字符")
     private String pluginName;
 
     /**

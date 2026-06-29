@@ -27,6 +27,14 @@ export default function SchedulerTaskPage() {
     },
   });
 
+  const copyMutation = useMutation({
+    mutationFn: (sourceId: string) => taskApi.copy({ sourceId }),
+    onSuccess: () => {
+      message.success("复制成功");
+      refreshList();
+    },
+  });
+
   const openForm = useCallback((mode: TaskFormMode, record?: TaskItem) => {
     setFormMode(mode);
     setCurrentRecord(record);
@@ -53,11 +61,14 @@ export default function SchedulerTaskPage() {
           }
           if (record?.id) deleteMutation.mutate(record.id);
           break;
+        case PageActionEnum.COPY:
+          if (record?.id) copyMutation.mutate(record.id);
+          break;
         default:
           break;
       }
     },
-    [deleteMutation, message, openForm],
+    [copyMutation, deleteMutation, message, openForm],
   );
 
   return (
@@ -68,7 +79,7 @@ export default function SchedulerTaskPage() {
         description="维护任务名称、编码、类型、参数和定义内容；流程绑定、执行插件和事件依赖在流程编排中配置。"
       />
 
-      <TaskListTable loading={deleteMutation.isPending} onAction={onAction} />
+      <TaskListTable loading={deleteMutation.isPending || copyMutation.isPending} onAction={onAction} />
 
       <TaskForm
         open={formOpen}

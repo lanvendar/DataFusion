@@ -85,7 +85,7 @@ public class PluginConfigController {
      */
     @PostMapping("/copy")
     @Operation(summary = "复制插件配置")
-    public Result<UUID> copy(@RequestBody @Validated PluginConfigSaveDto dto) {
+    public Result<UUID> copy(@RequestBody PluginConfigSaveDto dto) {
         return Result.success(pluginConfigService.copyPluginConfig(dto));
     }
 

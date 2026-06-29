@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Size;
 import java.util.UUID;
 
 /**
@@ -22,6 +23,7 @@ public class TaskInfoSaveDto {
      */
     @Schema(name = "taskName", description = "任务名称")
     @NotBlank(message = "任务名称不能为空")
+    @Size(max = 235, message = "任务名称不能超过235个字符")
     private String taskName;
 
     /**
@@ -29,6 +31,7 @@ public class TaskInfoSaveDto {
      */
     @Schema(name = "taskCode", description = "任务编码(全局唯一)")
     @NotBlank(message = "任务编码不能为空")
+    @Size(max = 235, message = "任务编码不能超过235个字符")
     private String taskCode;
 
     /**

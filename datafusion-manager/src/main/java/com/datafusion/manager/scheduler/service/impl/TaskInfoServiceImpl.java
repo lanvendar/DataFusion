@@ -11,6 +11,7 @@ import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.manager.scheduler.dao.TaskInfoMapper;
+import com.datafusion.manager.scheduler.dto.TaskInfoCopyDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoQueryDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoSaveDto;
@@ -22,10 +23,17 @@ import com.datafusion.manager.utils.HttpUtils;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -39,6 +47,36 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEntity>
         implements TaskInfoService {
+
+    /**
+     * 任务名称和编码最大长度.
+     */
+    private static final int TASK_NAME_CODE_MAX_LENGTH = 255;
+
+    /**
+     * 复制任务后缀预留长度.
+     */
+    private static final int TASK_COPY_SUFFIX_RESERVED_LENGTH = 20;
+
+    /**
+     * 复制任务时任务名称和编码的基础值最大长度.
+     *
+     * <p>表字段长度为255，复制后缀当前为16位（下划线 + yyMMddHHmmssSSS），
+     * 这里按20位预留，给未来后缀扩展留下4位空间。</p>
+     */
+    private static final int TASK_COPY_BASE_MAX_LENGTH =
+            TASK_NAME_CODE_MAX_LENGTH - TASK_COPY_SUFFIX_RESERVED_LENGTH;
+
+    /**
+     * 复制任务时间后缀格式.
+     */
+    private static final DateTimeFormatter COPY_SUFFIX_FORMATTER =
+            DateTimeFormatter.ofPattern("yyMMddHHmmssSSS");
+
+    /**
+     * 复制任务后缀匹配规则.
+     */
+    private static final Pattern COPY_SUFFIX_PATTERN = Pattern.compile("_\\d{15}$");
 
     /**
      * 任务类型配置Service.
@@ -89,7 +127,7 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
         checkCodeUnique(dto.getTaskCode(), null);
 
         TaskInfoEntity entity = new TaskInfoEntity();
-        entity.setId(UUID.nameUUIDFromBytes(dto.getTaskCode().getBytes()));
+        entity.setId(UUID.nameUUIDFromBytes(dto.getTaskCode().getBytes(StandardCharsets.UTF_8)));
         entity.setTaskName(dto.getTaskName());
         entity.setTaskCode(dto.getTaskCode());
         entity.setDescription(dto.getDescription());
@@ -108,6 +146,48 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
         entity.setIsBound(false);
         entity.setEnabled(true);
         entity.setSyncFlag(false);
+
+        Date now = new Date();
+        entity.setCreator(HttpUtils.getCurrentUserName());
+        entity.setUpdater(HttpUtils.getCurrentUserName());
+        entity.setCreateTime(now);
+        entity.setUpdateTime(now);
+
+        save(entity);
+        return entity.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public UUID copyTaskInfo(TaskInfoCopyDto dto) {
+        TaskInfoEntity source = getById(dto.getSourceId());
+        if (source == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "任务不存在");
+        }
+
+        String suffix = generateCopyTaskSuffix();
+        String taskName = generateCopyValue(source.getTaskName(), suffix, "任务名称过长, 无法复制");
+        String taskCode = generateCopyValue(source.getTaskCode(), suffix, "任务编码过长, 无法复制");
+        checkCodeUnique(taskCode, null);
+
+        TaskInfoEntity entity = new TaskInfoEntity();
+        entity.setId(UUID.nameUUIDFromBytes(taskCode.getBytes(StandardCharsets.UTF_8)));
+        entity.setTaskName(taskName);
+        entity.setTaskCode(taskCode);
+        entity.setDescription(source.getDescription());
+        entity.setTaskTypeId(source.getTaskTypeId());
+        entity.setTaskType(source.getTaskType());
+        entity.setTaskParam(source.getTaskParam());
+        entity.setDefinition(source.getDefinition());
+        entity.setPluginId(taskTypeConfigService.getDefaultPluginIdByTaskType(entity.getTaskType()));
+        entity.setIsBound(false);
+        entity.setFlowId(null);
+        entity.setView(null);
+        entity.setDepEventIds(null);
+        entity.setEventId(null);
+        entity.setEnabled(true);
+        entity.setSyncFlag(source.getSyncFlag());
+        entity.setSourceRoute(buildCopySourceRoute(source));
 
         Date now = new Date();
         entity.setCreator(HttpUtils.getCurrentUserName());
@@ -202,6 +282,55 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
             return dto.getPluginId();
         }
         return taskTypeConfigService.getDefaultPluginIdByTaskType(dto.getTaskType());
+    }
+
+    /**
+     * 生成复制字段值.
+     *
+     * @param sourceValue  原值
+     * @param suffix       新复制后缀
+     * @param errorMessage 长度超限错误提示
+     * @return 复制字段值
+     */
+    private String generateCopyValue(String sourceValue, String suffix, String errorMessage) {
+        String baseValue = removeCopySuffix(sourceValue);
+        if (StringUtils.length(baseValue) > TASK_COPY_BASE_MAX_LENGTH) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, errorMessage);
+        }
+        return baseValue + "_" + suffix;
+    }
+
+    /**
+     * 移除已有复制后缀.
+     *
+     * @param value 原值
+     * @return 基础值
+     */
+    private String removeCopySuffix(String value) {
+        return COPY_SUFFIX_PATTERN.matcher(value).replaceFirst("");
+    }
+
+    /**
+     * 生成复制任务后缀.
+     *
+     * @return 毫秒级时间后缀
+     */
+    private String generateCopyTaskSuffix() {
+        return LocalDateTime.now().format(COPY_SUFFIX_FORMATTER);
+    }
+
+    /**
+     * 构建复制来源路由.
+     *
+     * @param source 原任务
+     * @return 来源路由JSON字符串
+     */
+    private String buildCopySourceRoute(TaskInfoEntity source) {
+        Map<String, Object> sourceRoute = new LinkedHashMap<>();
+        sourceRoute.put("sourceRoute", source.getSourceRoute());
+        sourceRoute.put("copy_task_id", source.getId());
+        sourceRoute.put("copy_task_name", source.getTaskName());
+        return JacksonUtils.tryObj2Str(sourceRoute);
     }
 
     /**

@@ -3,6 +3,7 @@ package com.datafusion.manager.scheduler.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
+import com.datafusion.manager.scheduler.dto.TaskInfoCopyDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoQueryDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoSaveDto;
@@ -68,6 +69,14 @@ public interface TaskInfoService extends IService<TaskInfoEntity> {
      * @return 任务ID
      */
     UUID addTaskInfo(TaskInfoSaveDto dto);
+
+    /**
+     * 复制任务.
+     *
+     * @param dto 复制参数
+     * @return 新任务ID
+     */
+    UUID copyTaskInfo(TaskInfoCopyDto dto);
 
     /**
      * 修改任务.

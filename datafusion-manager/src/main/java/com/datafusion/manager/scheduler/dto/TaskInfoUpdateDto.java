@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 import java.util.UUID;
 
 /**
@@ -28,12 +29,14 @@ public class TaskInfoUpdateDto {
      * 任务名称.
      */
     @Schema(name = "taskName", description = "任务名称")
+    @Size(max = 235, message = "任务名称不能超过235个字符")
     private String taskName;
 
     /**
      * 任务编码.
      */
     @Schema(name = "taskCode", description = "任务编码")
+    @Size(max = 235, message = "任务编码不能超过235个字符")
     private String taskCode;
 
     /**

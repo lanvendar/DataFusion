@@ -1,5 +1,6 @@
 import { request } from "@/api/http";
 import type {
+  TaskCopyReq,
   TaskItem,
   TaskPageReq,
   TaskPageRes,
@@ -27,6 +28,10 @@ export const taskApi = {
 
   add(params: TaskSaveReq): Promise<string> {
     return request<string>({ url: `${prefix}/add`, method: "POST", data: params });
+  },
+
+  copy(params: TaskCopyReq): Promise<string> {
+    return request<string>({ url: `${prefix}/copy`, method: "POST", data: params });
   },
 
   update(params: TaskSaveReq): Promise<boolean> {

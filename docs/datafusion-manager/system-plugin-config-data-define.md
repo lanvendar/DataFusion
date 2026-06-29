@@ -109,7 +109,7 @@ COMMENT ON COLUMN system_task_type_config.tenant_id IS '租户ID';
 | DB 列 | Java 字段 | Java 类型 | 必填 | 默认值 | 说明 |
 |-------|-----------|-----------|------|--------|------|
 | `id` | `id` | `UUID` | 是 | 新增时由 `pluginName + pluginType + runMode + tenantId` 拼接后通过 `UUID.nameUUIDFromBytes(...)` 生成 | 主键，继承自 `BaseIdEntity` |
-| `plugin_name` | `pluginName` | `String` | 是 | 无 | 插件名称，同一租户同插件类型同运行模式下应保持唯一 |
+| `plugin_name` | `pluginName` | `String` | 是 | 无 | 插件名称，同一租户同插件类型同运行模式下应保持唯一；接口限制基础名称最长 235 字符，给复制后缀预留空间 |
 | `plugin_type` | `pluginType` | `String` | 是 | 无 | 插件类型 |
 | `run_mode` | `runMode` | `String` | 是 | `DEFAULT` | 运行模式，例如 `DEFAULT`、`YARN`、`K8S` |
 | `description` | `description` | `String` | 否 | 无 | 描述 |
@@ -181,13 +181,13 @@ COMMENT ON COLUMN system_task_type_config.tenant_id IS '租户ID';
 | `PluginConfigQueryDto` | `Query` | 分页和列表查询 | `runMode` | `String` | `eq` | 运行模式精确查询 |
 | `PluginConfigQueryDto` | `Query` | 分页和列表查询 | `isTemplate` | `Boolean` | `eq` | 是否模板数据 |
 | `PluginConfigQueryDto` | `Query` | 分页和列表查询 | `isDel` | `Short` | `eq`，默认 `0` | 删除状态，默认只查正常数据 |
-| `PluginConfigSaveDto` | `Request` | 新增和复制插件配置 | `pluginName` | `String` | `@NotBlank` | 插件名称；复制时后端基于该值追加 `_` 和 4 位随机码 |
+| `PluginConfigSaveDto` | `Request` | 新增和复制插件配置 | `pluginName` | `String` | 新增时 `@NotBlank`、`@Size(max=235)`；复制时 Service 校验基础名称 | 插件名称；复制时后端基于该值生成 `_` 和 15 位毫秒时间序列后缀，已有复制后缀时先替换 |
 | `PluginConfigSaveDto` | `Request` | 新增和复制插件配置 | `pluginType` | `String` | `@NotBlank` | 插件类型 |
 | `PluginConfigSaveDto` | `Request` | 新增和复制插件配置 | `runMode` | `String` | `@NotBlank`，默认 `DEFAULT` | 运行模式 |
 | `PluginConfigSaveDto` | `Request` | 新增和复制插件配置 | `description` | `String` | 可选 | 描述 |
 | `PluginConfigSaveDto` | `Request` | 新增和复制插件配置 | `pluginParam` | `JsonNode` | 可选 | JSONB 配置 |
 | `PluginConfigUpdateDto` | `Request` | 修改插件配置 | `id` | `UUID` | `@NotNull` | 插件配置 ID |
-| `PluginConfigUpdateDto` | `Request` | 修改插件配置 | `pluginName` | `String` | 非空时合并 | 插件名称 |
+| `PluginConfigUpdateDto` | `Request` | 修改插件配置 | `pluginName` | `String` | `@Size(max=235)`，非空时合并 | 插件名称 |
 | `PluginConfigUpdateDto` | `Request` | 修改插件配置 | `pluginType` | `String` | 非空时合并 | 插件类型 |
 | `PluginConfigUpdateDto` | `Request` | 修改插件配置 | `runMode` | `String` | 非空时合并 | 运行模式 |
 | `PluginConfigUpdateDto` | `Request` | 修改插件配置 | `description` | `String` | 非 `null` 时合并 | 描述 |
@@ -243,7 +243,7 @@ COMMENT ON COLUMN system_task_type_config.tenant_id IS '租户ID';
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
 | `PluginConfigSaveDto` -> `PluginConfigEntity` | 复制 `pluginName`、`pluginType`、`runMode`、`description`、`pluginParam` | `id` 使用 `UUID.nameUUIDFromBytes((pluginName + pluginType + runMode + tenantId).getBytes(StandardCharsets.UTF_8))` 生成；`isTemplate=false`；`isDel=0`；`tenantId` 使用固定默认租户；审计字段由 Service 设置 |
-| `PluginConfigSaveDto` -> copied `PluginConfigEntity` | 复制 `pluginType`、`runMode`、`description`、`pluginParam` | `pluginName` 使用请求体 `pluginName + "_" + 4位随机码`；不接收 `id`；`isTemplate` 强制为 `false`；其余主键、租户和审计规则与新增一致 |
+| `PluginConfigSaveDto` -> copied `PluginConfigEntity` | 复制 `pluginType`、`runMode`、`description`、`pluginParam` | `pluginName` 使用请求体生成 `pluginName + "_" + yyMMddHHmmssSSS`，请求体 `pluginName` 已以 `_` + 15 位数字结尾时替换该后缀；去掉已有复制后缀后的基础名称超过 235 字符时拒绝复制；不接收 `id`；`isTemplate` 强制为 `false`；其余主键、租户和审计规则与新增一致 |
 | `PluginConfigUpdateDto` -> existing `PluginConfigEntity` | 按非空字段合并 | 不修改 `tenantId`、`isDel`、`creator`、`createTime`、`isTemplate` |
 | `PluginConfigEntity` -> `PluginConfigDto` | 字段逐一复制 | `pluginParam` 以 `JsonNode` 直接返回 |
 | `PluginConfigQueryDto` -> `LambdaQueryWrapper` | `pluginName` 使用 `like`，`pluginType`、`runMode`、`isTemplate`、`isDel` 使用 `eq` | 默认只查 `isDel=0` 且当前租户数据 |

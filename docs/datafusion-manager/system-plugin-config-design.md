@@ -50,9 +50,11 @@ TaskTypeConfigController -> TaskTypeConfigService -> TaskTypeConfigMapper -> sys
 
 ## 业务规则
 
-- 插件配置新增时，`pluginName`、`pluginType` 必填；同租户下 `pluginType + runMode + pluginName` 应唯一。
+- 插件配置新增时，`pluginName`、`pluginType` 必填，`pluginName` 最长 235 字符；同租户下 `pluginType + runMode + pluginName` 应唯一。
 - 新增和复制出的插件配置 `isTemplate=false`。
-- 复制接口由前端提交当前行配置，后端生成新名称和新主键。
+- 复制接口由前端提交当前行配置，后端使用 `pluginName` 和 15 位毫秒时间序列生成新名称，格式为 `pluginName_yyMMddHHmmssSSS`；原 `pluginName` 已以 `_` + 15 位数字结尾时替换该后缀，否则追加新后缀。
+- 复制插件时原 `pluginName` 去掉已有复制后缀后的基础值超过 235 字符则拒绝复制；表字段长度为 255，后缀当前占 16 位，按 20 位预留后缀空间。
+- 插件配置 `id` 由 `pluginName + pluginType + runMode + tenantId` 生成，复制出的配置使用新 `pluginName` 生成新主键。
 - 修改插件配置时不允许修改 `tenantId`、`isDel`、`creator`、`createTime`、`isTemplate`。
 - 删除插件配置为软删除：`isDel=1`。
 - 任务类型新增时，`taskType` 标准化为大写，且同租户唯一。

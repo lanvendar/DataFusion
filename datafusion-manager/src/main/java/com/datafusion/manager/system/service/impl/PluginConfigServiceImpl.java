@@ -22,11 +22,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -52,9 +53,34 @@ public class PluginConfigServiceImpl extends ServiceImpl<PluginConfigMapper, Plu
     private static final Short IS_DEL_DELETED = 1;
 
     /**
-     * 默认复制名称最大重试次数.
+     * 插件名称最大长度.
      */
-    private static final int COPY_NAME_MAX_RETRY_COUNT = 10;
+    private static final int PLUGIN_NAME_MAX_LENGTH = 255;
+
+    /**
+     * 复制插件名称后缀预留长度.
+     */
+    private static final int PLUGIN_COPY_SUFFIX_RESERVED_LENGTH = 20;
+
+    /**
+     * 复制插件时插件名称基础值最大长度.
+     *
+     * <p>表字段长度为255，复制后缀当前为16位（下划线 + yyMMddHHmmssSSS），
+     * 这里按20位预留，给未来后缀扩展留下4位空间。</p>
+     */
+    private static final int PLUGIN_COPY_BASE_MAX_LENGTH =
+            PLUGIN_NAME_MAX_LENGTH - PLUGIN_COPY_SUFFIX_RESERVED_LENGTH;
+
+    /**
+     * 复制插件名称时间后缀格式.
+     */
+    private static final DateTimeFormatter COPY_SUFFIX_FORMATTER =
+            DateTimeFormatter.ofPattern("yyMMddHHmmssSSS");
+
+    /**
+     * 复制插件名称后缀匹配规则.
+     */
+    private static final Pattern COPY_SUFFIX_PATTERN = Pattern.compile("_\\d{15}$");
 
     /**
      * 临时默认租户ID.
@@ -113,8 +139,8 @@ public class PluginConfigServiceImpl extends ServiceImpl<PluginConfigMapper, Plu
     @Transactional(rollbackFor = Exception.class)
     public UUID copyPluginConfig(PluginConfigSaveDto dto) {
         UUID tenantId = DEFAULT_TENANT_ID;
-        String pluginName = generateCopyPluginName(
-                tenantId, dto.getPluginType(), dto.getRunMode(), dto.getPluginName());
+        validateCopyRequest(dto);
+        String pluginName = generateCopyPluginName(dto.getPluginName());
         checkPluginNameUnique(tenantId, dto.getPluginType(), dto.getRunMode(), pluginName, null);
 
         PluginConfigEntity entity = new PluginConfigEntity();
@@ -258,51 +284,47 @@ public class PluginConfigServiceImpl extends ServiceImpl<PluginConfigMapper, Plu
     }
 
     /**
+     * 校验复制插件配置请求.
+     *
+     * @param dto 复制参数
+     */
+    private void validateCopyRequest(PluginConfigSaveDto dto) {
+        if (dto == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "复制参数不能为空");
+        }
+        if (StringUtils.isBlank(dto.getPluginName())) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "插件名称不能为空");
+        }
+        if (StringUtils.isBlank(dto.getPluginType())) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "插件类型不能为空");
+        }
+        if (StringUtils.isBlank(dto.getRunMode())) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "运行模式不能为空");
+        }
+    }
+
+    /**
      * 生成复制插件名称.
      *
-     * @param tenantId         租户ID
-     * @param pluginType       插件类型
-     * @param runMode          运行模式
      * @param sourcePluginName 源插件名称
      * @return 新插件名称
      */
-    private String generateCopyPluginName(UUID tenantId, String pluginType, String runMode, String sourcePluginName) {
-        for (int index = 0; index < COPY_NAME_MAX_RETRY_COUNT; index++) {
-            String pluginName = sourcePluginName + "_" + randomFourDigitCode();
-            if (!isPluginNameExists(tenantId, pluginType, runMode, pluginName)) {
-                return pluginName;
-            }
+    private String generateCopyPluginName(String sourcePluginName) {
+        String basePluginName = removeCopySuffix(sourcePluginName);
+        if (StringUtils.length(basePluginName) > PLUGIN_COPY_BASE_MAX_LENGTH) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "插件名称过长, 无法复制");
         }
-        throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "插件名称已存在");
+        return basePluginName + "_" + LocalDateTime.now().format(COPY_SUFFIX_FORMATTER);
     }
 
     /**
-     * 判断插件名称是否存在.
+     * 移除已有复制后缀.
      *
-     * @param tenantId   租户ID
-     * @param pluginType 插件类型
-     * @param runMode    运行模式
-     * @param pluginName 插件名称
-     * @return 是否存在
+     * @param value 原值
+     * @return 基础值
      */
-    private boolean isPluginNameExists(UUID tenantId, String pluginType, String runMode, String pluginName) {
-        LambdaQueryWrapper<PluginConfigEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PluginConfigEntity::getTenantId, tenantId);
-        wrapper.eq(PluginConfigEntity::getPluginType, pluginType);
-        wrapper.eq(PluginConfigEntity::getRunMode, runMode);
-        wrapper.eq(PluginConfigEntity::getPluginName, pluginName);
-        wrapper.eq(PluginConfigEntity::getIsDel, IS_DEL_NORMAL);
-        return baseMapper.selectCount(wrapper) > 0;
-    }
-
-    /**
-     * 生成四位随机码.
-     *
-     * @return 四位随机码
-     */
-    private String randomFourDigitCode() {
-        int code = ThreadLocalRandom.current().nextInt(10000);
-        return String.format(Locale.ROOT, "%04d", code);
+    private String removeCopySuffix(String value) {
+        return COPY_SUFFIX_PATTERN.matcher(value).replaceFirst("");
     }
 
     /**

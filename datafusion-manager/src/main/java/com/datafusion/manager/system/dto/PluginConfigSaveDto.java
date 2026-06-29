@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Size;
 
 /**
  * 系统-插件配置新增Dto.
@@ -22,6 +23,7 @@ public class PluginConfigSaveDto {
      */
     @Schema(name = "pluginName", description = "插件名称")
     @NotBlank(message = "插件名称不能为空")
+    @Size(max = 235, message = "插件名称不能超过235个字符")
     private String pluginName;
 
     /**

@@ -6,6 +6,8 @@ export const DEFAULT_PAGE_SIZE = 10;
 
 export const EMPTY_PLACEHOLDER = "-";
 
+export const TASK_COPY_BASE_MAX_LENGTH = 235;
+
 export const defaultFilter: TaskPageOption = {
   taskName: "",
   taskCode: "",

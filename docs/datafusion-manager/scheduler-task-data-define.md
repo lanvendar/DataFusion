@@ -115,8 +115,8 @@ CREATE TABLE scheduler_task_info (
 | `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `enabled` | `Boolean` | `eq` | 启用状态过滤 |
 | `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `isBound` | `Boolean` | `eq` | 绑定状态过滤 |
 | `TaskInfoQueryDto` | `Query` | 分页和列表查询 | `syncFlag` | `Boolean` | `eq` | 同步状态过滤 |
-| `TaskInfoSaveDto` | `Request` | 新增任务 | `taskName` | `String` | `@NotBlank` | 任务名称 |
-| `TaskInfoSaveDto` | `Request` | 新增任务 | `taskCode` | `String` | `@NotBlank` + 唯一性校验 | 任务编码 |
+| `TaskInfoSaveDto` | `Request` | 新增任务 | `taskName` | `String` | `@NotBlank` + `@Size(max=235)` | 任务名称，预留复制后缀长度 |
+| `TaskInfoSaveDto` | `Request` | 新增任务 | `taskCode` | `String` | `@NotBlank` + `@Size(max=235)` + 唯一性校验 | 任务编码，预留复制后缀长度 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `description` | `String` | 可选 | 任务描述 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `taskTypeId` | `String` | `@NotBlank` | 任务类型 ID |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `taskType` | `String` | `@NotBlank` | 任务类型 |
@@ -126,9 +126,10 @@ CREATE TABLE scheduler_task_info (
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `view` | `String` | 不由任务定义页面提交 | 前端流程画布视图 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `depEventIds` | `String` | 不由任务定义页面提交 | 依赖事件 ID，逗号分隔 |
 | `TaskInfoSaveDto` | `Request` | 新增任务 | `eventId` | `UUID` | 不由任务定义页面提交 | 事件 ID |
+| `TaskInfoCopyDto` | `Request` | 复制单条任务 | `sourceId` | `UUID` | `@NotNull` | 被复制的原任务 ID |
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `id` | `UUID` | `@NotNull` | 任务 ID |
-| `TaskInfoUpdateDto` | `Request` | 修改任务 | `taskName` | `String` | 非空时更新 | 任务名称 |
-| `TaskInfoUpdateDto` | `Request` | 修改任务 | `taskCode` | `String` | 非空时唯一性校验后更新 | 任务编码 |
+| `TaskInfoUpdateDto` | `Request` | 修改任务 | `taskName` | `String` | 非空时更新，`@Size(max=235)` | 任务名称，预留复制后缀长度 |
+| `TaskInfoUpdateDto` | `Request` | 修改任务 | `taskCode` | `String` | 非空时唯一性校验后更新，`@Size(max=235)` | 任务编码，预留复制后缀长度 |
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `description` | `String` | 非 `null` 时更新 | 任务描述 |
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `taskTypeId` | `String` | 非空时更新 | 任务类型 ID |
 | `TaskInfoUpdateDto` | `Request` | 修改任务 | `taskType` | `String` | 非空时更新 | 任务类型 |
@@ -168,6 +169,7 @@ CREATE TABLE scheduler_task_info (
 | `POST /api/scheduler/task/page` | `PageQuery<TaskInfoQueryDto>` | `PageResponse<TaskInfoDto>` | `Result<T>` | 分页查询 |
 | `POST /api/scheduler/task/list` | `TaskInfoQueryDto` | `List<TaskInfoDto>` | `Result<T>` | 列表查询 |
 | `POST /api/scheduler/task/add` | `TaskInfoSaveDto` | `UUID` | `Result<T>` | 新增任务 |
+| `POST /api/scheduler/task/copy` | `TaskInfoCopyDto` | `UUID` | `Result<T>` | 复制单条任务 |
 | `POST /api/scheduler/task/update` | `TaskInfoUpdateDto` | `Boolean` | `Result<T>` | 修改任务 |
 | `GET /api/scheduler/task/detail/{id}` | path `UUID id` | `TaskInfoDto` | `Result<T>` | 查询详情 |
 | `POST /api/scheduler/task/delete/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 删除任务 |
@@ -177,6 +179,7 @@ CREATE TABLE scheduler_task_info (
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
 | `TaskInfoSaveDto` -> `TaskInfoEntity` | 复制任务定义属性 | `id` 使用 `UUID.nameUUIDFromBytes(taskCode)`；`taskParam/definition` JSON 字符串转 `JsonNode`；`pluginId` 由后端按 `taskType` 解析默认值；默认 `isBound=false/enabled=true/syncFlag=false` |
+| `TaskInfoCopyDto` + source `TaskInfoEntity` -> new `TaskInfoEntity` | 后端基于原任务生成新 `taskName/taskCode/id` | 复制任务定义属性 `description/taskTypeId/taskType/taskParam/definition`；`taskName/taskCode` 使用同一个毫秒级 15 位时间后缀生成，原值已以 `_` + 15 位数字结尾时替换该后缀，否则追加新后缀；去掉已有复制后缀后的原 `taskName/taskCode` 基础值超过 235 时拒绝复制；`id` 使用新 `taskCode` 生成；复制系统属性中的 `syncFlag`；`sourceRoute` 写入原 `sourceRoute`、`copy_task_id` 和 `copy_task_name`；审计字段使用当前用户和当前时间；不复制调度编排属性 `isBound/flowId/pluginId/view/depEventIds/eventId/enabled` 的原值，新任务默认 `isBound=false/flowId=null/view=null/depEventIds=null/eventId=null/enabled=true`，`pluginId` 按新任务 `taskType` 解析默认执行插件 |
 | `TaskInfoUpdateDto` -> existing `TaskInfoEntity` | 合并任务定义属性和流程编排属性的非空字段 | 不更新 `isBound/flowId`；`clearEventId=true` 时清空 `eventId`，否则 `eventId` 非空时更新；更新后置 `syncFlag=false`；`taskCode` 非空时重新校验唯一 |
 | `TaskInfoEntity` -> `TaskInfoDto` | 字段逐一复制 | `taskParam/definition/view` 从 `JsonNode` 转 JSON 字符串；任务定义页面只展示任务定义属性和必要系统审计字段 |
 | `TaskInfoQueryDto` -> `LambdaQueryWrapper` | `taskName/taskCode` 使用 `ILIKE`，`taskType/flowId/enabled/isBound/syncFlag` 精确匹配 | 默认 `createTime desc` |
@@ -191,9 +194,9 @@ CREATE TABLE scheduler_task_info (
 | `definition` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 任务定义 |
 | `view` | `json` | `JsonNode` | 流程编排阶段维护，任务定义页面不提交 | 前端画布视图 |
 | `depEventIds` | `varchar` | `String` | 流程编排阶段维护，当前按逗号分隔字符串保存 | `TaskStorageImpl` 转调度模型时解析为集合 |
-| `taskCode` | `varchar(255)` | `String` | Service 层唯一性校验 | 当前无数据库唯一索引 |
-| `syncFlag` | `bool` | `Boolean` | 新增和修改任务时置 `false` | 表示业务任务是否已同步到调度配置 |
-| `sourceRoute` | `text` | `String` | 当前 Controller DTO 未暴露 | 原始业务跳转定位信息 |
+| `taskCode` | `varchar(255)` | `String` | Service 层唯一性校验；任务定义 API 最大 235 | 当前无数据库唯一索引；预留 20 位给复制后缀 |
+| `syncFlag` | `bool` | `Boolean` | 新增和修改任务时置 `false`；复制任务时照搬原任务值 | 表示业务任务是否已同步到调度配置 |
+| `sourceRoute` | `text` | `String` | 当前 Controller DTO 未暴露；复制任务时写入来源追踪 JSON 字符串 | 复制任务时格式为 `{"sourceRoute":"<sourceRoute>","copy_task_id":"<sourceId>","copy_task_name":"<sourceTaskName>"}`；`sourceRoute` 字段保留原业务页面路由 |
 
 ## 7. 复用对象
 

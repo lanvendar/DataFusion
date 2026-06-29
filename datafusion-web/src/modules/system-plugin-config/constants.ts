@@ -4,6 +4,8 @@ export const SYSTEM_PLUGIN_CONFIG_QUERY_KEY = "system-plugin-config";
 
 export const DEFAULT_PAGE_SIZE = 10;
 
+export const PLUGIN_COPY_BASE_MAX_LENGTH = 235;
+
 export const defaultFilter: PluginConfigPageOption = {
   pluginName: "",
   pluginType: "",

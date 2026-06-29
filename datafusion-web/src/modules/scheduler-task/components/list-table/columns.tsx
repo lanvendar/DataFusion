@@ -1,4 +1,4 @@
-import { DeleteOutlined, EditOutlined, EyeOutlined } from "@ant-design/icons";
+import { CopyOutlined, DeleteOutlined, EditOutlined, EyeOutlined } from "@ant-design/icons";
 import { Button, Popconfirm, Space, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { EMPTY_PLACEHOLDER, taskTypeColorMap } from "../../constants";
@@ -43,7 +43,7 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<TaskItem>
     {
       title: "操作",
       key: "action",
-      width: 220,
+      width: 280,
       fixed: "right",
       render: (_, record) => (
         <Space>
@@ -53,6 +53,14 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<TaskItem>
           <Button type="link" icon={<EditOutlined />} onClick={() => onAction(PageActionEnum.EDIT, record)}>
             编辑
           </Button>
+          <Popconfirm
+            title="确认复制该任务吗？"
+            onConfirm={() => onAction(PageActionEnum.COPY, record)}
+          >
+            <Button type="link" icon={<CopyOutlined />}>
+              复制
+            </Button>
+          </Popconfirm>
           <Popconfirm
             title={record.isBound ? "该任务已绑定流程，请先解绑后再删除" : "确认删除该任务吗？"}
             onConfirm={() => onAction(PageActionEnum.DELETE, record)}
