@@ -417,12 +417,12 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
         instance.setTaskParam(toParamData(entity.getTaskParam()));
         instance.setTaskData(entity.getTaskData());
         instance.setTaskResult(toTaskResult(entity));
-        instance.setPluginData(JacksonUtils.tryObj2Bean(entity.getPluginData(), PluginData.class));
+        instance.setPluginData(toBean(entity.getPluginData(), PluginData.class));
         return instance;
     }
 
     private TaskResult toTaskResult(TaskInstanceEntity entity) {
-        WorkerResult workerResult = JacksonUtils.tryObj2Bean(entity.getWorkerResult(), WorkerResult.class);
+        WorkerResult workerResult = toBean(entity.getWorkerResult(), WorkerResult.class);
         if (workerResult == null && JacksonUtils.isEmpty(entity.getWorkerResult())) {
             return null;
         }
@@ -440,5 +440,12 @@ public class TaskInstanceServiceImpl extends ServiceImpl<TaskInstanceMapper, Tas
             return new ParamData();
         }
         return JacksonUtils.tryObj2Bean(jsonNode, ParamData.class);
+    }
+
+    private <T> T toBean(JsonNode jsonNode, Class<T> targetClass) {
+        if (JacksonUtils.isEmpty(jsonNode)) {
+            return null;
+        }
+        return JacksonUtils.tryObj2Bean(jsonNode, targetClass);
     }
 }

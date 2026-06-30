@@ -159,4 +159,27 @@ public abstract class AbstractTaskMsgHandler implements TaskMsgHandler {
             //context.notify(msg.getFlowInstanceId(), msg);
         }
     }
+
+    /**
+     * 通知下游任务重新检查依赖.
+     *
+     * @param taskInstance 当前任务实例
+     * @param context      actor 上下文
+     */
+    protected void notifyNextTasks(TaskInstance taskInstance, ActorSysContext context) {
+        if (context == null || taskInstance == null || !taskInstance.hasNextTask()) {
+            return;
+        }
+        log.info("[{}] - 通知下游任务重新检查依赖, nextInstanceIds={}",
+                taskInstance.getInstanceId(), taskInstance.getNextInstanceIds());
+        taskInstance.getNextInstanceIds().forEach(nextInstanceId -> {
+            TaskMsg nextTaskMsg = TaskMsg.builder()
+                    .flowInstanceId(taskInstance.getFlowInstanceId())
+                    .taskInstanceId(nextInstanceId)
+                    .actionType(ActionType.WAIT)
+                    .isManualAction(false)
+                    .build();
+            context.notify(nextInstanceId, nextTaskMsg);
+        });
+    }
 }

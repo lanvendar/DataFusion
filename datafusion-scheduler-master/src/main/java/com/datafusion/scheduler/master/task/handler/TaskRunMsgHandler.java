@@ -116,7 +116,7 @@ public class TaskRunMsgHandler extends AbstractTaskMsgHandler {
         sendTaskGlobalEventIfNeeded(taskIns);
         super.saveTaskInstance(taskIns);
         notifyFlow(taskIns, StatusEnum.RUN_SUCCESS, context);
-        notifyNextTasks(taskIns, context);
+        super.notifyNextTasks(taskIns, context);
     }
 
     private void handleFailure(TaskInstance taskIns, TaskResult taskResult, StatusEnum targetState,
@@ -171,21 +171,6 @@ public class TaskRunMsgHandler extends AbstractTaskMsgHandler {
                 .isManualAction(false)//
                 .build();
         super.notifyFlowActor(flowMsg, context);
-    }
-
-    private void notifyNextTasks(TaskInstance taskIns, ActorSysContext context) {
-        if (!taskIns.hasNextTask()) {
-            return;
-        }
-        taskIns.getNextInstanceIds().forEach(nextInsId -> {
-            TaskMsg nextTaskMsg = TaskMsg.builder()//
-                    .flowInstanceId(taskIns.getFlowInstanceId())//
-                    .taskInstanceId(nextInsId)//
-                    .actionType(ActionType.WAIT)//
-                    .isManualAction(false)//
-                    .build();
-            context.notify(nextInsId, nextTaskMsg);
-        });
     }
 
     /**

@@ -11,6 +11,8 @@ import com.datafusion.scheduler.master.flow.handler.FlowMsgHandlerRegister;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.util.Collections;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.same;
@@ -23,7 +25,7 @@ class FlowActorTest {
         FlowMsgHandlerRegister register = new FlowMsgHandlerRegister();
         FlowMsgHandler handler = mock(FlowMsgHandler.class);
         register.registerHandler(new DelegatingFlowMsgHandler(ActionType.RUN, handler));
-        FlowActor actor = new FlowActor("flow-instance-1", register);
+        FlowActor actor = flowActor(register);
         ActorSysContext context = mock(ActorSysContext.class);
         actor.init(context);
         FlowMsg msg = FlowMsg.builder()
@@ -44,7 +46,7 @@ class FlowActorTest {
     @Test
     void shouldAggregateToRunningAndRunSuccessAcrossMultipleTasks() {
         FlowMsgHandlerRegister register = new FlowMsgHandlerRegister();
-        FlowActor actor = new FlowActor("flow-instance-1", register);
+        FlowActor actor = flowActor(register);
 
         StatusEnum runningState = actor.updateTaskState("task-1", StatusEnum.RUNNING);
         StatusEnum successState = actor.updateTaskState("task-2", StatusEnum.RUN_SUCCESS);
@@ -58,7 +60,7 @@ class FlowActorTest {
     @Test
     void shouldAggregateToStopSuccessWhenStoppedAndSuccessfulTasksExist() {
         FlowMsgHandlerRegister register = new FlowMsgHandlerRegister();
-        FlowActor actor = new FlowActor("flow-instance-1", register);
+        FlowActor actor = flowActor(register);
 
         actor.updateTaskState("task-1", StatusEnum.RUN_SUCCESS);
         StatusEnum flowState = actor.updateTaskState("task-2", StatusEnum.STOP_SUCCESS);
@@ -69,7 +71,7 @@ class FlowActorTest {
     @Test
     void shouldAggregateToRunFailureWhenAnyTaskFailsInFinalStates() {
         FlowMsgHandlerRegister register = new FlowMsgHandlerRegister();
-        FlowActor actor = new FlowActor("flow-instance-1", register);
+        FlowActor actor = flowActor(register);
 
         actor.updateTaskState("task-1", StatusEnum.RUN_SUCCESS);
         StatusEnum flowState = actor.updateTaskState("task-2", StatusEnum.RUN_FAILURE);
@@ -80,7 +82,7 @@ class FlowActorTest {
     @Test
     void shouldAggregateToUnknownBeforeRunFailureWhenUnknownTaskExists() {
         FlowMsgHandlerRegister register = new FlowMsgHandlerRegister();
-        FlowActor actor = new FlowActor("flow-instance-1", register);
+        FlowActor actor = flowActor(register);
 
         actor.updateTaskState("task-1", StatusEnum.RUN_FAILURE);
         StatusEnum flowState = actor.updateTaskState("task-2", StatusEnum.UNKNOWN);
@@ -93,7 +95,7 @@ class FlowActorTest {
         FlowMsgHandlerRegister register = new FlowMsgHandlerRegister();
         FlowMsgHandler handler = mock(FlowMsgHandler.class);
         register.registerHandler(new DelegatingFlowMsgHandler(ActionType.RUN, handler));
-        FlowActor actor = new FlowActor("flow-instance-1", register);
+        FlowActor actor = flowActor(register);
 
         actor.process(new DummyActorMsg());
 
@@ -103,7 +105,7 @@ class FlowActorTest {
     @Test
     void shouldClearTaskStateAfterDestroy() {
         FlowMsgHandlerRegister register = new FlowMsgHandlerRegister();
-        FlowActor actor = new FlowActor("flow-instance-1", register);
+        FlowActor actor = flowActor(register);
         actor.updateTaskState("task-1", StatusEnum.RUNNING);
 
         actor.destroy(ActorStopReason.STOPPED, null);
@@ -117,7 +119,7 @@ class FlowActorTest {
         FlowMsgHandlerRegister register = new FlowMsgHandlerRegister();
         FlowMsgHandler handler = mock(FlowMsgHandler.class);
         register.registerHandler(new DelegatingFlowMsgHandler(ActionType.RUN, handler));
-        FlowActor actor = new FlowActor("flow-instance-1", register);
+        FlowActor actor = flowActor(register);
         ActorSysContext context = mock(ActorSysContext.class);
         actor.init(context);
         FlowMsg msg = FlowMsg.builder()
@@ -136,7 +138,7 @@ class FlowActorTest {
     @Test
     void shouldReturnUnknownForEmptyTaskStateMap() {
         FlowMsgHandlerRegister register = new FlowMsgHandlerRegister();
-        FlowActor actor = new FlowActor("flow-instance-1", register);
+        FlowActor actor = flowActor(register);
 
         StatusEnum flowState = actor.updateTaskState("task-1", StatusEnum.UNKNOWN);
 
@@ -170,5 +172,9 @@ class FlowActorTest {
         public String getMsgType() {
             return "DUMMY";
         }
+    }
+
+    private FlowActor flowActor(FlowMsgHandlerRegister register) {
+        return new FlowActor("flow-instance-1", register, Collections.emptyMap());
     }
 }

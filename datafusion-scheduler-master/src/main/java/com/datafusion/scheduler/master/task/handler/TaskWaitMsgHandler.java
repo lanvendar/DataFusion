@@ -8,6 +8,7 @@ import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.master.actor.ActorSysContext;
 import com.datafusion.scheduler.master.event.GlobalEventListener;
 import com.datafusion.scheduler.master.event.GlobalEventOperator;
+import com.datafusion.scheduler.master.flow.FlowMsg;
 import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.TaskMsg;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
@@ -65,6 +66,7 @@ public class TaskWaitMsgHandler extends AbstractTaskMsgHandler {
         if (StatusEnum.INIT_SUCCESS == state) {
             taskIns.setState(StatusEnum.WAIT_DEPENDENT);
             super.saveTaskInstance(taskIns);
+            notifyFlow(taskIns, StatusEnum.WAIT_DEPENDENT, context);
         }
 
         //依赖不满足
@@ -90,6 +92,16 @@ public class TaskWaitMsgHandler extends AbstractTaskMsgHandler {
     @Override
     protected void handleManualAction(TaskMsg msg, ActorSysContext context) {
         log.error("不可能发生!!!程序异常!!!");
+    }
+
+    private void notifyFlow(TaskInstance taskIns, StatusEnum state, ActorSysContext context) {
+        FlowMsg flowMsg = FlowMsg.builder()
+                .flowInstanceId(taskIns.getFlowInstanceId())
+                .taskState(Pair.of(taskIns.getInstanceId(), state))
+                .actionType(ActionType.RUN)
+                .isManualAction(false)
+                .build();
+        super.notifyFlowActor(flowMsg, context);
     }
 
     /**

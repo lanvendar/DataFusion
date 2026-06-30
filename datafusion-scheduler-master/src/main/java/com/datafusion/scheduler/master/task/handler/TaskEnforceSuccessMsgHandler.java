@@ -89,5 +89,6 @@ public class TaskEnforceSuccessMsgHandler extends AbstractTaskMsgHandler {
                 .isManualAction(false)
                 .build();
         super.notifyFlowActor(flowMsg, context);
+        super.notifyNextTasks(taskIns, context);
     }
 }

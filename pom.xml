@@ -71,7 +71,7 @@
 
         <!-- 中间件/基础设施客户端 -->
         <redisson.version>3.17.7</redisson.version>
-        <fabric8.version>5.12.2</fabric8.version>
+        <fabric8.version>7.8.0</fabric8.version>
         <nacos.client.version>1.4.6</nacos.client.version>
         <codahale.metrics.version>3.0.2</codahale.metrics.version>
 

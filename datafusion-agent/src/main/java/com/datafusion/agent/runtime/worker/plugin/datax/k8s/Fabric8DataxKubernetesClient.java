@@ -9,8 +9,8 @@ import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import io.fabric8.kubernetes.api.model.batch.v1.JobCondition;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.ConfigBuilder;
-import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayInputStream;
@@ -76,7 +76,8 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
         this.jobFileService = jobFileService;
         this.templateRenderer = templateRenderer;
         Config config = config(properties.getKubernetes());
-        this.client = config == null ? new DefaultKubernetesClient() : new DefaultKubernetesClient(config);
+        this.client = config == null ? new KubernetesClientBuilder().build()
+                : new KubernetesClientBuilder().withConfig(config).build();
     }
 
     @Override

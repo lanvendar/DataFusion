@@ -54,19 +54,20 @@ public class FlowRunMsgHandler extends AbstractFlowMsgHandler {
 
         // flowState 由 FlowActor 计算后设入 msg
         StatusEnum flowState = msg.getFlowTargetState();
-        if (flowState != null) {
-            if (flowState != flowIns.getState()) {
-                flowIns.setState(flowState);
-                super.saveFlowInstance(flowIns);
+        if (flowState == null) {
+            log.warn("流程运行消息缺少目标状态, flowInstanceId={}", msg.getFlowInstanceId());
+            return;
+        }
+        if (flowState != flowIns.getState()) {
+            flowIns.setState(flowState);
+            if (flowState == RUN_SUCCESS) {
+                sendGlobalEventIfNeeded(flowIns);
+                flowIns.setEndTime(System.currentTimeMillis());
             }
-        } else {
-            //更新流程最终状态,并清理流程 flow actor
-            sendGlobalEventIfNeeded(flowIns);
-            flowIns.setState(RUN_SUCCESS);
-            flowIns.setEndTime(System.currentTimeMillis());
             super.saveFlowInstance(flowIns);
-            //正常停止,销毁流程 actor
-            context.getSelf().destroy(ActorStopReason.STOPPED, null);
+            if (flowState == RUN_SUCCESS) {
+                context.getSelf().destroy(ActorStopReason.STOPPED, null);
+            }
         }
     }
 

@@ -52,10 +52,14 @@ public class FlowActor extends AbstractActor {
      *
      * @param flowInstanceId     流程实例ID (作为 ActorId)
      * @param msgHandlerRegister 消息处理器上下文
+     * @param taskStates         初始任务状态
      */
-    public FlowActor(String flowInstanceId, FlowMsgHandlerRegister msgHandlerRegister) {
+    public FlowActor(String flowInstanceId, FlowMsgHandlerRegister msgHandlerRegister, Map<String, StatusEnum> taskStates) {
         this.actorId = flowInstanceId;
         this.msgHandlerRegister = msgHandlerRegister;
+        if (taskStates != null && !taskStates.isEmpty()) {
+            this.taskStateMap.putAll(taskStates);
+        }
     }
 
     @Override
@@ -122,7 +126,8 @@ public class FlowActor extends AbstractActor {
         // 遍历 taskActorMap 并统计状态数量
         taskStateMap.forEach((taskId, state) -> stateCountMap.compute(state, (k, v) -> v == null ? 1 : v + 1));
         // 计算各种状态的数量
-        int waitCount = stateCountMap.getOrDefault(WAIT_DEPENDENT, 0) + stateCountMap.getOrDefault(SUBMITTING, 0);
+        int submitCount = stateCountMap.getOrDefault(INIT_SUCCESS, 0) + stateCountMap.getOrDefault(WAIT_DEPENDENT, 0)
+                + stateCountMap.getOrDefault(SUBMITTING, 0);
         int runningCount = stateCountMap.getOrDefault(SUBMIT_SUCCESS, 0) + stateCountMap.getOrDefault(RESTARTING, 0)
                 + stateCountMap.getOrDefault(RUNNING, 0) + stateCountMap.getOrDefault(STOPPING, 0)
                 + stateCountMap.getOrDefault(KILLING, 0) + stateCountMap.getOrDefault(ENFORCING_SUCCESS, 0);
@@ -135,27 +140,38 @@ public class FlowActor extends AbstractActor {
         int finalCount = successCount + failureCount + stoppedCount;
         // 任务未进入最终状态
         if (finalCount < taskStateMap.size()) {
-            if (waitCount + finalCount == taskStateMap.size()) {
-                return SUBMITTING;
-            }
-            //兜底状态
             if (runningCount > 0) {
+                log.debug("流程状态聚合为RUNNING, flowInstanceId={}, taskCount={}, stateCountMap={}",
+                        actorId, taskStateMap.size(), stateCountMap);
                 return RUNNING;
+            }
+            if (submitCount + finalCount == taskStateMap.size()) {
+                log.debug("流程状态聚合为SUBMITTING, flowInstanceId={}, taskCount={}, stateCountMap={}",
+                        actorId, taskStateMap.size(), stateCountMap);
+                return SUBMITTING;
             }
         }
         // 任务都进入最终状态
         if (finalCount == taskStateMap.size()) {
             if (successCount == taskStateMap.size()) {
+                log.debug("流程状态聚合为RUN_SUCCESS, flowInstanceId={}, taskCount={}, stateCountMap={}",
+                        actorId, taskStateMap.size(), stateCountMap);
                 return RUN_SUCCESS;
             }
             if (stoppedCount + successCount == taskStateMap.size()) {
+                log.debug("流程状态聚合为STOP_SUCCESS, flowInstanceId={}, taskCount={}, stateCountMap={}",
+                        actorId, taskStateMap.size(), stateCountMap);
                 return STOP_SUCCESS;
             }
             if (unknownCount > 0) {
+                log.debug("流程状态聚合为UNKNOWN, flowInstanceId={}, taskCount={}, stateCountMap={}",
+                        actorId, taskStateMap.size(), stateCountMap);
                 return UNKNOWN;
             }
             //兜底状态,等价条件(failureCount+stoppedCount+successCount=taskStateMap.size())
             if (failureCount > 0) {
+                log.debug("流程状态聚合为RUN_FAILURE, flowInstanceId={}, taskCount={}, stateCountMap={}",
+                        actorId, taskStateMap.size(), stateCountMap);
                 return RUN_FAILURE;
             }
         }

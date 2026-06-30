@@ -1,6 +1,5 @@
 package com.datafusion.scheduler.master.flow;
 
-import cn.hutool.core.lang.Pair;
 import com.datafusion.common.constant.SystemConstant;
 import com.datafusion.scheduler.enums.ActionType;
 import com.datafusion.scheduler.enums.StatusEnum;
@@ -240,26 +239,8 @@ public class FlowAction implements SchedulerTrigger {
 
     private void reloadFlow(FlowInstance flowInstance) {
         ActorProxy flowActor = createFlowActor(flowInstance.getInstanceId());
-        restoreTaskState(flowActor, flowInstance.getInstanceId());
         taskAction.reloadTasks(flowInstance.getInstanceId());
         recoverFlow(flowActor, flowInstance);
-    }
-
-    private void restoreTaskState(ActorProxy flowActor, String flowInstanceId) {
-        List<TaskInstance> taskInstances = masterStorage.getTaskStorage().getTaskInsIdsByFlowInsId(flowInstanceId);
-        for (TaskInstance taskInstance : taskInstances) {
-            if (taskInstance == null || taskInstance.getState() == null) {
-                continue;
-            }
-            FlowMsg msg = FlowMsg.builder()
-                    .flowInstanceId(flowInstanceId)
-                    .actionType(ActionType.RUN)
-                    .isManualAction(false)
-                    .restoreTaskState(true)
-                    .taskState(Pair.of(taskInstance.getInstanceId(), taskInstance.getState()))
-                    .build();
-            flowActor.notify(msg);
-        }
     }
 
     private void recoverFlow(ActorProxy flowActor, FlowInstance flowInstance) {
@@ -308,9 +289,26 @@ public class FlowAction implements SchedulerTrigger {
 
             @Override
             public Actor createActor() {
-                return new FlowActor(flowInstanceId, msgHandlerRegister);
+                return new FlowActor(flowInstanceId, msgHandlerRegister, loadTaskStates(flowInstanceId));
             }
         });
+    }
+
+    private Map<String, StatusEnum> loadTaskStates(String flowInstanceId) {
+        List<TaskInstance> taskInstances = masterStorage.getTaskStorage().getTaskInsIdsByFlowInsId(flowInstanceId);
+        if (taskInstances == null) {
+            return new HashMap<>(2);
+        }
+        Map<String, StatusEnum> taskStates = new HashMap<>(Math.max(taskInstances.size(), 2));
+        for (TaskInstance taskInstance : taskInstances) {
+            if (taskInstance == null || taskInstance.getInstanceId() == null || taskInstance.getState() == null) {
+                continue;
+            }
+            taskStates.put(taskInstance.getInstanceId(), taskInstance.getState());
+        }
+        log.info("初始化FlowActor任务状态, flowInstanceId={}, taskCount={}, taskStates={}",
+                flowInstanceId, taskStates.size(), taskStates);
+        return taskStates;
     }
 
     //region 用户手动指令操作

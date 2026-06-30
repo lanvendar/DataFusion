@@ -28,6 +28,8 @@ TriggerInfo
 ```
 
 `fetchInit` 阶段直接创建流程实例和任务实例记录，不创建 Actor；到 `dispatchSubmit` 时创建 `FlowActor`、`TaskActor` 并发送 `WAIT` 消息。
+`FlowActor` 创建时需要从 `TaskStorage` 初始化当前流程实例下全部任务状态，作为流程聚合的基线；后续任务状态变化再通过
+`FlowMsg.taskState` 增量更新该基线。
 
 任务实例 id 由 `flowInstanceId + "_" + taskId` 稳定生成 UUID。任务定义 DAG 使用 `TaskLink` 从 task id 转为 task instance id，再写入 `lastInstanceIds` 和 `nextInstanceIds`。
 
@@ -73,7 +75,8 @@ FlowAction.cleanInitializationInstances
 2. 否则存在最新实时流程实例：从该实例 `scheduleTime` 之后继续，`included=false`。
 3. 否则从当前时间恢复，`TriggerInfo` 内部会按 `startTime` 兜底。
 
-`FlowAction.reloadFlows()` 只恢复非成功、非初始化阶段的流程实例。恢复时创建 `FlowActor`，回灌任务状态到流程 Actor，再调用 `TaskAction.reloadTasks(flowInstanceId)`。
+`FlowAction.reloadFlows()` 只恢复非成功、非初始化阶段的流程实例。恢复时创建 `FlowActor`，其创建过程会初始化流程下全部任务状态，
+再调用 `TaskAction.reloadTasks(flowInstanceId)` 恢复未完成任务 Actor。
 
 当前自动恢复动作：
 
@@ -90,9 +93,33 @@ FlowAction.cleanInitializationInstances
 
 其它非成功状态只恢复 Actor，不主动发送动作。
 
+## 任务成功推进
+
+任务依赖推进只认 `StatusEnum.isSuccess()`，即只有 `RUN_SUCCESS` 和 `ENFORCE_SUCCESS` 可以满足下游任务依赖。
+`STOP_SUCCESS`、`KILLED`、`UNKNOWN` 和失败终态不推进下游。
+
+正常成功和强制成功需要共享下游唤醒语义：当前任务保存为成功终态并通知 `FlowActor` 后，要把当前任务的
+`nextInstanceIds` 逐个发送 `WAIT` 消息，触发下游任务重新检查依赖。手工 `SUBMIT` 是忽略依赖提交当前任务；
+自动 `SUBMIT` 只由 `TaskWaitMsgHandler` 在依赖检查通过后触发。
+
 ## 流程状态聚合
 
-`FlowActor` 根据任务状态计数聚合流程状态。所有任务成功时流程成功；所有任务终态且存在停止终态时流程停止成功；所有任务终态且存在 `UNKNOWN` 时流程为 `UNKNOWN`；所有任务终态且存在普通失败终态时流程失败；未终态时按等待、提交中或运行中状态推进。
+`FlowActor` 根据当前流程实例下全部任务状态计数聚合流程状态。`FlowActor` 的 `taskStateMap` 必须以创建时从
+`TaskStorage` 加载的全量任务状态为基线，不能只依赖后续收到过消息的任务状态，否则手工强制成功等局部操作会导致流程误判成功。
+
+聚合原则：
+
+1. 存在运行类状态时，流程为 `RUNNING`。运行类状态包括 `SUBMIT_SUCCESS`、`RUNNING`、`STOPPING`、`KILLING`、
+   `RESTARTING` 和 `ENFORCING_SUCCESS`。
+2. 不存在运行类状态，但存在任务 `INIT_SUCCESS`、`WAIT_DEPENDENT` 或 `SUBMITTING` 时，流程为 `SUBMITTING`。
+   流程自身的 `WAIT_DEPENDENT` 只表示流程事件依赖未满足；流程事件依赖满足并进入任务推进阶段后，任务初始化成功、
+   任务等待依赖和任务提交中都聚合为流程 `SUBMITTING`。
+3. 全部任务进入最终态时，全部成功则流程为 `RUN_SUCCESS`；成功和停止终态覆盖全部任务则流程为 `STOP_SUCCESS`；
+   存在 `UNKNOWN` 时优先聚合为 `UNKNOWN`；存在普通失败终态时聚合为 `RUN_FAILURE`。
+4. 其他未覆盖组合记录告警并聚合为 `UNKNOWN`。
+
+`FlowRunMsgHandler` 只接受 `FlowActor` 显式计算出的 `flowTargetState`。如果 `flowTargetState` 为空，应记录告警并跳过，
+不能把空目标状态隐式解释为流程运行成功。
 
 ## 验证
 
