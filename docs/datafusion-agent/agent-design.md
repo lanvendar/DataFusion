@@ -39,6 +39,10 @@ agent 启动时先生成 `workerCode`：配置了 `datafusion.agent.worker.worke
 `TaskResult.workerResult.workerId`、`.snap`、`.state`、`state.log` 都使用这个 `workerId`。注册成功返回的
 `Worker` 同时写入 `/opt/datafusion-builtin/datafusion-agent/worker.config`；agent 重启后如果
 本地 `workerCode` 未变化，则先恢复该 `Worker.id`，后续 heartbeat/offline 只用 `id`。
+`datafusion.agent.worker.plugin-types` 为空时，agent 注册上报当前进程已加载的全部插件；非空时按逗号拆分，
+只上报配置和已加载插件的交集，用于部署时把不同插件固定到不同 worker 池。
+`SPIDER + LOCAL` 插件入口随 agent 启动加载；spider 专用节点通过 `DATAFUSION_WORKER_PLUGIN_TYPES=SPIDER`
+只上报 `SPIDER` 能力。
 
 ## 目录规范
 

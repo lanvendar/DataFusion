@@ -1,6 +1,7 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
+# Spring 基础配置：本地和 Nacos 环境都通过变量覆盖数据库、Redis 等连接信息。
 spring:
   main:
     allow-circular-references: true
@@ -9,7 +10,62 @@ spring:
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
       - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
       - org.redisson.spring.starter.RedissonAutoConfiguration
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/datafusion}
+    jdbc-url: ${SPRING_DATASOURCE_JDBC_URL:jdbc:postgresql://localhost:5432/datafusion}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.postgresql.Driver}
+    driverClassName: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.postgresql.Driver}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    hikari:
+      pool-name: ${SPRING_DATASOURCE_HIKARI_POOL_NAME:datafusion-manager}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:1}
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:10}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:30000}
+      validation-timeout: ${SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT:5000}
+  redis:
+    host: ${SPRING_REDIS_HOST:127.0.0.1}
+    port: ${SPRING_REDIS_PORT:6379}
+    password: ${SPRING_REDIS_PASSWORD:}
+    timeout: ${SPRING_REDIS_TIMEOUT:3000}
 
+# DataFusion 业务配置：运行目录、内置数据源、资源同步和调度实例归档。
+datafusion:
+  modules: ${DATAFUSION_MODULES:/opt/datafusion}
+  datasource:
+    data-source-infos:
+      - id: ${DATAFUSION_DATASOURCE_ID:00000000-0000-0000-0000-000000000001}
+        database-type: ${DATAFUSION_DATASOURCE_DATABASE_TYPE:postgres}
+        host: ${DATAFUSION_DATASOURCE_HOST:localhost}
+        port: ${DATAFUSION_DATASOURCE_PORT:5432}
+        schema-name: ${DATAFUSION_DATASOURCE_SCHEMA_NAME:public}
+        database-name: ${DATAFUSION_DATASOURCE_DATABASE_NAME:datafusion}
+        database-encode: ${DATAFUSION_DATASOURCE_DATABASE_ENCODE:UTF-8}
+        jdbc-url: ${DATAFUSION_DATASOURCE_JDBC_URL:jdbc:postgresql://localhost:5432/datafusion}
+        driver-class: ${DATAFUSION_DATASOURCE_DRIVER_CLASS:org.postgresql.Driver}
+        username: ${DATAFUSION_DATASOURCE_USERNAME:postgres}
+        password: ${DATAFUSION_DATASOURCE_PASSWORD:}
+  resource:
+    sync:
+      organization: ${DATAFUSION_RESOURCE_SYNC_ORGANIZATION:datafusion}
+      business-domain: ${DATAFUSION_RESOURCE_SYNC_BUSINESS_DOMAIN:local}
+      env: ${DATAFUSION_RESOURCE_SYNC_ENV:local}
+      service-type: ${DATAFUSION_RESOURCE_SYNC_SERVICE_TYPE:spring}
+      service-en-name: ${DATAFUSION_RESOURCE_SYNC_SERVICE_EN_NAME:datafusion-manager}
+      service-en-name-u-n: ${DATAFUSION_RESOURCE_SYNC_SERVICE_EN_NAME_U_N:datafusion-manager}
+      request-type: ${DATAFUSION_RESOURCE_SYNC_REQUEST_TYPE:POST}
+      database-type: ${DATAFUSION_RESOURCE_SYNC_DATABASE_TYPE:postgres}
+      datasource-name: ${DATAFUSION_RESOURCE_SYNC_DATASOURCE_NAME:datafusion-postgres}
+      database-name: ${DATAFUSION_RESOURCE_SYNC_DATABASE_NAME:datafusion}
+      schema-name: ${DATAFUSION_RESOURCE_SYNC_SCHEMA_NAME:public}
+  scheduler:
+    instance:
+      archive:
+        enabled: ${DATAFUSION_SCHEDULER_INSTANCE_ARCHIVE_ENABLED:true}
+        batch-size: ${DATAFUSION_SCHEDULER_INSTANCE_ARCHIVE_BATCH_SIZE:200}
+        cron: "${DATAFUSION_SCHEDULER_INSTANCE_ARCHIVE_CRON:0 0/30 * * * ?}"
+
+# MyBatis-Plus 配置。
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   type-handlers-package: com.datafusion.common.spring.typehandler
@@ -18,19 +74,21 @@ mybatis-plus:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 oss:
-  enabled: false
+  enabled: ${OSS_ENABLED:false}
 
+# FileBrowser 跳转配置：用于把任务 workDirPath 转换成文件浏览器访问地址。
 filebrowser:
-  enabled: true
+  enabled: ${FILEBROWSER_ENABLED:true}
   base-url: ${FILEBROWSER_BASE_URL:https://sz-dev-filebrowser.indusmind.me/files}
   root-path: ${FILEBROWSER_ROOT_PATH:/opt/datafusion}
   username: ${FILEBROWSER_USERNAME:admin}
-  password: ${FILEBROWSER_PASSWORD:9UMC-8cnoj5tW01v}
+  password: ${FILEBROWSER_PASSWORD:}
 
 skywalking:
   graphql:
     url: ${SKYWALKING_GRAPHQL_URL:http://127.0.0.1:12800/graphql}
 
+# Git/ETL 配置：用于 ETL 仓库路径和数据源默认映射。
 git:
   url: ${DATAFUSION_GIT_URL:}
   branch: ${DATAFUSION_GIT_BRANCH:main}

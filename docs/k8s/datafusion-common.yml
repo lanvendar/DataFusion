@@ -20,8 +20,6 @@ data:
   DATAFUSION_INIT_OVERWRITE: "false"
   # Agent worker 可承接插件类型，逗号分隔；为空时上报当前 agent 已加载的全部插件。
   DATAFUSION_WORKER_PLUGIN_TYPES: ""
-  # Spider 专用 agent 开启后注册 SPIDER + LOCAL 插件入口，默认关闭。
-  DATAFUSION_SPIDER_PLUGIN_ENABLED: "false"
   JAVA_OPTS: "-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8 -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
 
   # Workloads map DATAFUSION_ENV to SPRING_PROFILES_ACTIVE.

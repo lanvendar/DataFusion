@@ -1,54 +1,86 @@
-spring:
-  cloud:
-    nacos:
-      config:
-        enabled: false
-      discovery:
-        enabled: false
-        register-enabled: false
-  datasource:
-    url: jdbc:postgresql://localhost:5432/datafusion
-    jdbc-url: jdbc:postgresql://localhost:5432/datafusion
-    driver-class-name: org.postgresql.Driver
-    driverClassName: org.postgresql.Driver
-    username: postgres
-    password: 123456
-    hikari:
-      pool-name: datafusion-manager-local
-      minimum-idle: 1
-      maximum-pool-size: 5
-      connection-timeout: 30000
-      validation-timeout: 5000
-  redis:
-    host: 172.26.185.208
-    port: 6379
-    password: NIWe08wtVHN1YpCfuPER7IFd3FeVbtcR
-    timeout: 3000
+# 本地端口配置。
+SERVER_PORT: 8080
 
-datafusion:
-  datasource:
-    data-source-infos:
-      - id: 00000000-0000-0000-0000-000000000001
-        database-type: postgres
-        host: localhost
-        port: 5432
-        schema-name: public
-        database-name: postgres
-        database-encode: UTF-8
-        jdbc-url: jdbc:postgresql://localhost:5432/datafusion
-        driver-class: org.postgresql.Driver
-        username: postgres
-        password: 123456
-  resource:
-    sync:
-      organization: local
-      business-domain: local
-      env: local
-      service-type: spring
-      service-en-name: datafusion-manager
-      service-en-name-u-n: datafusion-manager
-      request-type: POST
-      database-type: postgres
-      datasource-name: local-postgres
-      database-name: postgres
-      schema-name: public
+# Manager 主库配置。
+# 本地启动时可通过 LOCAL_POSTGRES_PASSWORD 提供密码；复制到 Nacos 时可直接替换为环境真实值。
+SPRING_DATASOURCE_URL: jdbc:postgresql://sz-db-dev.indusmind.me:21001/datafusion
+SPRING_DATASOURCE_JDBC_URL: jdbc:postgresql://sz-db-dev.indusmind.me:21001/datafusion
+SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+SPRING_DATASOURCE_USERNAME: postgres
+SPRING_DATASOURCE_PASSWORD: ${LOCAL_POSTGRES_PASSWORD:}
+SPRING_DATASOURCE_HIKARI_POOL_NAME: datafusion-manager-local
+SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 1
+SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 10
+SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 30000
+SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT: 5000
+
+# Redis 配置。
+# 当前 application.yml 排除了 Redis 自动配置，保留变量是为了后续需要时统一配置入口。
+SPRING_REDIS_HOST: 127.0.0.1
+SPRING_REDIS_PORT: 6379
+SPRING_REDIS_PASSWORD: ${LOCAL_REDIS_PASSWORD:}
+SPRING_REDIS_TIMEOUT: 3000
+
+# DataFusion 模块根目录。
+DATAFUSION_MODULES: /opt/datafusion
+
+# 内置业务数据源配置。
+DATAFUSION_DATASOURCE_ID: 00000000-0000-0000-0000-000000000001
+DATAFUSION_DATASOURCE_DATABASE_TYPE: postgres
+DATAFUSION_DATASOURCE_HOST: sz-db-dev.indusmind.me
+DATAFUSION_DATASOURCE_PORT: 21001
+DATAFUSION_DATASOURCE_SCHEMA_NAME: public
+DATAFUSION_DATASOURCE_DATABASE_NAME: datafusion
+DATAFUSION_DATASOURCE_DATABASE_ENCODE: UTF-8
+DATAFUSION_DATASOURCE_JDBC_URL: jdbc:postgresql://sz-db-dev.indusmind.me:21001/datafusion
+DATAFUSION_DATASOURCE_DRIVER_CLASS: org.postgresql.Driver
+DATAFUSION_DATASOURCE_USERNAME: postgres
+DATAFUSION_DATASOURCE_PASSWORD: ${LOCAL_POSTGRES_PASSWORD:}
+
+# 资源同步配置。
+DATAFUSION_RESOURCE_SYNC_ORGANIZATION: datafusion
+DATAFUSION_RESOURCE_SYNC_BUSINESS_DOMAIN: test
+DATAFUSION_RESOURCE_SYNC_ENV: test
+DATAFUSION_RESOURCE_SYNC_SERVICE_TYPE: spring
+DATAFUSION_RESOURCE_SYNC_SERVICE_EN_NAME: datafusion-manager
+DATAFUSION_RESOURCE_SYNC_SERVICE_EN_NAME_U_N: datafusion-manager
+DATAFUSION_RESOURCE_SYNC_REQUEST_TYPE: POST
+DATAFUSION_RESOURCE_SYNC_DATABASE_TYPE: postgres
+DATAFUSION_RESOURCE_SYNC_DATASOURCE_NAME: datafusion-postgres
+DATAFUSION_RESOURCE_SYNC_DATABASE_NAME: datafusion
+DATAFUSION_RESOURCE_SYNC_SCHEMA_NAME: public
+
+# 调度实例归档配置。
+DATAFUSION_SCHEDULER_INSTANCE_ARCHIVE_ENABLED: true
+DATAFUSION_SCHEDULER_INSTANCE_ARCHIVE_BATCH_SIZE: 200
+DATAFUSION_SCHEDULER_INSTANCE_ARCHIVE_CRON: "0 0/30 * * * ?"
+
+# 对象存储配置。
+OSS_ENABLED: false
+
+# FileBrowser 配置。
+# 本地启动时可通过 LOCAL_FILEBROWSER_PASSWORD 提供密码；复制到 Nacos 时可直接替换为环境真实值。
+FILEBROWSER_ENABLED: true
+FILEBROWSER_BASE_URL: https://sz-dev-filebrowser.indusmind.me/files
+FILEBROWSER_ROOT_PATH: /opt/datafusion
+FILEBROWSER_USERNAME: admin
+FILEBROWSER_PASSWORD: ${LOCAL_FILEBROWSER_PASSWORD:}
+
+# SkyWalking GraphQL 地址。
+SKYWALKING_GRAPHQL_URL: http://skywalking-oap.default.svc.cluster.local:12800/graphql
+
+# Git 仓库配置。
+DATAFUSION_GIT_URL: ""
+DATAFUSION_GIT_BRANCH: main
+DATAFUSION_GIT_USERNAME: ""
+DATAFUSION_GIT_PASSWORD: ${LOCAL_GIT_PASSWORD:}
+
+# ETL 默认数据源和本地路径配置。
+DATAFUSION_ETL_HOLOGRES_DATASOURCE_ID: 00000000-0000-0000-0000-000000000001
+DATAFUSION_ETL_MAXCOMPUTE_DATASOURCE_ID: 00000000-0000-0000-0000-000000000001
+DATAFUSION_ETL_REQUIRED_REPO_PATH: ""
+DATAFUSION_ETL_ALLOWED_PATHS: ""
+DATAFUSION_ETL_LOCAL_REPO_BASE_DIR_LINUX: /opt/datafusion/etl
+DATAFUSION_ETL_LOCAL_REPO_BASE_DIR_WIN: D:/tmp/datafusion/etl
+DATAFUSION_ETL_LOCAL_GIT_REPO_BASE_DIR_LINUX: /opt/datafusion/git
+DATAFUSION_ETL_LOCAL_GIT_REPO_BASE_DIR_WIN: D:/tmp/datafusion/git

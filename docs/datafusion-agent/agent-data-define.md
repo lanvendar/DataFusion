@@ -18,6 +18,7 @@
 | `AgentProperties.Worker` | `ip` | `String` | 空 | 未配置时读取本机 IP |
 | `AgentProperties.Worker` | `port` | `Integer` | `8081` | HTTP 端口 |
 | `AgentProperties.Worker` | `hostName` | `String` | 空 | 未配置时读取本机 hostName |
+| `AgentProperties.Worker` | `pluginTypes` | `String` | 空 | worker 可承接插件类型，逗号分隔；为空时上报当前 agent 已加载的全部插件 |
 | `AgentProperties.Worker` | `acceptTasksBeforeRegistered` | `boolean` | `false` | 未注册 manager 前是否允许接收任务 |
 | `AgentProperties.Manager` | `baseUrl` | `String` | 空 | manager HTTP 地址 |
 | `AgentProperties.Manager` | `enabled` | `boolean` | `true` | 是否启用 manager 注册心跳 |

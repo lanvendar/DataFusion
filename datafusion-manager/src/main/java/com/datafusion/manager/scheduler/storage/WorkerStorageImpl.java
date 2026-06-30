@@ -209,9 +209,7 @@ public class WorkerStorageImpl implements WorkerStorage {
             entity.setRegisterTime(toDate(worker.getRegisterTime(), now));
         }
         entity.setLastHeartbeatTime(toDate(worker.getLastHeartbeatTime(), now));
-        if (StringUtils.isBlank(entity.getLogDir()) && StringUtils.isNotBlank(worker.getWorkerLogDir())) {
-            entity.setLogDir(worker.getWorkerLogDir());
-        }
+        entity.setLogDir(StringUtils.isBlank(worker.getWorkerLogDir()) ? null : worker.getWorkerLogDir());
         if (entity.getIsActive() == null) {
             entity.setIsActive(ACTIVE);
         }

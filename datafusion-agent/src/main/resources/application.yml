@@ -1,13 +1,19 @@
+# Agent HTTP 服务端口。
 server:
   port: ${SERVER_PORT:8081}
 
+# Spring 应用名称，用于服务注册和配置中心 dataId 识别。
 spring:
   application:
     name: datafusion-agent
 
+# Agent 主配置：通过环境变量或 Nacos 覆盖 worker、manager、存储、插件和线程池参数。
 datafusion:
   agent:
+    # Agent 模块根目录。
     modules: ${DATAFUSION_MODULES:${user.dir}}
+    # Worker 注册信息和接单能力配置。
+    # plugin-types 用于限制当前 worker 支持的插件集合，例如 SPIDER。
     worker:
       worker-code: ${DATAFUSION_WORKER_CODE:}
       ip: ${DATAFUSION_AGENT_WORKER_IP:${DATAFUSION_WORKER_IP:}}
@@ -17,29 +23,32 @@ datafusion:
       worker-config-path: ${DATAFUSION_WORKER_CONFIG_PATH:/opt/datafusion-builtin/datafusion-agent/worker.config}
       plugin-types: ${DATAFUSION_WORKER_PLUGIN_TYPES:}
       accept-tasks-before-registered: ${DATAFUSION_ACCEPT_TASKS_BEFORE_REGISTERED:false}
+    # Manager 连接和心跳配置。
     manager:
       base-url: ${DATAFUSION_MANAGER_URL:http://datafusion-manager}
       enabled: ${DATAFUSION_MANAGER_ENABLED:true}
       heartbeat-interval-ms: ${DATAFUSION_HEARTBEAT_INTERVAL_MS:15000}
+    # 日志和任务运行目录。
     storage:
       logs-dir: ${DATAFUSION_LOGS_DIR:logs}
       task-runtime-dir: ${DATAFUSION_TASK_RUNTIME_DIR:/opt/datafusion/task-runtime}
+    # 任务状态刷新配置，unknown-threshold 控制 UNKNOWN 上报阈值。
     state-refresh:
       interval-ms: ${DATAFUSION_STATE_REFRESH_INTERVAL_MS:15000}
       unknown-threshold: ${DATAFUSION_STATE_REFRESH_UNKNOWN_THRESHOLD:3}
+    # K8S 访问配置，用于 K8S 类型插件查询和清理资源。
     kubernetes:
       api-server: ${DATAFUSION_K8S_API_SERVER:}
       token: ${DATAFUSION_K8S_TOKEN:}
       token-file: ${DATAFUSION_K8S_TOKEN_FILE:/var/run/secrets/kubernetes.io/serviceaccount/token}
       ca-cert-file: ${DATAFUSION_K8S_CA_CERT_FILE:/var/run/secrets/kubernetes.io/serviceaccount/ca.crt}
-    plugin:
-      spider:
-        enabled: ${DATAFUSION_SPIDER_PLUGIN_ENABLED:false}
+    # 任务执行线程池配置。
     task-pool:
       core-pool-size: ${DATAFUSION_TASK_POOL_CORE_SIZE:8}
       max-pool-size: ${DATAFUSION_TASK_POOL_MAX_SIZE:16}
       queue-capacity: ${DATAFUSION_TASK_POOL_QUEUE_CAPACITY:512}
       keep-alive-seconds: ${DATAFUSION_TASK_POOL_KEEP_ALIVE_SECONDS:60}
+    # 状态上报线程池配置。
     report-pool:
       core-pool-size: ${DATAFUSION_REPORT_POOL_CORE_SIZE:2}
       max-pool-size: ${DATAFUSION_REPORT_POOL_MAX_SIZE:4}

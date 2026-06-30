@@ -1,0 +1,15 @@
+{
+  "pluginName": "Spider LOCAL 模板",
+  "pluginType": "SPIDER",
+  "runMode": "LOCAL",
+  "description": "Spider 本地执行配置模板，运行参数结构复用 Shell LOCAL",
+  "isTemplate": true,
+  "pluginParam": {
+    "command": "sh",
+    "args": [
+      "-c"
+    ],
+    "env": {},
+    "pluginLogUri": ""
+  }
+}

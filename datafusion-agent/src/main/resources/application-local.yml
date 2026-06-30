@@ -1,13 +1,45 @@
-spring:
-  cloud:
-    nacos:
-      config:
-        enabled: false
-      discovery:
-        enabled: false
-        register-enabled: false
+# Agent 本地端口配置。
+SERVER_PORT: 8081
 
-datafusion:
-  agent:
-    manager:
-      base-url: ${DATAFUSION_MANAGER_URL:http://127.0.0.1:8080}
+# Agent 基础路径和 Manager 连接配置。
+DATAFUSION_MODULES: ${user.dir}
+DATAFUSION_MANAGER_URL: http://127.0.0.1:8080
+DATAFUSION_MANAGER_ENABLED: true
+DATAFUSION_HEARTBEAT_INTERVAL_MS: 15000
+
+# Worker 注册信息。
+# DATAFUSION_WORKER_PLUGIN_TYPES 可用于限制当前 worker 支持的插件集合，例如 SPIDER。
+DATAFUSION_WORKER_CODE: ""
+DATAFUSION_WORKER_IP: ""
+DATAFUSION_WORKER_HOST_NAME: ""
+DATAFUSION_WORKER_PORT: 8081
+DATAFUSION_WORKER_LOG_DIR: /opt/datafusion/logs/datafusion-agent
+DATAFUSION_WORKER_CONFIG_PATH: /opt/datafusion-builtin/datafusion-agent/worker.config
+DATAFUSION_WORKER_PLUGIN_TYPES: ""
+DATAFUSION_ACCEPT_TASKS_BEFORE_REGISTERED: false
+
+# 日志和任务运行目录。
+DATAFUSION_LOGS_DIR: logs
+DATAFUSION_TASK_RUNTIME_DIR: /opt/datafusion/task-runtime
+
+# 任务状态刷新配置。
+DATAFUSION_STATE_REFRESH_INTERVAL_MS: 15000
+DATAFUSION_STATE_REFRESH_UNKNOWN_THRESHOLD: 3
+
+# K8S 访问配置。
+DATAFUSION_K8S_API_SERVER: ""
+DATAFUSION_K8S_TOKEN: ""
+DATAFUSION_K8S_TOKEN_FILE: /var/run/secrets/kubernetes.io/serviceaccount/token
+DATAFUSION_K8S_CA_CERT_FILE: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+
+# 任务执行线程池配置。
+DATAFUSION_TASK_POOL_CORE_SIZE: 8
+DATAFUSION_TASK_POOL_MAX_SIZE: 16
+DATAFUSION_TASK_POOL_QUEUE_CAPACITY: 512
+DATAFUSION_TASK_POOL_KEEP_ALIVE_SECONDS: 60
+
+# 状态上报线程池配置。
+DATAFUSION_REPORT_POOL_CORE_SIZE: 2
+DATAFUSION_REPORT_POOL_MAX_SIZE: 4
+DATAFUSION_REPORT_POOL_QUEUE_CAPACITY: 512
+DATAFUSION_REPORT_POOL_KEEP_ALIVE_SECONDS: 60

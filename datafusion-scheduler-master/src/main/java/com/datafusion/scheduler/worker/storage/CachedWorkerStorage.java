@@ -182,6 +182,7 @@ public class CachedWorkerStorage implements WorkerStorage {
             raw.setPluginTypes(updated.getPluginTypes());
             raw.setRegisterTime(updated.getRegisterTime());
             raw.setLastHeartbeatTime(updated.getLastHeartbeatTime());
+            raw.setWorkerLogDir(updated.getWorkerLogDir());
             raw.setUpdateTime(updated.getUpdateTime());
         }
 
