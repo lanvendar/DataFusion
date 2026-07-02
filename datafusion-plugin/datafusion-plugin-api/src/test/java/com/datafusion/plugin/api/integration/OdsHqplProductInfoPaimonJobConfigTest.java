@@ -30,18 +30,15 @@ public class OdsHqplProductInfoPaimonJobConfigTest {
     private static final String BENCHMARK_PRICE_CONFIG_FILE = "ods_hqpl_product_benchmark_price-paimon-job.json";
 
     /**
-     * 校验 ODS 产品信息任务配置满足每日凌晨 1 点触发.
+     * 校验 ODS 产品信息任务配置满足 Paimon 主键要求.
      *
      * @throws Exception 配置读取失败时抛出
      */
     @Test
-    public void validateOdsProductInfoPaimonCronConfig() throws Exception {
+    public void validateOdsProductInfoPaimonJobConfig() throws Exception {
         ApiExtractJobConfig config = loadConfig(PRODUCT_INFO_CONFIG_FILE);
 
         Assertions.assertEquals("ods_hqpl_product_info", config.job.id);
-        Assertions.assertEquals("CRON", config.trigger.mode);
-        Assertions.assertEquals("0 0 1 * * ?", config.trigger.cron);
-        Assertions.assertEquals("Asia/Shanghai", config.trigger.timezone);
         Assertions.assertEquals("PAIMON", config.sink.type);
         Assertions.assertEquals("S3", config.sink.connectType);
         Assertions.assertEquals("dim_product_info", config.sink.table.name);
@@ -60,12 +57,10 @@ public class OdsHqplProductInfoPaimonJobConfigTest {
      * @throws Exception 配置读取失败时抛出
      */
     @Test
-    public void validateOdsBenchmarkPricePaimonOnceConfig() throws Exception {
+    public void validateOdsBenchmarkPricePaimonJobConfig() throws Exception {
         ApiExtractJobConfig config = loadConfig(BENCHMARK_PRICE_CONFIG_FILE);
 
         Assertions.assertEquals("ods_hqpl_product_benchmark_price", config.job.id);
-        Assertions.assertEquals("ONCE", config.trigger.mode);
-        Assertions.assertEquals("0 0 1 * * ?", config.trigger.cron);
         Assertions.assertEquals("PAIMON", config.sink.type);
         Assertions.assertEquals("ods_hqpl_product_benchmark_price", config.sink.table.name);
         Assertions.assertEquals(3, config.sink.table.primaryKeys.size());

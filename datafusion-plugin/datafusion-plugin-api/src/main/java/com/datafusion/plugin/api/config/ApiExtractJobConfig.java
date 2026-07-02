@@ -9,7 +9,7 @@ import java.util.Map;
  * API 抽取任务配置类.
  *
  * <p>
- * 包含任务基础信息、触发配置、运行时参数、Redis 配置、步骤列表和落表配置.
+ * 包含任务基础信息、运行时参数、Redis 配置、步骤列表和落表配置.
  * </p>
  *
  * @author DataFusion
@@ -22,11 +22,6 @@ public class ApiExtractJobConfig {
      * 任务基础信息.
      */
     public JobConfig job = new JobConfig();
-    
-    /**
-     * 触发配置.
-     */
-    public TriggerConfig trigger = new TriggerConfig();
     
     /**
      * 运行时控制参数.
@@ -82,27 +77,6 @@ public class ApiExtractJobConfig {
          * 任务版本.
          */
         public String version;
-    }
-
-    /**
-     * 触发配置.
-     */
-    public static class TriggerConfig {
-        
-        /**
-         * 触发模式(CRON/ONCE).
-         */
-        public String mode = "ONCE";
-        
-        /**
-         * Cron 表达式.
-         */
-        public String cron;
-        
-        /**
-         * 时区.
-         */
-        public String timezone = "Asia/Shanghai";
     }
 
     /**

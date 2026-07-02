@@ -7,6 +7,9 @@ import com.datafusion.plugin.api.util.JsonUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -68,12 +71,12 @@ public class TemplateResolver {
             return resolve((String) value, context);
         }
         if (value instanceof Map<?, ?> source) {
-            Map<String, Object> copy = new java.util.LinkedHashMap<>();
+            Map<String, Object> copy = new LinkedHashMap<>();
             source.forEach((key, item) -> copy.put(String.valueOf(key), resolveObject(item, context)));
             return copy;
         }
         if (value instanceof Iterable<?> source) {
-            java.util.List<Object> copy = new java.util.ArrayList<>();
+            List<Object> copy = new ArrayList<>();
             source.forEach(item -> copy.add(resolveObject(item, context)));
             return copy;
         }

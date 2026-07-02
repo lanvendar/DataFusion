@@ -1,0 +1,12 @@
+kind: "LocalApiProcess"
+command:
+  - "{{javaBin}}"
+{{jvmOptions}}
+  - "-DLOG_HOME={{logHome}}"
+  - "-DLOG_LEVEL={{logLevel}}"
+  - "-DLOG_MAX_SIZE={{logMaxSize}}"
+  - "-DLOG_MAX_INDEX={{logMaxIndex}}"
+  - "-Dlogback.configurationFile={{logConfigFile}}"
+{{launchArgs}}
+  - "-job"
+  - "{{jobFile}}"

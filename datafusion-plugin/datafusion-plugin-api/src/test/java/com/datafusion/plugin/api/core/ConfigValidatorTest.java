@@ -20,19 +20,8 @@ public class ConfigValidatorTest {
     private final ConfigValidator validator = new ConfigValidator();
 
     @Test
-    public void validateShouldAcceptOnceNoopConfig() {
+    public void validateShouldAcceptNoopConfig() {
         Assertions.assertDoesNotThrow(() -> validator.validate(validConfig()));
-    }
-
-    @Test
-    public void validateShouldRequireCronExpressionForCronMode() {
-        ApiExtractJobConfig config = validConfig();
-        config.trigger.mode = "CRON";
-        config.trigger.cron = null;
-
-        ApiExtractException error = Assertions.assertThrows(ApiExtractException.class, () -> validator.validate(config));
-
-        Assertions.assertTrue(error.getMessage().contains("trigger.cron"));
     }
 
     @Test
@@ -104,7 +93,6 @@ public class ConfigValidatorTest {
     private ApiExtractJobConfig validConfig() {
         ApiExtractJobConfig config = new ApiExtractJobConfig();
         config.job.id = "api-user";
-        config.trigger.mode = "ONCE";
         config.sink.type = "NOOP";
         config.steps.add(step());
         return config;

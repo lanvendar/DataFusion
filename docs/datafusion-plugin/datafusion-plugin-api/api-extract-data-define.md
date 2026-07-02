@@ -13,7 +13,6 @@
 | 类 | 字段 | 默认值 | 说明 |
 |----|------|--------|------|
 | `ApiExtractJobConfig` | `job` | `new JobConfig()` | 任务基础信息 |
-| `ApiExtractJobConfig` | `trigger` | `new TriggerConfig()` | 本地触发配置 |
 | `ApiExtractJobConfig` | `runtime` | `new RuntimeConfig()` | 循环执行配置 |
 | `ApiExtractJobConfig` | `httpConfig` | `new HttpConfig()` | 全局 HTTP 默认配置 |
 | `ApiExtractJobConfig` | `redis` | `new RedisConfig()` | Redis 连接和默认缓存配置 |
@@ -26,9 +25,6 @@
 | 类 | 字段 | 默认值 | 说明 |
 |----|------|--------|------|
 | `JobConfig` | `id` / `name` / `description` / `version` | 无 | 任务元信息 |
-| `TriggerConfig` | `mode` | `ONCE` | 触发模式 |
-| `TriggerConfig` | `cron` | 无 | Cron 表达式 |
-| `TriggerConfig` | `timezone` | `Asia/Shanghai` | Cron 时区 |
 | `RuntimeConfig` | `loopCount` | `1` | 循环次数 |
 | `RuntimeConfig` | `loopIntervalMs` | `0` | 循环间隔，毫秒 |
 
@@ -117,7 +113,6 @@
 
 | 类型 | 值 |
 |------|----|
-| `TriggerMode` | `ONCE` / `CRON` / `SCHEDULER` |
 | `SinkMode` | `APPEND` / `UPSERT` / `OVERWRITE_PARTITION` |
 | `sink.type` | `STARROCKS` / `PAIMON` / `NOOP` |
 | `sink.connectType` | `JDBC` / `LOAD_STREAM` / `S3` / `NOOP` |

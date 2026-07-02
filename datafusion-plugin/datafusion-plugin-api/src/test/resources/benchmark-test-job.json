@@ -4,9 +4,6 @@
     "name": "基准价API抽数测试",
     "version": "1.0.0"
   },
-  "trigger": {
-    "mode": "ONCE"
-  },
   "runtime": {
     "loopCount": 1,
     "loopIntervalMs": 0

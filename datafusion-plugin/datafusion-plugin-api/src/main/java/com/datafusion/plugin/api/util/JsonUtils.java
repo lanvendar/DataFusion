@@ -18,7 +18,7 @@ import java.util.Map;
  * @since 1.0.0
  */
 public final class JsonUtils {
-    
+
     /** JSON 对象映射器实例. */
     public static final ObjectMapper MAPPER = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);

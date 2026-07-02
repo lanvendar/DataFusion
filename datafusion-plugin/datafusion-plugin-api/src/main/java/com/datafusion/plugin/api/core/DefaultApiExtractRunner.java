@@ -12,7 +12,6 @@ import com.datafusion.plugin.api.sink.SinkWriter;
 import com.datafusion.plugin.api.sink.SinkWriterFactory;
 import com.datafusion.plugin.api.step.HttpStepExecutor;
 import com.datafusion.plugin.api.template.TemplateResolver;
-import com.datafusion.plugin.api.util.TextUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,29 +52,11 @@ public class DefaultApiExtractRunner implements ApiExtractRunner {
      */
     private final SinkWriterFactory sinkWriterFactory = new SinkWriterFactory();
 
-    /**
-     * 本地 cron 调度器.
-     */
-    private final CronScheduler cronScheduler = new CronScheduler();
-
     @Override
     public ApiExtractResult run(ApiExtractJobConfig config) {
         validator.validate(config);
-        TriggerMode mode = TriggerMode.parse(config.trigger == null ? "ONCE" : config.trigger.mode);
-        LOGGER.info("API 抽取任务校验通过, jobId={}, triggerMode={}", config.job.id, mode);
-        if (mode == TriggerMode.CRON) {
-            return runCron(config);
-        }
+        LOGGER.info("API 抽取任务校验通过, jobId={}", config.job.id);
         return runOnce(config);
-    }
-
-    private ApiExtractResult runCron(ApiExtractJobConfig config) {
-        if (config.trigger == null || TextUtils.isBlank(config.trigger.cron)) {
-            throw new ApiExtractException("trigger.cron is required when trigger.mode=CRON");
-        }
-        LOGGER.info("API 抽取任务进入 CRON 调度, jobId={}, cron={}, timezone={}",
-                config.job.id, config.trigger.cron, config.trigger.timezone);
-        return cronScheduler.run(config.trigger.cron, config.trigger.timezone, () -> runOnce(config));
     }
 
     private ApiExtractResult runOnce(ApiExtractJobConfig config) {

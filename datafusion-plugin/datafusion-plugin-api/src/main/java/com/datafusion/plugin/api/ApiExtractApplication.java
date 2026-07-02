@@ -19,12 +19,22 @@ import java.nio.file.Path;
  * @since 1.0.0
  */
 public class ApiExtractApplication {
-    
+
     /**
      * 日志对象.
      */
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiExtractApplication.class);
-    
+
+    /**
+     * 默认任务配置文件.
+     */
+    private static final String DEFAULT_JOB_FILE = "api-job.json";
+
+    /**
+     * 任务配置文件参数名.
+     */
+    private static final String JOB_OPTION = "-job";
+
     /**
      * 启动 API 抽取任务.
      *
@@ -32,12 +42,12 @@ public class ApiExtractApplication {
      * @throws Exception 启动失败时抛出
      */
     public static void main(String[] args) throws Exception {
-        LOGGER.info("API 抽取任务启动, args={}", maskArgs(args));
-        String configJson = readConfig(args);
+        Path jobFile = resolveJobFile(args);
+        LOGGER.info("API 抽取任务启动, jobFile={}", jobFile);
+        String configJson = Files.readString(jobFile);
         ApiExtractJobConfig config = JsonUtils.read(configJson, ApiExtractJobConfig.class);
-        LOGGER.info("API 抽取配置加载完成, jobId={}, triggerMode={}, sinkType={}, table={}",
+        LOGGER.info("API 抽取配置加载完成, jobId={}, sinkType={}, table={}",
                 config.job == null ? null : config.job.id,
-                config.trigger == null ? null : config.trigger.mode,
                 config.sink == null ? null : config.sink.type,
                 config.sink == null || config.sink.table == null ? null : config.sink.table.name);
         ApiExtractRunner runner = new DefaultApiExtractRunner();
@@ -49,37 +59,23 @@ public class ApiExtractApplication {
     }
 
     /**
-     * 读取配置内容,支持从文件或 JSON 字符串读取.
+     * 解析任务配置文件路径.
      *
      * @param args 命令行参数
-     * @return 配置 JSON 字符串
-     * @throws Exception 读取失败时抛出
+     * @return 任务配置文件路径
      */
-    private static String readConfig(String[] args) throws Exception {
+    private static Path resolveJobFile(String[] args) {
         if (args == null || args.length == 0) {
-            throw new IllegalArgumentException("Missing --config <path> or --config-json <json>");
+            return Path.of(DEFAULT_JOB_FILE);
         }
         for (int i = 0; i < args.length; i++) {
-            if ("--config".equals(args[i]) && i + 1 < args.length) {
-                return Files.readString(Path.of(args[i + 1]));
-            }
-            if ("--config-json".equals(args[i]) && i + 1 < args.length) {
-                return args[i + 1];
-            }
-        }
-        throw new IllegalArgumentException("Missing --config <path> or --config-json <json>");
-    }
-
-    private static String maskArgs(String[] args) {
-        if (args == null || args.length == 0) {
-            return "[]";
-        }
-        String[] masked = args.clone();
-        for (int i = 0; i < masked.length; i++) {
-            if ("--config-json".equals(masked[i]) && i + 1 < masked.length) {
-                masked[i + 1] = "<json>";
+            if (JOB_OPTION.equals(args[i])) {
+                if (i + 1 >= args.length) {
+                    throw new IllegalArgumentException(JOB_OPTION + " 参数不能为空");
+                }
+                return Path.of(args[i + 1]);
             }
         }
-        return java.util.Arrays.toString(masked);
+        return Path.of(DEFAULT_JOB_FILE);
     }
 }

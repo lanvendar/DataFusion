@@ -46,7 +46,6 @@ public class ConfigValidator {
         if (config.steps == null || config.steps.isEmpty()) {
             throw new ApiExtractException("steps is required");
         }
-        validateTrigger(config);
         validateRuntime(config);
         validateHttpConfig(config.httpConfig, "httpConfig");
         validateSteps(config.steps);
@@ -161,23 +160,6 @@ public class ConfigValidator {
             fieldPath = fieldPath.substring(1);
         }
         return !TextUtils.isBlank(fieldPath) && !fieldPath.contains("[]");
-    }
-
-    private void validateTrigger(ApiExtractJobConfig config) {
-        TriggerMode mode = TriggerMode.parse(config.trigger == null ? "ONCE" : config.trigger.mode);
-        if (mode == TriggerMode.CRON) {
-            if (config.trigger == null || TextUtils.isBlank(config.trigger.cron)) {
-                throw new ApiExtractException("trigger.cron is required when trigger.mode=CRON");
-            }
-            if (TextUtils.isBlank(config.trigger.timezone)) {
-                throw new ApiExtractException("trigger.timezone is required when trigger.mode=CRON");
-            }
-            try {
-                java.time.ZoneId.of(config.trigger.timezone);
-            } catch (Exception e) {
-                throw new ApiExtractException("Invalid trigger.timezone: " + config.trigger.timezone, e);
-            }
-        }
     }
 
     private void validateRuntime(ApiExtractJobConfig config) {

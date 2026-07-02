@@ -2,7 +2,9 @@
 
 > 数据结构见 [agent-data-define.md](./agent-data-define.md)。DataX 插件见
 > [plugin-datax-design.md](./plugin-datax-design.md)，Shell 插件见
-> [plugin-shell-design.md](./plugin-shell-design.md)，Flink 插件见
+> [plugin-shell-design.md](./plugin-shell-design.md)，Spider 插件见
+> [plugin-spider-design.md](./plugin-spider-design.md)，API 插件见
+> [plugin-api-design.md](./plugin-api-design.md)，Flink 插件见
 > [plugin-flink-design.md](./plugin-flink-design.md)。worker 框架契约见
 > [../datafusion-scheduler-worker/scheduler-worker-design.md](../datafusion-scheduler-worker/scheduler-worker-design.md)。
 
@@ -44,6 +46,8 @@ agent 启动时先生成 `workerCode`：配置了 `datafusion.agent.worker.worke
 只上报配置和已加载插件的交集，用于部署时把不同插件固定到不同 worker 池。
 `SPIDER + LOCAL` 插件入口随 agent 启动加载；spider 专用节点通过 `DATAFUSION_WORKER_PLUGIN_TYPES=SPIDER`
 只上报 `SPIDER` 能力。
+`API + LOCAL` 插件入口随 agent 启动加载；API 专用节点通过 `DATAFUSION_WORKER_PLUGIN_TYPES=API`
+只上报 `API` 能力。
 
 ## 目录规范
 
@@ -85,6 +89,111 @@ datafusion-agent.error.{yyyy-MM-dd}.{index}.log
 Kubernetes 部署通过 initContainer 将 `/opt/datafusion-builtin/.` 拷贝到共享卷 `/opt/datafusion/`，
 从而生成 `/opt/datafusion/plugins/{plugin}/`。当前 DataX LOCAL 默认仍指向
 `/opt/datafusion-builtin/plugins/datax`，避免运行时共享卷缺失影响内置插件启动。
+
+## 插件部署规范
+
+插件部署规范对所有 agent 插件生效。插件模块负责产出源资源，agent resources 负责承载随 agent 发布的
+标准插件目录，运行环境再把该目录同步到共享盘或容器内固定路径。
+
+### 目录分层
+
+源码侧插件目录：
+
+```text
+datafusion-plugin/{plugin-module}/src/main/resources/plugins/{pluginType}/
+datafusion-plugin/{plugin-module}/src/main/resources/plugins/{pluginType}/{appName}/
+```
+
+agent 发布侧插件目录：
+
+```text
+datafusion-agent/src/main/resources/plugins/{pluginType}/
+datafusion-agent/src/main/resources/plugins/{pluginType}/{appName}/
+```
+
+运行侧插件目录：
+
+```text
+/opt/datafusion/plugins/{pluginType}/
+/opt/datafusion/plugins/{pluginType}/{appName}/
+```
+
+`plugins/{pluginType}` 是插件类型根目录，例如 `plugins/datax`、`plugins/flink`、`plugins/api`。
+如果一个插件类型只会有一个发布包，可以直接使用 `plugins/{pluginType}` 作为单包目录；如果同一插件类型
+会汇聚多个 app，必须使用 `plugins/{pluginType}/{appName}` 子目录，避免不同插件模块互相覆盖。
+
+### manifest 规范
+
+`plugins/{pluginType}/plugin-manifest.json` 描述插件类型目录能力：
+
+```json
+{
+  "pluginType": "flink",
+  "multiApp": true,
+  "appDirPattern": "plugins/flink/{appName}",
+  "appNameField": "flinkAppName",
+  "builderDirPolicy": "src/main/resources/builder"
+}
+```
+
+字段规则：
+
+- `pluginType` 必须和目录名一致。
+- `multiApp=false` 表示插件类型目录本身就是发布包目录，例如 DataX 可保持 `plugins/datax/`。
+- `multiApp=true` 表示插件类型目录下有多个 app 发布包，例如 Flink 使用
+  `plugins/flink/{flinkAppName}/`。
+- `appNameField` 指向任务参数中选择 app 的字段，Flink 使用 `flinkAppName`。
+- `builderDirPolicy` 只描述构建脚本位置。builder 不进入 `plugins/{pluginType}` 运行目录。
+
+`multiApp=true` 时，单个 app 目录应提供 app manifest。manifest 文件名由插件类型定义，例如 Flink 使用
+`flink-app-manifest.json`。app manifest 只描述发布包结构、主入口和构建版本，不保存运行实例配置或密钥。
+
+### builder 规范
+
+builder 的职责是把插件模块产物同步到 agent 发布侧插件目录，不负责上传共享盘，不负责提交任务。
+
+规则：
+
+- builder 脚本放在 `src/main/resources/builder/`，不要放进 `src/main/resources/plugins/{pluginType}/...`。
+- builder 可以调用 Maven profile 产出 fat jar、thin jar、依赖目录或其他运行产物；依赖解析不应由纯 shell 手写。
+- builder 只允许清理和覆盖自己的发布目录。`multiApp=true` 时，只能清理
+  `plugins/{pluginType}/{appName}/`，不能清空 `plugins/{pluginType}/` 根目录。
+- 首次构建时，如果 agent 发布侧缺少 `plugins/{pluginType}` 或 app 子目录，builder 负责创建。
+- agent 发布侧的 `plugins/` 目录是后续整体打包和上传共享盘的输入。
+
+### 模板规范
+
+agent 模板必须和部署规范使用同一套路径派生规则，避免在模板中散落重复配置。
+
+统一派生规则：
+
+```text
+pluginTypeRoot = {sharedPluginRoot}/{pluginType}
+appRoot        = multiApp ? {pluginTypeRoot}/{appName} : {pluginTypeRoot}
+```
+
+模板只接收归一化后的运行变量，不直接读取 builder 字段。通用变量包括：
+
+| 变量 | 说明 |
+|------|------|
+| `pluginType` | 插件类型，例如 `flink`、`datax` |
+| `sharedPluginRoot` | 运行侧共享插件根目录，默认 `/opt/datafusion/plugins` |
+| `appName` | `multiApp=true` 时的 app 名称 |
+| `appRoot` | 根据 manifest 和任务参数派生出的运行侧 app 根目录 |
+| `taskRuntimeDir` | 当前任务运行目录 |
+| `labels` / `annotations` / `env` | 已过滤和归一化后的 Kubernetes 元数据 |
+
+插件专用模板只能声明该运行时需要的补充变量。例如 Flink K8S_OPERATOR 模板可以使用
+`flinkAppMainJar`、`usrlibPath` 和 `jobJsonMountPath`，但这些值应由 app manifest 和固定约定派生，
+不要求用户在 `pluginParam.kubernetes` 中重复填写。
+
+模板实现约束：
+
+- 模板渲染前必须先完成参数归一化，生成统一上下文对象，再渲染 YAML / command / manifest。
+- 模板中不得直接拼接源码侧路径，例如 `datafusion-plugin/.../src/main/resources/...`。
+- 模板中不得读取 builder 专用字段，例如 `mavenProfile`、`builderScriptPath`、`agentPluginDir`。
+- 模板中不得重复声明能由 manifest 派生的目录结构；应使用 `pluginTypeRoot`、`appRoot` 等归一化变量。
+- 新增插件模板时，必须先确认 `plugin-manifest.json` 的 `multiApp`、`appDirPattern` 和模板变量一致。
 
 ## RPC 边界
 
@@ -202,7 +311,7 @@ register 成功返回 Worker.id
 - 四个任务控制 RPC。
 - worker 框架装配和 Spring Bean 插件加载。
 - 文件版任务执行状态存储。
-- `SHELL + LOCAL`、`DATAX + LOCAL`、`DATAX + K8S`。
+- `SHELL + LOCAL`、`SPIDER + LOCAL`、`API + LOCAL`、`DATAX + LOCAL`、`DATAX + K8S`。
 
 ## 当前不包含
 

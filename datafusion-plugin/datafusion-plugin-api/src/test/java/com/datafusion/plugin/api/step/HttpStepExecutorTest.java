@@ -9,6 +9,7 @@ import com.datafusion.plugin.api.config.ApiExtractJobConfig.ValueExpressionConfi
 import com.datafusion.plugin.api.core.ApiExtractContext;
 import com.datafusion.plugin.api.core.Record;
 import com.datafusion.plugin.api.expression.JmesPathEvaluator;
+import com.datafusion.plugin.api.http.ApiHttpClient;
 import com.datafusion.plugin.api.http.HttpRequestData;
 import com.datafusion.plugin.api.http.HttpResponseData;
 import com.datafusion.plugin.api.mapping.RecordMapper;
@@ -312,7 +313,7 @@ public class HttpStepExecutorTest {
         return field;
     }
 
-    private static class CapturingHttpClient implements com.datafusion.plugin.api.http.ApiHttpClient {
+    private static class CapturingHttpClient implements ApiHttpClient {
 
         /**
          * Mock response body.

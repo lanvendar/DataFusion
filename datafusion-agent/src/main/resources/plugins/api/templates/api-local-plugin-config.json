@@ -1,0 +1,28 @@
+{
+  "pluginName": "API LOCAL 模板",
+  "pluginType": "API",
+  "runMode": "LOCAL",
+  "description": "API 抽数本地执行配置模板，通过 java 启动 datafusion-plugin-api",
+  "isTemplate": true,
+  "pluginParam": {
+    "launchMode": "JAR",
+    "javaBin": "java",
+    "apiJar": "/opt/datafusion/plugins/api/datafusion-plugin-api-1.0.0-executable.jar",
+    "classpath": "",
+    "mainClass": "com.datafusion.plugin.api.ApiExtractApplication",
+    "jvmOptions": [
+      "-Dfile.encoding=UTF-8",
+      "-Dsun.jnu.encoding=UTF-8",
+      "--add-opens",
+      "java.base/java.lang=ALL-UNNAMED"
+    ],
+    "logHome": "logs",
+    "logLevel": "INFO",
+    "logMaxSize": "100MB",
+    "logMaxIndex": 100,
+    "logConfigFile": "/opt/datafusion/plugins/api/conf/logback.xml",
+    "defaultTaskData": {},
+    "env": {},
+    "pluginLogUri": ""
+  }
+}

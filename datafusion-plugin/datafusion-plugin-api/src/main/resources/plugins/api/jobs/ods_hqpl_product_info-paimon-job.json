@@ -5,11 +5,6 @@
     "description": "[startTime]:产品更新时间，时间越早信息越全，初始化的时候跑一次,startTime=2018-10-01,可以手工,之后每天更新增量",
     "version": "1.0.0"
   },
-  "trigger": {
-    "mode": "ONCE",
-    "cron": "0 0 1 * * ?",
-    "timezone": "Asia/Shanghai"
-  },
   "runtime": {
     "loopCount": 1,
     "loopIntervalMs": 0

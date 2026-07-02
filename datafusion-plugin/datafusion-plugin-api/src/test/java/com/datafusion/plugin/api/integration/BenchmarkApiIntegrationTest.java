@@ -7,6 +7,9 @@ import com.datafusion.plugin.api.core.ApiExtractResult;
 import com.datafusion.plugin.api.core.DefaultApiExtractRunner;
 import com.datafusion.plugin.api.core.Record;
 import com.datafusion.plugin.api.expression.JmesPathEvaluator;
+import com.datafusion.plugin.api.http.ApiHttpClient;
+import com.datafusion.plugin.api.http.HttpRequestData;
+import com.datafusion.plugin.api.http.HttpResponseData;
 import com.datafusion.plugin.api.mapping.RecordMapper;
 import com.datafusion.plugin.api.sink.NoopSinkWriter;
 import com.datafusion.plugin.api.step.HttpStepExecutor;
@@ -21,6 +24,8 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * 基准价 API 抽数集成测试.
@@ -73,10 +78,6 @@ public class BenchmarkApiIntegrationTest {
         Assertions.assertEquals(1, result.getSteps().size(), "应有 1 个步骤结果");
         Assertions.assertTrue(result.getSteps().get(0).isSuccess(), "步骤应成功执行");
         Assertions.assertTrue(result.getSteps().get(0).getRecords() > 0, "步骤应抽取到记录");
-
-        System.out.println("抽数结果: " + JsonUtils.write(result));
-        System.out.println("抽取记录数: " + result.getRecords());
-        System.out.println("耗时: " + result.getElapsedMs() + " ms");
     }
 
     /**
@@ -108,8 +109,6 @@ public class BenchmarkApiIntegrationTest {
         long records = executor.execute(context, config.steps.get(0), noopSink);
 
         Assertions.assertTrue(records > 0, "Mock 响应应产生记录,实际: " + records);
-
-        System.out.println("Mock 抽数记录数: " + records);
     }
 
     /**
@@ -130,7 +129,7 @@ public class BenchmarkApiIntegrationTest {
         RecordMapper recordMapper = new RecordMapper(evaluator, templateResolver);
 
         ApiExtractContext context = new ApiExtractContext(config, "mapping-test-run");
-        java.util.List<Record> records = recordMapper.map(config.steps.get(0).response, json, context);
+        List<Record> records = recordMapper.map(config.steps.get(0).response, json, context);
 
         Assertions.assertEquals(4, records.size(), "应映射出 4 条记录");
 
@@ -148,10 +147,6 @@ public class BenchmarkApiIntegrationTest {
         Record lastRecord = records.get(3);
         Assertions.assertEquals("MF00", lastRecord.get("product_detail_id_name"),
                 "最后一条 product_detail_id_name 应为 MF00");
-
-        System.out.println("映射记录数: " + records.size());
-        System.out.println("第一条记录: " + JsonUtils.write(firstRecord));
-        System.out.println("最后一条记录: " + JsonUtils.write(lastRecord));
     }
 
     /**
@@ -250,7 +245,7 @@ public class BenchmarkApiIntegrationTest {
     /**
      * Mock HTTP 客户端,返回预设的响应数据.
      */
-    private static class MockHttpClient implements com.datafusion.plugin.api.http.ApiHttpClient {
+    private static class MockHttpClient implements ApiHttpClient {
 
         private final String responseBody;
 
@@ -259,12 +254,8 @@ public class BenchmarkApiIntegrationTest {
         }
 
         @Override
-        public com.datafusion.plugin.api.http.HttpResponseData execute(
-                com.datafusion.plugin.api.http.HttpRequestData request)
-                throws java.io.IOException, InterruptedException {
-            return new com.datafusion.plugin.api.http.HttpResponseData(
-                    200, responseBody, java.util.Collections.emptyMap());
+        public HttpResponseData execute(HttpRequestData request) {
+            return new HttpResponseData(200, responseBody, Collections.emptyMap());
         }
     }
-
 }

@@ -5,11 +5,6 @@
     "description": "同步产品基准价接口到 Paimon ODS 表",
     "version": "1.0.0"
   },
-  "trigger": {
-    "mode": "ONCE",
-    "cron": "0 0 1 * * ?",
-    "timezone": "Asia/Shanghai"
-  },
   "runtime": {
     "loopCount": 1,
     "loopIntervalMs": 0

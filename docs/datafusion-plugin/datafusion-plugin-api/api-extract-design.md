@@ -2,11 +2,10 @@
 
 > 数据结构见 [api-extract-data-define.md](./api-extract-data-define.md)。本文只描述当前执行流程、校验规则和能力边界。
 
-`datafusion-plugin-api` 用 `ApiExtractJobConfig` 承载 `job.json`，执行 HTTP 请求、解析 JSON 响应、可选写入中间缓存，并把记录写入 StarRocks、Paimon 或 NOOP。
+`datafusion-plugin-api` 用 `ApiExtractJobConfig` 承载 `job.json`，执行 HTTP 请求、解析 JSON 响应、可选写入中间缓存，并把记录写入 StarRocks、Paimon 或 NOOP。触发时机由 DataFusion 调度系统负责，`ApiExtractJobConfig` 不包含 `trigger`。
 
 ## 能力边界
 
-- 触发模式支持 `ONCE`、`SCHEDULER` 和本进程 `CRON`。
 - step 类型只支持 `HTTP`。
 - `dependsOn` 当前按单链校验：最多一个父节点、最多一个子节点，存在依赖时必须只有一个 root。
 - HTTP 方法支持 `GET`、`POST`、`PUT`、`DELETE`。
@@ -21,8 +20,7 @@
 ```text
 DefaultApiExtractRunner.run
     -> ConfigValidator.validate
-    -> TriggerMode.parse
-    -> runCron / runOnce
+    -> runOnce
     -> StepPlanner.plan
     -> HttpStepExecutor.execute
     -> RecordMapper.map
@@ -71,7 +69,6 @@ sink 由 `SinkWriterFactory` 创建：
 ## 校验规则
 
 - `job.id`、`steps`、`sink.type` 必填。
-- `trigger.mode=CRON` 时必须配置 `trigger.cron` 和合法 `timezone`。
 - `runtime.loopCount >= 1`，`runtime.loopIntervalMs >= 0`。
 - step id 必须唯一；step 类型必须是 `HTTP`。
 - HTTP step 必须配置 `request.method` 和 `request.url`。

@@ -18,8 +18,8 @@
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <fileNamePattern>${LOG_HOME}/api-extract.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
-            <maxFileSize>50MB</maxFileSize>
-            <maxHistory>14</maxHistory>
+            <maxFileSize>${LOG_MAX_SIZE:-50MB}</maxFileSize>
+            <maxHistory>${LOG_MAX_INDEX:-14}</maxHistory>
             <totalSizeCap>2GB</totalSizeCap>
         </rollingPolicy>
     </appender>
