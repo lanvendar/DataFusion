@@ -6,8 +6,8 @@
 DataX 源码: /Users/lanvendar/Projects/DataX
 DataX 编译产物: /Users/lanvendar/Projects/DataX/packaging/datax-bundle/target/datax
 插件 resources: /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources
-插件 DataX: /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/datax
-插件 job: /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/job
+插件 DataX: /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/datax
+插件 job: /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/datax/jobs
 ```
 
 ## 构建和同步
@@ -24,7 +24,7 @@ mvn -pl packaging/datax-bundle -am -DskipTests package
 ```bash
 rsync -a --delete \
   /Users/lanvendar/Projects/DataX/packaging/datax-bundle/target/datax/ \
-  /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/datax/
+  /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/datax/
 ```
 
 ## 运行 Job
@@ -32,8 +32,8 @@ rsync -a --delete \
 推荐使用封装脚本：
 
 ```bash
-/Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/run-datax-job.sh \
-  /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources \
+/Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/run-datax-job.sh \
+  /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/datax \
   shys/ods_shys_gb_account_td.json \
   /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/target/datax-logs
 ```
@@ -41,8 +41,8 @@ rsync -a --delete \
 脚本参数：
 
 ```text
-1. resources 根目录
-2. job JSON 文件名、job 下的相对路径，或 job JSON 绝对路径
+1. DataX 插件根目录
+2. job JSON 文件名、jobs 下的相对路径，或 job JSON 绝对路径
 3. 日志根目录
 ```
 
@@ -51,10 +51,10 @@ rsync -a --delete \
 ```text
 ods_shys_gb_account_td.json
 shys/ods_shys_gb_account_td.json
-/Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/job/shys/ods_shys_gb_account_td.json
+/Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/datax/jobs/shys/ods_shys_gb_account_td.json
 ```
 
-只传文件名时，脚本会在 `resources/job` 下递归查找唯一匹配；如果同名文件不唯一，会直接报错并列出匹配路径。
+只传文件名时，脚本会在 `plugins/datax/jobs` 下递归查找唯一匹配；如果同名文件不唯一，会直接报错并列出匹配路径。
 
 ## 日志
 
@@ -72,8 +72,8 @@ shys/ods_shys_gb_account_td.json
 DATAX_LOG_LEVEL=INFO \
 DATAX_LOG_MAX_SIZE=100MB \
 DATAX_LOG_MAX_INDEX=100 \
-/Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/run-datax-job.sh \
-  /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources \
+/Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/run-datax-job.sh \
+  /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/datax \
   shys/ods_shys_gb_account_td.json \
   /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/target/datax-logs
 ```
@@ -89,9 +89,9 @@ DATAX_LOG_MAX_INDEX 默认 100。
 运行 `shys` 目录下全部 job：
 
 ```bash
-for job_file in /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/job/shys/*.json; do
-  /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/run-datax-job.sh \
-    /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources \
+for job_file in /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/datax/jobs/shys/*.json; do
+  /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/run-datax-job.sh \
+    /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/datax \
     "shys/$(basename "${job_file}")" \
     /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/target/datax-logs
 done
@@ -100,23 +100,23 @@ done
 运行指定前缀的 job，例如只跑 JC：
 
 ```bash
-for job_file in /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/job/shys/ods_shys_jc_*.json; do
-  /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/run-datax-job.sh \
-    /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources \
+for job_file in /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/datax/jobs/shys/ods_shys_jc_*.json; do
+  /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/run-datax-job.sh \
+    /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/datax \
     "shys/$(basename "${job_file}")" \
     /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/target/datax-logs
 done
 ```
 
-不要使用 `resources/job/*.json` 批量跑，因为当前 job 已按业务目录放在 `job/shys`、`job/shcw` 等子目录下。
+不要使用 `plugins/datax/jobs/*.json` 批量跑，因为当前 job 已按业务目录放在 `jobs/shys`、`jobs/shcw` 等子目录下。
 
 ## Job 规则
 
-job 文件放在 `resources/job` 下，按业务系统分目录，例如：
+job 文件放在 `plugins/datax/jobs` 下，按业务系统分目录，例如：
 
 ```text
-resources/job/shys
-resources/job/shcw
+plugins/datax/jobs/shys
+plugins/datax/jobs/shcw
 ```
 
 命名规则：
@@ -151,7 +151,7 @@ _id BIGINT NOT NULL AUTO_INCREMENT 且非 day_pt 分区表:
 查看 job 清单：
 
 ```bash
-find /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/job \
+find /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/datax/jobs \
   -type f \
   -name '*.json' \
   -exec basename {} \; | sort
@@ -161,4 +161,4 @@ find /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-da
 
 - 当前脚本已内置 Java 17 需要的 `--add-opens java.base/java.lang=ALL-UNNAMED`。
 - DataX 日志级别默认 `INFO`，可看到导入统计。
-- job 文件不要放进 `resources/datax`，避免同步 DataX bundle 时被覆盖。
+- job 文件放在 `plugins/datax/jobs`，不要混入 `plugins/datax/lib` 或 `plugins/datax/plugin`。

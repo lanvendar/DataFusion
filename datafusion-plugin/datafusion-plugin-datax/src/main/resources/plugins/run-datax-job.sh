@@ -3,9 +3,9 @@
 set -Eeuo pipefail
 
 usage() {
-  echo "Usage: $0 <resources-root-dir> <job-json-file-name> <log-root-dir>"
+  echo "Usage: $0 <datax-plugin-root-dir> <job-json-file-name> <log-root-dir>"
   echo "Example:"
-  echo "  $0 /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources shys/ods_shys_gb_account_td.json /tmp/datax-logs"
+  echo "  $0 /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/datax shys/ods_shys_gb_account_td.json /tmp/datax-logs"
   echo "Environment:"
   echo "  DATAX_LOG_LEVEL=INFO|WARN|ERROR       default: INFO"
   echo "  DATAX_LOG_MAX_SIZE=<size>             default: 100MB, controlled by logback"
@@ -17,7 +17,7 @@ if [[ $# -ne 3 ]]; then
   exit 64
 fi
 
-resources_root="${1%/}"
+datax_plugin_root="${1%/}"
 job_name="$2"
 log_root="${3%/}"
 
@@ -26,8 +26,8 @@ if [[ "$job_name" != *.json ]]; then
   exit 64
 fi
 
-datax_home="${resources_root}/datax"
-job_root="${resources_root}/job"
+datax_home="${datax_plugin_root}"
+job_root="${datax_plugin_root}/jobs"
 datax_jar="${datax_home}/lib/datax-bundle-0.0.1.jar"
 run_date="$(date +%Y%m%d)"
 log_dir="${log_root}/${run_date}"
@@ -35,8 +35,8 @@ datax_log_level="${DATAX_LOG_LEVEL:-INFO}"
 datax_log_max_size="${DATAX_LOG_MAX_SIZE:-100MB}"
 datax_log_max_index="${DATAX_LOG_MAX_INDEX:-100}"
 
-if [[ ! -d "$resources_root" ]]; then
-  echo "Error: resources root dir does not exist: $resources_root" >&2
+if [[ ! -d "$datax_plugin_root" ]]; then
+  echo "Error: DataX plugin root dir does not exist: $datax_plugin_root" >&2
   exit 66
 fi
 
