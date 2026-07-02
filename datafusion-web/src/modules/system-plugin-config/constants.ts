@@ -34,4 +34,18 @@ export const demoPluginConfigRows: PluginConfigItem[] = [
     updater: "system",
     updateTime: "2026-06-04 10:00:00",
   },
+  {
+    id: "22222222-2222-4222-8222-222222222222",
+    pluginName: "api_template",
+    pluginType: "API",
+    runMode: "LOCAL",
+    description: "API 任务初始化模板",
+    pluginParam: {
+      timeoutSeconds: 60,
+    },
+    isTemplate: true,
+    isDel: 0,
+    updater: "system",
+    updateTime: "2026-06-04 10:00:00",
+  },
 ];

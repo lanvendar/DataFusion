@@ -1,8 +1,7 @@
 import { App, Form } from "antd";
 import { useMemo } from "react";
 import { taskApi } from "../../api";
-import { taskTypeOptions } from "../../constants";
-import type { TaskFormMode, TaskItem, TaskSaveReq } from "../../dto";
+import type { TaskFormMode, TaskItem, TaskSaveReq, TaskTypeFormOption } from "../../dto";
 import { normalizeJsonText } from "../../utils";
 
 export interface TaskFormValues {
@@ -17,6 +16,7 @@ export interface TaskFormValues {
 interface UseTaskSubmitOptions {
   mode: TaskFormMode;
   currentRecord?: TaskItem;
+  taskTypeOptions: TaskTypeFormOption[];
   onClose: () => void;
   onSubmitSuccess: () => void;
 }
@@ -24,6 +24,7 @@ interface UseTaskSubmitOptions {
 export function useTaskSubmit({
   mode,
   currentRecord,
+  taskTypeOptions,
   onClose,
   onSubmitSuccess,
 }: UseTaskSubmitOptions) {
@@ -35,13 +36,17 @@ export function useTaskSubmit({
     try {
       const values = await form.validateFields();
       const taskTypeOption = taskTypeOptions.find((item) => item.value === values.taskTypeId);
+      if (!taskTypeOption) {
+        message.error("请选择有效的任务类型");
+        return;
+      }
       const payload: TaskSaveReq = {
         id: mode === "edit" ? currentRecord?.id : undefined,
         taskName: values.taskName,
         taskCode: values.taskCode,
         description: values.description,
         taskTypeId: values.taskTypeId,
-        taskType: taskTypeOption?.value || values.taskTypeId,
+        taskType: taskTypeOption.taskType,
         taskParam: normalizeJsonText(values.taskParamText, "任务变量参数"),
         definition: normalizeJsonText(values.definitionText, "任务定义"),
       };

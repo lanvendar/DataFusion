@@ -19,4 +19,12 @@ export const demoTaskTypeConfigRows: TaskTypeConfigItem[] = [
     updater: "system",
     updateTime: "2026-06-05 10:00:00",
   },
+  {
+    id: "db974238-714c-38de-a34a-7ce1d083a14f",
+    taskType: "API",
+    defaultPluginId: "22222222-2222-4222-8222-222222222222",
+    pluginType: "API",
+    updater: "system",
+    updateTime: "2026-06-05 10:00:00",
+  },
 ];

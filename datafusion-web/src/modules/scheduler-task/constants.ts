@@ -17,12 +17,6 @@ export const defaultFilter: TaskPageOption = {
   syncFlag: undefined,
 };
 
-export const taskTypeOptions = [
-  { label: "DataX 任务", value: "DATAX" },
-  { label: "Shell 任务", value: "SHELL" },
-  { label: "SQL 任务", value: "SQL" },
-];
-
 export const boundOptions = [
   { label: "已绑定", value: true },
   { label: "未绑定", value: false },
@@ -39,6 +33,7 @@ export const syncFlagOptions = [
 ];
 
 export const taskTypeColorMap: Record<string, string> = {
+  API: "purple",
   DATAX: "blue",
   SHELL: "green",
   SQL: "gold",
@@ -49,7 +44,7 @@ export const demoTaskRows: TaskItem[] = [
     id: "task-1",
     taskName: "同步订单数据",
     taskCode: "sync_order_ods",
-    taskTypeId: "DATAX",
+    taskTypeId: "8d9c307c-3f2c-3e1c-95fb-9c593878691f",
     taskType: "DATAX",
     taskParam: "{\"vars\":{\"source\":{\"name\":\"source\",\"type\":\"IN\",\"value\":\"ods_order\"}}}",
     definition: "{\"writer\":\"dwd_order\"}",

@@ -87,7 +87,7 @@ export function TaskTypeConfigForm({
     >
       <Form form={form} layout="vertical">
         <Form.Item name="taskType" label="任务类型" rules={[{ required: mode === "add" }]}>
-          <Input disabled={mode === "edit"} placeholder="例如 DATAX、SHELL、SQL" />
+          <Input disabled={mode === "edit"} placeholder="例如 API、DATAX、SHELL、SQL" />
         </Form.Item>
         <Form.Item name="defaultPluginId" label="默认插件" rules={[{ required: true }]}>
           <Select
@@ -100,7 +100,7 @@ export function TaskTypeConfigForm({
           />
         </Form.Item>
         <Form.Item name="pluginType" label="插件类型">
-          <Input placeholder="例如 DATAX、SHELL、SQL" />
+          <Input placeholder="例如 API、DATAX、SHELL、SQL" />
         </Form.Item>
       </Form>
     </Drawer>

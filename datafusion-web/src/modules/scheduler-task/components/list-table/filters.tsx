@@ -3,17 +3,24 @@ import {
   boundOptions,
   enabledOptions,
   syncFlagOptions,
-  taskTypeOptions,
 } from "../../constants";
-import type { TaskPageOption } from "../../dto";
+import type { TaskPageOption, TaskTypeFilterOption } from "../../dto";
 
 interface TaskFiltersProps {
   value: TaskPageOption;
+  taskTypeOptions: TaskTypeFilterOption[];
+  taskTypeLoading?: boolean;
   onChange: (value: TaskPageOption) => void;
   onSearch: () => void;
 }
 
-export function TaskFilters({ value, onChange, onSearch }: TaskFiltersProps) {
+export function TaskFilters({
+  value,
+  taskTypeOptions,
+  taskTypeLoading,
+  onChange,
+  onSearch,
+}: TaskFiltersProps) {
   return (
     <Space wrap>
       <Input
@@ -33,9 +40,12 @@ export function TaskFilters({ value, onChange, onSearch }: TaskFiltersProps) {
       <Select
         allowClear
         className="filter-select"
+        loading={taskTypeLoading}
         placeholder="任务类型"
         value={value.taskType}
         options={taskTypeOptions}
+        optionFilterProp="label"
+        showSearch
         onChange={(taskType) => onChange({ ...value, taskType })}
       />
       <Select

@@ -6,6 +6,7 @@ import { taskApi } from "./api";
 import { TaskDetail, TaskForm, TaskListTable } from "./components";
 import { SCHEDULER_TASK_QUERY_KEY } from "./constants";
 import { PageActionEnum, type TaskFormMode, type TaskItem } from "./dto";
+import { useTaskTypeOptions } from "./use-task-type-options";
 
 export default function SchedulerTaskPage() {
   const { message } = App.useApp();
@@ -14,6 +15,7 @@ export default function SchedulerTaskPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [formMode, setFormMode] = useState<TaskFormMode>("add");
   const [currentRecord, setCurrentRecord] = useState<TaskItem>();
+  const taskTypeOptions = useTaskTypeOptions();
 
   const refreshList = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: [SCHEDULER_TASK_QUERY_KEY] });
@@ -79,12 +81,19 @@ export default function SchedulerTaskPage() {
         description="维护任务名称、编码、类型、参数和定义内容；流程绑定、执行插件和事件依赖在流程编排中配置。"
       />
 
-      <TaskListTable loading={deleteMutation.isPending || copyMutation.isPending} onAction={onAction} />
+      <TaskListTable
+        loading={deleteMutation.isPending || copyMutation.isPending}
+        taskTypeOptions={taskTypeOptions.filterOptions}
+        taskTypeLoading={taskTypeOptions.query.isFetching}
+        onAction={onAction}
+      />
 
       <TaskForm
         open={formOpen}
         mode={formMode}
         currentRecord={currentRecord}
+        taskTypeOptions={taskTypeOptions.formOptions}
+        taskTypeLoading={taskTypeOptions.query.isFetching}
         onClose={() => setFormOpen(false)}
         onSubmitSuccess={refreshList}
       />

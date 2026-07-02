@@ -1,8 +1,8 @@
 import { Button, Drawer, Form, Input, Select, Space, Spin } from "antd";
 import { useEffect, useState } from "react";
 import { taskApi } from "../../api";
-import { TASK_COPY_BASE_MAX_LENGTH, taskTypeOptions } from "../../constants";
-import type { TaskFormMode, TaskItem } from "../../dto";
+import { TASK_COPY_BASE_MAX_LENGTH } from "../../constants";
+import type { TaskFormMode, TaskItem, TaskTypeFormOption } from "../../dto";
 import { formatJsonText } from "../../utils";
 import { JsonEditor } from "../json-editor";
 import { useTaskSubmit } from "./use-submit";
@@ -11,14 +11,25 @@ interface TaskFormProps {
   open: boolean;
   mode: TaskFormMode;
   currentRecord?: TaskItem;
+  taskTypeOptions: TaskTypeFormOption[];
+  taskTypeLoading?: boolean;
   onClose: () => void;
   onSubmitSuccess: () => void;
+}
+
+function resolveTaskTypeId(detail: TaskItem, taskTypeOptions: TaskTypeFormOption[]) {
+  if (detail.taskTypeId && taskTypeOptions.some((item) => item.value === detail.taskTypeId)) {
+    return detail.taskTypeId;
+  }
+  return taskTypeOptions.find((item) => item.taskType === detail.taskType)?.value || detail.taskTypeId;
 }
 
 export function TaskForm({
   open,
   mode,
   currentRecord,
+  taskTypeOptions,
+  taskTypeLoading,
   onClose,
   onSubmitSuccess,
 }: TaskFormProps) {
@@ -27,6 +38,7 @@ export function TaskForm({
   const { form, title, submit } = useTaskSubmit({
     mode,
     currentRecord: detailData || currentRecord,
+    taskTypeOptions,
     onClose,
     onSubmitSuccess,
   });
@@ -44,7 +56,7 @@ export function TaskForm({
             taskName: detail.taskName,
             taskCode: detail.taskCode,
             description: detail.description,
-            taskTypeId: detail.taskTypeId || detail.taskType,
+            taskTypeId: detail.taskTypeId,
             taskParamText: formatJsonText(detail.taskParam),
             definitionText: formatJsonText(detail.definition),
           });
@@ -56,13 +68,24 @@ export function TaskForm({
 
       setDetailData(undefined);
       form.resetFields();
-      form.setFieldsValue({
-        taskTypeId: "DATAX",
-      });
     };
 
     void initForm();
   }, [currentRecord, form, mode, open]);
+
+  useEffect(() => {
+    if (!open || taskTypeOptions.length === 0) return;
+    if (mode === "add" && !form.getFieldValue("taskTypeId")) {
+      form.setFieldValue("taskTypeId", taskTypeOptions[0].value);
+      return;
+    }
+    if (mode === "edit" && detailData) {
+      const taskTypeId = resolveTaskTypeId(detailData, taskTypeOptions);
+      if (taskTypeId && form.getFieldValue("taskTypeId") !== taskTypeId) {
+        form.setFieldValue("taskTypeId", taskTypeId);
+      }
+    }
+  }, [detailData, form, mode, open, taskTypeOptions]);
 
   const handleClose = () => {
     form.resetFields();
@@ -108,7 +131,13 @@ export function TaskForm({
             <Input placeholder="请输入任务编码" disabled={mode === "edit"} />
           </Form.Item>
           <Form.Item name="taskTypeId" label="任务类型" rules={[{ required: true, message: "请选择任务类型" }]}>
-            <Select options={taskTypeOptions} placeholder="请选择任务类型" />
+            <Select
+              showSearch
+              loading={taskTypeLoading}
+              options={taskTypeOptions}
+              optionFilterProp="label"
+              placeholder="请选择任务类型"
+            />
           </Form.Item>
           <Form.Item name="description" label="任务描述" rules={[{ max: 1000, message: "任务描述不能超过1000个字符" }]}>
             <Input.TextArea rows={4} placeholder="请输入任务描述" />

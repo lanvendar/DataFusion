@@ -63,4 +63,15 @@ export interface TaskCopyReq {
   sourceId: string;
 }
 
+export interface TaskTypeFormOption {
+  label: string;
+  value: string;
+  taskType: string;
+}
+
+export interface TaskTypeFilterOption {
+  label: string;
+  value: string;
+}
+
 export type TaskFormMode = "add" | "edit";
