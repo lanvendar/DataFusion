@@ -2,7 +2,8 @@
 
 > 数据结构见 [agent-data-define.md](./agent-data-define.md)。DataX 插件见
 > [plugin-datax-design.md](./plugin-datax-design.md)，Shell 插件见
-> [plugin-shell-design.md](./plugin-shell-design.md)。worker 框架契约见
+> [plugin-shell-design.md](./plugin-shell-design.md)，Flink 插件见
+> [plugin-flink-design.md](./plugin-flink-design.md)。worker 框架契约见
 > [../datafusion-scheduler-worker/scheduler-worker-design.md](../datafusion-scheduler-worker/scheduler-worker-design.md)。
 
 ## 定位
@@ -207,6 +208,7 @@ register 成功返回 Worker.id
 
 - Redis 状态存储。
 - K8S / YARN 通用提交器。
+- `FLINK` 插件实现；首版目标为 `K8S_OPERATOR`，设计见 [plugin-flink-design.md](./plugin-flink-design.md)。
 - 结果上报持久化队列。
 - 本地进程句柄跨机器恢复。
 

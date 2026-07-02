@@ -2,7 +2,8 @@
 
 > 本文档是 agent 公共配置、RPC 映射和本地文件格式的事实源。DataX 字段见
 > [plugin-datax-data-define.md](./plugin-datax-data-define.md)，Shell 字段见
-> [plugin-shell-data-define.md](./plugin-shell-data-define.md)。worker 通用模型见
+> [plugin-shell-data-define.md](./plugin-shell-data-define.md)，Flink 字段见
+> [plugin-flink-data-define.md](./plugin-flink-data-define.md)。worker 通用模型见
 > [scheduler-worker-data-define.md](../datafusion-scheduler-worker/scheduler-worker-data-define.md)。
 
 ## 1. 表结构
