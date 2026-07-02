@@ -30,7 +30,7 @@ public class LoadBalanceMasterTaskOperator implements MasterTaskOperator {
     }
 
     @Override
-    public TaskResult finishTask(TaskInstance taskIns) throws SchedulerException {
-        return null;
+    public boolean finishTask(TaskInstance taskIns) throws SchedulerException {
+        return true;
     }
 }

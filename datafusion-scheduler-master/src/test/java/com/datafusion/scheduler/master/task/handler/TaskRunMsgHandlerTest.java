@@ -172,8 +172,8 @@ class TaskRunMsgHandlerTest {
         }
 
         @Override
-        public TaskResult finishTask(TaskInstance taskIns) {
-            return null;
+        public boolean finishTask(TaskInstance taskIns) {
+            return true;
         }
     }
 }

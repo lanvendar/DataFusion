@@ -121,21 +121,6 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
         return stopProcess(request, state, true);
     }
 
-    @Override
-    public TaskResult finish(TaskRequest request, WorkerTaskExecutionState state) {
-        StatusEnum status = state == null ? StatusEnum.UNKNOWN : state.getStatus();
-        WorkerResult requestWorkerResult = request.getWorkerResult();
-        return TaskResult.builder()
-                .taskInstanceId(request.getTaskInstanceId())
-                .flowInstanceId(request.getFlowInstanceId())
-                .taskName(request.getTaskName())
-                .taskState(status == null ? StatusEnum.UNKNOWN : status)
-                .workerResult(workerResult(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId(),
-                        requestWorkerResult == null ? null : requestWorkerResult.getAppId(), state == null ? null : state.getWorkDirPath(),
-                        "LOCAL DataX finish checked", pluginLogUri(state)))
-                .build();
-    }
-
     private LocalProcessSpec localProcessSpec(DataxExecutionParam param, Path jobFile) {
         Map<String, String> values = Map.ofEntries(
                 Map.entry("javaBin", param.getJavaBin()),

@@ -122,13 +122,8 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
-    public TaskResult finishTask(TaskRequest request) {
-        WorkerTaskExecutionState state = currentState(request);
-        TaskResult result = runner(resolveRunMode(request, state)).finish(request, state);
-        if (result.getTaskState() != null && result.getTaskState().isFinalState()) {
-            recordControlResult(request, state, result);
-        }
-        return result;
+    public boolean finishTask(TaskRequest request) {
+        return true;
     }
 
     private DataxTaskRunner runner(DataxRunMode runMode) {

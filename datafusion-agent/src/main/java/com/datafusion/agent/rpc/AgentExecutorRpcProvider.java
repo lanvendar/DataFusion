@@ -98,15 +98,15 @@ public class AgentExecutorRpcProvider {
      * 完成任务.
      *
      * @param request 任务请求
-     * @return 任务结果
+     * @return 是否完成清理
      */
     @PostMapping("/finishTask")
-    public Result<TaskResult> finishTask(@RequestBody TaskRequest request) {
+    public Result<Boolean> finishTask(@RequestBody TaskRequest request) {
         TaskRequest filledRequest = fillWorkerId(request);
         return execute("finishTask", filledRequest, () -> workerTaskOperator.finishTask(filledRequest));
     }
 
-    private Result<TaskResult> execute(String operation, TaskRequest request, Callable<TaskResult> action) {
+    private <T> Result<T> execute(String operation, TaskRequest request, Callable<T> action) {
         long startTime = System.currentTimeMillis();
         log.info("agent收到调度请求, operation={}, taskInstanceId={}, flowInstanceId={}, pluginType={},"
                         + " taskState={}, submitMode={}, workerId={}, appId={}, workDirPath={}",
@@ -122,12 +122,17 @@ public class AgentExecutorRpcProvider {
         try {
             log.info("agent开始执行调度请求, operation={}, taskInstanceId={}",
                     operation, taskInstanceId(request));
-            TaskResult result = action.call();
-            log.info("agent完成调度请求, operation={}, taskInstanceId={}, taskState={}, submitMode={},"
-                            + " workerId={}, appId={}, workDirPath={}, costMs={}",
-                    operation, taskInstanceId(request), resultTaskState(result), resultSubmitMode(result),
-                    resultWorkerId(result), resultAppId(result), resultWorkDirPath(result),
-                    System.currentTimeMillis() - startTime);
+            T result = action.call();
+            long costMs = System.currentTimeMillis() - startTime;
+            if (result instanceof TaskResult taskResult) {
+                log.info("agent完成调度请求, operation={}, taskInstanceId={}, taskState={}, submitMode={},"
+                                + " workerId={}, appId={}, workDirPath={}, costMs={}",
+                        operation, taskInstanceId(request), resultTaskState(taskResult), resultSubmitMode(taskResult),
+                        resultWorkerId(taskResult), resultAppId(taskResult), resultWorkDirPath(taskResult), costMs);
+            } else {
+                log.info("agent完成调度请求, operation={}, taskInstanceId={}, result={}, costMs={}",
+                        operation, taskInstanceId(request), result, costMs);
+            }
             return Result.success(result);
         } catch (Exception e) {
             log.warn("agent任务控制请求执行失败, operation={}, taskInstanceId={}",

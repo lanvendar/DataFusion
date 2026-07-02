@@ -27,15 +27,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 class WorkerTaskServiceTest {
 
     @Test
-    void shouldPersistFinalStateBeforeRemovingContextWhenFinishContextMissing() {
+    void shouldRemoveContextWhenFinishContextMissing() {
         RecordingContextStorage contextStorage = new RecordingContextStorage();
         WorkerTaskService taskService = taskService(contextStorage, new SuccessPluginTaskExecutor());
 
-        TaskResult result = taskService.finishTask(finishRequest());
+        boolean result = taskService.finishTask(finishRequest());
 
-        assertEquals(StatusEnum.RUN_SUCCESS, result.getTaskState());
-        assertEquals(List.of("get:task-1", "create:task-1", "save:RUN_SUCCESS", "remove:task-1"),
-                contextStorage.getOperations());
+        assertEquals(true, result);
+        assertEquals(List.of("get:task-1", "remove:task-1"), contextStorage.getOperations());
     }
 
     @Test
@@ -281,13 +280,8 @@ class WorkerTaskServiceTest {
         }
 
         @Override
-        public TaskResult finishTask(TaskRequest request) {
-            return TaskResult.builder()
-                    .taskInstanceId(request.getTaskInstanceId())
-                    .flowInstanceId(request.getFlowInstanceId())
-                    .taskName(request.getTaskName())
-                    .taskState(StatusEnum.RUN_SUCCESS)
-                    .build();
+        public boolean finishTask(TaskRequest request) {
+            return true;
         }
     }
 }

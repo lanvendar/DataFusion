@@ -99,8 +99,8 @@ class AgentLifecycleTest {
         }
 
         @Override
-        public TaskResult finishTask(TaskRequest request) {
-            return taskResult(request, StatusEnum.RUN_SUCCESS);
+        public boolean finishTask(TaskRequest request) {
+            return true;
         }
 
         private TaskResult taskResult(TaskRequest request, StatusEnum state) {

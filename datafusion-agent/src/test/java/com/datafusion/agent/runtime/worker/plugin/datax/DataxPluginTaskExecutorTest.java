@@ -113,9 +113,5 @@ class DataxPluginTaskExecutorTest {
             return TaskResult.builder().taskState(StatusEnum.KILLING).build();
         }
 
-        @Override
-        public TaskResult finish(TaskRequest request, WorkerTaskExecutionState state) {
-            return TaskResult.builder().taskState(StatusEnum.RUNNING).build();
-        }
     }
 }

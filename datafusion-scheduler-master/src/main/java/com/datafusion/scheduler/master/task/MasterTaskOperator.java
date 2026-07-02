@@ -42,7 +42,7 @@ public interface MasterTaskOperator {
      * 任务运行成功之后的一些动作,例如:清理日志,关闭第三方的接口等操作.
      *
      * @param taskIns task任务实例
-     * @return task执行结果
+     * @return 是否完成清理
      */
-    TaskResult finishTask(TaskInstance taskIns) throws SchedulerException;
+    boolean finishTask(TaskInstance taskIns) throws SchedulerException;
 }

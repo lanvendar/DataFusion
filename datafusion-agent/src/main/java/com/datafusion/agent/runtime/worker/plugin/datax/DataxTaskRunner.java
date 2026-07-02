@@ -47,12 +47,4 @@ public interface DataxTaskRunner {
      */
     TaskResult kill(TaskRequest request, WorkerTaskExecutionState state);
 
-    /**
-     * Finish task.
-     *
-     * @param request task request
-     * @param state   execution state
-     * @return task result
-     */
-    TaskResult finish(TaskRequest request, WorkerTaskExecutionState state);
 }

@@ -197,10 +197,10 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
      * 完成任务.
      *
      * @param taskIns task任务实例
-     * @return task执行结果
+     * @return 是否完成清理
      */
     @Override
-    public TaskResult finishTask(TaskInstance taskIns) throws SchedulerException {
+    public boolean finishTask(TaskInstance taskIns) throws SchedulerException {
         Worker worker = getLastExecutedWorker(taskIns);
         if (null == worker || !worker.isAlive()) {
             log.warn("[{}] - 工作节点不可用, 无法正常完成任务", taskIns.getInstanceId());
@@ -209,7 +209,7 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
 
         try {
             log.info("finish Task {}", taskIns.getInstanceId());
-            return requestToWorker(FINISH_TASK_URL, worker, taskIns);
+            return requestToWorkerForBoolean(FINISH_TASK_URL, worker, taskIns);
         } catch (Exception e) {
             log.error("[{}] - 发送finish task请求失败", taskIns.getInstanceId(), e);
             throw new SchedulerException("http error" + HttpStatus.SC_INTERNAL_SERVER_ERROR);
@@ -270,6 +270,26 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
             response = errorResult(errorMsg);
         }
         return response;
+    }
+
+    private boolean requestToWorkerForBoolean(String url, Worker worker, TaskInstance taskIns) throws Exception {
+        url = url.replaceFirst("host", worker.getIp()).replaceFirst("port", worker.getPort().toString());
+        String body = createRequestBody(taskIns, worker);
+        log.info("requestToWorker url {} ...", url);
+        String send = this.send(url, body);
+        Result<Boolean> result = null;
+        if (StringUtils.isNotBlank(send)) {
+            result = JacksonUtils.tryStr2Bean(send, new TypeReference<Result<Boolean>>() {
+            });
+        }
+        if (result != null && ErrorCodeEnum.SUCCESS.getCode().equals(result.getCode())) {
+            return Boolean.TRUE.equals(result.getData());
+        }
+        String errorMsg = result == null ? "worker响应为空或解析失败" : result.getErrorMsg();
+        Object code = result == null ? null : result.getCode();
+        log.warn("[{}] - 发送请求给工作节点失败,错误码:{}, 错误信息:{}",
+                taskIns.getInstanceId(), code, errorMsg);
+        return false;
     }
 
     /**

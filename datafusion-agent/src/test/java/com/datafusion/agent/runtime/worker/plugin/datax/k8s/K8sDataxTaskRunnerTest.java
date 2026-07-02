@@ -14,7 +14,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -85,40 +84,6 @@ class K8sDataxTaskRunnerTest {
     }
 
     @Test
-    void shouldReturnFinalStopStateOnlyAfterStatusMappingBecomesFinal() {
-        FakeKubernetesClient client = new FakeKubernetesClient();
-        K8sDataxTaskRunner runner = runner(client);
-
-        client.status = StatusEnum.STOPPING;
-        TaskResult stopping = runner.finish(request(), state(StatusEnum.STOPPING));
-        client.status = StatusEnum.STOP_SUCCESS;
-        TaskResult stopped = runner.finish(request(), state(StatusEnum.STOPPING));
-
-        assertEquals(StatusEnum.STOPPING, stopping.getTaskState());
-        assertEquals(StatusEnum.STOP_SUCCESS, stopped.getTaskState());
-        assertEquals(1, client.cleanupCount);
-    }
-
-    @Test
-    void shouldCollectKubernetesLogsToTaskRuntimeDir() throws Exception {
-        FakeKubernetesClient client = new FakeKubernetesClient();
-        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        K8sDataxTaskRunner runner = runner(client, stateStore);
-        client.status = StatusEnum.RUN_SUCCESS;
-        client.logs = "k8s datax logs";
-
-        TaskRequest request = request(true);
-        stateStore.saveSnapshot(snapshot(request));
-        TaskResult result = runner.finish(minimalRequest(), state(StatusEnum.RUNNING));
-
-        Path logFile = Path.of(result.getWorkerResult().getPluginLogUri());
-        assertEquals("k8s-datax.log", logFile.getFileName().toString());
-        assertTrue(result.getWorkerResult().getWorkDirPath().contains("task-runtime"));
-        assertEquals("k8s datax logs", Files.readString(logFile));
-        assertEquals(state(StatusEnum.RUNNING).getWorkDirPath(), result.getWorkerResult().getWorkDirPath());
-    }
-
-    @Test
     void shouldRestoreRuntimeRefFromSnapshotWhenControlRequestIsMinimal() {
         FakeKubernetesClient client = new FakeKubernetesClient();
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
@@ -148,7 +113,7 @@ class K8sDataxTaskRunnerTest {
 
     private K8sDataxTaskRunner runner(FakeKubernetesClient client, InMemoryWorkerTaskExecutionStore stateStore) {
         AgentProperties properties = properties();
-        return new K8sDataxTaskRunner(client, properties, new DataxParamResolver(properties), stateStore);
+        return new K8sDataxTaskRunner(client, new DataxParamResolver(properties), stateStore);
     }
 
     private TaskRequest request() {

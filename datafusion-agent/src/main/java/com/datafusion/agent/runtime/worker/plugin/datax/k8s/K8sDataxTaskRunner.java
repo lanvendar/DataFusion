@@ -1,6 +1,5 @@
 package com.datafusion.agent.runtime.worker.plugin.datax.k8s;
 
-import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.PluginResultJson;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxParamResolver;
@@ -16,10 +15,6 @@ import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
-
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 /**
  * K8S DataX task runner.
@@ -42,11 +37,6 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
     private final DataxParamResolver paramResolver;
 
     /**
-     * Agent properties.
-     */
-    private final AgentProperties properties;
-
-    /**
      * State store.
      */
     private final WorkerTaskExecutionStore stateStore;
@@ -55,14 +45,12 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
      * Constructor.
      *
      * @param kubernetesClient Kubernetes client
-     * @param properties       agent properties
      * @param paramResolver    parameter resolver
      * @param stateStore       state store
      */
-    public K8sDataxTaskRunner(DataxKubernetesClient kubernetesClient, AgentProperties properties,
-            DataxParamResolver paramResolver, WorkerTaskExecutionStore stateStore) {
+    public K8sDataxTaskRunner(DataxKubernetesClient kubernetesClient, DataxParamResolver paramResolver,
+            WorkerTaskExecutionStore stateStore) {
         this.kubernetesClient = kubernetesClient;
-        this.properties = properties;
         this.paramResolver = paramResolver;
         this.stateStore = stateStore;
     }
@@ -109,39 +97,6 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
             return result(request, state, StatusEnum.KILLED, "K8S DataX kill completed", null);
         } catch (RuntimeException e) {
             return result(request, state, StatusEnum.UNKNOWN, "K8S DataX kill failed: " + e.getMessage(), null);
-        }
-    }
-
-    @Override
-    public TaskResult finish(TaskRequest request, WorkerTaskExecutionState state) {
-        DataxKubernetesRuntimeRef runtimeRef = runtimeRef(request, state);
-        StatusEnum status = kubernetesClient.queryStatus(runtimeRef, state == null ? null : state.getStatus());
-        if (!status.isFinalState()) {
-            return result(request, state, status, "K8S DataX task is not finished", null);
-        }
-        String collectedLogPath = collectLogsIfNecessary(request, state, runtimeRef);
-        kubernetesClient.cleanup(runtimeRef);
-        return result(request, state, status, "K8S DataX finish checked", collectedLogPath);
-    }
-
-    private String collectLogsIfNecessary(TaskRequest request, WorkerTaskExecutionState state,
-            DataxKubernetesRuntimeRef runtimeRef) {
-        if (runtimeRef.getLogStorageUri() != null && !runtimeRef.getLogStorageUri().trim().isEmpty()) {
-            return pluginLogUri(runtimeRef);
-        }
-        if (!runtimeRef.isCollectLogsOnFinish()) {
-            return pluginLogUri(runtimeRef);
-        }
-        try {
-            String logs = kubernetesClient.collectLogs(runtimeRef);
-            TaskRequest resolvedRequest = resolveRequest(request);
-            Path taskRuntimeDir = taskRuntimeDir(resolvedRequest, state);
-            Files.createDirectories(taskRuntimeDir);
-            Path logFile = taskRuntimeDir.resolve("k8s-datax.log");
-            Files.writeString(logFile, logs, StandardCharsets.UTF_8);
-            return logFile.toString();
-        } catch (Exception e) {
-            return pluginLogUri(runtimeRef);
         }
     }
 
@@ -224,15 +179,6 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
             return null;
         }
         return state.getResult().get("pluginLogUri").asText();
-    }
-
-    private Path taskRuntimeDir(TaskRequest request, WorkerTaskExecutionState state) {
-        if (state != null && firstText(state.getWorkDirPath(), null) != null) {
-            return Path.of(state.getWorkDirPath());
-        }
-        return Path.of(properties.getStorage().getTaskRuntimeDir(),
-                java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE),
-                firstText(request.getFlowInstanceId(), "unknown"), firstText(request.getTaskInstanceId(), "unknown"));
     }
 
     private ObjectNode resultJson(String message, String pluginLogUri) {

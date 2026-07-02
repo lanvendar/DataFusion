@@ -22,6 +22,7 @@ import java.util.concurrent.Executor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link ShellLocalPluginTaskExecutor}.
@@ -74,7 +75,7 @@ class ShellLocalPluginTaskExecutorTest {
     }
 
     @Test
-    void shouldRestoreSnapshotAndStateWhenFinishingWithMinimalRequest() {
+    void shouldFinishWithMinimalRequest() {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         TaskRequest submittedRequest = submittedRequest();
         stateStore.saveSnapshot(snapshot(submittedRequest));
@@ -83,15 +84,9 @@ class ShellLocalPluginTaskExecutorTest {
 
         TaskRequest minimalRequest = new TaskRequest();
         minimalRequest.setTaskInstanceId("task-1");
-        TaskResult result = executor.finishTask(minimalRequest);
+        boolean result = executor.finishTask(minimalRequest);
 
-        assertEquals(StatusEnum.RUN_SUCCESS, result.getTaskState());
-        assertEquals("flow-1", result.getFlowInstanceId());
-        assertEquals("Shell", result.getTaskName());
-        assertEquals("12345", result.getWorkerResult().getAppId());
-        assertEquals("/opt/datafusion/task-runtime/20260621/flow-1/task-1",
-                result.getWorkerResult().getWorkDirPath());
-        assertNull(result.getWorkerResult().getPluginLogUri());
+        assertTrue(result);
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.context.CachedWorkerTaskContextStorage;
 import com.datafusion.scheduler.worker.context.RunningTaskContext;
 import com.datafusion.scheduler.worker.context.WorkerTaskContextStorage;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import com.datafusion.scheduler.worker.plugin.WorkerTaskOperatorRouter;
 import com.datafusion.scheduler.worker.reporter.NoopTaskResultReporter;
@@ -153,7 +154,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
         if (executor == null) {
             return failureResult(resolvedRequest, StatusEnum.STOP_FAILURE, "未匹配到插件执行器: " + resolvedRequest.getPluginType());
         }
-        TaskResult result = safeExecuteControl(executor, resolvedRequest, StatusEnum.STOP_FAILURE, TaskControlAction.STOP);
+        TaskResult result = safeExecuteStop(executor, resolvedRequest);
         updateContext(context, result);
         resultReporter.report(result);
         removeFinalContext(context, executor, resolvedRequest, result);
@@ -173,7 +174,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
         if (executor == null) {
             return failureResult(resolvedRequest, StatusEnum.KILLED, "未匹配到插件执行器: " + resolvedRequest.getPluginType());
         }
-        TaskResult result = safeExecuteControl(executor, resolvedRequest, StatusEnum.UNKNOWN, TaskControlAction.KILL);
+        TaskResult result = safeExecuteKill(executor, resolvedRequest);
         updateContext(context, result);
         resultReporter.report(result);
         removeFinalContext(context, executor, resolvedRequest, result);
@@ -181,26 +182,20 @@ public class WorkerTaskService implements WorkerTaskOperator {
     }
 
     @Override
-    public TaskResult finishTask(TaskRequest request) {
+    public boolean finishTask(TaskRequest request) {
         normalizeRequest(request);
         validateTaskInstanceId(request);
         RunningTaskContext context = contextStore.get(request.getTaskInstanceId());
         TaskRequest resolvedRequest = context == null ? request : context.fillRequest(request);
         PluginTaskExecutor executor = router.route(resolvedRequest.getPluginType());
         if (executor == null) {
-            return failureResult(resolvedRequest, StatusEnum.RUN_FAILURE, "未匹配到插件执行器: " + resolvedRequest.getPluginType());
+            deleteExecution(resolvedRequest.getTaskInstanceId());
+            return true;
         }
-        TaskResult result = safeExecuteControl(executor, resolvedRequest, StatusEnum.RUN_SUCCESS, TaskControlAction.FINISH);
-        updateContext(context, result);
-        if (isFinalState(result.getTaskState())) {
-            if (context == null) {
-                RunningTaskContext finalContext = contextStore.getOrCreate(resolvedRequest);
-                updateContext(finalContext, result);
-            }
-            executor.destroyTask(resolvedRequest);
-            contextStore.removeContext(resolvedRequest.getTaskInstanceId());
-        }
-        return result;
+        boolean finished = safeExecuteFinish(executor, resolvedRequest);
+        executor.destroyTask(resolvedRequest);
+        deleteExecution(resolvedRequest.getTaskInstanceId());
+        return finished;
     }
 
     private void removeFinalContext(RunningTaskContext context, PluginTaskExecutor executor, TaskRequest request,
@@ -217,6 +212,32 @@ public class WorkerTaskService implements WorkerTaskOperator {
             return fillResult(request, result, StatusEnum.SUBMIT_SUCCESS);
         } catch (RuntimeException e) {
             return failureResult(request, StatusEnum.SUBMIT_FAILURE, e.getMessage());
+        }
+    }
+
+    private TaskResult safeExecuteStop(PluginTaskExecutor executor, TaskRequest request) {
+        try {
+            TaskResult result = executor.stopTask(request);
+            return fillResult(request, result, StatusEnum.STOP_FAILURE);
+        } catch (RuntimeException e) {
+            return failureResult(request, StatusEnum.STOP_FAILURE, e.getMessage());
+        }
+    }
+
+    private TaskResult safeExecuteKill(PluginTaskExecutor executor, TaskRequest request) {
+        try {
+            TaskResult result = executor.killTask(request);
+            return fillResult(request, result, StatusEnum.UNKNOWN);
+        } catch (RuntimeException e) {
+            return failureResult(request, StatusEnum.UNKNOWN, e.getMessage());
+        }
+    }
+
+    private boolean safeExecuteFinish(PluginTaskExecutor executor, TaskRequest request) {
+        try {
+            return executor.finishTask(request);
+        } catch (RuntimeException e) {
+            return false;
         }
     }
 
@@ -247,30 +268,6 @@ public class WorkerTaskService implements WorkerTaskOperator {
         return snapshotRequest;
     }
 
-    private TaskResult safeExecuteControl(PluginTaskExecutor executor, TaskRequest request, StatusEnum defaultState,
-            TaskControlAction action) {
-        try {
-            TaskResult result;
-            switch (action) {
-                case STOP:
-                    result = executor.stopTask(request);
-                    break;
-                case KILL:
-                    result = executor.killTask(request);
-                    break;
-                case FINISH:
-                    result = executor.finishTask(request);
-                    break;
-                default:
-                    throw new IllegalArgumentException("不支持的控制动作: " + action);
-            }
-            return fillResult(request, result, defaultState);
-        } catch (RuntimeException e) {
-            StatusEnum failureState = action == TaskControlAction.FINISH ? StatusEnum.RUN_FAILURE : defaultState;
-            return failureResult(request, failureState, e.getMessage());
-        }
-    }
-
     private TaskResult normalizeSubmitResult(TaskRequest request, TaskResult result) {
         TaskResult submitResult = fillResult(request, result, StatusEnum.SUBMIT_SUCCESS);
         if (submitResult.getTaskState() != StatusEnum.SUBMIT_FAILURE) {
@@ -296,6 +293,14 @@ public class WorkerTaskService implements WorkerTaskOperator {
         }
         result.getWorkerResult().setMessage("重复提交");
         return result;
+    }
+
+    private void deleteExecution(String taskInstanceId) {
+        if (contextStore instanceof WorkerTaskExecutionStore executionStore) {
+            executionStore.deleteExecution(taskInstanceId);
+            return;
+        }
+        contextStore.removeContext(taskInstanceId);
     }
 
     private void updateContext(RunningTaskContext context, TaskResult result) {
@@ -397,23 +402,4 @@ public class WorkerTaskService implements WorkerTaskOperator {
         return executor;
     }
 
-    /**
-     * 任务控制动作.
-     */
-    private enum TaskControlAction {
-        /**
-         * 停止任务.
-         */
-        STOP,
-
-        /**
-         * 强制停止任务.
-         */
-        KILL,
-
-        /**
-         * 完成任务.
-         */
-        FINISH
-    }
 }

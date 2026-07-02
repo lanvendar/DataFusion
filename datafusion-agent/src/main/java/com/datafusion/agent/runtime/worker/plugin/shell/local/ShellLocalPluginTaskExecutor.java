@@ -165,32 +165,8 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
-    public TaskResult finishTask(TaskRequest request) {
-        WorkerTaskExecutionState state = currentState(request);
-        TaskRequest resolvedRequest = resolveRequest(request);
-        StatusEnum status = state == null ? StatusEnum.UNKNOWN : state.getStatus();
-        WorkerResult workerResult = resolvedRequest.getWorkerResult();
-        String workerId = workerResult == null ? null : workerResult.getWorkerId();
-        if (status != null && !status.isFinalState()) {
-            return TaskResult.builder()
-                    .taskInstanceId(resolvedRequest.getTaskInstanceId())
-                    .flowInstanceId(resolvedRequest.getFlowInstanceId())
-                    .taskName(resolvedRequest.getTaskName())
-                    .taskState(status)
-                    .workerResult(workerResult(workerId, resolveAppId(resolvedRequest, state),
-                            state == null ? null : state.getWorkDirPath(), "terminal task is not finished",
-                            pluginLogUri(resolvedRequest, state)))
-                    .build();
-        }
-        return TaskResult.builder()
-                .taskInstanceId(resolvedRequest.getTaskInstanceId())
-                .flowInstanceId(resolvedRequest.getFlowInstanceId())
-                .taskName(resolvedRequest.getTaskName())
-                .taskState(status == null ? StatusEnum.UNKNOWN : status)
-                .workerResult(workerResult(workerId, resolveAppId(resolvedRequest, state),
-                        state == null ? null : state.getWorkDirPath(), "finish checked",
-                        pluginLogUri(resolvedRequest, state)))
-                .build();
+    public boolean finishTask(TaskRequest request) {
+        return true;
     }
 
     private TaskResult stopProcess(TaskRequest request, boolean forcibly) {

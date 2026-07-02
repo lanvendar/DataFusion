@@ -164,7 +164,7 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
-    public TaskResult finishTask(TaskRequest request) {
+    public boolean finishTask(TaskRequest request) {
         return delegate.finishTask(request);
     }
 

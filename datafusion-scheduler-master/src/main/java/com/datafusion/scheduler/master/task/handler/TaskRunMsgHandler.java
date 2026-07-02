@@ -100,11 +100,6 @@ public class TaskRunMsgHandler extends AbstractTaskMsgHandler {
     }
 
     private void handleRunSuccess(TaskInstance taskIns, TaskResult taskResult, ActorSysContext context) {
-        try {
-            super.masterTaskOperator.finishTask(taskIns);
-        } catch (Exception e) {
-            log.error("任务实例无法完成:taskInsId=[{}]", taskIns.getInstanceId());
-        }
         long endTime = System.currentTimeMillis();
         if (taskIns.getStartTime() == null || taskIns.getStartTime() <= 0) {
             taskIns.setStartTime(endTime);
@@ -117,6 +112,12 @@ public class TaskRunMsgHandler extends AbstractTaskMsgHandler {
         super.saveTaskInstance(taskIns);
         notifyFlow(taskIns, StatusEnum.RUN_SUCCESS, context);
         super.notifyNextTasks(taskIns, context);
+        // 清理 agent 状态文件及日志
+        try {
+            super.masterTaskOperator.finishTask(taskIns);
+        } catch (Exception e) {
+            log.error("任务实例无法完成:taskInsId=[{}]", taskIns.getInstanceId());
+        }
     }
 
     private void handleFailure(TaskInstance taskIns, TaskResult taskResult, StatusEnum targetState,

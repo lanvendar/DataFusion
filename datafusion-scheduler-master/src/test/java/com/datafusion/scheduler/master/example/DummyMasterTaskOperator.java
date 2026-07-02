@@ -38,9 +38,9 @@ public class DummyMasterTaskOperator implements MasterTaskOperator {
     }
 
     @Override
-    public TaskResult finishTask(TaskInstance taskIns) throws SchedulerException {
+    public boolean finishTask(TaskInstance taskIns) throws SchedulerException {
         log.info("finishTask: InstanceId={},Name={},State={}", taskIns.getInstanceId(), taskIns.getTaskName(), taskIns.getState());
-        return buildResult(taskIns, StatusEnum.RUN_SUCCESS);
+        return true;
     }
 
     private TaskResult buildResult(TaskInstance taskIns, StatusEnum state) {

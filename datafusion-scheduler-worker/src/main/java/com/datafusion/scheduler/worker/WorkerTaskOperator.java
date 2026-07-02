@@ -40,7 +40,7 @@ public interface WorkerTaskOperator {
      * 任务完成后的 worker 侧收尾动作.
      *
      * @param request 任务请求
-     * @return 任务结果
+     * @return 是否完成清理
      */
-    TaskResult finishTask(TaskRequest request);
+    boolean finishTask(TaskRequest request);
 }
