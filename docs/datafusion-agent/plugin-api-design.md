@@ -60,6 +60,30 @@ API 插件 jar 随 agent 插件资源发布到运行侧插件目录：
 /opt/datafusion/plugins/api/datafusion-plugin-api-1.0.0-executable.jar
 ```
 
+通用 builder 位于：
+
+```text
+datafusion-plugin/build-plugin.sh
+```
+
+builder 负责把 `datafusion-plugin-api` 的 jar、`conf/`、`jobs/`、`plugin-api-commands.md` 同步到
+`datafusion-agent/src/main/resources/plugins/api/`。API 是单包插件，builder 只覆盖 `plugins/api` 下自己的
+jar、`lib/`、`conf/`、`jobs/` 和命令文档，不清理 agent 侧 `plugins/api/templates/`。
+
+构建元数据放在 `datafusion-plugin-api/src/main/resources/builder/plugin-build-manifest.json`。公共 builder 启动时读取
+`modulePath`、`artifactId`、`runtimeResourceDir`、`agentPublishDir`、`resourceDirs`、`resourceFiles`，并校验
+`pluginType=API`、`multiApp=false`；该文件不复制到 `plugins/api/` 运行目录。
+
+支持两种发布模式：
+
+```bash
+./datafusion-plugin/build-plugin.sh --manifest datafusion-plugin/datafusion-plugin-api/src/main/resources/builder/plugin-build-manifest.json --mode fat
+./datafusion-plugin/build-plugin.sh --manifest datafusion-plugin/datafusion-plugin-api/src/main/resources/builder/plugin-build-manifest.json --mode thin
+```
+
+`fat` 模式发布 `datafusion-plugin-api-*-executable.jar`，并保持 `lib/` 为空目录；`thin` 模式发布普通 jar，
+并把 runtime 依赖复制到 `lib/`。
+
 worker 是否向 manager 上报 `API` 能力，由 `DATAFUSION_WORKER_PLUGIN_TYPES` 控制。API 专用 worker 部署时配置：
 
 ```text

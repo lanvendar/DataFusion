@@ -1,0 +1,19 @@
+{
+  "pluginType": "API",
+  "multiApp": false,
+  "modulePath": "datafusion-plugin/datafusion-plugin-api",
+  "artifactId": "datafusion-plugin-api",
+  "artifactMode": "jar",
+  "runtimeResourceDir": "src/main/resources/plugins/api",
+  "agentPublishDir": "datafusion-agent/src/main/resources/plugins/api",
+  "resourceDirs": [
+    "conf",
+    "jobs"
+  ],
+  "resourceFiles": [
+    {
+      "source": "src/main/resources/plugin-api-commands.md",
+      "target": "plugin-api-commands.md"
+    }
+  ]
+}

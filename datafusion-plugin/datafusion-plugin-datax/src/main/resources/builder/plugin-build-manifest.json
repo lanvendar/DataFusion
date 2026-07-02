@@ -1,0 +1,21 @@
+{
+  "pluginType": "DATAX",
+  "multiApp": false,
+  "modulePath": "datafusion-plugin/datafusion-plugin-datax",
+  "artifactMode": "none",
+  "runtimeResourceDir": "src/main/resources/plugins/datax",
+  "agentPublishDir": "datafusion-agent/src/main/resources/plugins/datax",
+  "resourceDirs": [
+    "conf",
+    "jobs",
+    "lib",
+    "plugin",
+    "tmp"
+  ],
+  "resourceFiles": [
+    {
+      "source": "src/main/resources/plugin-datax-commands.md",
+      "target": "plugin-datax-commands.md"
+    }
+  ]
+}

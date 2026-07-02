@@ -16,6 +16,11 @@ datafusion-agent/src/main/resources/plugins/api/templates/api-local-plugin-confi
 datafusion-agent/src/main/resources/plugins/api/templates/api-local-runtime.yml
 ```
 
+API 是单包插件，发布目录就是 `plugins/api/` 本身，不再下钻 app 子目录。构建侧发布策略放在
+`datafusion-plugin-api/src/main/resources/builder/plugin-build-manifest.json`，公共 builder 启动时读取
+`modulePath`、`artifactId`、`runtimeResourceDir`、`agentPublishDir` 并校验 `multiApp=false`，该文件不进入
+`plugins/api/` 运行目录。
+
 ## 2. Agent 配置
 
 API 插件入口随 agent 启动加载，不提供独立启用开关。worker 是否上报 `API` 能力，由

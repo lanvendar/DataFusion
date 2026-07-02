@@ -2,43 +2,53 @@
 
 set -Eeuo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODULE_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+DEFAULT_DATAX_HOME="${SCRIPT_DIR}/plugins/datax"
+DEFAULT_LOG_ROOT="${MODULE_DIR}/target/datax-logs"
+
 usage() {
-  echo "Usage: $0 <datax-plugin-root-dir> <job-json-file-name> <log-root-dir>"
+  echo "Usage: $0 <job-json-file-name-or-path> [log-root-dir] [datax-home]"
   echo "Example:"
-  echo "  $0 /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-datax/src/main/resources/plugins/datax shys/ods_shys_gb_account_td.json /tmp/datax-logs"
+  echo "  $0 shys/ods_shys_gb_account_td.json"
+  echo "  $0 ods_shys_gb_account_td.json /tmp/datax-logs"
   echo "Environment:"
   echo "  DATAX_LOG_LEVEL=INFO|WARN|ERROR       default: INFO"
   echo "  DATAX_LOG_MAX_SIZE=<size>             default: 100MB, controlled by logback"
   echo "  DATAX_LOG_MAX_INDEX=<number>          default: 100, controlled by logback"
+  echo "Defaults:"
+  echo "  datax-home: ${DEFAULT_DATAX_HOME}"
+  echo "  log-root  : ${DEFAULT_LOG_ROOT}"
 }
 
-if [[ $# -ne 3 ]]; then
+if [[ $# -eq 1 && ( "$1" == "-h" || "$1" == "--help" ) ]]; then
+  usage
+  exit 0
+fi
+
+if [[ $# -lt 1 || $# -gt 3 ]]; then
   usage
   exit 64
 fi
 
-datax_plugin_root="${1%/}"
-job_name="$2"
-log_root="${3%/}"
+job_name="$1"
+log_root="${2:-${DEFAULT_LOG_ROOT}}"
+datax_home="${3:-${DEFAULT_DATAX_HOME}}"
+log_root="${log_root%/}"
+datax_home="${datax_home%/}"
 
 if [[ "$job_name" != *.json ]]; then
   echo "Error: job-json-file-name must end with .json: $job_name" >&2
   exit 64
 fi
 
-datax_home="${datax_plugin_root}"
-job_root="${datax_plugin_root}/jobs"
+job_root="${datax_home}/jobs"
 datax_jar="${datax_home}/lib/datax-bundle-0.0.1.jar"
 run_date="$(date +%Y%m%d)"
 log_dir="${log_root}/${run_date}"
 datax_log_level="${DATAX_LOG_LEVEL:-INFO}"
 datax_log_max_size="${DATAX_LOG_MAX_SIZE:-100MB}"
 datax_log_max_index="${DATAX_LOG_MAX_INDEX:-100}"
-
-if [[ ! -d "$datax_plugin_root" ]]; then
-  echo "Error: DataX plugin root dir does not exist: $datax_plugin_root" >&2
-  exit 66
-fi
 
 if [[ ! -d "$datax_home" ]]; then
   echo "Error: datax home does not exist: $datax_home" >&2
