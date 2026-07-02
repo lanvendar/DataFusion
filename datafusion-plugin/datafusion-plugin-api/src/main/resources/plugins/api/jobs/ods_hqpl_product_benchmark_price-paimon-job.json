@@ -32,7 +32,6 @@
   "redis": {
     "enabled": false
   },
-  "inputVars": {},
   "steps": [
     {
       "id": "getBenchmark",
@@ -40,7 +39,7 @@
       "enabled": true,
       "request": {
         "method": "GET",
-        "url": "http://172.30.19.4:9232/api/product/getBenchmark",
+        "url": "http://172.30.4.3:8089/api/product/getBenchmark",
         "headers": {
           "Accept": "application/json"
         },
@@ -119,7 +118,7 @@
       "warehouse": "s3://data-lake-warehouse/paimon",
       "metastore": "filesystem",
       "catalogType": "filesystem",
-      "database": "dw_dev",
+      "database": "dw_prod",
       "endpoint": "http://sz-s3.indusmind.me",
       "s3.endpoint": "http://sz-s3.indusmind.me",
       "s3.access-key": "DNFY3F8DZ102RKOAXIMJ",

@@ -56,7 +56,7 @@ DATAFUSION_WORKER_PLUGIN_TYPES=API
 ## 4. TaskRequest.taskData
 
 `taskData` 必须是完整的 API 抽数 job JSON 对象，结构与 `datafusion-plugin-api` 的 `ApiExtractJobConfig`
-一致，例如包含 `job`、`runtime`、`httpConfig`、`inputVars`、`steps`、`sink` 等字段。
+一致，例如包含 `job`、`runtime`、`httpConfig`、`steps`、`sink` 等字段。
 agent 不从 `taskData` 读取 jar、JVM、env 等运行参数。
 
 提交前 agent 将 `deepMerge(pluginParam.defaultTaskData, taskData)` 写入：

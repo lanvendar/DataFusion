@@ -323,7 +323,7 @@ public class DateTimeStampTest {
         assertNotNull(result);
 
         // 测试大写字符串
-        result = DateTimeStamp.getTime(timestamp, "DAY_1");
+        result = DateTimeStamp.getTime(timestamp, "F");
         assertNotNull(result);
 
         // 测试混合大小写

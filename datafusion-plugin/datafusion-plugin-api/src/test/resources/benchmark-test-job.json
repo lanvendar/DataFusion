@@ -176,8 +176,5 @@
     "onHttpError": "FAIL",
     "onEmptyData": "SUCCESS",
     "onParseError": "FAIL"
-  },
-  "inputVars": {
-    "bizDate": "${date:yyyy-MM-dd}"
   }
 }

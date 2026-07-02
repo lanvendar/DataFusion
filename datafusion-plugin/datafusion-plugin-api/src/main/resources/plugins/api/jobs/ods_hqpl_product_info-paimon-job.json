@@ -2,7 +2,7 @@
   "job": {
     "id": "ods_hqpl_product_info",
     "name": "化纤产品信息表api接口同步paimon",
-    "description": "[startTime]:产品更新时间，时间越早信息越全，初始化的时候跑一次,startTime=2018-10-01,可以手工,之后每天更新增量",
+    "description": "[startTime]:产品更新时间，时间越早信息越全，初始化的时候跑一次,startTime=2018-10-01,可以手工,之后使用业务日期表达式按调度日期增量同步",
     "version": "1.0.0"
   },
   "runtime": {
@@ -32,9 +32,6 @@
   "redis": {
     "enabled": false
   },
-  "inputVars": {
-    "startTime": "2018-10-01"
-  },
   "steps": [
     {
       "id": "getProductInfo",
@@ -42,12 +39,12 @@
       "enabled": true,
       "request": {
         "method": "GET",
-        "url": "http://172.30.19.4:9232/api/product/getProductInfo",
+        "url": "http://172.30.4.3:8089/api/product/getProductInfo",
         "headers": {
           "Accept": "application/json"
         },
         "queryParams": {
-          "startTime": "${inputVars.startTime}"
+          "startTime": "#day(_biz_date_, 0D, yyyy-MM-dd)"
         },
         "bodyType": "NONE"
       },
@@ -125,7 +122,7 @@
           },
           {
             "name": "update_time",
-            "value": "${inputVars.startTime}"
+            "value": "#day(_biz_date_, 0D, yyyy-MM-dd HH:mm:ss)"
           }
         ]
       },
@@ -143,7 +140,7 @@
       "warehouse": "s3://data-lake-warehouse/paimon",
       "metastore": "filesystem",
       "catalogType": "filesystem",
-      "database": "dw_dev",
+      "database": "dw_prod",
       "endpoint": "http://sz-s3.indusmind.me",
       "s3.endpoint": "http://sz-s3.indusmind.me",
       "s3.access-key": "DNFY3F8DZ102RKOAXIMJ",

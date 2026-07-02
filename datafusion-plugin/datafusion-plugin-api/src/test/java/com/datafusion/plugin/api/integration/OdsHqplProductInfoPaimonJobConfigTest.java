@@ -22,12 +22,12 @@ public class OdsHqplProductInfoPaimonJobConfigTest {
     /**
      * 任务配置文件.
      */
-    private static final String PRODUCT_INFO_CONFIG_FILE = "ods_hqpl_product_info-paimon-job.json";
+    private static final String PRODUCT_INFO_CONFIG_FILE = "plugins/api/jobs/ods_hqpl_product_info-paimon-job.json";
 
     /**
      * 基准价任务配置文件.
      */
-    private static final String BENCHMARK_PRICE_CONFIG_FILE = "ods_hqpl_product_benchmark_price-paimon-job.json";
+    private static final String BENCHMARK_PRICE_CONFIG_FILE = "plugins/api/jobs/ods_hqpl_product_benchmark_price-paimon-job.json";
 
     /**
      * 校验 ODS 产品信息任务配置满足 Paimon 主键要求.
@@ -36,12 +36,14 @@ public class OdsHqplProductInfoPaimonJobConfigTest {
      */
     @Test
     public void validateOdsProductInfoPaimonJobConfig() throws Exception {
-        ApiExtractJobConfig config = loadConfig(PRODUCT_INFO_CONFIG_FILE);
+        String json = loadConfigText(PRODUCT_INFO_CONFIG_FILE);
+        ApiExtractJobConfig config = JsonUtils.read(json, ApiExtractJobConfig.class);
 
         Assertions.assertEquals("ods_hqpl_product_info", config.job.id);
+        Assertions.assertFalse(json.contains("\"inputVars\""));
         Assertions.assertEquals("PAIMON", config.sink.type);
         Assertions.assertEquals("S3", config.sink.connectType);
-        Assertions.assertEquals("dim_product_info", config.sink.table.name);
+        Assertions.assertEquals("ods_hqpl_product_info", config.sink.table.name);
         Assertions.assertEquals(1, config.sink.table.primaryKeys.size());
         Assertions.assertEquals("name", config.sink.table.primaryKeys.get(0));
         Assertions.assertTrue(config.sink.table.partitionKeys.isEmpty());
@@ -58,9 +60,11 @@ public class OdsHqplProductInfoPaimonJobConfigTest {
      */
     @Test
     public void validateOdsBenchmarkPricePaimonJobConfig() throws Exception {
-        ApiExtractJobConfig config = loadConfig(BENCHMARK_PRICE_CONFIG_FILE);
+        String json = loadConfigText(BENCHMARK_PRICE_CONFIG_FILE);
+        ApiExtractJobConfig config = JsonUtils.read(json, ApiExtractJobConfig.class);
 
         Assertions.assertEquals("ods_hqpl_product_benchmark_price", config.job.id);
+        Assertions.assertFalse(json.contains("\"inputVars\""));
         Assertions.assertEquals("PAIMON", config.sink.type);
         Assertions.assertEquals("ods_hqpl_product_benchmark_price", config.sink.table.name);
         Assertions.assertEquals(3, config.sink.table.primaryKeys.size());
@@ -74,11 +78,10 @@ public class OdsHqplProductInfoPaimonJobConfigTest {
         Assertions.assertDoesNotThrow(() -> new ConfigValidator().validate(config));
     }
 
-    private ApiExtractJobConfig loadConfig(String configFile) throws Exception {
+    private String loadConfigText(String configFile) throws Exception {
         try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(configFile)) {
             Assertions.assertNotNull(inputStream, "配置文件不存在: " + configFile);
-            String json = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
-            return JsonUtils.read(json, ApiExtractJobConfig.class);
+            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
 }

@@ -32,7 +32,7 @@ DefaultApiExtractRunner.run
 
 ## HTTP Step
 
-执行 step 时先复制顶层 `httpConfig`，再用 step 级 `httpConfig` 覆盖。请求模板由 `TemplateResolver` 解析，支持 `inputVars`、上游 step 输出、Redis 缓存、环境变量和日期时间函数。
+执行 step 时先复制顶层 `httpConfig`，再用 step 级 `httpConfig` 覆盖。请求模板由 `TemplateResolver` 解析，支持上游 step 输出、Redis 缓存、环境变量和日期时间函数。
 
 分页执行规则：
 

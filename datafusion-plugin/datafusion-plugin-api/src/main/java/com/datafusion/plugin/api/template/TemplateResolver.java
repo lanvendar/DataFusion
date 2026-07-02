@@ -102,13 +102,6 @@ public class TemplateResolver {
         if ("run.id".equals(token)) {
             return context.getRunId();
         }
-        if (token.startsWith("inputVars.")) {
-            Object value = context.getVars().get(token.substring("inputVars.".length()));
-            if (value instanceof String text && text.contains("${")) {
-                return resolve(text, context);
-            }
-            return value;
-        }
         if (token.startsWith("steps.")) {
             return lookupStepOutput(token, context);
         }

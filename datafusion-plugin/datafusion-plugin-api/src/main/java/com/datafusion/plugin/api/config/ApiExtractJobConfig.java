@@ -39,11 +39,6 @@ public class ApiExtractJobConfig {
     public RedisConfig redis = new RedisConfig();
     
     /**
-     * 输入变量映射.
-     */
-    public Map<String, Object> inputVars = new LinkedHashMap<>();
-
-    /**
      * 步骤列表.
      */
     public List<StepConfig> steps = new ArrayList<>();

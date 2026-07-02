@@ -9,7 +9,7 @@ import java.util.Map;
  * API 抽取上下文,存储任务运行时的状态信息.
  *
  * <p>
- * 包含配置、运行 ID、变量和步骤输出等运行时数据.
+ * 包含配置、运行 ID 和步骤输出等运行时数据.
  * </p>
  *
  * @author DataFusion
@@ -29,11 +29,6 @@ public class ApiExtractContext {
     private final String runId;
     
     /**
-     * 运行时变量映射.
-     */
-    private final Map<String, Object> vars = new LinkedHashMap<>();
-    
-    /**
      * 步骤输出映射,key 为步骤 ID,value 为输出数据.
      */
     private final Map<String, Object> stepOutputs = new LinkedHashMap<>();
@@ -47,9 +42,6 @@ public class ApiExtractContext {
     public ApiExtractContext(ApiExtractJobConfig config, String runId) {
         this.config = config;
         this.runId = runId;
-        if (config.inputVars != null) {
-            this.vars.putAll(config.inputVars);
-        }
     }
 
     /**
@@ -68,15 +60,6 @@ public class ApiExtractContext {
      */
     public String getRunId() {
         return runId;
-    }
-
-    /**
-     * 获取运行时变量映射.
-     *
-     * @return 变量映射
-     */
-    public Map<String, Object> getVars() {
-        return vars;
     }
 
     /**

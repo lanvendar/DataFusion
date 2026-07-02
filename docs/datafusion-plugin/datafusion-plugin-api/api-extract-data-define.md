@@ -16,7 +16,6 @@
 | `ApiExtractJobConfig` | `runtime` | `new RuntimeConfig()` | 循环执行配置 |
 | `ApiExtractJobConfig` | `httpConfig` | `new HttpConfig()` | 全局 HTTP 默认配置 |
 | `ApiExtractJobConfig` | `redis` | `new RedisConfig()` | Redis 连接和默认缓存配置 |
-| `ApiExtractJobConfig` | `inputVars` | 空 `LinkedHashMap` | 输入变量 |
 | `ApiExtractJobConfig` | `steps` | 空 `ArrayList` | HTTP step 列表 |
 | `ApiExtractJobConfig` | `sink` | `new SinkConfig()` | 写入目标配置 |
 
