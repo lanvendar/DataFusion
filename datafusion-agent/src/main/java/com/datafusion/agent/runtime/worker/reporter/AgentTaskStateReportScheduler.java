@@ -200,14 +200,9 @@ public class AgentTaskStateReportScheduler {
         }
         log.info("上报最终任务状态成功, taskInstanceId={}, status={}", state.getTaskInstanceId(), state.getStatus());
         removeQueryFailureMap(state.getTaskInstanceId());
-        if (state.getStatus() != null && state.getStatus().isSuccess()) {
-            log.info("任务成功完成, 删除执行上下文, taskInstanceId={}", state.getTaskInstanceId());
-            stateStore.deleteExecution(state.getTaskInstanceId());
-        } else {
-            log.info("任务非成功终态, 停止监听任务, taskInstanceId={}, status={}",
-                    state.getTaskInstanceId(), state.getStatus());
-            stateStore.stopListening(state.getTaskInstanceId());
-        }
+        log.info("最终任务状态上报成功, 停止监听任务, taskInstanceId={}, status={}",
+                state.getTaskInstanceId(), state.getStatus());
+        stateStore.stopListening(state.getTaskInstanceId());
     }
 
     /**

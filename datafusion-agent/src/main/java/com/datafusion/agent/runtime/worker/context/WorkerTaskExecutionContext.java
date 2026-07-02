@@ -13,6 +13,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -49,6 +50,11 @@ public class WorkerTaskExecutionContext implements WorkerTaskExecutionStore, Wor
      * State file suffix.
      */
     private static final String STATE_FILE_SUFFIX = ".state";
+
+    /**
+     * JSON file suffix.
+     */
+    private static final String JSON_FILE_SUFFIX = ".json";
 
     /**
      * JSON 序列化器.
@@ -218,6 +224,7 @@ public class WorkerTaskExecutionContext implements WorkerTaskExecutionStore, Wor
             try {
                 Files.deleteIfExists(stateFile(path, taskInstanceId));
                 Files.deleteIfExists(snapshotFile(path, taskInstanceId));
+                deleteRuntimeJsonFiles(path);
             } catch (Exception e) {
                 log.warn("删除任务执行状态文件失败, taskInstanceId={}", taskInstanceId, e);
             } finally {
@@ -298,8 +305,23 @@ public class WorkerTaskExecutionContext implements WorkerTaskExecutionStore, Wor
         return fileName(path).equals(stateFileName(taskInstanceId));
     }
 
+    private boolean isJsonFile(Path path) {
+        return fileName(path).endsWith(JSON_FILE_SUFFIX);
+    }
+
     private String fileName(Path path) {
         return path.getFileName().toString();
+    }
+
+    private void deleteRuntimeJsonFiles(Path executionDir) throws IOException {
+        if (executionDir == null || !Files.exists(executionDir)) {
+            return;
+        }
+        try (Stream<Path> stream = Files.list(executionDir)) {
+            for (Path path : stream.filter(Files::isRegularFile).filter(this::isJsonFile).toList()) {
+                Files.deleteIfExists(path);
+            }
+        }
     }
 
     private Optional<Path> findSnapshotFile(String taskInstanceId) {

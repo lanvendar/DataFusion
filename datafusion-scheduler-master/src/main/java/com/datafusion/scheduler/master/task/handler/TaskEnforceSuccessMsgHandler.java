@@ -90,11 +90,14 @@ public class TaskEnforceSuccessMsgHandler extends AbstractTaskMsgHandler {
                 .build();
         super.notifyFlowActor(flowMsg, context);
         super.notifyNextTasks(taskIns, context);
-        // 清理 agent 状态文件及日志
+        // 清理 agent 状态文件.
         try {
-            super.masterTaskOperator.finishTask(taskIns);
+            boolean finished = super.masterTaskOperator.finishTask(taskIns);
+            if (!finished) {
+                log.warn("任务实例完成清理返回失败:taskInsId=[{}]", taskIns.getInstanceId());
+            }
         } catch (Exception e) {
-            log.error("任务实例无法完成:taskInsId=[{}]", taskIns.getInstanceId());
+            log.error("任务实例无法清理:taskInsId=[{}]", taskIns.getInstanceId());
         }
     }
 }

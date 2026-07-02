@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AgentTaskStateReportSchedulerTest {
 
     @Test
-    void shouldRemoveFinalStateAfterSuccessfulReport() throws Exception {
+    void shouldStopListeningAndKeepSuccessfulFinalStateAfterSuccessfulReport() throws Exception {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         stateStore.saveSnapshot(snapshot());
         stateStore.saveState(state(StatusEnum.RUN_SUCCESS));
@@ -42,8 +42,8 @@ class AgentTaskStateReportSchedulerTest {
 
         assertEquals(1, reporter.reportCount);
         assertTrue(stateStore.listListeningStates().isEmpty());
-        assertTrue(stateStore.readState("task-1").isEmpty());
-        assertTrue(stateStore.readSnapshot("task-1").isEmpty());
+        assertTrue(stateStore.readState("task-1").isPresent());
+        assertTrue(stateStore.readSnapshot("task-1").isPresent());
         scheduler.shutdownNow();
     }
 

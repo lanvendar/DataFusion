@@ -44,6 +44,13 @@ class WorkerTaskExecutionContextTest {
 
         Path executionDir = executionDir();
         Path logFile = executionDir.resolve("state.log");
+        Path jobFile = executionDir.resolve("job.json");
+        Path apiJobFile = executionDir.resolve("api-job.json");
+        Path nestedJsonFile = executionDir.resolve("nested").resolve("result.json");
+        Files.writeString(jobFile, "{}");
+        Files.writeString(apiJobFile, "{}");
+        Files.createDirectories(nestedJsonFile.getParent());
+        Files.writeString(nestedJsonFile, "{}");
         assertEquals(1, store.listListeningStates().size());
         assertEquals(2, Files.readAllLines(logFile).size());
 
@@ -57,6 +64,9 @@ class WorkerTaskExecutionContextTest {
         reloadedStore.deleteExecution("task-1");
 
         assertTrue(Files.exists(logFile));
+        assertFalse(Files.exists(jobFile));
+        assertFalse(Files.exists(apiJobFile));
+        assertTrue(Files.exists(nestedJsonFile));
         assertFalse(Files.exists(executionDir.resolve("task-1.state")));
         assertFalse(Files.exists(executionDir.resolve("task-1.snap")));
         assertEquals(0, reloadedStore.listListeningStates().size());
