@@ -21,6 +21,7 @@ dist/
 /datafusion-agent/src/main/resources/plugins/*/lib/
 /datafusion-agent/src/main/resources/plugins/*/conf/
 /datafusion-agent/src/main/resources/plugins/*/jobs/
+/datafusion-agent/src/main/resources/plugins/*/plugin/
 
 # Frontend dependencies and caches
 node_modules/
