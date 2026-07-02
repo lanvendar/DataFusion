@@ -1,12 +1,69 @@
 import { App, Space } from "antd";
-import { useCallback, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/page-layout";
+import { env } from "@/env";
+import { taskTypeConfigApi } from "@/modules/system-task-type-config/api";
+import {
+  demoTaskTypeConfigRows,
+  SYSTEM_TASK_TYPE_CONFIG_QUERY_KEY,
+} from "@/modules/system-task-type-config/constants";
+import type { TaskTypeConfigItem } from "@/modules/system-task-type-config/dto";
 import { taskApi } from "./api";
 import { TaskDetail, TaskForm, TaskListTable } from "./components";
 import { SCHEDULER_TASK_QUERY_KEY } from "./constants";
-import { PageActionEnum, type TaskFormMode, type TaskItem } from "./dto";
-import { useTaskTypeOptions } from "./use-task-type-options";
+import {
+  PageActionEnum,
+  type TaskFormMode,
+  type TaskItem,
+  type TaskTypeFilterOption,
+  type TaskTypeFormOption,
+} from "./dto";
+
+function useTaskTypeOptions() {
+  const query = useQuery({
+    queryKey: [SYSTEM_TASK_TYPE_CONFIG_QUERY_KEY, "scheduler-task-options"],
+    queryFn: async () => {
+      try {
+        return await taskTypeConfigApi.list({});
+      } catch (error) {
+        if (!env.DEV) throw error;
+        console.warn("Using demo task type config rows", error);
+        return demoTaskTypeConfigRows;
+      }
+    },
+  });
+
+  const taskTypeConfigs = useMemo<TaskTypeConfigItem[]>(
+    () => query.data || [],
+    [query.data],
+  );
+
+  const formOptions = useMemo<TaskTypeFormOption[]>(
+    () =>
+      taskTypeConfigs.map((item) => ({
+        label: item.taskType,
+        value: item.id,
+        taskType: item.taskType,
+      })),
+    [taskTypeConfigs],
+  );
+
+  const filterOptions = useMemo<TaskTypeFilterOption[]>(
+    () =>
+      taskTypeConfigs.map((item) => ({
+        label: item.taskType,
+        value: item.taskType,
+      })),
+    [taskTypeConfigs],
+  );
+
+  return {
+    query,
+    formOptions,
+    filterOptions,
+  };
+}
 
 export default function SchedulerTaskPage() {
   const { message } = App.useApp();
