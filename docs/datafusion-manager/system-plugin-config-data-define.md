@@ -274,6 +274,7 @@ COMMENT ON COLUMN system_task_type_config.tenant_id IS '租户ID';
 | `81deb2e9-2c69-33d0-917a-dded2e73ce6d` | `DataX LOCAL 模板` | `DATAX` | `LOCAL` | `datafusion-agent/src/main/resources/plugins/datax/templates/datax-local-plugin-config.json` 中的插件配置 JSON |
 | `e9f668d7-7d7c-30e3-9143-3c5ab6019eb1` | `DataX K8S 模板` | `DATAX` | `K8S` | `datafusion-agent/src/main/resources/plugins/datax/templates/datax-k8s-plugin-config.json` 中的插件配置 JSON |
 | `82a2e64f-47cb-3545-96f1-be547a1f5253` | `Shell LOCAL 模板` | `SHELL` | `LOCAL` | `datafusion-agent/src/main/resources/plugins/shell/templates/shell-local-plugin-config.json` 中的插件配置 JSON |
+| `6625db40-f8a9-3a80-8bc0-2f2137165e4d` | `API LOCAL 模板` | `API` | `LOCAL` | `datafusion-agent/src/main/resources/plugins/api/templates/api-local-plugin-config.json` 中的插件配置 JSON |
 
 插件配置初始化主键按 Service 规则生成：
 `UUID.nameUUIDFromBytes((pluginName + pluginType + runMode + tenantId).getBytes(StandardCharsets.UTF_8))`。
@@ -282,13 +283,14 @@ COMMENT ON COLUMN system_task_type_config.tenant_id IS '租户ID';
 
 | `id` | `task_type` | `default_plugin_id` | `plugin_type` |
 |------|-------------|---------------------|---------------|
-| `d2f6659e-562a-350e-b926-d7812852e23d` | `DATAX` | `81deb2e9-2c69-33d0-917a-dded2e73ce6d` | `DATAX` |
+| `d2f6659e-562a-350e-b926-d7812852e23d` | `DATAX` | `e9f668d7-7d7c-30e3-9143-3c5ab6019eb1` | `DATAX` |
 | `28d568b3-892d-3e36-b283-3542693a1062` | `SHELL` | `82a2e64f-47cb-3545-96f1-be547a1f5253` | `SHELL` |
+| `db974238-714c-38de-a34a-7ce1d083a14f` | `API` | `6625db40-f8a9-3a80-8bc0-2f2137165e4d` | `API` |
 
 任务类型初始化主键按 Service 规则生成：
 `UUID.nameUUIDFromBytes(taskType.getBytes(StandardCharsets.UTF_8))`。
 
-`DATAX` 默认绑定 `DataX LOCAL 模板`。`DataX K8S 模板` 需要环境提供 `kubernetes.image`，因此只初始化为可复制/可选择的模板，不作为默认任务类型绑定。
+`DATAX` 默认绑定 `DataX K8S 模板`，`SHELL` 默认绑定 `Shell LOCAL 模板`，`API` 默认绑定 `API LOCAL 模板`。
 
 ## 8. 复用对象
 

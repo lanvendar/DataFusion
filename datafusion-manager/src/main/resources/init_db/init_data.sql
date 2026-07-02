@@ -149,6 +149,31 @@ VALUES
    "pluginLogUri": ""
  }'::jsonb,
  true, 0, 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+ '00000000-0000-0000-0000-000000000001'::uuid),
+('6625db40-f8a9-3a80-8bc0-2f2137165e4d'::uuid, 'API LOCAL 模板', 'API', 'LOCAL',
+ 'API 抽数本地执行配置模板，通过 java 启动 datafusion-plugin-api',
+ '{
+   "launchMode": "JAR",
+   "javaBin": "java",
+   "apiJar": "/opt/datafusion/plugins/api/datafusion-plugin-api-1.0.0-executable.jar",
+   "classpath": "",
+   "mainClass": "com.datafusion.plugin.api.ApiExtractApplication",
+   "jvmOptions": [
+     "-Dfile.encoding=UTF-8",
+     "-Dsun.jnu.encoding=UTF-8",
+     "--add-opens",
+     "java.base/java.lang=ALL-UNNAMED"
+   ],
+   "logHome": "logs",
+   "logLevel": "INFO",
+   "logMaxSize": "100MB",
+   "logMaxIndex": 100,
+   "logConfigFile": "/opt/datafusion/plugins/api/conf/logback.xml",
+   "defaultTaskData": {},
+   "env": {},
+   "pluginLogUri": ""
+ }'::jsonb,
+ true, 0, 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
  '00000000-0000-0000-0000-000000000001'::uuid)
 ON CONFLICT (id) DO UPDATE SET
 plugin_name = EXCLUDED.plugin_name,
@@ -172,6 +197,10 @@ VALUES
  '00000000-0000-0000-0000-000000000001'::uuid),
 ('28d568b3-892d-3e36-b283-3542693a1062'::uuid, 'SHELL',
  '82a2e64f-47cb-3545-96f1-be547a1f5253'::uuid, 'SHELL',
+ 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+ '00000000-0000-0000-0000-000000000001'::uuid),
+('db974238-714c-38de-a34a-7ce1d083a14f'::uuid, 'API',
+ '6625db40-f8a9-3a80-8bc0-2f2137165e4d'::uuid, 'API',
  'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
  '00000000-0000-0000-0000-000000000001'::uuid)
 ON CONFLICT (id) DO UPDATE SET
