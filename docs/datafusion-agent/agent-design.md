@@ -169,7 +169,9 @@ appRoot        = 单包插件使用 {pluginTypeRoot}；多 app 插件使用 {plu
 
 插件专用模板只能声明该运行时需要的补充变量。例如 Flink K8S_OPERATOR 模板可以使用
 `flinkAppJar`、`usrlibPath` 和 `jobJsonMountPath`，其中发布包相关字段来自 `pluginParam`，
-固定路径由 agent 约定派生，不要求用户在 `pluginParam.kubernetes` 中重复填写。
+`jobJsonMountPath` 由任务运行目录派生为
+`/opt/datafusion/task-runtime/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/flink-job.json`，不要求用户在
+`pluginParam.kubernetes` 中重复填写。
 
 模板实现约束：
 

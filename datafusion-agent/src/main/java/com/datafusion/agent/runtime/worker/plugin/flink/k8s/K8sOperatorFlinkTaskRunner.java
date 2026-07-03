@@ -74,6 +74,7 @@ public class K8sOperatorFlinkTaskRunner implements FlinkTaskRunner {
         } catch (Exception e) {
             return FlinkSubmitResult.builder()
                     .status(StatusEnum.SUBMIT_FAILURE)
+                    .workDirPath(param.getWorkDir().toString())
                     .result(PluginResultJson.build(e.getMessage(), "FLINK", FlinkRunMode.K8S_OPERATOR.name(),
                             null, null))
                     .build();

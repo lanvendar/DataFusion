@@ -51,6 +51,11 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
+     * Rendered manifest file name.
+     */
+    private static final String MANIFEST_FILE_NAME = "flink-k8s-operator-deployment.yml";
+
+    /**
      * Kubernetes client.
      */
     private final KubernetesClient client;
@@ -75,9 +80,10 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
 
     @Override
     public FlinkKubernetesRuntimeRef submit(FlinkExecutionParam param) {
-        validateSharedPluginFiles(param);
         String jobContent = writeJobJson(param);
         String manifest = templateRenderer.render(param, jobContent);
+        writeYml(param, manifest);
+        validateSharedPluginFiles(param);
         client.load(new ByteArrayInputStream(manifest.getBytes(StandardCharsets.UTF_8))).createOrReplace();
         FlinkKubernetesParam kubernetes = param.getKubernetes();
         return FlinkKubernetesRuntimeRef.builder()
@@ -194,10 +200,7 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
             throw new IllegalArgumentException("共享盘Flink app主jar不存在: " + mainJar);
         }
         Path libDir = appDir.resolve(param.getLibDir());
-        if (!Files.exists(libDir)) {
-            throw new IllegalArgumentException("共享盘Flink app依赖目录不存在: " + libDir);
-        }
-        if (!Files.isDirectory(libDir)) {
+        if (Files.exists(libDir) && !Files.isDirectory(libDir)) {
             throw new IllegalArgumentException("共享盘Flink app依赖路径不是目录: " + libDir);
         }
     }
@@ -207,10 +210,20 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
             Files.createDirectories(param.getWorkDir());
             String content = OBJECT_MAPPER.writerWithDefaultPrettyPrinter()
                     .writeValueAsString(param.getEffectiveTaskData());
-            Files.writeString(param.getWorkDir().resolve("job.json"), content, StandardCharsets.UTF_8);
+            Files.writeString(param.getWorkDir()
+                    .resolve(FlinkKubernetesTemplateConstants.JOB_JSON_FILE_NAME), content, StandardCharsets.UTF_8);
             return content;
         } catch (Exception e) {
             throw new IllegalStateException("写入Flink job.json失败: " + e.getMessage(), e);
+        }
+    }
+
+    private void writeYml(FlinkExecutionParam param, String manifest) {
+        try {
+            Files.createDirectories(param.getWorkDir());
+            Files.writeString(param.getWorkDir().resolve(MANIFEST_FILE_NAME), manifest, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw new IllegalStateException("写入Flink K8S_OPERATOR deployment yaml失败: " + e.getMessage(), e);
         }
     }
 

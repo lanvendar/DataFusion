@@ -12,31 +12,41 @@
     "mainClass": "com.datafusion.plugin.kafka.json.KafkaJsonPaimonApplication",
     "flinkVersion": "2.2.0",
     "libDir": "lib",
-    "args": [
-      "--config",
-      "{{jobJsonMountPath}}"
-    ],
+    "flinkCheckpointRootDir": "s3a://data-lake-warehouse/flink",
     "flinkConfig": {
-      "state.backend.type": "rocksdb",
+      "state.backend": "rocksdb",
       "parallelism.default": "2",
       "execution.checkpointing.interval": "60s",
       "execution.checkpointing.mode": "AT_LEAST_ONCE",
-      "execution.checkpointing.dir": "s3://datafusion/flink/checkpoints/kafka-json",
-      "execution.checkpointing.savepoint-dir": "s3://datafusion/flink/savepoints/kafka-json"
+      "fs.s3a.endpoint": "172.26.185.200",
+      "fs.s3a.path.style.access": "true",
+      "fs.s3a.connection.ssl.enabled": "false",
+      "fs.s3a.aws.credentials.provider": "com.amazonaws.auth.EnvironmentVariableCredentialsProvider"
     },
     "kubernetes": {
       "namespace": "datafusion",
       "image": "flink:2.2.0-scala_2.12-java17",
       "sharedPvcName": "datafusion-shared-data",
-      "flinkWebUiUriTemplate": "http://{{deploymentName}}-rest.{{namespace}}.svc:8081",
       "serviceAccountName": "flink-runner",
+      "env": {
+        "HADOOP_CONF_DIR": "/opt/flink/conf"
+      },
+      "envFrom": [
+        {
+          "secretRef": {
+            "name": "flink-objectstore"
+          }
+        }
+      ],
       "jobManager": {
+        "replicas": 1,
         "resource": {
           "memory": "2048m",
           "cpu": "1.0"
         }
       },
       "taskManager": {
+        "replicas": 1,
         "resource": {
           "memory": "4096m",
           "cpu": "2.0"

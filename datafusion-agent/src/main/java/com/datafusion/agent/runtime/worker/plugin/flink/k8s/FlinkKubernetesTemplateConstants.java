@@ -15,19 +15,9 @@ public final class FlinkKubernetesTemplateConstants {
     public static final String TEMPLATE_PATH = "plugins/flink/templates/flink-k8s-operator-deployment.yml";
 
     /**
-     * Job JSON secret key.
+     * Flink job JSON file name.
      */
-    public static final String JOB_JSON_SECRET_KEY = "job.json";
-
-    /**
-     * Job JSON mount path.
-     */
-    public static final String JOB_JSON_MOUNT_PATH = "/opt/datafusion/flink/job/job.json";
-
-    /**
-     * Job JSON mount directory.
-     */
-    public static final String JOB_JSON_MOUNT_DIR = "/opt/datafusion/flink/job";
+    public static final String JOB_JSON_FILE_NAME = "flink-job.json";
 
     /**
      * Flink usrlib path.

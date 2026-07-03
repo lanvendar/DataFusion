@@ -108,15 +108,35 @@ public class FlinkKubernetesParam {
     private Map<String, String> env = Collections.emptyMap();
 
     /**
+     * Environment variables from ConfigMap or Secret.
+     */
+    private JsonNode envFrom;
+
+    /**
      * Node selector.
      */
     @Builder.Default
     private Map<String, String> nodeSelector = Collections.emptyMap();
 
     /**
+     * Image pull secrets.
+     */
+    private JsonNode imagePullSecrets;
+
+    /**
+     * JobManager replicas.
+     */
+    private Integer jobManagerReplicas;
+
+    /**
      * JobManager resource.
      */
     private JsonNode jobManagerResource;
+
+    /**
+     * TaskManager replicas.
+     */
+    private Integer taskManagerReplicas;
 
     /**
      * TaskManager resource.
@@ -148,4 +168,14 @@ public class FlinkKubernetesParam {
      */
     @Builder.Default
     private List<String> args = Collections.emptyList();
+
+    /**
+     * Job parallelism.
+     */
+    private Integer jobParallelism;
+
+    /**
+     * Job state.
+     */
+    private String jobState;
 }

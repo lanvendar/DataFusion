@@ -60,7 +60,7 @@ public class FlinkKubernetesTemplateRenderer {
         values.put("namespace", quote(kubernetes.getNamespace()));
         values.put("secretName", quote(kubernetes.getSecretName()));
         values.put("deploymentName", quote(kubernetes.getDeploymentName()));
-        values.put("jobSecretKey", FlinkKubernetesTemplateConstants.JOB_JSON_SECRET_KEY);
+        values.put("jobSecretKey", FlinkKubernetesTemplateConstants.JOB_JSON_FILE_NAME);
         values.put("jobJsonBase64", quote(Base64.getEncoder()
                 .encodeToString(jobContent.getBytes(StandardCharsets.UTF_8))));
         values.put("labels", mapYaml(labels, 4));
@@ -74,19 +74,25 @@ public class FlinkKubernetesTemplateRenderer {
         values.put("operatorFlinkVersion", quote(operatorFlinkVersion(param.getFlinkVersion())));
         values.put("flinkConfiguration", mapYaml(param.getFlinkConfig(), 4));
         values.put("nodeSelectorBlock", mapBlock("nodeSelector", kubernetes.getNodeSelector(), 6, 8));
+        values.put("imagePullSecretsBlock", imagePullSecretsBlock(kubernetes.getImagePullSecrets(), 6, 8));
         values.put("envBlock", envBlock(kubernetes.getEnv(), 10, 12));
+        values.put("envFromBlock", envFromBlock(kubernetes.getEnvFrom(), 10, 12));
         values.put("sharedMountPath", quote(kubernetes.getSharedMountPath()));
         values.put("sharedPvcName", quote(kubernetes.getSharedPvcName()));
         values.put("flinkAppDir", quote(kubernetes.getFlinkAppDir()));
         values.put("flinkAppJar", quote(param.getFlinkAppJar()));
         values.put("libDir", quote(param.getLibDir()));
         values.put("usrlibPath", quote(FlinkKubernetesTemplateConstants.USRLIB_PATH));
-        values.put("jobJsonMountDir", quote(FlinkKubernetesTemplateConstants.JOB_JSON_MOUNT_DIR));
-        values.put("jobJsonMountPath", quote(FlinkKubernetesTemplateConstants.JOB_JSON_MOUNT_PATH));
+        values.put("jobJsonMountDir", quote(parentPath(kubernetes.getJobJsonMountPath())));
+        values.put("jobJsonMountPath", quote(kubernetes.getJobJsonMountPath()));
         values.put("jarUri", quote(kubernetes.getJarUri()));
         values.put("mainClass", quote(param.getMainClass()));
         values.put("args", listYaml(kubernetes.getArgs(), 8));
         values.put("upgradeMode", quote(kubernetes.getUpgradeMode()));
+        values.put("jobStateBlock", stringBlock("state", kubernetes.getJobState(), 4));
+        values.put("jobParallelismBlock", integerBlock("parallelism", kubernetes.getJobParallelism(), 4));
+        values.put("jobManagerReplicasBlock", integerBlock("replicas", kubernetes.getJobManagerReplicas(), 4));
+        values.put("taskManagerReplicasBlock", integerBlock("replicas", kubernetes.getTaskManagerReplicas(), 4));
         values.put("jobManagerResource", quantityMapYaml(kubernetes.getJobManagerResource(), 6));
         values.put("taskManagerResource", quantityMapYaml(kubernetes.getTaskManagerResource(), 6));
         return templateRenderer.renderText(FlinkKubernetesTemplateConstants.TEMPLATE_PATH, values);
@@ -136,6 +142,43 @@ public class FlinkKubernetesTemplateRenderer {
         return spaces(keyIndent) + "env:" + System.lineSeparator() + envYaml(env, valueIndent);
     }
 
+    private String envFromBlock(JsonNode envFrom, int keyIndent, int valueIndent) {
+        if (envFrom == null || !envFrom.isArray() || envFrom.isEmpty()) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder(spaces(keyIndent)).append("envFrom:")
+                .append(System.lineSeparator());
+        envFrom.forEach(item -> appendObjectRef(builder, item, "secretRef", valueIndent));
+        envFrom.forEach(item -> appendObjectRef(builder, item, "configMapRef", valueIndent));
+        return builder.toString();
+    }
+
+    private String imagePullSecretsBlock(JsonNode imagePullSecrets, int keyIndent, int valueIndent) {
+        if (imagePullSecrets == null || !imagePullSecrets.isArray() || imagePullSecrets.isEmpty()) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder(spaces(keyIndent)).append("imagePullSecrets:")
+                .append(System.lineSeparator());
+        imagePullSecrets.forEach(item -> {
+            String name = text(item, "name");
+            if (!isBlank(name)) {
+                builder.append(spaces(valueIndent)).append("- name: ").append(quote(name))
+                        .append(System.lineSeparator());
+            }
+        });
+        return builder.toString();
+    }
+
+    private void appendObjectRef(StringBuilder builder, JsonNode item, String refName, int indent) {
+        JsonNode ref = item == null ? null : item.get(refName);
+        String name = text(ref, "name");
+        if (isBlank(name)) {
+            return;
+        }
+        builder.append(spaces(indent)).append("- ").append(refName).append(':').append(System.lineSeparator())
+                .append(spaces(indent + 4)).append("name: ").append(quote(name)).append(System.lineSeparator());
+    }
+
     private String listYaml(List<String> values, int indent) {
         StringBuilder builder = new StringBuilder();
         for (String value : values) {
@@ -179,6 +222,13 @@ public class FlinkKubernetesTemplateRenderer {
         return spaces(indent) + name + ": " + quote(value) + System.lineSeparator();
     }
 
+    private String integerBlock(String name, Integer value, int indent) {
+        if (value == null) {
+            return "";
+        }
+        return spaces(indent) + name + ": " + value + System.lineSeparator();
+    }
+
     private String operatorFlinkVersion(String flinkVersion) {
         if ("2.2.0".equals(flinkVersion)) {
             return "v2_2";
@@ -192,6 +242,18 @@ public class FlinkKubernetesTemplateRenderer {
         }
         return "k8s-operator://" + kubernetes.getNamespace() + "/flinkdeployments/"
                 + kubernetes.getDeploymentName();
+    }
+
+    private String parentPath(String path) {
+        if (isBlank(path)) {
+            return "/";
+        }
+        String normalized = path.replaceAll("/+$", "");
+        int index = normalized.lastIndexOf('/');
+        if (index <= 0) {
+            return "/";
+        }
+        return normalized.substring(0, index);
     }
 
     private String quote(String value) {
@@ -209,5 +271,13 @@ public class FlinkKubernetesTemplateRenderer {
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private String text(JsonNode node, String field) {
+        JsonNode value = node == null ? null : node.get(field);
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        return value.asText();
     }
 }
