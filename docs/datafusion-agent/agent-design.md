@@ -1,12 +1,12 @@
 # 调度 Agent 设计
 
-> 数据结构见 [agent-data-define.md](./agent-data-define.md)。DataX 插件见
-> [plugin-datax-design.md](./plugin-datax-design.md)，Shell 插件见
-> [plugin-shell-design.md](./plugin-shell-design.md)，Spider 插件见
-> [plugin-spider-design.md](./plugin-spider-design.md)，API 插件见
-> [plugin-api-design.md](./plugin-api-design.md)，Flink 插件见
-> [plugin-flink-design.md](./plugin-flink-design.md)。worker 框架契约见
-> [../datafusion-scheduler-worker/scheduler-worker-design.md](../datafusion-scheduler-worker/scheduler-worker-design.md)。
+> 数据结构见 [agent-data-define.md](./agent-data-define.md)。  
+> DataX 插件见 [plugin-datax-design.md](./plugin-datax-design.md)，  
+> Shell 插件见 [plugin-shell-design.md](./plugin-shell-design.md)，  
+> Spider 插件见 [plugin-spider-design.md](./plugin-spider-design.md)，  
+> API 插件见 [plugin-api-design.md](./plugin-api-design.md)，  
+> Flink 插件见 [plugin-flink-design.md](./plugin-flink-design.md)。  
+> worker 框架契约见 [../datafusion-scheduler-worker/scheduler-worker-design.md](../datafusion-scheduler-worker/scheduler-worker-design.md)。
 
 ## 定位
 

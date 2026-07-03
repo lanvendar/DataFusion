@@ -3,25 +3,28 @@ set -euo pipefail
 
 BUILD_MANIFEST_FILE=""
 
+# 打包模式和执行开关，允许通过环境变量覆盖默认值。
 MODE="${PLUGIN_PACKAGE_MODE:-fat}"
 SKIP_TESTS="${SKIP_TESTS:-true}"
 RUN_MAVEN="${RUN_MAVEN:-true}"
 MAVEN_CMD="${MAVEN_CMD:-mvn}"
 
+# 打印脚本使用说明。
 usage() {
     cat <<EOF
-Usage: $0 --manifest <plugin-build-manifest.json> [--mode fat|thin] [--skip-tests true|false] [--no-maven]
+用法: $0 --manifest <plugin-build-manifest.json> [--mode fat|thin] [--skip-tests true|false] [--no-maven]
 
-Build a Maven plugin module and publish its runtime files to the agent plugin resources.
+构建 Maven 插件模块，并将运行时文件发布到 agent 插件资源目录。
 
-Modes:
-  fat   Copy executable shaded jar to the publish directory and keep lib empty.
-  thin  Copy normal jar to the publish directory and runtime dependencies to lib.
+打包模式:
+  fat   复制 executable shaded jar 到发布目录，并保留空 lib 目录。
+  thin  复制普通 jar 到发布目录，并将运行时依赖复制到 lib 目录。
 
-For manifests with artifactMode=none, --mode is ignored and only runtime resources are published.
+当 manifest 的 artifactMode=none 时，--mode 会被忽略，只发布运行时资源。
 EOF
 }
 
+# 解析命令行参数。
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --manifest)
@@ -61,6 +64,7 @@ case "${MODE}" in
         ;;
 esac
 
+# 校验 manifest 参数并转换为绝对路径。
 if [ -z "${BUILD_MANIFEST_FILE}" ]; then
     echo "--manifest is required." >&2
     usage >&2
@@ -69,6 +73,7 @@ fi
 
 BUILD_MANIFEST_FILE="$(cd "$(dirname "${BUILD_MANIFEST_FILE}")" && pwd)/$(basename "${BUILD_MANIFEST_FILE}")"
 
+# 从构建 manifest 中读取单值配置。
 read_manifest_value() {
     local key="$1"
     python3 - "${BUILD_MANIFEST_FILE}" "${key}" <<'PY'
@@ -89,6 +94,7 @@ else:
 PY
 }
 
+# 从构建 manifest 中读取数组配置，每行输出一个元素。
 read_manifest_array() {
     local key="$1"
     python3 - "${BUILD_MANIFEST_FILE}" "${key}" <<'PY'
@@ -107,6 +113,7 @@ for item in value:
 PY
 }
 
+# 从构建 manifest 中读取资源文件映射，输出 source 和 target 两列。
 read_manifest_file_mappings() {
     python3 - "${BUILD_MANIFEST_FILE}" <<'PY'
 import json
@@ -126,6 +133,7 @@ for item in manifest.get("resourceFiles", []):
 PY
 }
 
+# 将模块相对路径解析为绝对路径。
 resolve_module_path() {
     local path="$1"
     case "${path}" in
@@ -138,6 +146,7 @@ resolve_module_path() {
     esac
 }
 
+# 将仓库相对路径解析为绝对路径。
 resolve_repo_path() {
     local path="$1"
     case "${path}" in
@@ -150,6 +159,7 @@ resolve_repo_path() {
     esac
 }
 
+# 加载并校验构建 manifest，同时初始化模块、仓库和发布目录路径。
 load_build_manifest() {
     if [ ! -f "${BUILD_MANIFEST_FILE}" ]; then
         echo "Build manifest not found: ${BUILD_MANIFEST_FILE}" >&2
@@ -210,6 +220,7 @@ load_build_manifest() {
     AGENT_PUBLISH_DIR="$(resolve_repo_path "${agent_publish_dir}")"
 }
 
+# 执行 Maven package，支持通过 --no-maven 跳过构建。
 run_maven_package() {
     local mvn_args=("-q" "-pl" "${MODULE_PATH}" "-am")
     if [ "${RUN_MAVEN}" != "true" ]; then
@@ -221,6 +232,7 @@ run_maven_package() {
     (cd "${REPO_ROOT}" && "${MAVEN_CMD}" "${mvn_args[@]}" package)
 }
 
+# 复制运行时依赖；跳过 Maven 时要求依赖目录已提前准备好。
 copy_runtime_dependencies() {
     local output_dir="$1"
     if [ "${RUN_MAVEN}" = "true" ]; then
@@ -238,10 +250,12 @@ copy_runtime_dependencies() {
     fi
 }
 
+# 查找 shaded executable fat jar。
 find_fat_jar() {
     find "${TARGET_DIR}" -maxdepth 1 -type f -name "${ARTIFACT_ID}-*-executable.jar" | sort | tail -n 1
 }
 
+# 查找普通 thin jar，排除 executable、sources 和 javadoc 包。
 find_thin_jar() {
     find "${TARGET_DIR}" -maxdepth 1 -type f -name "${ARTIFACT_ID}-*.jar" \
         ! -name "*-executable.jar" \
@@ -249,6 +263,7 @@ find_thin_jar() {
         ! -name "*-javadoc.jar" | sort | tail -n 1
 }
 
+# 校验文件存在，不存在时输出指定错误并退出。
 require_file() {
     local file="$1"
     local message="$2"
@@ -258,6 +273,7 @@ require_file() {
     fi
 }
 
+# 复制 manifest 声明的资源目录到 agent 插件发布目录。
 copy_resource_dir() {
     local name="$1"
     local source="${SOURCE_RUNTIME_DIR}/${name}"
@@ -271,6 +287,7 @@ copy_resource_dir() {
     cp -R "${source}" "${target}"
 }
 
+# 复制 manifest 声明的单个资源文件到 agent 插件发布目录。
 copy_resource_file() {
     local source="$1"
     local target="$2"
@@ -282,6 +299,7 @@ copy_resource_file() {
     cp "${source}" "${target}"
 }
 
+# 发布通用运行时资源，包括资源目录和资源文件映射。
 publish_common_resources() {
     local dir source target
     mkdir -p "${AGENT_PUBLISH_DIR}"
@@ -296,6 +314,7 @@ publish_common_resources() {
     done < <(read_manifest_file_mappings)
 }
 
+# 发布 fat 模式产物，只复制 executable jar，并清空 lib 目录。
 publish_fat() {
     local jar_file
     jar_file="$(find_fat_jar)"
@@ -306,6 +325,7 @@ publish_fat() {
     cp "${jar_file}" "${AGENT_PUBLISH_DIR}/"
 }
 
+# 发布 thin 模式产物，复制普通 jar 和运行时依赖 jar。
 publish_thin() {
     local jar_file deps_dir
     jar_file="$(find_thin_jar)"
