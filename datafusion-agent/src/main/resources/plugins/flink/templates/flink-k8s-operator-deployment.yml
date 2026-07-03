@@ -31,10 +31,10 @@ spec:
           args:
             - |
               set -e
-              mkdir -p "{{usrlibPath}}"
-              cp -a "{{flinkAppDir}}"/"{{flinkAppJar}}" "{{usrlibPath}}"/
-              if [ -d "{{flinkAppDir}}"/"{{libDir}}" ]; then
-                find "{{flinkAppDir}}"/"{{libDir}}" -maxdepth 1 -type f -name '*.jar' -exec cp -a {} "{{usrlibPath}}"/ \;
+              mkdir -p {{usrlibPath}}
+              cp -a {{flinkAppDir}}/{{flinkAppJar}} {{usrlibPath}}/
+              if [ -d {{flinkAppDir}}/{{libDir}} ]; then
+                find {{flinkAppDir}}/{{libDir}} -maxdepth 1 -type f -name '*.jar' -exec cp -a {} {{usrlibPath}}/ \;
               fi
           volumeMounts:
             - name: "datafusion-flink-shared"
