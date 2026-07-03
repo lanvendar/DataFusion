@@ -41,7 +41,6 @@ Agent 不从 `taskData.runMode` 或配置文件推断运行模式。
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `runMode` | `String` | 是 | 无 | 支持 `LOCAL`、`STANDALONE`、`YARN`、`K8S`、`K8S_OPERATOR` |
-| `jobName` | `String` | 否 | `flink-task-{taskInstanceId}` | Flink 作业名 |
 | `flinkAppDir` | `String` | K8S_OPERATOR 必填 | `/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json` | Flink Pod 内共享盘 app 目录；目录下保存主 jar 和依赖目录 |
 | `launchMode` | `String` | 否 | `JAR` | 启动模式，首版只实现 `JAR`；`CLASSPATH` 预留给后续无主 jar 或多 classpath 启动 |
 | `flinkAppJar` | `String` | K8S_OPERATOR 且 `launchMode=JAR` 必填 | 无 | app 主 jar 文件名，用于派生 `jarURI=local:///opt/flink/usrlib/{flinkAppJar}` |
@@ -60,7 +59,6 @@ Agent 不从 `taskData.runMode` 或配置文件推断运行模式。
 ```json
 {
   "runMode": "K8S_OPERATOR",
-  "jobName": "kafka-json-paimon",
   "flinkAppDir": "/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json",
   "launchMode": "JAR",
   "flinkAppJar": "datafusion-plugin-kafka-json-1.0.0-executable.jar",
@@ -165,7 +163,6 @@ pluginParam.flinkConfig
 | `flinkConfig` | `Object<String,String>` | 否 | 空 | 任务级 Flink 配置；与 `pluginParam.defaultTaskData.flinkConfig` 深度合并后参与 Flink 配置合并 |
 | `sink` | `Object` | 否 | 空 | Flink 作业 sink 配置；与 `pluginParam.defaultTaskData.sink` 深度合并 |
 | `bizRef` | `String` 或 `Object` | 否 | 空 | 业务引用信息；与 `pluginParam.defaultTaskData.bizRef` 合并或覆盖 |
-| `jobName` | `String` | 否 | 空 | 单次任务覆盖作业名 |
 | `args` | `List<String>` | 否 | 空 | 单次任务覆盖作业参数 |
 | `kubernetes` | `FlinkKubernetesTaskOverride` | 否 | 空 | K8S / K8S_OPERATOR 单任务覆盖项 |
 
@@ -176,7 +173,7 @@ pluginParam.flinkConfig
 - `taskData.jobJson` 为空时，使用 `deepMerge(pluginParam.defaultTaskData, taskData)` 生成 `effectiveTaskData`。
 - `effectiveTaskData.flinkConfig` 覆盖 `pluginParam.flinkConfig`；合并结果写回 `job.json` 的
   顶层 `flinkConfig`，并渲染到 `FlinkDeployment.spec.flinkConfiguration`。
-- `jobName`、`args`、`kubernetes` 是 Agent 侧运行元数据，不写入最终 `job.json`。
+- `args`、`kubernetes` 是 Agent 侧运行元数据，不写入最终 `job.json`。
 - 数组按整体替换；普通值按 `taskData` 覆盖默认值。
 
 ## 5. 运行模式枚举
@@ -251,7 +248,7 @@ agent 发布侧仍按 `plugins/flink/{appDirName}/` 组织；运行侧由 `plugi
 | 对象 | 场景 | 字段 | 字段类型 | 生命周期 | 说明 |
 |------|------|------|----------|----------|------|
 | `FlinkRunMode` | 运行模式枚举 | `LOCAL`, `STANDALONE`, `YARN`, `K8S`, `K8S_OPERATOR` | enum | 请求解析后固定 | 与现有规范一致，配置和状态均使用大写枚举 |
-| `FlinkExecutionParam` | 提交前归一化参数 | `runMode`, `jobName`, `args`, `jobJson`, `effectiveTaskData`, `workDir`, `flinkConfig`, `flinkAppDir`, `launchMode`, `flinkAppJar`, `classpath`, `mainClass`, `flinkVersion`, `libDir`, `kubernetes` | Java object | 单次任务 | 从 `pluginParam` 和 `taskData` 归一化 |
+| `FlinkExecutionParam` | 提交前归一化参数 | `runMode`, `args`, `jobJson`, `effectiveTaskData`, `workDir`, `flinkConfig`, `flinkAppDir`, `launchMode`, `flinkAppJar`, `classpath`, `mainClass`, `flinkVersion`, `libDir`, `kubernetes` | Java object | 单次任务 | 从 `pluginParam` 和 `taskData` 归一化 |
 | `FlinkKubernetesParam` | K8S / K8S_OPERATOR 提交参数 | `namespace`, `deploymentName`, `secretName`, `image`, `sharedPvcName`, `sharedMountPath`, `upgradeMode`, `flinkWebUiUriTemplate` | Java object | 单次任务 | 只保存 Kubernetes 运行时字段；构建和 jar 路径由 `pluginParam` / 固定约定派生 |
 | `FlinkKubernetesRuntimeRef` | K8S / K8S_OPERATOR 接管参数 | `namespace`, `deploymentName`, `secretName`, `podLabelSelector`, `logStorageUri`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish`, `deleteSecretOnFinish` | Java object | 单次状态查询或控制命令 | 由 `.snap` 中的 `pluginParam/taskData` 和 `.state.appId` 重建 |
 | `FlinkTaskRunner` | 运行模式分派 | `runMode()` | interface | Spring Bean | 各运行模式 Runner 实现同一接口 |

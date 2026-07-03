@@ -37,11 +37,6 @@ public class FlinkExecutionParam {
     private String taskInstanceId;
 
     /**
-     * Flink job name.
-     */
-    private String jobName;
-
-    /**
      * Inline job JSON.
      */
     private JsonNode jobJson;

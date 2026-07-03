@@ -1,52 +1,57 @@
 {
+  "pluginName": "Flink K8S_OPERATOR 模板",
+  "pluginType": "FLINK",
   "runMode": "K8S_OPERATOR",
-  "jobName": "kafka-json-paimon",
-  "flinkAppDir": "/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json",
-  "launchMode": "JAR",
-  "flinkAppJar": "datafusion-plugin-kafka-json-1.0.0-executable.jar",
-  "classpath": "",
-  "mainClass": "com.datafusion.plugin.kafka.json.KafkaJsonPaimonApplication",
-  "flinkVersion": "2.2.0",
-  "libDir": "lib",
-  "args": [
-    "--config",
-    "{{jobJsonMountPath}}"
-  ],
-  "flinkConfig": {
-    "state.backend.type": "rocksdb",
-    "parallelism.default": "2",
-    "execution.checkpointing.interval": "60s",
-    "execution.checkpointing.mode": "AT_LEAST_ONCE",
-    "execution.checkpointing.dir": "s3://datafusion/flink/checkpoints/kafka-json",
-    "execution.checkpointing.savepoint-dir": "s3://datafusion/flink/savepoints/kafka-json"
-  },
-  "kubernetes": {
-    "namespace": "datafusion",
-    "image": "flink:2.2.0-scala_2.12-java17",
-    "sharedPvcName": "datafusion-shared-data",
-    "flinkWebUiUriTemplate": "http://{{deploymentName}}-rest.{{namespace}}.svc:8081",
-    "serviceAccountName": "flink-runner",
-    "jobManager": {
-      "resource": {
-        "memory": "2048m",
-        "cpu": "1.0"
+  "description": "Flink Kubernetes Operator 执行配置模板，通过 FlinkDeployment 提交 Flink Application 作业",
+  "isTemplate": true,
+  "pluginParam": {
+    "flinkAppDir": "/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json",
+    "launchMode": "JAR",
+    "flinkAppJar": "datafusion-plugin-kafka-json-1.0.0-executable.jar",
+    "classpath": "",
+    "mainClass": "com.datafusion.plugin.kafka.json.KafkaJsonPaimonApplication",
+    "flinkVersion": "2.2.0",
+    "libDir": "lib",
+    "args": [
+      "--config",
+      "{{jobJsonMountPath}}"
+    ],
+    "flinkConfig": {
+      "state.backend.type": "rocksdb",
+      "parallelism.default": "2",
+      "execution.checkpointing.interval": "60s",
+      "execution.checkpointing.mode": "AT_LEAST_ONCE",
+      "execution.checkpointing.dir": "s3://datafusion/flink/checkpoints/kafka-json",
+      "execution.checkpointing.savepoint-dir": "s3://datafusion/flink/savepoints/kafka-json"
+    },
+    "kubernetes": {
+      "namespace": "datafusion",
+      "image": "flink:2.2.0-scala_2.12-java17",
+      "sharedPvcName": "datafusion-shared-data",
+      "flinkWebUiUriTemplate": "http://{{deploymentName}}-rest.{{namespace}}.svc:8081",
+      "serviceAccountName": "flink-runner",
+      "jobManager": {
+        "resource": {
+          "memory": "2048m",
+          "cpu": "1.0"
+        }
+      },
+      "taskManager": {
+        "resource": {
+          "memory": "4096m",
+          "cpu": "2.0"
+        }
+      },
+      "nodeSelector": {
+        "kubernetes.io/arch": "amd64"
       }
     },
-    "taskManager": {
-      "resource": {
-        "memory": "4096m",
-        "cpu": "2.0"
-      }
-    },
-    "nodeSelector": {
-      "kubernetes.io/arch": "amd64"
+    "defaultTaskData": {
+      "job": {},
+      "source": {},
+      "flinkConfig": {},
+      "sink": {},
+      "bizRef": ""
     }
-  },
-  "defaultTaskData": {
-    "job": {},
-    "source": {},
-    "flinkConfig": {},
-    "sink": {},
-    "bizRef": ""
   }
 }

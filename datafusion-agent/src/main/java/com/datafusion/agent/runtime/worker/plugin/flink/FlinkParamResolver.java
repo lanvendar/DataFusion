@@ -34,11 +34,6 @@ public class FlinkParamResolver {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 
     /**
-     * Default job name prefix.
-     */
-    private static final String DEFAULT_JOB_NAME_PREFIX = "flink-task-";
-
-    /**
      * Default launch mode.
      */
     private static final String DEFAULT_LAUNCH_MODE = "JAR";
@@ -134,8 +129,6 @@ public class FlinkParamResolver {
                 .runMode(runMode)
                 .flowInstanceId(request.getFlowInstanceId())
                 .taskInstanceId(request.getTaskInstanceId())
-                .jobName(firstText(text(taskData, "jobName"), text(pluginParam, "jobName"),
-                        DEFAULT_JOB_NAME_PREFIX + safePath(request.getTaskInstanceId())))
                 .jobJson(jobJson(taskData))
                 .effectiveTaskData(effectiveTaskData)
                 .workDir(runtimeDir)

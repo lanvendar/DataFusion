@@ -174,6 +174,60 @@ VALUES
    "pluginLogUri": ""
  }'::jsonb,
  true, 0, 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+ '00000000-0000-0000-0000-000000000001'::uuid),
+('feef4832-711c-35ce-a0b4-59f2f5ecfcd5'::uuid, 'Flink K8S_OPERATOR 模板', 'FLINK', 'K8S_OPERATOR',
+ 'Flink Kubernetes Operator 执行配置模板，通过 FlinkDeployment 提交 Flink Application 作业',
+ '{
+   "flinkAppDir": "/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json",
+   "launchMode": "JAR",
+   "flinkAppJar": "datafusion-plugin-kafka-json-1.0.0-executable.jar",
+   "classpath": "",
+   "mainClass": "com.datafusion.plugin.kafka.json.KafkaJsonPaimonApplication",
+   "flinkVersion": "2.2.0",
+   "libDir": "lib",
+   "args": [
+     "--config",
+     "{{jobJsonMountPath}}"
+   ],
+   "flinkConfig": {
+     "state.backend.type": "rocksdb",
+     "parallelism.default": "2",
+     "execution.checkpointing.interval": "60s",
+     "execution.checkpointing.mode": "AT_LEAST_ONCE",
+     "execution.checkpointing.dir": "s3://datafusion/flink/checkpoints/kafka-json",
+     "execution.checkpointing.savepoint-dir": "s3://datafusion/flink/savepoints/kafka-json"
+   },
+   "kubernetes": {
+     "namespace": "datafusion",
+     "image": "flink:2.2.0-scala_2.12-java17",
+     "sharedPvcName": "datafusion-shared-data",
+     "flinkWebUiUriTemplate": "http://{{deploymentName}}-rest.{{namespace}}.svc:8081",
+     "serviceAccountName": "flink-runner",
+     "jobManager": {
+       "resource": {
+         "memory": "2048m",
+         "cpu": "1.0"
+       }
+     },
+     "taskManager": {
+       "resource": {
+         "memory": "4096m",
+         "cpu": "2.0"
+       }
+     },
+     "nodeSelector": {
+       "kubernetes.io/arch": "amd64"
+     }
+   },
+   "defaultTaskData": {
+     "job": {},
+     "source": {},
+     "flinkConfig": {},
+     "sink": {},
+     "bizRef": ""
+   }
+ }'::jsonb,
+ true, 0, 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
  '00000000-0000-0000-0000-000000000001'::uuid)
 ON CONFLICT (id) DO UPDATE SET
 plugin_name = EXCLUDED.plugin_name,
@@ -201,6 +255,10 @@ VALUES
  '00000000-0000-0000-0000-000000000001'::uuid),
 ('db974238-714c-38de-a34a-7ce1d083a14f'::uuid, 'API',
  '6625db40-f8a9-3a80-8bc0-2f2137165e4d'::uuid, 'API',
+ 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+ '00000000-0000-0000-0000-000000000001'::uuid),
+('50be76ec-f595-3745-a665-758fbce78a83'::uuid, 'FLINK',
+ 'feef4832-711c-35ce-a0b4-59f2f5ecfcd5'::uuid, 'FLINK',
  'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
  '00000000-0000-0000-0000-000000000001'::uuid)
 ON CONFLICT (id) DO UPDATE SET
