@@ -5,8 +5,8 @@
 ```text
 插件源码: /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-kafka-json
 插件 resources: /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources
-标准结构样例: /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/sample-standard-kafka-json-paimon-job.json
-通用结构样例: /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/sample-generic-kafka-json-paimon-job.json
+标准结构样例: /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/plugins/flink/jobs/sample-standard-kafka-json-paimon-job.json
+通用结构样例: /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/plugins/flink/jobs/sample-generic-kafka-json-paimon-job.json
 编译产物: /Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-kafka-json/target/datafusion-plugin-kafka-json-1.0.0-executable.jar
 ```
 
@@ -22,7 +22,7 @@ mvn -DskipTests package -pl datafusion-plugin/datafusion-plugin-kafka-json -am
 ```bash
 cd /Users/lanvendar/Projects/DataFusion
 java -jar datafusion-plugin/datafusion-plugin-kafka-json/target/datafusion-plugin-kafka-json-1.0.0-executable.jar \
-  --config datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/sample-standard-kafka-json-paimon-job.json
+  --config datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/plugins/flink/jobs/sample-standard-kafka-json-paimon-job.json
 ```
 
 标准结构样例用于 Kafka 消息已经包含 `schema.table` / `schema.columns` 的场景，job 配置只保留 Paimon 连接、database、`columnsMapping` 和表 options。通用结构样例用于任意 JSON，通过 job 配置完整定义 `table`、`columns` 和每列的 JMESPath。
@@ -36,7 +36,7 @@ java -jar datafusion-plugin/datafusion-plugin-kafka-json/target/datafusion-plugi
 
 ## 日志
 
-日志由 `src/main/resources/logback.xml` 控制，不在 shell 中手动切分。
+日志由 `src/main/resources/plugins/flink/conf/logback.xml` 控制，不在 shell 中手动切分。
 
 ```text
 <日志目录>/kafka-json-paimon.log
@@ -115,7 +115,7 @@ timestamp
 {
   "job": {},
   "source": {},
-  "runtime": {},
+  "flinkConfig": {},
   "sink": {
     "type": "PAIMON",
     "tables": []

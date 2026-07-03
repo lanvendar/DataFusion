@@ -14,6 +14,19 @@ import org.junit.jupiter.api.Test;
 class ConfigLoaderTest {
 
     /**
+     * 新配置字段 flinkConfig 可以正常加载.
+     */
+    @Test
+    void shouldLoadFlinkConfig() {
+        ConfigLoader loader = new ConfigLoader();
+        String content = "{\"job\":{\"id\":\"job-a\"},\"flinkConfig\":{\"parallelism.default\":\"2\"}}";
+
+        KafkaJsonPaimonJobConfig config = loader.loadContent(content);
+
+        Assertions.assertEquals("2", config.flinkConfig.get("parallelism.default"));
+    }
+
+    /**
      * 环境变量占位符缺失时启动期失败.
      */
     @Test

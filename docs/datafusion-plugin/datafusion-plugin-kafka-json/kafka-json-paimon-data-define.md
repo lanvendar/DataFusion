@@ -42,7 +42,7 @@
 |--------|----------|-------|------------|-----------|-------|
 | `KafkaJsonPaimonJobConfig` | 插件启动加载整份任务配置 | `job` | `JobConfig` | 启动时加载，运行期只读 | 作业元信息 |
 | `KafkaJsonPaimonJobConfig` | 插件启动加载整份任务配置 | `source` | `KafkaSourceConfig` | 启动时加载，运行期只读 | Kafka 消费配置 |
-| `KafkaJsonPaimonJobConfig` | 插件启动加载整份任务配置 | `runtime` | `RuntimeConfig` | 启动时加载，运行期只读 | Flink checkpoint、并发与容错配置 |
+| `KafkaJsonPaimonJobConfig` | 插件启动加载整份任务配置 | `flinkConfig` | `Map<String, String>` | 启动时加载，运行期只读 | Flink 官方配置 key/value，直接透传给 Flink `Configuration` |
 | `KafkaJsonPaimonJobConfig` | 插件启动加载整份任务配置 | `sink` | `PaimonSinkConfig` | 启动时加载，运行期只读 | Paimon catalog、表解析和写入配置 |
 | `ExpressionSpec` | 从 Kafka JSON 或单条 record 中取值 | `path` | `String` | 配置期定义，运行期编译或缓存 | JMESPath 表达式；为空时只使用 `defaultValue` |
 | `ExpressionSpec` | 从 Kafka JSON 或单条 record 中取值 | `defaultValue` | `Object` | 配置期定义，运行期兜底 | 当 `path` 为空、取不到、结果为 `null` 或空字符串时使用 |
@@ -67,7 +67,7 @@
 |-------|------------|----------|---------|-------|
 | `job` | `JobConfig` | Yes | 无 | 作业元信息 |
 | `source` | `KafkaSourceConfig` | Yes | 无 | Kafka 来源配置 |
-| `runtime` | `RuntimeConfig` | No | 默认对象 | Flink 运行控制 |
+| `flinkConfig` | `Map<String, String>` | No | 空对象 | Flink 官方配置 key/value；不兼容旧 `runtime` 字段 |
 | `sink` | `PaimonSinkConfig` | Yes | 无 | Paimon 写入配置 |
 
 #### 2.4.2 `JobConfig`
@@ -91,22 +91,25 @@
 | `startingOffsets` | `String` | No | `group-offsets` | 支持 `earliest`、`latest`、`group-offsets`、`timestamp` |
 | `properties` | `Map<String, String>` | No | 空 map | Kafka 透传配置 |
 
-#### 2.4.4 `RuntimeConfig`
+#### 2.4.4 `flinkConfig`
 
 | Field | Field type | Required | Default | Notes |
 |-------|------------|----------|---------|-------|
-| `parallelism` | `Integer` | No | `1` | Flink 作业并行度 |
-| `deploymentMode` | `String` | No | `LOCAL` | Flink 部署模式 |
-| `executionMode` | `String` | No | `STREAMING` | Flink 执行模式 |
-| `checkpointMode` | `String` | No | `AT_LEAST_ONCE` | Flink checkpoint 模式；当前 Sink V2 提交模型默认按至少一次语义说明 |
-| `checkpointIntervalMs` | `Long` | No | `60000` | checkpoint 间隔 |
-| `checkpointTimeoutMs` | `Long` | No | `600000` | checkpoint 超时 |
-| `maxConcurrentCheckpoints` | `Integer` | No | `1` | 最大并发 checkpoint 数 |
-| `checkpointStorage` | `String` | No | 无 | checkpoint 存储路径 |
-| `stateBackend` | `String` | No | `HASHMAP` | Flink state backend |
-| `restartStrategy` | `String` | No | `FIXED_DELAY` | Flink restart strategy |
-| `restartAttempts` | `Integer` | No | `3` | 重启次数 |
-| `restartDelayMs` | `Long` | No | `10000` | 重启间隔 |
+| `parallelism.default` | `String` | No | Flink 默认值 | Flink 作业默认并行度 |
+| `execution.runtime-mode` | `String` | No | Flink 默认值 | Flink 执行模式，如 `STREAMING` / `BATCH` |
+| `execution.checkpointing.mode` | `String` | No | Flink 默认值 | Flink checkpoint 模式，如 `AT_LEAST_ONCE` / `EXACTLY_ONCE` |
+| `execution.checkpointing.interval` | `String` | No | Flink 默认值 | checkpoint 间隔，使用 Flink Duration 写法，如 `60 s` |
+| `execution.checkpointing.timeout` | `String` | No | Flink 默认值 | checkpoint 超时，使用 Flink Duration 写法 |
+| `execution.checkpointing.max-concurrent-checkpoints` | `String` | No | Flink 默认值 | 最大并发 checkpoint 数 |
+| `execution.checkpointing.storage` | `String` | No | Flink 默认值 | checkpoint storage 类型，如 `filesystem` |
+| `execution.checkpointing.dir` | `String` | No | 无 | checkpoint 存储路径 |
+| `execution.checkpointing.savepoint-dir` | `String` | No | 无 | savepoint 默认存储路径 |
+| `state.backend.type` | `String` | No | Flink 默认值 | Flink state backend 类型，如 `hashmap` / `rocksdb` |
+| `restart-strategy.type` | `String` | No | Flink 默认值 | Flink restart strategy，如 `fixed-delay` / `failure-rate` |
+| `restart-strategy.fixed-delay.attempts` | `String` | No | Flink 默认值 | fixed-delay 重启次数 |
+| `restart-strategy.fixed-delay.delay` | `String` | No | Flink 默认值 | fixed-delay 重启间隔，使用 Flink Duration 写法 |
+
+`flinkConfig` 只做 Map 结构校验，不维护插件自定义字段。旧版草案中的 `parallelism`、`deploymentMode`、`executionMode`、`checkpointMode`、`checkpointIntervalMs`、`checkpointTimeoutMs`、`maxConcurrentCheckpoints`、`checkpointStorage`、`stateBackend`、`restartStrategy`、`restartAttempts`、`restartDelayMs` 均不是 Flink 官方配置 key，不再作为 job.json 配置契约。
 
 #### 2.4.5 `PaimonSinkConfig`
 
@@ -296,7 +299,7 @@ Kafka 标准结构与 job.json 覆盖规则：
 
 | Object | Path | Reuse method | Notes |
 |--------|------|--------------|-------|
-| Kafka source/runtime 配置语义 | `datafusion-plugin/plugin-flink-schema-paimon/src/main/java/com/datafusion/plugin/flink/schema/paimon/config/FlinkSchemaPaimonJobConfig.java` | 复制同构配置或抽公共对象 | 保持 Kafka/Flink 配置字段一致 |
+| Kafka source / Flink 配置语义 | `datafusion-plugin/plugin-flink-schema-paimon/src/main/java/com/datafusion/plugin/flink/schema/paimon/config/FlinkSchemaPaimonJobConfig.java` | 复制同构配置或抽公共对象 | 保持 Kafka/Flink 配置字段一致 |
 | Paimon writer registry 思路 | `datafusion-plugin/plugin-flink-schema-paimon/src/main/java/com/datafusion/plugin/flink/schema/paimon/sink` | 可作为 Paimon sink 组件参考 | 避免重复实现 writer 缓存、schema 校验、批量提交 |
 | Paimon 类型转换规则 | `datafusion-plugin/plugin-flink-schema-paimon/src/main/java/com/datafusion/plugin/flink/schema/paimon/sink/PaimonTableSchemaValidator.java` | 复用或抽公共工具 | 保持 `VARCHAR/DECIMAL/DATE/TIMESTAMP` 行为一致 |
 | 代理主键生成规则 | `datafusion-plugin/plugin-flink-schema-paimon/src/main/java/com/datafusion/plugin/flink/schema/paimon/resolve/ProxyPrimaryKeyGenerator.java` | 复用或移动到新插件 | 保持 `_id_`、`UUID/SHA-256/SHA-512` 行为一致 |

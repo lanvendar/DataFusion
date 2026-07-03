@@ -26,7 +26,7 @@
 | 初始化或复用 writer | `ResolvedTableConfig` | `PaimonTableWriterRegistry` | `PaimonTableWriter` | 按 `database.table` 缓存 | 启动预加载并标记真实 Paimon 表状态；存在则按真实 schema 写入，缺表则由首条命中数据触发建表 |
 | 批量写入 | mapped records | `RecordNormalizer` -> `PaimonTableWriter` | Paimon | `GenericRow` / `CommitMessage` | writer 只写文件并产出 `CommitMessage`，不直接提交 snapshot |
 | 按表提交 | `PaimonCommittable` | `PaimonCommitter` | Paimon snapshot | `identifier + commitIdentifier` | committer 按表和提交编号聚合提交，避免不同表或不同 checkpoint 的消息混提 |
-| 容错恢复 | Flink checkpoint state | Flink runtime | Kafka offsets + Paimon commit | runtime 配置 | `UPSERT` 结合主键提升重放幂等性 |
+| 容错恢复 | Flink checkpoint state | Flink runtime | Kafka offsets + Paimon commit | `flinkConfig` 配置 | `UPSERT` 结合主键提升重放幂等性 |
 
 ## 3. job.json Contract
 
@@ -38,7 +38,7 @@
 {
   "job": {},
   "source": {},
-  "runtime": {},
+  "flinkConfig": {},
   "sink": {}
 }
 ```
@@ -48,6 +48,7 @@
 | Path | Required | Notes |
 |------|----------|-------|
 | `job.id` | Yes | 作业唯一 ID |
+| `flinkConfig` | No | Flink 官方配置 key/value，直接透传给 Flink `Configuration`；不维护插件自定义驼峰字段 |
 | `source.bootstrapServers` | Yes | Kafka broker 地址 |
 | `source.topics` / `source.topicPattern` | Yes | 二选一 |
 | `source.groupId` | Yes | 同一消费组内多个实例由 Kafka partition 分摊消息 |
@@ -78,19 +79,19 @@ OilChem 样例配置骨架：
     "startingOffsets": "group-offsets",
     "properties": {}
   },
-  "runtime": {
-    "parallelism": 2,
-    "deploymentMode": "LOCAL",
-    "executionMode": "STREAMING",
-    "checkpointMode": "AT_LEAST_ONCE",
-    "checkpointIntervalMs": 60000,
-    "checkpointTimeoutMs": 600000,
-    "maxConcurrentCheckpoints": 1,
-    "checkpointStorage": "file:///tmp/flink-checkpoints/kafka-json-oilchem-paimon",
-    "stateBackend": "HASHMAP",
-    "restartStrategy": "FIXED_DELAY",
-    "restartAttempts": 3,
-    "restartDelayMs": 10000
+  "flinkConfig": {
+    "parallelism.default": "2",
+    "execution.runtime-mode": "STREAMING",
+    "execution.checkpointing.mode": "AT_LEAST_ONCE",
+    "execution.checkpointing.interval": "60 s",
+    "execution.checkpointing.timeout": "10 min",
+    "execution.checkpointing.max-concurrent-checkpoints": "1",
+    "execution.checkpointing.storage": "filesystem",
+    "execution.checkpointing.dir": "file:///tmp/flink-checkpoints/kafka-json-oilchem-paimon",
+    "state.backend.type": "hashmap",
+    "restart-strategy.type": "fixed-delay",
+    "restart-strategy.fixed-delay.attempts": "3",
+    "restart-strategy.fixed-delay.delay": "10 s"
   },
   "sink": {
     "type": "PAIMON",
@@ -324,8 +325,8 @@ schema cache 状态 = MISSING_CONFIGURED:
 | `datafusion-plugin/datafusion-plugin-kafka-json/src/main/java/com/datafusion/plugin/kafka/json/resolve/*` | 表路由、字段映射、主键解析 |
 | `datafusion-plugin/datafusion-plugin-kafka-json/src/main/java/com/datafusion/plugin/kafka/json/source/*` | Kafka source 构建和反序列化 |
 | `datafusion-plugin/datafusion-plugin-kafka-json/src/main/java/com/datafusion/plugin/kafka/json/sink/paimon/*` | Paimon writer、schema 校验、批量提交 |
-| `datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/sample-standard-kafka-json-paimon-job.json` | 标准结构简化样例，Kafka 消息提供 `schema.table` / `schema.columns` |
-| `datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/sample-generic-kafka-json-paimon-job.json` | 通用结构样例，job 配置完整定义 table、columns 和 JMESPath |
+| `datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/plugins/flink/jobs/sample-standard-kafka-json-paimon-job.json` | 标准结构简化样例，Kafka 消息提供 `schema.table` / `schema.columns` |
+| `datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/plugins/flink/jobs/sample-generic-kafka-json-paimon-job.json` | 通用结构样例，job 配置完整定义 table、columns 和 JMESPath |
 
 ### 4.2 Modified Files
 
@@ -338,7 +339,7 @@ schema cache 状态 = MISSING_CONFIGURED:
 
 | Object | Path | Notes |
 |--------|------|-------|
-| Flink/Kafka runtime 配置 | `datafusion-plugin/plugin-flink-schema-paimon` | 复用字段命名和 Flink 初始化方式 |
+| Flink/Kafka 配置 | `datafusion-plugin/plugin-flink-schema-paimon` | 复用字段命名和 Flink 初始化方式 |
 | Paimon writer/schema 校验 | `datafusion-plugin/plugin-flink-schema-paimon/src/main/java/com/datafusion/plugin/flink/schema/paimon/sink` | 可作为 Paimon 写入组件参考 |
 | 代理主键生成 | `ProxyPrimaryKeyGenerator` | 保持 `_id_` 与算法行为一致 |
 | OilChem spider 输出 | `/Users/lanvendar/PycharmProjects/sh-web-spider/src/sh_web_spider/sites/oilchem/parser.py` | 作为真实 Kafka JSON 样例来源 |
@@ -354,7 +355,7 @@ schema cache 状态 = MISSING_CONFIGURED:
 | Method | Input | Output | Notes |
 |--------|-------|--------|-------|
 | `load(String configPath)` | 配置文件路径 | `KafkaJsonPaimonJobConfig` | 加载 JSON 配置并解析环境变量 |
-| `validate(KafkaJsonPaimonJobConfig config)` | 顶层配置 | `void` | 校验 Kafka、runtime、sink、JMESPath 表达式和 Paimon 表结构配置 |
+| `validate(KafkaJsonPaimonJobConfig config)` | 顶层配置 | `void` | 校验 Kafka、`flinkConfig`、sink、JMESPath 表达式和 Paimon 表结构配置 |
 | `parse(String message)` | Kafka 原始消息 | `JsonNode` | 使用 Jackson 解析任意 JSON |
 | `evaluate(ExpressionSpec spec, JsonNode context)` | 表达式配置和上下文 | `Object` | JMESPath 求值、默认值兜底和 `jsonType` 顶层校验 |
 | `resolveTable(JsonNode message, List<PaimonTableConfig> tables)` | Kafka 消息和表配置 | `Optional<PaimonTableConfig>` | 使用 `table.name.path/defaultValue` 判断当前消息目标表 |

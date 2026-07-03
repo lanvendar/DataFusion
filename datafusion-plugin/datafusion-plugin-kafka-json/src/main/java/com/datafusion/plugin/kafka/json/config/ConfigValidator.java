@@ -5,21 +5,15 @@ import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.KafkaSou
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonSinkConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PrimaryKeyConfig;
-import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.RuntimeConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.TableConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.WriterConfig;
 import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
 import com.datafusion.plugin.kafka.json.core.SystemFieldNames;
-import com.datafusion.plugin.kafka.json.core.enums.CheckpointMode;
-import com.datafusion.plugin.kafka.json.core.enums.DeploymentMode;
-import com.datafusion.plugin.kafka.json.core.enums.ExecutionMode;
 import com.datafusion.plugin.kafka.json.core.enums.LoadMode;
 import com.datafusion.plugin.kafka.json.core.enums.PrimaryKeyMode;
 import com.datafusion.plugin.kafka.json.core.enums.ProxyPrimaryKeyType;
 import com.datafusion.plugin.kafka.json.core.enums.RecordErrorPolicy;
-import com.datafusion.plugin.kafka.json.core.enums.RestartStrategyType;
 import com.datafusion.plugin.kafka.json.core.enums.SchemaMismatchPolicy;
-import com.datafusion.plugin.kafka.json.core.enums.StateBackendType;
 import com.datafusion.plugin.kafka.json.expression.ExpressionSpecNormalizer;
 import com.datafusion.plugin.kafka.json.core.enums.JsonType;
 import com.datafusion.plugin.kafka.json.util.TextUtils;
@@ -50,7 +44,7 @@ public class ConfigValidator {
             throw new KafkaJsonPaimonException("job.id is required");
         }
         validateSource(config.source);
-        validateRuntime(config.runtime);
+        validateFlinkConfig(config.flinkConfig);
         validateSink(config.sink);
     }
 
@@ -80,20 +74,17 @@ public class ConfigValidator {
         }
     }
 
-    private void validateRuntime(RuntimeConfig runtime) {
-        if (runtime == null) {
+    private void validateFlinkConfig(Map<String, String> flinkConfig) {
+        if (flinkConfig == null || flinkConfig.isEmpty()) {
             return;
         }
-        DeploymentMode.parse(runtime.deploymentMode);
-        ExecutionMode.parse(runtime.executionMode);
-        CheckpointMode.parse(runtime.checkpointMode);
-        StateBackendType.parse(runtime.stateBackend);
-        RestartStrategyType.parse(runtime.restartStrategy);
-        if (runtime.parallelism != null && runtime.parallelism <= 0) {
-            throw new KafkaJsonPaimonException("runtime.parallelism must be greater than 0");
-        }
-        if (runtime.checkpointIntervalMs != null && runtime.checkpointIntervalMs <= 0) {
-            throw new KafkaJsonPaimonException("runtime.checkpointIntervalMs must be greater than 0");
+        for (Map.Entry<String, String> entry : flinkConfig.entrySet()) {
+            if (TextUtils.isBlank(entry.getKey())) {
+                throw new KafkaJsonPaimonException("flinkConfig key must not be blank");
+            }
+            if (entry.getValue() == null) {
+                throw new KafkaJsonPaimonException("flinkConfig." + entry.getKey() + " must not be null");
+            }
         }
     }
 

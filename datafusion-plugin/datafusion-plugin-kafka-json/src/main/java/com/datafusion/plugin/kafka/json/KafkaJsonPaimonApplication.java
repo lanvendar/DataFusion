@@ -42,7 +42,7 @@ public class KafkaJsonPaimonApplication {
         new ConfigValidator().validate(config);
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        new FlinkRuntimeConfigurer().configure(env, config.runtime);
+        new FlinkRuntimeConfigurer().configure(env, config.flinkConfig);
         String jobName = resolveJobName(config);
         String sinkName = resolveSinkName(config);
 
@@ -53,8 +53,7 @@ public class KafkaJsonPaimonApplication {
                 .name(jobName + "-resolve")
                 .keyBy(plan -> plan.tableConfig.identifier())
                 .sinkTo(new PaimonMultiTableSink(config.sink, commitUser(config)))
-                .name(sinkName)
-                .setParallelism(config.runtime == null || config.runtime.parallelism == null ? 1 : config.runtime.parallelism);
+                .name(sinkName);
         env.execute(jobName);
     }
 

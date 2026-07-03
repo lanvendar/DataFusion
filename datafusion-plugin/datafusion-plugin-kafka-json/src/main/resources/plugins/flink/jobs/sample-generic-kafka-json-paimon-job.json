@@ -14,19 +14,19 @@
     "startingOffsets": "group-offsets",
     "properties": {}
   },
-  "runtime": {
-    "parallelism": 2,
-    "deploymentMode": "LOCAL",
-    "executionMode": "STREAMING",
-    "checkpointMode": "AT_LEAST_ONCE",
-    "checkpointIntervalMs": 60000,
-    "checkpointTimeoutMs": 600000,
-    "maxConcurrentCheckpoints": 1,
-    "checkpointStorage": "file:///tmp/flink-checkpoints/kafka-json-generic-paimon",
-    "stateBackend": "HASHMAP",
-    "restartStrategy": "FIXED_DELAY",
-    "restartAttempts": 3,
-    "restartDelayMs": 10000
+  "flinkConfig": {
+    "parallelism.default": "2",
+    "execution.runtime-mode": "STREAMING",
+    "execution.checkpointing.mode": "AT_LEAST_ONCE",
+    "execution.checkpointing.interval": "60 s",
+    "execution.checkpointing.timeout": "10 min",
+    "execution.checkpointing.max-concurrent-checkpoints": "1",
+    "execution.checkpointing.storage": "filesystem",
+    "execution.checkpointing.dir": "file:///tmp/flink-checkpoints/kafka-json-generic-paimon",
+    "state.backend.type": "hashmap",
+    "restart-strategy.type": "fixed-delay",
+    "restart-strategy.fixed-delay.attempts": "3",
+    "restart-strategy.fixed-delay.delay": "10 s"
   },
   "sink": {
     "type": "PAIMON",

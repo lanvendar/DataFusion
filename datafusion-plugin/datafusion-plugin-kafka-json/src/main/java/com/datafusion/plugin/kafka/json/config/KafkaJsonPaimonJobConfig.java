@@ -33,9 +33,9 @@ public class KafkaJsonPaimonJobConfig implements Serializable {
     public KafkaSourceConfig source = new KafkaSourceConfig();
 
     /**
-     * Flink runtime 配置.
+     * Flink 配置.
      */
-    public RuntimeConfig runtime = new RuntimeConfig();
+    public Map<String, String> flinkConfig = new LinkedHashMap<>();
 
     /**
      * Paimon sink 配置.
@@ -117,77 +117,6 @@ public class KafkaJsonPaimonJobConfig implements Serializable {
          * Kafka 透传配置.
          */
         public Map<String, String> properties = new LinkedHashMap<>();
-    }
-
-    /**
-     * Flink runtime 配置.
-     */
-    public static class RuntimeConfig implements Serializable {
-
-        /**
-         * 序列化版本号.
-         */
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * 作业并行度.
-         */
-        public Integer parallelism = 1;
-
-        /**
-         * 部署模式.
-         */
-        public String deploymentMode = "LOCAL";
-
-        /**
-         * 执行模式.
-         */
-        public String executionMode = "STREAMING";
-
-        /**
-         * checkpoint 模式.
-         */
-        public String checkpointMode = "AT_LEAST_ONCE";
-
-        /**
-         * checkpoint 间隔.
-         */
-        public Long checkpointIntervalMs = 60000L;
-
-        /**
-         * checkpoint 超时.
-         */
-        public Long checkpointTimeoutMs = 600000L;
-
-        /**
-         * 最大并发 checkpoint 数.
-         */
-        public Integer maxConcurrentCheckpoints = 1;
-
-        /**
-         * checkpoint 存储.
-         */
-        public String checkpointStorage;
-
-        /**
-         * state backend 类型.
-         */
-        public String stateBackend = "HASHMAP";
-
-        /**
-         * 重启策略.
-         */
-        public String restartStrategy = "FIXED_DELAY";
-
-        /**
-         * 重启次数.
-         */
-        public Integer restartAttempts = 3;
-
-        /**
-         * 重启延迟.
-         */
-        public Long restartDelayMs = 10000L;
     }
 
     /**
