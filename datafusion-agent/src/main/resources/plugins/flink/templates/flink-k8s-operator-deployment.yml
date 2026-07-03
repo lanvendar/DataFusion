@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{secretName}}
+  namespace: {{namespace}}
+  labels:
+{{labels}}
+type: Opaque
+data:
+  {{jobSecretKey}}: {{jobJsonBase64}}
+---
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: {{deploymentName}}
+  namespace: {{namespace}}
+  labels:
+{{deploymentLabels}}
+  annotations:
+{{annotations}}
+spec:
+  image: {{image}}
+  imagePullPolicy: {{imagePullPolicy}}
+{{serviceAccountBlock}}  flinkVersion: {{operatorFlinkVersion}}
+  flinkConfiguration:
+{{flinkConfiguration}}
+  podTemplate:
+    metadata:
+      labels:
+{{podLabels}}
+      annotations:
+{{podAnnotations}}
+    spec:
+{{nodeSelectorBlock}}      initContainers:
+        - name: "datafusion-flink-usrlib"
+          image: {{image}}
+          imagePullPolicy: {{imagePullPolicy}}
+          command:
+            - "/bin/sh"
+            - "-c"
+          args:
+            - >-
+              set -e;
+              mkdir -p {{usrlibPath}};
+              cp -a {{flinkAppDir}}/{{flinkAppJar}} {{usrlibPath}}/;
+              if [ -d {{flinkAppDir}}/{{libDir}} ]; then
+              find {{flinkAppDir}}/{{libDir}} -maxdepth 1 -type f -name '*.jar' -exec cp -a {} {{usrlibPath}}/ \;
+              fi
+          volumeMounts:
+            - name: "datafusion-flink-shared"
+              mountPath: {{sharedMountPath}}
+              readOnly: true
+            - name: "datafusion-flink-usrlib"
+              mountPath: {{usrlibPath}}
+      containers:
+        - name: "flink-main-container"
+{{envBlock}}          volumeMounts:
+            - name: "datafusion-flink-job"
+              mountPath: {{jobJsonMountDir}}
+              readOnly: true
+            - name: "datafusion-flink-usrlib"
+              mountPath: {{usrlibPath}}
+      volumes:
+        - name: "datafusion-flink-job"
+          secret:
+            secretName: {{secretName}}
+        - name: "datafusion-flink-shared"
+          persistentVolumeClaim:
+            claimName: {{sharedPvcName}}
+        - name: "datafusion-flink-usrlib"
+          emptyDir: {}
+  jobManager:
+    resource:
+{{jobManagerResource}}
+  taskManager:
+    resource:
+{{taskManagerResource}}
+  job:
+    jarURI: {{jarUri}}
+    entryClass: {{mainClass}}
+    args:
+{{args}}
+    upgradeMode: {{upgradeMode}}

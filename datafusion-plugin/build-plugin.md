@@ -61,6 +61,7 @@ thin jar + lib 模式：
 {
   "pluginType": "API",
   "multiApp": false,
+  "appDir": null,
   "modulePath": "datafusion-plugin/datafusion-plugin-api",
   "artifactId": "datafusion-plugin-api",
   "artifactMode": "jar",
@@ -84,16 +85,25 @@ thin jar + lib 模式：
 | 字段 | 必填 | 说明 |
 |------|------|------|
 | `pluginType` | 是 | 插件类型，例如 `API`、`FLINK` |
-| `multiApp` | 是 | 当前公共 builder 仅支持 `false` |
+| `multiApp` | 是 | 是否发布到插件类型目录下的 app 子目录 |
+| `appDir` | `multiApp=true` 时是 | app 子目录名；`multiApp=false` 时可为空或 `null` |
 | `modulePath` | 是 | Maven reactor 模块路径，相对仓库根目录 |
 | `artifactId` | `artifactMode=jar` 时是 | Maven artifactId，用于定位 jar |
 | `artifactMode` | 否 | 构建产物模式，默认 `jar`；资源型插件使用 `none` |
 | `runtimeResourceDir` | 是 | 插件模块内运行资源目录，相对插件模块根目录 |
-| `agentPublishDir` | 是 | 发布到 agent 的目录，相对仓库根目录 |
+| `agentPublishDir` | 是 | 发布到 agent 的插件类型目录，相对仓库根目录 |
 | `resourceDirs` | 否 | 从 `runtimeResourceDir` 下复制的目录列表 |
 | `resourceFiles` | 否 | 从插件模块复制到发布目录的文件映射 |
 
 ## 发布行为
+
+最终发布目录由 `multiApp` 决定：
+
+- `multiApp=false`：最终发布目录为 `agentPublishDir`
+- `multiApp=true`：最终发布目录为 `agentPublishDir/appDir`
+
+`multiApp=true` 时 `appDir` 不能为空，且只能是单层目录名，不能包含 `/`、`.` 或 `..`。`appDir` 不会从
+`artifactId` 推导，避免构建产物名和运行目录名产生歧义。
 
 脚本会先执行：
 
@@ -112,20 +122,20 @@ mvn -q -pl ${modulePath} -am package
 `fat` 模式：
 
 - 查找 `${artifactId}-*-executable.jar`
-- 复制到 `agentPublishDir`
-- 清空并保留 `agentPublishDir/lib/` 空目录
+- 复制到最终发布目录
+- 清空并保留最终发布目录下的 `lib/` 空目录
 
 `thin` 模式：
 
 - 查找普通 `${artifactId}-*.jar`
 - 执行 `dependency:copy-dependencies`
-- 复制普通 jar 到 `agentPublishDir`
-- 复制 runtime 依赖到 `agentPublishDir/lib/`
+- 复制普通 jar 到最终发布目录
+- 复制 runtime 依赖到最终发布目录下的 `lib/`
 
 公共资源：
 
-- `resourceDirs` 中的目录会从 `runtimeResourceDir` 下复制到 `agentPublishDir`
-- `resourceFiles` 中的文件会按 `source -> target` 复制到 `agentPublishDir`
+- `resourceDirs` 中的目录会从 `runtimeResourceDir` 下复制到最终发布目录
+- `resourceFiles` 中的文件会按 `source -> target` 复制到最终发布目录
 - manifest 中声明的资源必须存在，路径错误会直接导致发布失败
 - agent 侧未被 manifest 管理的目录不会被清理，例如插件模板目录
 

@@ -1,0 +1,14 @@
+{
+  "pluginType": "FLINK",
+  "multiApp": true,
+  "appDir": "datafusion-plugin-kafka-json",
+  "modulePath": "datafusion-plugin/datafusion-plugin-kafka-json",
+  "artifactId": "datafusion-plugin-kafka-json",
+  "artifactMode": "jar",
+  "runtimeResourceDir": "src/main/resources/plugins/flink",
+  "agentPublishDir": "datafusion-agent/src/main/resources/plugins/flink",
+  "resourceDirs": [
+    "conf",
+    "jobs"
+  ]
+}

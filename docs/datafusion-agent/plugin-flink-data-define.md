@@ -41,12 +41,17 @@ Agent 不从 `taskData.runMode` 或配置文件推断运行模式。
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `runMode` | `String` | 是 | 无 | 支持 `LOCAL`、`STANDALONE`、`YARN`、`K8S`、`K8S_OPERATOR` |
-| `jobName` | `String` | 否 | `taskName` 或 `flink-task-{taskInstanceId}` | Flink 作业名 |
-| `entryClass` | `String` | 条件必填 | 无 | Flink application main class；K8S / K8S_OPERATOR 必填 |
+| `jobName` | `String` | 否 | `flink-task-{taskInstanceId}` | Flink 作业名 |
+| `flinkAppDir` | `String` | K8S_OPERATOR 必填 | `/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json` | Flink Pod 内共享盘 app 目录；目录下保存主 jar 和依赖目录 |
+| `launchMode` | `String` | 否 | `JAR` | 启动模式，首版只实现 `JAR`；`CLASSPATH` 预留给后续无主 jar 或多 classpath 启动 |
+| `flinkAppJar` | `String` | K8S_OPERATOR 且 `launchMode=JAR` 必填 | 无 | app 主 jar 文件名，用于派生 `jarURI=local:///opt/flink/usrlib/{flinkAppJar}` |
+| `classpath` | `String` | 否 | 空 | 额外 classpath 表达式；首版 `JAR` 模式默认不使用，后续 `CLASSPATH` 模式或特殊依赖顺序场景使用 |
+| `mainClass` | `String` | K8S_OPERATOR 必填 | 无 | Flink application main class；渲染到 `FlinkDeployment.spec.job.entryClass` |
+| `flinkVersion` | `String` | K8S_OPERATOR 必填 | `2.2.0` | app 构建和 runtime Flink 版本，必须和 runtime image / Operator `spec.flinkVersion` 对齐 |
+| `libDir` | `String` | 否 | `lib` | 共享盘 app 目录下的依赖目录；initContainer 从该目录复制依赖 jar |
 | `args` | `List<String>` | 否 | `["--config", "{{jobJsonMountPath}}"]` | 作业启动参数；Agent 自动替换配置文件路径占位 |
 | `defaultTaskData` | `Object` | 否 | 空对象 | 默认 job config；与 `taskData` 深度合并后生成 `job.json` |
 | `flinkConfig` | `Object<String,String>` | 否 | 空对象 | 插件级 Flink 配置，如 checkpoint、state backend、metrics 配置 |
-| `parallelism` | `Integer` | 否 | 空 | 作业默认并行度；任务级可覆盖 |
 | `logStorageUri` | `String` | 否 | 空 | 外挂日志存储 URI；未配置时 K8S 终态可采集 Pod 日志 |
 | `kubernetes` | `FlinkKubernetesParam` | K8S / K8S_OPERATOR 条件必填 | 空 | Kubernetes 插件级运行配置 |
 
@@ -56,22 +61,26 @@ Agent 不从 `taskData.runMode` 或配置文件推断运行模式。
 {
   "runMode": "K8S_OPERATOR",
   "jobName": "kafka-json-paimon",
-  "entryClass": "com.datafusion.plugin.kafka.json.KafkaJsonPaimonApplication",
+  "flinkAppDir": "/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json",
+  "launchMode": "JAR",
+  "flinkAppJar": "datafusion-plugin-kafka-json-1.0.0-executable.jar",
+  "classpath": "",
+  "mainClass": "com.datafusion.plugin.kafka.json.KafkaJsonPaimonApplication",
+  "flinkVersion": "2.2.0",
+  "libDir": "lib",
   "args": ["--config", "{{jobJsonMountPath}}"],
-  "parallelism": 2,
   "flinkConfig": {
-    "state.backend": "rocksdb",
+    "state.backend.type": "rocksdb",
+    "parallelism.default": "2",
     "execution.checkpointing.interval": "60s",
     "execution.checkpointing.mode": "AT_LEAST_ONCE",
-    "state.checkpoints.dir": "s3://datafusion/flink/checkpoints/kafka-json",
-    "state.savepoints.dir": "s3://datafusion/flink/savepoints/kafka-json"
+    "execution.checkpointing.dir": "s3://datafusion/flink/checkpoints/kafka-json",
+    "execution.checkpointing.savepoint-dir": "s3://datafusion/flink/savepoints/kafka-json"
   },
   "kubernetes": {
     "namespace": "datafusion",
     "image": "flink:2.2.0-scala_2.12-java17",
-    "flinkAppName": "datafusion-plugin-kafka-json",
     "sharedPvcName": "datafusion-shared-data",
-    "sharedPluginRoot": "/opt/datafusion/plugins",
     "flinkWebUiUriTemplate": "http://{{deploymentName}}-rest.{{namespace}}.svc:8081",
     "serviceAccountName": "flink-runner",
     "jobManager": {
@@ -93,8 +102,53 @@ Agent 不从 `taskData.runMode` 或配置文件推断运行模式。
   "defaultTaskData": {
     "job": {},
     "source": {},
-    "runtime": {},
-    "sink": {}
+    "flinkConfig": {},
+    "sink": {},
+    "bizRef": ""
+  }
+}
+```
+
+`defaultTaskData.flinkConfig` 默认可以为空；它用于任务模板层的可调 Flink 配置，优先级高于插件级
+`pluginParam.flinkConfig`。例如插件级可以固定 state backend，任务模板层或单次任务再按任务类型设置并行度、
+checkpoint 和 savepoint 目录。
+
+`flinkAppDir` 是 Pod 内共享盘 app 目录，例如 `/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json`。
+Agent 会从该路径反推出共享 PVC 挂载点：如果路径包含 `/plugins/`，默认把 PVC 挂载到 `/plugins/`
+之前的目录，例如 `/opt/datafusion`。
+
+`libDir` 和 `classpath` 的职责不同：
+
+- `libDir` 是 `flinkAppDir` 下的依赖目录，例如 `/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json/lib`；
+  initContainer 根据它把依赖 jar 复制到 `/opt/flink/usrlib`。
+- `classpath` 是额外传给 Flink runtime 的 classpath 表达式。首版 `launchMode=JAR` 下依赖统一通过
+  `/opt/flink/usrlib` 被 Flink 发现，因此 `classpath` 默认留空，不作为依赖目录配置入口。
+- 后续如果支持 `launchMode=CLASSPATH`，或需要显式控制 classpath 顺序，再启用 `classpath`。
+
+有效 Flink 配置合并顺序：
+
+```text
+pluginParam.flinkConfig
+    -> effectiveTaskData.flinkConfig
+```
+
+其中 `effectiveTaskData` 由 `pluginParam.defaultTaskData` 和 `taskData` 深度合并得到；如果 `taskData.jobJson`
+存在，则以 `taskData.jobJson` 解析结果作为 `effectiveTaskData`。后者覆盖前者。合并后的 `flinkConfig`
+同时写回 `effectiveTaskData.flinkConfig`，写入运行目录 `job.json`，并用于渲染
+`FlinkDeployment.spec.flinkConfiguration`。因此运行时只存在两个 Flink 配置来源：插件级
+`pluginParam.flinkConfig` 和任务级 `effectiveTaskData.flinkConfig`。
+
+完整示例中 `flinkConfig` 合并后的效果：
+
+```json
+{
+  "flinkConfig": {
+    "state.backend.type": "rocksdb",
+    "execution.checkpointing.interval": "60s",
+    "execution.checkpointing.mode": "AT_LEAST_ONCE",
+    "execution.checkpointing.dir": "s3://datafusion/flink/checkpoints/kafka-json",
+    "execution.checkpointing.savepoint-dir": "s3://datafusion/flink/savepoints/kafka-json",
+    "parallelism.default": "2"
   }
 }
 ```
@@ -106,18 +160,23 @@ Agent 不从 `taskData.runMode` 或配置文件推断运行模式。
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `jobJson` | `String` 或 `Object` | 否 | 空 | 完整 Flink 作业配置 JSON；存在时优先写入任务运行目录的 `job.json` |
-| `job` / `source` / `runtime` / `sink` | `Object` | 否 | 空 | 与 `pluginParam.defaultTaskData` 深度合并，用于生成 `job.json` |
+| `job` | `Object` | 否 | 空 | 作业元信息；与 `pluginParam.defaultTaskData.job` 深度合并 |
+| `source` | `Object` | 否 | 空 | Flink 作业 source 配置；与 `pluginParam.defaultTaskData.source` 深度合并 |
+| `flinkConfig` | `Object<String,String>` | 否 | 空 | 任务级 Flink 配置；与 `pluginParam.defaultTaskData.flinkConfig` 深度合并后参与 Flink 配置合并 |
+| `sink` | `Object` | 否 | 空 | Flink 作业 sink 配置；与 `pluginParam.defaultTaskData.sink` 深度合并 |
+| `bizRef` | `String` 或 `Object` | 否 | 空 | 业务引用信息；与 `pluginParam.defaultTaskData.bizRef` 合并或覆盖 |
 | `jobName` | `String` | 否 | 空 | 单次任务覆盖作业名 |
 | `args` | `List<String>` | 否 | 空 | 单次任务覆盖作业参数 |
-| `parallelism` | `Integer` | 否 | 空 | 单次任务覆盖并行度 |
-| `flinkConfig` | `Object<String,String>` | 否 | 空 | 单次任务追加或覆盖 Flink 配置 |
 | `kubernetes` | `FlinkKubernetesTaskOverride` | 否 | 空 | K8S / K8S_OPERATOR 单任务覆盖项 |
 
 `taskData` 规则：
 
-- `taskData.jobJson` 存在时直接作为最终 `job.json`。
-- `taskData.jobJson` 为空时，使用 `deepMerge(pluginParam.defaultTaskData, taskData)` 生成 `job.json`。
-- `bizRef`、`data`、`options`、`kubernetes`、`args`、`parallelism`、`flinkConfig` 是 Agent 侧注册或运行元数据，不写入最终 `job.json`。
+- `taskData.jobJson` 存在时先解析为 `effectiveTaskData`；`taskData.jobJson` 必须使用同一套 `job` / `source` /
+  `flinkConfig` / `sink` / `bizRef` 顶层结构。
+- `taskData.jobJson` 为空时，使用 `deepMerge(pluginParam.defaultTaskData, taskData)` 生成 `effectiveTaskData`。
+- `effectiveTaskData.flinkConfig` 覆盖 `pluginParam.flinkConfig`；合并结果写回 `job.json` 的
+  顶层 `flinkConfig`，并渲染到 `FlinkDeployment.spec.flinkConfiguration`。
+- `jobName`、`args`、`kubernetes` 是 Agent 侧运行元数据，不写入最终 `job.json`。
 - 数组按整体替换；普通值按 `taskData` 覆盖默认值。
 
 ## 5. 运行模式枚举
@@ -132,21 +191,18 @@ Agent 不从 `taskData.runMode` 或配置文件推断运行模式。
 
 ## 6. Kubernetes 参数
 
-`pluginParam.kubernetes` 只保存 Kubernetes 运行时参数。构建 profile、主 jar、共享盘 app 目录、`jarURI`
-等发布细节由 `plugin-manifest.json`、`flink-app-manifest.json` 和固定运行约定派生，不重复放入
-`pluginParam.kubernetes`。
+`pluginParam.kubernetes` 只保存 Kubernetes 运行时参数。构建 profile、主 jar、artifact mode、共享盘 app 目录、
+`jarURI` 等发布细节由 `pluginParam` 和固定运行约定派生，不依赖运行时读取 app 发布包清单。
 
 `taskData.kubernetes` 提供单任务覆盖值，只允许覆盖下表中明确可覆盖的运行时字段。
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `namespace` | `String` | 否 | `default` | Kubernetes namespace |
-| `image` | `String` | K8S / K8S_OPERATOR 必填 | `flink:2.2.0-scala_2.12-java17` | Flink runtime 基础镜像；业务 jar 和依赖不打入镜像；首版与 `flinkVersion=v2_2`、`buildFlinkVersion=2.2.0` 成组使用 |
+| `image` | `String` | K8S / K8S_OPERATOR 必填 | `flink:2.2.0-scala_2.12-java17` | Flink runtime 基础镜像；业务 jar 和依赖不打入镜像；首版与 `pluginParam.flinkVersion=2.2.0`、Operator `spec.flinkVersion=v2_2` 成组使用 |
 | `imagePullPolicy` | `String` | 否 | `IfNotPresent` | 镜像拉取策略 |
 | `serviceAccountName` | `String` | 否 | 空 | Flink Pod 使用的 ServiceAccount |
-| `flinkAppName` | `String` | K8S_OPERATOR 必填 | `datafusion-plugin-kafka-json` | Flink app 发布包名，建议使用 Maven `artifactId`；不是 agent 运行模式概念 |
 | `sharedPvcName` | `String` | K8S_OPERATOR 必填 | `datafusion-shared-data` | 共享 PVC 名称，定义见 `docs/k8s/datafusion-common-pvc.yml` |
-| `sharedPluginRoot` | `String` | K8S_OPERATOR 必填 | `/opt/datafusion/plugins` | Flink Pod 内共享插件根目录；实际 app 目录派生为 `{sharedPluginRoot}/flink/{flinkAppName}` |
 | `flinkWebUiUriTemplate` | `String` | 否 | `http://{{deploymentName}}-rest.{{namespace}}.svc:8081` | Flink Web UI 地址模板；支持 `namespace`、`deploymentName`、`appId` 占位，提交后写入结果 `flinkWebUiUri` |
 | `labels` | `Object<String,String>` | 否 | 空 | 附加 label，不允许覆盖 `datafusion.*` 和 `datafusion.io/*` 保留 label |
 | `annotations` | `Object<String,String>` | 否 | 空 | 附加 annotation |
@@ -158,18 +214,17 @@ Agent 不从 `taskData.runMode` 或配置文件推断运行模式。
 | `deleteDeploymentOnFinish` | `Boolean` | 否 | `false` | K8S_OPERATOR finish 时是否删除 `FlinkDeployment` |
 | `deleteSecretOnFinish` | `Boolean` | 否 | `true` | finish 时是否删除本次任务 Secret |
 | `upgradeMode` | `String` | K8S_OPERATOR 可选 | `stateless` | Flink Operator `spec.job.upgradeMode` |
-| `podTemplate` | `Object` | K8S_OPERATOR 可选 | 空 | Flink Operator podTemplate 透传结构 |
+| `podTemplate` | `Object` | K8S_OPERATOR 可选 | 空 | 受限 podTemplate 覆盖项；只允许追加安全字段，不允许覆盖 Agent 生成的 volume、volumeMount、initContainer 和 job Secret 挂载 |
 
 派生字段和固定约定：
 
 | 派生项 | 来源 | 说明 |
 |--------|------|------|
 | `operatorVersion` | 固定约定 | 首版目标集群为 `flink-kubernetes-operator:1.14.0`，仅用于环境校验 |
-| `flinkVersion` | 固定约定 | `FlinkDeployment.spec.flinkVersion=v2_2` |
-| `buildFlinkVersion` | `flink-app-manifest.json` | 首版为 `2.2.0`，必须和 runtime image / `flinkVersion` 对齐 |
-| `artifactMode` | `flink-app-manifest.json` | `FAT_JAR` 或 `THIN_JAR_LIB` |
-| `flinkAppMainJar` | `flink-app-manifest.json` | 用于派生 `jarURI=local:///opt/flink/usrlib/{flinkAppMainJar}` |
-| `flinkAppDir` | `sharedPluginRoot + flinkAppName` | Pod 内路径为 `{sharedPluginRoot}/flink/{flinkAppName}` |
+| `operatorFlinkVersion` | `pluginParam.flinkVersion` | `2.2.0` 映射为 `FlinkDeployment.spec.flinkVersion=v2_2` |
+| `jarURI` | `pluginParam.flinkAppJar` | `local:///opt/flink/usrlib/{flinkAppJar}` |
+| `flinkAppDir` | `pluginParam.flinkAppDir` | Pod 内共享盘 app 目录，例如 `/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json` |
+| `sharedMountPath` | `pluginParam.flinkAppDir` | 如果 `flinkAppDir` 包含 `/plugins/`，挂载点为 `/plugins/` 前缀目录；否则使用 `flinkAppDir` 父目录 |
 | `usrlibPath` | 固定约定 | `/opt/flink/usrlib` |
 | `deploymentNamePrefix` | 固定约定 | `df-flink-` |
 | `secretNamePrefix` | 固定约定 | `df-flink-job-` |
@@ -178,45 +233,26 @@ Agent 不从 `taskData.runMode` 或配置文件推断运行模式。
 | `imagePlatform` | 固定约定 | 当前只支持 `linux/amd64`，通过 `nodeSelector` 或等价调度约束表达 |
 | `mavenProfile` / `builderScriptPath` / `agentFlinkAppDir` | 构建发布流程 | 只属于 builder，不进入运行时参数 |
 
-## 7. 插件目录 Manifest
+## 7. 插件目录约定
 
-插件目录 manifest 只用于插件构建、发布和校验，不改变 agent 公共 `pluginType` / `runMode` 模型。
+Flink 是多 app 插件类型，agent 发布侧目录固定为：
 
-### 7.1 PluginTypeManifest
+```text
+plugins/flink/{appDirName}/
+plugins/flink/{appDirName}/{flinkAppJar}
+plugins/flink/{appDirName}/{libDir}/
+```
 
-`plugins/{pluginType}/plugin-manifest.json` 描述插件类型目录能力：
-
-| 字段 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `pluginType` | `String` | 是 | 无 | 插件类型目录名，例如 `flink`、`datax` |
-| `multiApp` | `Boolean` | 是 | `false` | 是否支持一个插件类型目录下存在多个 app 发布包；Flink 为 `true`，DataX 可为 `false` |
-| `appDirPattern` | `String` | 条件必填 | 空 | `multiApp=true` 时的 app 目录模式，例如 `plugins/flink/{flinkAppName}` |
-| `appNameField` | `String` | 条件必填 | 空 | app 名称对应的任务参数字段，Flink 使用 `flinkAppName` |
-| `builderDirPolicy` | `String` | 否 | `src/main/resources/builder` | builder 脚本所在目录策略；builder 不进入运行目录 |
-
-### 7.2 FlinkAppManifest
-
-`plugins/flink/{flinkAppName}/flink-app-manifest.json` 描述单个 Flink app 发布包：
-
-| 字段 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| `flinkAppName` | `String` | 是 | 无 | Flink app 发布包名，建议使用 Maven `artifactId` |
-| `artifactMode` | `String` | 是 | `FAT_JAR` | `FAT_JAR` 或 `THIN_JAR_LIB` |
-| `flinkAppMainJar` | `String` | 是 | 无 | app 主 jar 文件名 |
-| `libDir` | `String` | 是 | `lib` | 依赖目录；fat 模式为空目录，thin 模式保存随作业发布的依赖 |
-| `confDir` | `String` | 否 | `conf` | app 静态配置目录 |
-| `jobsDir` | `String` | 否 | `jobs` | app 样例 job 配置目录，不保存运行实例密钥 |
-| `buildFlinkVersion` | `String` | 是 | `2.2.0` | 构建 app 使用的 Flink 版本 |
+agent 发布侧仍按 `plugins/flink/{appDirName}/` 组织；运行侧由 `pluginParam.flinkAppDir` 直接指定 Pod 内目录。
+`flinkAppJar` 和 `libDir` 均来自 `pluginParam`。
 
 ## 8. Service / Runtime 模型
 
 | 对象 | 场景 | 字段 | 字段类型 | 生命周期 | 说明 |
 |------|------|------|----------|----------|------|
 | `FlinkRunMode` | 运行模式枚举 | `LOCAL`, `STANDALONE`, `YARN`, `K8S`, `K8S_OPERATOR` | enum | 请求解析后固定 | 与现有规范一致，配置和状态均使用大写枚举 |
-| `FlinkExecutionParam` | 提交前归一化参数 | `runMode`, `jobName`, `entryClass`, `args`, `jobJson`, `effectiveTaskData`, `workDir`, `flinkConfig`, `parallelism`, `kubernetes` | Java object | 单次任务 | 从 `pluginParam` 和 `taskData` 归一化 |
-| `PluginTypeManifest` | 插件类型目录清单 | `pluginType`, `multiApp`, `appDirPattern`, `appNameField`, `builderDirPolicy` | JSON/YAML | 随 agent 插件目录发布 | 描述 `plugins/{pluginType}` 是否支持多个 app 包；Flink 为 `multiApp=true`，DataX 可为 `multiApp=false` |
-| `FlinkAppManifest` | 单个 Flink app 清单 | `flinkAppName`, `artifactMode`, `flinkAppMainJar`, `libDir`, `confDir`, `jobsDir`, `buildFlinkVersion` | JSON/YAML | 随单个 Flink app 发布 | builder 输出后生成或校验，便于 agent 和发布脚本确认主 jar、依赖目录和版本 |
-| `FlinkKubernetesParam` | K8S / K8S_OPERATOR 提交参数 | `namespace`, `deploymentName`, `secretName`, `image`, `flinkAppName`, `sharedPvcName`, `sharedPluginRoot`, `upgradeMode`, `flinkWebUiUriTemplate` | Java object | 单次任务 | 只保存运行时字段；构建和 jar 路径由 manifest / 固定约定派生 |
+| `FlinkExecutionParam` | 提交前归一化参数 | `runMode`, `jobName`, `args`, `jobJson`, `effectiveTaskData`, `workDir`, `flinkConfig`, `flinkAppDir`, `launchMode`, `flinkAppJar`, `classpath`, `mainClass`, `flinkVersion`, `libDir`, `kubernetes` | Java object | 单次任务 | 从 `pluginParam` 和 `taskData` 归一化 |
+| `FlinkKubernetesParam` | K8S / K8S_OPERATOR 提交参数 | `namespace`, `deploymentName`, `secretName`, `image`, `sharedPvcName`, `sharedMountPath`, `upgradeMode`, `flinkWebUiUriTemplate` | Java object | 单次任务 | 只保存 Kubernetes 运行时字段；构建和 jar 路径由 `pluginParam` / 固定约定派生 |
 | `FlinkKubernetesRuntimeRef` | K8S / K8S_OPERATOR 接管参数 | `namespace`, `deploymentName`, `secretName`, `podLabelSelector`, `logStorageUri`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish`, `deleteSecretOnFinish` | Java object | 单次状态查询或控制命令 | 由 `.snap` 中的 `pluginParam/taskData` 和 `.state.appId` 重建 |
 | `FlinkTaskRunner` | 运行模式分派 | `runMode()` | interface | Spring Bean | 各运行模式 Runner 实现同一接口 |
 | `FlinkSubmitResult` | Runner 提交返回 | `status`, `appId`, `workDirPath`, `result`, `kubernetesRuntimeRef` | Java object | 单次提交 | 由 `FlinkPluginTaskExecutor` 转为 `TaskResult.workerResult` |
