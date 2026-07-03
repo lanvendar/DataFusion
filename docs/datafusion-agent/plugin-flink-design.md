@@ -97,8 +97,8 @@ K8S_OPERATOR 集群前置条件：
 - 目标 namespace 必须满足 Operator webhook 的 namespaceSelector；如果 webhook 只匹配 `bigdata`，其他
   namespace 需要先调整 webhook 配置或改到被匹配的 namespace。
 - 目标 namespace 必须同时存在 `serviceAccountName`、`envFrom.secretRef` 引用的 Secret 和共享 PVC。
-  首版默认 `datafusion` namespace 配合 `datafusion-shared-data` PVC 使用，因此推荐让 Operator watch
-  `datafusion` 并补齐 `flink-runner` ServiceAccount / RBAC 和 `flink-objectstore` Secret。
+  首版默认提交到 `datafusion` namespace，使用 `serviceAccount/flink`、`flink-objectstore` Secret
+  和 `datafusion-shared-data` PVC，便于复用 agent 共享盘中的插件目录。
 - Flink application 镜像为官方 Flink Java17 基础镜像，业务 jar 和依赖由共享盘 + initContainer 注入。
 - 共享盘使用 `docs/k8s/datafusion-common-pvc.yml` 中的 `datafusion-shared-data` PVC。
 - 共享盘插件目录由人工上传；Flink JobManager / TaskManager Pod 以只读方式挂载。

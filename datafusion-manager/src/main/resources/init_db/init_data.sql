@@ -200,7 +200,7 @@ VALUES
      "namespace": "datafusion",
      "image": "flink:2.2.0-scala_2.12-java17",
      "sharedPvcName": "datafusion-shared-data",
-     "serviceAccountName": "flink-runner",
+     "serviceAccountName": "flink",
      "env": {
        "HADOOP_CONF_DIR": "/opt/flink/conf"
      },

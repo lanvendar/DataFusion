@@ -68,11 +68,21 @@
    - `ingressClassName` 默认是 `nginx`。
    - TLS Secret 默认是 `datafusion-web-tls` 和 `datafusion-manager-tls`，需要按集群实际证书修改或删除 `tls` 段。
 
-## DataX K8s 任务权限
+## Agent K8s 任务权限
 
-Agent 里的 DataX K8s runner 会通过 Fabric8 client 创建 `Secret` 和 `batch/v1 Job`，并查询 Pod 状态与日志。当前 Role 只授权 `datafusion` 命名空间。
+Agent 里的 DataX K8s runner 会通过 Fabric8 client 创建 `Secret` 和 `batch/v1 Job`，并查询 Pod 状态与日志。
+Flink K8S_OPERATOR runner 会创建 `flinkdeployments.flink.apache.org`，并查询 Pod 状态与日志。当前 Role 只授权
+`datafusion` 命名空间。
 
 如果任务参数中的 Kubernetes namespace 不是 `datafusion`，需要在对应 namespace 额外创建同等权限的 `RoleBinding`，或改成受控的 `ClusterRoleBinding`。
+
+只热更新 Agent 任务权限时，执行：
+
+```bash
+kubectl apply -f docs/k8s/datafusion-agent-role.yml
+```
+
+不要为权限热更新执行完整的 `docs/k8s/datafusion-agent.yml`，避免误触发 Agent Deployment 滚动。
 
 ## 应用
 
