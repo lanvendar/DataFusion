@@ -215,14 +215,14 @@ VALUES
        "replicas": 1,
        "resource": {
          "memory": "2048m",
-         "cpu": "1.0"
+         "cpu": 1.0
        }
      },
      "taskManager": {
        "replicas": 1,
        "resource": {
          "memory": "4096m",
-         "cpu": "2.0"
+         "cpu": 2.0
        }
      },
      "nodeSelector": {

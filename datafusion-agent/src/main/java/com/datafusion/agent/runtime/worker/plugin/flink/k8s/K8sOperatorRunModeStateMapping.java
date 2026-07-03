@@ -110,13 +110,11 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
         return FlinkKubernetesRuntimeRef.builder()
                 .namespace(param.getKubernetes().getNamespace())
                 .deploymentName(state.getAppId())
-                .secretName(param.getKubernetes().getSecretName())
                 .podLabelSelector(param.getKubernetes().getPodLabelSelector())
                 .logStorageUri(param.getKubernetes().getLogStorageUri())
                 .flinkWebUiUri(param.getKubernetes().getFlinkWebUiUri())
                 .collectLogsOnFinish(param.getKubernetes().isCollectLogsOnFinish())
                 .deleteDeploymentOnFinish(param.getKubernetes().isDeleteDeploymentOnFinish())
-                .deleteSecretOnFinish(param.getKubernetes().isDeleteSecretOnFinish())
                 .build();
     }
 

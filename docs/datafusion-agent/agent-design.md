@@ -168,10 +168,9 @@ appRoot        = 单包插件使用 {pluginTypeRoot}；多 app 插件使用 {plu
 | `labels` / `annotations` / `env` | 已过滤和归一化后的 Kubernetes 元数据 |
 
 插件专用模板只能声明该运行时需要的补充变量。例如 Flink K8S_OPERATOR 模板可以使用
-`flinkAppJar`、`usrlibPath` 和 `jobJsonMountPath`，其中发布包相关字段来自 `pluginParam`，
-`jobJsonMountPath` 由任务运行目录派生为
-`/opt/datafusion/task-runtime/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/flink-job.json`，不要求用户在
-`pluginParam.kubernetes` 中重复填写。
+`flinkAppJar` 和 `usrlibPath`，其中发布包相关字段来自 `pluginParam`；job config 由 agent 生成本地快照后
+以 `--job <base64(job-json)>` 注入 `FlinkDeployment.spec.job.args`，不要求用户在 `pluginParam.kubernetes`
+中重复填写。
 
 模板实现约束：
 
@@ -180,7 +179,7 @@ appRoot        = 单包插件使用 {pluginTypeRoot}；多 app 插件使用 {plu
 - 模板中不得读取 builder 专用字段，例如 `mavenProfile`、`builderScriptPath`、`agentPluginDir`。
 - 模板中不得重复声明能由插件目录约定派生的目录结构；应使用 `pluginTypeRoot`、`appRoot` 等归一化变量。
 - Kubernetes 类模板如果支持用户覆盖 podTemplate，只能通过插件设计文档声明的 allowlist 合并；不得允许用户覆盖
-  agent 生成的 volume、volumeMount、initContainer、Secret mount、container name 等运行时关键结构。
+  agent 生成的 volume、volumeMount、initContainer、container name 等运行时关键结构。
 - 新增插件模板时，必须先确认插件设计文档中的目录约定和模板变量一致。
 
 ## RPC 边界

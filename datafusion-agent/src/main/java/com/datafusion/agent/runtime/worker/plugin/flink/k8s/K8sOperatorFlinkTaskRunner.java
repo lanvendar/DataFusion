@@ -14,6 +14,7 @@ import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Component;
  * @version 1.0.0, 2026/7/3
  * @since 1.0.0
  */
+@Slf4j
 @Component
 public class K8sOperatorFlinkTaskRunner implements FlinkTaskRunner {
 
@@ -63,7 +65,16 @@ public class K8sOperatorFlinkTaskRunner implements FlinkTaskRunner {
     @Override
     public FlinkSubmitResult submit(TaskRequest request, FlinkExecutionParam param) {
         try {
+            log.info("K8S_OPERATOR Flink任务开始提交, taskInstanceId={}, flowInstanceId={}, namespace={}, "
+                            + "deploymentName={}, flinkAppDir={}, flinkAppJar={}",
+                    request.getTaskInstanceId(), request.getFlowInstanceId(), param.getKubernetes().getNamespace(),
+                    param.getKubernetes().getDeploymentName(), param.getKubernetes().getFlinkAppDir(),
+                    param.getFlinkAppJar());
             FlinkKubernetesRuntimeRef runtimeRef = operatorClient.submit(param);
+            log.info("K8S_OPERATOR Flink任务提交成功, taskInstanceId={}, namespace={}, deploymentName={}, "
+                            + "flinkWebUiUri={}, workDirPath={}",
+                    request.getTaskInstanceId(), runtimeRef.getNamespace(), runtimeRef.getDeploymentName(),
+                    runtimeRef.getFlinkWebUiUri(), param.getWorkDir());
             return FlinkSubmitResult.builder()
                     .status(StatusEnum.RUNNING)
                     .appId(runtimeRef.getDeploymentName())
@@ -72,6 +83,8 @@ public class K8sOperatorFlinkTaskRunner implements FlinkTaskRunner {
                     .kubernetesRuntimeRef(runtimeRef)
                     .build();
         } catch (Exception e) {
+            log.warn("K8S_OPERATOR Flink任务提交失败, taskInstanceId={}, flowInstanceId={}, workDirPath={}",
+                    request.getTaskInstanceId(), request.getFlowInstanceId(), param.getWorkDir(), e);
             return FlinkSubmitResult.builder()
                     .status(StatusEnum.SUBMIT_FAILURE)
                     .workDirPath(param.getWorkDir().toString())
@@ -84,6 +97,8 @@ public class K8sOperatorFlinkTaskRunner implements FlinkTaskRunner {
     @Override
     public TaskResult stop(TaskRequest request, WorkerTaskExecutionState state) {
         FlinkKubernetesRuntimeRef runtimeRef = runtimeRef(request, state);
+        log.info("K8S_OPERATOR Flink任务请求停止, taskInstanceId={}, namespace={}, deploymentName={}",
+                request.getTaskInstanceId(), runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
         operatorClient.stop(runtimeRef);
         return result(request, state, StatusEnum.STOPPING, "K8S_OPERATOR Flink stop requested", null);
     }
@@ -96,9 +111,13 @@ public class K8sOperatorFlinkTaskRunner implements FlinkTaskRunner {
         }
         try {
             FlinkKubernetesRuntimeRef runtimeRef = runtimeRef(request, state);
+            log.info("K8S_OPERATOR Flink任务请求强杀, taskInstanceId={}, namespace={}, deploymentName={}",
+                    request.getTaskInstanceId(), runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
             operatorClient.kill(runtimeRef);
             return result(request, state, StatusEnum.KILLED, "K8S_OPERATOR Flink kill completed", null);
         } catch (RuntimeException e) {
+            log.warn("K8S_OPERATOR Flink任务强杀失败, taskInstanceId={}, appId={}",
+                    request.getTaskInstanceId(), state.getAppId(), e);
             return result(request, state, StatusEnum.UNKNOWN, "K8S_OPERATOR Flink kill failed: " + e.getMessage(),
                     null);
         }
@@ -136,13 +155,11 @@ public class K8sOperatorFlinkTaskRunner implements FlinkTaskRunner {
         return FlinkKubernetesRuntimeRef.builder()
                 .namespace(param.getKubernetes().getNamespace())
                 .deploymentName(state.getAppId())
-                .secretName(param.getKubernetes().getSecretName())
                 .podLabelSelector(param.getKubernetes().getPodLabelSelector())
                 .logStorageUri(param.getKubernetes().getLogStorageUri())
                 .flinkWebUiUri(param.getKubernetes().getFlinkWebUiUri())
                 .collectLogsOnFinish(param.getKubernetes().isCollectLogsOnFinish())
                 .deleteDeploymentOnFinish(param.getKubernetes().isDeleteDeploymentOnFinish())
-                .deleteSecretOnFinish(param.getKubernetes().isDeleteSecretOnFinish())
                 .build();
     }
 

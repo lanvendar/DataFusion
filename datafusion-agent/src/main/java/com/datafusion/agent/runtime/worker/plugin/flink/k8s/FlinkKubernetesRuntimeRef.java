@@ -29,11 +29,6 @@ public class FlinkKubernetesRuntimeRef {
     private String deploymentName;
 
     /**
-     * Secret name.
-     */
-    private String secretName;
-
-    /**
      * Pod label selector.
      */
     private String podLabelSelector;
@@ -58,8 +53,4 @@ public class FlinkKubernetesRuntimeRef {
      */
     private boolean deleteDeploymentOnFinish;
 
-    /**
-     * Whether delete secret on finish.
-     */
-    private boolean deleteSecretOnFinish;
 }

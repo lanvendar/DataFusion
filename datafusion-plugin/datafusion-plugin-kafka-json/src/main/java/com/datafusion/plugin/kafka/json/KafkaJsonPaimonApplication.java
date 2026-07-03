@@ -4,6 +4,7 @@ import com.datafusion.plugin.kafka.json.config.ConfigLoader;
 import com.datafusion.plugin.kafka.json.config.ConfigValidator;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig;
 import com.datafusion.plugin.kafka.json.config.KafkaJsonPaimonJobConfig.PaimonTableConfig;
+import com.datafusion.plugin.kafka.json.core.KafkaJsonPaimonException;
 import com.datafusion.plugin.kafka.json.expression.ExpressionSpec;
 import com.datafusion.plugin.kafka.json.expression.ExpressionSpecNormalizer;
 import com.datafusion.plugin.kafka.json.core.enums.JsonType;
@@ -17,7 +18,9 @@ import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 /**
@@ -30,15 +33,28 @@ import java.util.List;
 public class KafkaJsonPaimonApplication {
 
     /**
+     * Inline job argument.
+     */
+    private static final String JOB_ARG = "--job";
+
+    /**
+     * Job file argument.
+     */
+    private static final String JOB_FILE_ARG = "--jobFile";
+
+    /**
+     * Default job file.
+     */
+    private static final String DEFAULT_JOB_FILE = "job.json";
+
+    /**
      * 启动作业.
      *
      * @param args 启动参数
      * @throws Exception Flink 作业异常
      */
     public static void main(String[] args) throws Exception {
-        String configPath = parseConfigPath(args);
-        ConfigLoader loader = new ConfigLoader();
-        KafkaJsonPaimonJobConfig config = loader.load(configPath);
+        KafkaJsonPaimonJobConfig config = loadConfig(args);
         new ConfigValidator().validate(config);
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -57,16 +73,58 @@ public class KafkaJsonPaimonApplication {
         env.execute(jobName);
     }
 
-    private static String parseConfigPath(String[] args) {
+    /**
+     * Load job config from launch arguments.
+     *
+     * @param args launch arguments
+     * @return job config
+     */
+    static KafkaJsonPaimonJobConfig loadConfig(String[] args) {
+        ConfigLoader loader = new ConfigLoader();
+        String inlineJob = argumentValue(args, JOB_ARG);
+        if (inlineJob != null) {
+            if (TextUtils.isBlank(inlineJob)) {
+                throw new KafkaJsonPaimonException("Job content is required");
+            }
+            return loader.loadContent(decodeBase64Job(inlineJob));
+        }
+        return loader.load(parseJobFilePath(args));
+    }
+
+    private static String parseJobFilePath(String[] args) {
         if (args == null || args.length == 0) {
-            return "job.json";
+            return DEFAULT_JOB_FILE;
+        }
+        String jobFile = argumentValue(args, JOB_FILE_ARG);
+        if (jobFile != null) {
+            return jobFile;
+        }
+        throw new KafkaJsonPaimonException("Unsupported arguments, only --job or --jobFile are supported");
+    }
+
+    private static String argumentValue(String[] args, String argumentName) {
+        if (args == null || args.length == 0) {
+            return null;
         }
         for (int i = 0; i < args.length; i++) {
-            if (("--config".equals(args[i]) || "-c".equals(args[i])) && i + 1 < args.length) {
-                return args[i + 1];
+            if (!argumentName.equals(args[i])) {
+                continue;
             }
+            if (i + 1 >= args.length) {
+                throw new KafkaJsonPaimonException("Missing value for argument: " + argumentName);
+            }
+            return args[i + 1];
         }
-        return args[0];
+        return null;
+    }
+
+    private static String decodeBase64Job(String encodedJob) {
+        try {
+            byte[] bytes = Base64.getDecoder().decode(encodedJob);
+            return new String(bytes, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            throw new KafkaJsonPaimonException("Failed to decode base64 job content", e);
+        }
     }
 
     private static String resolveJobName(KafkaJsonPaimonJobConfig config) {

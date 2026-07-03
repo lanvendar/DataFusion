@@ -28,7 +28,7 @@ Flink 运行参数不定义在 `datafusion-agent/src/main/resources/application.
 | `STANDALONE` | `plugins/flink/templates/flink-standalone-runtime.yml` | Flink CLI / REST submit spec | 只定义契约，暂不实现 |
 | `YARN` | `plugins/flink/templates/flink-yarn-runtime.yml` | Flink CLI submit spec | 只定义契约，暂不实现 |
 | `K8S` | `plugins/flink/templates/flink-k8s-runtime.yml` | Flink Native Kubernetes Application submit spec | 只定义契约，暂不实现 |
-| `K8S_OPERATOR` | `plugins/flink/templates/flink-k8s-operator-deployment.yml` | Secret + `FlinkDeployment` | 优先实现；集群 Operator 版本固定 `flink-kubernetes-operator:1.14.0` |
+| `K8S_OPERATOR` | `plugins/flink/templates/flink-k8s-operator-deployment.yml` | `FlinkDeployment` | 优先实现；集群 Operator 版本固定 `flink-kubernetes-operator:1.14.0` |
 
 ## 3. TaskRequest.pluginParam
 
@@ -145,8 +145,8 @@ pluginParam.flinkConfig
 
 其中 `effectiveTaskData` 由 `pluginParam.defaultTaskData` 和 `taskData` 深度合并得到；如果 `taskData.jobJson`
 存在，则以 `taskData.jobJson` 解析结果作为 `effectiveTaskData`。后者覆盖前者。合并后的 `flinkConfig`
-同时写回 `effectiveTaskData.flinkConfig`，写入运行目录 `flink-job.json`，并用于渲染
-`FlinkDeployment.spec.flinkConfiguration`。因此运行时只存在两个 Flink 配置来源：插件级
+同时写回 `effectiveTaskData.flinkConfig`，写入运行目录 `flink-job.json` 快照，并通过 `--job`
+参数传给业务 main class，同时用于渲染 `FlinkDeployment.spec.flinkConfiguration`。因此运行时只存在两个 Flink 配置来源：插件级
 `pluginParam.flinkConfig` 和任务级 `effectiveTaskData.flinkConfig`。
 
 Agent 会按 `taskData.job.id` 派生 checkpoint / savepoint 目录，并覆盖旧模板中的固定路径：
@@ -182,7 +182,7 @@ s3a://data-lake-warehouse/flink/savepoints/{jobId}
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `jobJson` | `String` 或 `Object` | 否 | 空 | 完整 Flink 作业配置 JSON；存在时优先写入任务运行目录的 `flink-job.json` |
+| `jobJson` | `String` 或 `Object` | 否 | 空 | 完整 Flink 作业配置 JSON；存在时优先作为 `effectiveTaskData`，并写入任务运行目录快照 |
 | `job` | `Object` | 否 | 空 | 作业元信息；与 `pluginParam.defaultTaskData.job` 深度合并 |
 | `source` | `Object` | 否 | 空 | Flink 作业 source 配置；与 `pluginParam.defaultTaskData.source` 深度合并 |
 | `flinkConfig` | `Object<String,String>` | 否 | 空 | 任务级 Flink 配置；与 `pluginParam.defaultTaskData.flinkConfig` 深度合并后参与 Flink 配置合并 |
@@ -220,7 +220,7 @@ s3a://data-lake-warehouse/flink/savepoints/{jobId}
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `namespace` | `String` | 否 | `default` | Kubernetes namespace |
+| `namespace` | `String` | 否 | `default` | Kubernetes namespace；必须被 Flink Operator watch，并且 namespace 内存在所需 SA / 运行 Secret / PVC |
 | `image` | `String` | K8S / K8S_OPERATOR 必填 | `flink:2.2.0-scala_2.12-java17` | Flink runtime 基础镜像；业务 jar 和依赖不打入镜像；首版与 `pluginParam.flinkVersion=2.2.0`、Operator `spec.flinkVersion=v2_2` 成组使用 |
 | `imagePullPolicy` | `String` | 否 | `IfNotPresent` | 镜像拉取策略 |
 | `serviceAccountName` | `String` | 否 | 空 | Flink Pod 使用的 ServiceAccount |
@@ -228,15 +228,18 @@ s3a://data-lake-warehouse/flink/savepoints/{jobId}
 | `flinkWebUiUriTemplate` | `String` | 否 | `http://{{serviceName}}.{{namespace}}.svc:8081` | Flink Web UI 地址模板；仅作为任务级高级覆盖项，插件模板默认不配置 |
 | `labels` | `Object<String,String>` | 否 | 空 | 附加 label，不允许覆盖 `datafusion.*` 和 `datafusion.io/*` 保留 label |
 | `annotations` | `Object<String,String>` | 否 | 空 | 附加 annotation |
-| `env` | `Object<String,String>` | 否 | 空 | Flink container 环境变量；Secret 和 job 路径相关变量由 Agent 派生 |
+| `env` | `Object<String,String>` | 否 | 空 | Flink container 环境变量 |
+| `envFrom` | `Array<Object>` | 否 | 空 | Flink container `envFrom`；默认用于引用 `flink-objectstore` Secret，Secret 必须与作业在同一 namespace |
 | `jobManager` | `Object` | 否 | 空 | JobManager resource / pod 配置 |
 | `taskManager` | `Object` | 否 | 空 | TaskManager resource / pod 配置 |
 | `nodeSelector` | `Object<String,String>` | 否 | `{"kubernetes.io/arch":"amd64"}` | Pod nodeSelector；当前仅支持 amd64 |
 | `collectLogsOnFinish` | `Boolean` | 否 | `true` | 未配置外挂日志存储时，终态是否拉取 Pod 日志到任务运行目录 |
 | `deleteDeploymentOnFinish` | `Boolean` | 否 | `false` | K8S_OPERATOR finish 时是否删除 `FlinkDeployment` |
-| `deleteSecretOnFinish` | `Boolean` | 否 | `true` | finish 时是否删除本次任务 Secret |
 | `upgradeMode` | `String` | K8S_OPERATOR 可选 | `stateless` | Flink Operator `spec.job.upgradeMode` |
-| `podTemplate` | `Object` | K8S_OPERATOR 可选 | 空 | 受限 podTemplate 覆盖项；只允许追加安全字段，不允许覆盖 Agent 生成的 volume、volumeMount、initContainer 和 job Secret 挂载 |
+| `podTemplate` | `Object` | K8S_OPERATOR 可选 | 空 | 受限 podTemplate 覆盖项；只允许追加安全字段，不允许覆盖 Agent 生成的 volume、volumeMount、initContainer |
+
+`jobManager.resource.cpu` 和 `taskManager.resource.cpu` 渲染为 Flink Operator CRD 数字字段，例如 `1.0`；
+`memory` 仍按字符串渲染，例如 `"2048m"`。
 
 派生字段和固定约定：
 
@@ -249,9 +252,7 @@ s3a://data-lake-warehouse/flink/savepoints/{jobId}
 | `sharedMountPath` | `pluginParam.flinkAppDir` | 如果 `flinkAppDir` 包含 `/plugins/`，挂载点为 `/plugins/` 前缀目录；否则使用 `flinkAppDir` 父目录 |
 | `usrlibPath` | 固定约定 | `/opt/flink/usrlib` |
 | `deploymentNamePrefix` | 固定约定 | `df-flink-` |
-| `secretNamePrefix` | 固定约定 | `df-flink-job-` |
-| `jobJsonSecretKey` | 固定约定 | `flink-job.json` |
-| `jobJsonMountPath` | 固定约定 | `/opt/datafusion/task-runtime/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/flink-job.json` |
+| `jobArg` | 固定约定 | `--job <base64(job-json)>` |
 | `imagePlatform` | 固定约定 | 当前只支持 `linux/amd64`，通过 `nodeSelector` 或等价调度约束表达 |
 | `mavenProfile` / `builderScriptPath` / `agentFlinkAppDir` | 构建发布流程 | 只属于 builder，不进入运行时参数 |
 
@@ -274,8 +275,8 @@ agent 发布侧仍按 `plugins/flink/{appDirName}/` 组织；运行侧由 `plugi
 |------|------|------|----------|----------|------|
 | `FlinkRunMode` | 运行模式枚举 | `LOCAL`, `STANDALONE`, `YARN`, `K8S`, `K8S_OPERATOR` | enum | 请求解析后固定 | 与现有规范一致，配置和状态均使用大写枚举 |
 | `FlinkExecutionParam` | 提交前归一化参数 | `runMode`, `args`, `jobJson`, `effectiveTaskData`, `workDir`, `flinkConfig`, `flinkAppDir`, `launchMode`, `flinkAppJar`, `classpath`, `mainClass`, `flinkVersion`, `libDir`, `kubernetes` | Java object | 单次任务 | 从 `pluginParam` 和 `taskData` 归一化 |
-| `FlinkKubernetesParam` | K8S / K8S_OPERATOR 提交参数 | `namespace`, `deploymentName`, `secretName`, `image`, `sharedPvcName`, `sharedMountPath`, `upgradeMode`, `flinkWebUiUri`, `jobJsonMountPath` | Java object | 单次任务 | 只保存 Kubernetes 运行时字段；构建和 jar 路径由 `pluginParam` / 固定约定派生 |
-| `FlinkKubernetesRuntimeRef` | K8S / K8S_OPERATOR 接管参数 | `namespace`, `deploymentName`, `secretName`, `podLabelSelector`, `logStorageUri`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish`, `deleteSecretOnFinish` | Java object | 单次状态查询或控制命令 | 由 `.snap` 中的 `pluginParam/taskData` 和 `.state.appId` 重建 |
+| `FlinkKubernetesParam` | K8S / K8S_OPERATOR 提交参数 | `namespace`, `deploymentName`, `image`, `sharedPvcName`, `sharedMountPath`, `upgradeMode`, `flinkWebUiUri` | Java object | 单次任务 | 只保存 Kubernetes 运行时字段；构建和 jar 路径由 `pluginParam` / 固定约定派生 |
+| `FlinkKubernetesRuntimeRef` | K8S / K8S_OPERATOR 接管参数 | `namespace`, `deploymentName`, `podLabelSelector`, `logStorageUri`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish` | Java object | 单次状态查询或控制命令 | 由 `.snap` 中的 `pluginParam/taskData` 和 `.state.appId` 重建 |
 | `FlinkTaskRunner` | 运行模式分派 | `runMode()` | interface | Spring Bean | 各运行模式 Runner 实现同一接口 |
 | `FlinkSubmitResult` | Runner 提交返回 | `status`, `appId`, `workDirPath`, `result`, `kubernetesRuntimeRef` | Java object | 单次提交 | 由 `FlinkPluginTaskExecutor` 转为 `TaskResult.workerResult` |
 

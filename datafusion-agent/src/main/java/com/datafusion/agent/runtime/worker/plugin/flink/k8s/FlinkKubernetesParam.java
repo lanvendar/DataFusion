@@ -55,11 +55,6 @@ public class FlinkKubernetesParam {
     private String deploymentName;
 
     /**
-     * Secret name.
-     */
-    private String secretName;
-
-    /**
      * Flink web UI URI.
      */
     private String flinkWebUiUri;
@@ -83,11 +78,6 @@ public class FlinkKubernetesParam {
      * Whether delete deployment on finish.
      */
     private boolean deleteDeploymentOnFinish;
-
-    /**
-     * Whether delete secret on finish.
-     */
-    private boolean deleteSecretOnFinish;
 
     /**
      * User labels.
@@ -157,11 +147,6 @@ public class FlinkKubernetesParam {
      * Jar URI.
      */
     private String jarUri;
-
-    /**
-     * Job JSON mount path.
-     */
-    private String jobJsonMountPath;
 
     /**
      * Container args.

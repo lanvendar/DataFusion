@@ -12,8 +12,6 @@ import org.junit.jupiter.api.Test;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -40,12 +38,9 @@ class FlinkKubernetesTemplateRendererTest {
         String yaml = renderer.render(param, OBJECT_MAPPER.writeValueAsString(param.getEffectiveTaskData()));
         Files.createDirectories(Path.of("target"));
         Files.writeString(Path.of("target/flink-k8s-operator-generated.yml"), yaml, StandardCharsets.UTF_8);
-        String date = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
 
-        assertTrue(yaml.contains("kind: Secret"));
         assertTrue(yaml.contains("kind: FlinkDeployment"));
-        assertTrue(yaml.contains("flink-job.json"));
-        assertTrue(yaml.contains("/opt/datafusion/task-runtime/" + date + "/flow-1/task-1/flink-job.json"));
+        assertTrue(yaml.contains("- \"--job\""));
         assertTrue(yaml.contains("http://df-flink-task-1-rest.datafusion.svc:8081"));
         assertTrue(yaml.contains("s3a://data-lake-warehouse/flink/checkpoints/kafka-json-job"));
         assertTrue(yaml.contains("s3a://data-lake-warehouse/flink/savepoints/kafka-json-job"));
@@ -55,8 +50,16 @@ class FlinkKubernetesTemplateRendererTest {
         assertTrue(yaml.contains("envFrom:"));
         assertTrue(yaml.contains("flink-objectstore"));
         assertTrue(yaml.contains("replicas: 1"));
+        assertTrue(yaml.contains("\"cpu\": 1.0"));
+        assertTrue(yaml.contains("\"cpu\": 2.0"));
+        assertTrue(yaml.contains("\"state.backend\": \"hashmap\""));
         assertTrue(yaml.contains("parallelism: 2"));
         assertTrue(yaml.contains("state: \"running\""));
+        assertFalse(yaml.contains("kind: Secret"));
+        assertFalse(yaml.contains("datafusion-flink-job"));
+        assertFalse(yaml.contains("flink-job.json"));
+        assertFalse(yaml.contains("--jobFile"));
+        assertFalse(yaml.contains("state.backend.type"));
         assertFalse(yaml.contains("must-not-render"));
     }
 
@@ -121,6 +124,7 @@ class FlinkKubernetesTemplateRendererTest {
         taskData.set("job", job);
         ObjectNode flinkConfig = OBJECT_MAPPER.createObjectNode();
         flinkConfig.put("execution.checkpointing.dir", "file:///tmp/flink-checkpoints/kafka-json-job");
+        flinkConfig.put("state.backend.type", "hashmap");
         taskData.set("flinkConfig", flinkConfig);
         ObjectNode options = OBJECT_MAPPER.createObjectNode();
         options.put("s3.endpoint", "http://sz-s3.indusmind.me");

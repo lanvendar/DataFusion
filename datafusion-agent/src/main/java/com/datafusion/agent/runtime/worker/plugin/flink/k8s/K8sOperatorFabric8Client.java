@@ -10,6 +10,7 @@ import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.ConfigBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayInputStream;
@@ -27,6 +28,7 @@ import java.util.Map;
  * @version 1.0.0, 2026/7/3
  * @since 1.0.0
  */
+@Slf4j
 @Component
 public class K8sOperatorFabric8Client implements K8sOperatorClient {
 
@@ -84,18 +86,22 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
         String manifest = templateRenderer.render(param, jobContent);
         writeYml(param, manifest);
         validateSharedPluginFiles(param);
-        client.load(new ByteArrayInputStream(manifest.getBytes(StandardCharsets.UTF_8))).createOrReplace();
         FlinkKubernetesParam kubernetes = param.getKubernetes();
+        log.info("提交K8S_OPERATOR FlinkDeployment, namespace={}, deploymentName={}, image={}, jarURI={}, "
+                        + "manifestPath={}",
+                kubernetes.getNamespace(), kubernetes.getDeploymentName(), kubernetes.getImage(),
+                kubernetes.getJarUri(), param.getWorkDir().resolve(MANIFEST_FILE_NAME));
+        client.load(new ByteArrayInputStream(manifest.getBytes(StandardCharsets.UTF_8))).createOrReplace();
+        log.info("K8S_OPERATOR FlinkDeployment提交完成, namespace={}, deploymentName={}, flinkWebUiUri={}",
+                kubernetes.getNamespace(), kubernetes.getDeploymentName(), kubernetes.getFlinkWebUiUri());
         return FlinkKubernetesRuntimeRef.builder()
                 .namespace(kubernetes.getNamespace())
                 .deploymentName(kubernetes.getDeploymentName())
-                .secretName(kubernetes.getSecretName())
                 .podLabelSelector(kubernetes.getPodLabelSelector())
                 .logStorageUri(kubernetes.getLogStorageUri())
                 .flinkWebUiUri(kubernetes.getFlinkWebUiUri())
                 .collectLogsOnFinish(kubernetes.isCollectLogsOnFinish())
                 .deleteDeploymentOnFinish(kubernetes.isDeleteDeploymentOnFinish())
-                .deleteSecretOnFinish(kubernetes.isDeleteSecretOnFinish())
                 .build();
     }
 
@@ -103,6 +109,8 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
     public void stop(FlinkKubernetesRuntimeRef runtimeRef) {
         GenericKubernetesResource deployment = deployment(runtimeRef);
         if (deployment == null) {
+            log.info("K8S_OPERATOR FlinkDeployment不存在, 跳过停止, namespace={}, deploymentName={}",
+                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
             return;
         }
         Map<String, Object> spec = objectMap(deployment.getAdditionalProperties(), "spec");
@@ -111,15 +119,15 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
         spec.put("job", job);
         deployment.setAdditionalProperty("spec", spec);
         deployments(runtimeRef).withName(runtimeRef.getDeploymentName()).replace(deployment);
+        log.info("K8S_OPERATOR FlinkDeployment已更新为SUSPENDED, namespace={}, deploymentName={}",
+                runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
     }
 
     @Override
     public void kill(FlinkKubernetesRuntimeRef runtimeRef) {
-        try {
-            deployments(runtimeRef).withName(runtimeRef.getDeploymentName()).withGracePeriod(0L).delete();
-        } finally {
-            deleteSecret(runtimeRef);
-        }
+        log.info("删除K8S_OPERATOR FlinkDeployment, namespace={}, deploymentName={}",
+                runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
+        deployments(runtimeRef).withName(runtimeRef.getDeploymentName()).withGracePeriod(0L).delete();
     }
 
     @Override
@@ -129,19 +137,30 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
         }
         GenericKubernetesResource deployment = deployment(runtimeRef);
         if (localState == StatusEnum.KILLING && deployment == null && pods(runtimeRef).isEmpty()) {
+            log.info("K8S_OPERATOR Flink资源已删除, namespace={}, deploymentName={}, localState={}",
+                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), localState);
             return StatusEnum.KILLED;
         }
         if (deployment == null) {
+            log.info("查询K8S_OPERATOR FlinkDeployment不存在, namespace={}, deploymentName={}, localState={}",
+                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), localState);
             return StatusEnum.UNKNOWN;
         }
         String state = stringAt(deployment, JOB_STATUS_PATH);
-        return mapOperatorState(state, localState);
+        StatusEnum mappedState = mapOperatorState(state, localState);
+        log.debug("查询K8S_OPERATOR FlinkDeployment状态, namespace={}, deploymentName={}, operatorState={}, "
+                        + "localState={}, mappedState={}",
+                runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), state, localState, mappedState);
+        return mappedState;
     }
 
     @Override
     public String collectLogs(FlinkKubernetesRuntimeRef runtimeRef) {
         StringBuilder builder = new StringBuilder();
-        for (Pod pod : pods(runtimeRef)) {
+        List<Pod> podList = pods(runtimeRef);
+        log.info("采集K8S_OPERATOR Flink Pod日志, namespace={}, deploymentName={}, podCount={}",
+                runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), podList.size());
+        for (Pod pod : podList) {
             String log = client.pods()
                     .inNamespace(runtimeRef.getNamespace())
                     .withName(pod.getMetadata().getName())
@@ -156,14 +175,10 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
 
     @Override
     public void cleanup(FlinkKubernetesRuntimeRef runtimeRef) {
-        try {
-            if (runtimeRef.isDeleteDeploymentOnFinish()) {
-                deployments(runtimeRef).withName(runtimeRef.getDeploymentName()).delete();
-            }
-        } finally {
-            if (runtimeRef.isDeleteSecretOnFinish()) {
-                deleteSecret(runtimeRef);
-            }
+        if (runtimeRef.isDeleteDeploymentOnFinish()) {
+            log.info("清理K8S_OPERATOR FlinkDeployment, namespace={}, deploymentName={}",
+                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
+            deployments(runtimeRef).withName(runtimeRef.getDeploymentName()).delete();
         }
     }
 
@@ -203,6 +218,8 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
         if (Files.exists(libDir) && !Files.isDirectory(libDir)) {
             throw new IllegalArgumentException("共享盘Flink app依赖路径不是目录: " + libDir);
         }
+        log.info("K8S_OPERATOR Flink共享盘文件校验通过, appDir={}, mainJar={}, libDirExists={}",
+                appDir, mainJar, Files.exists(libDir));
     }
 
     private String writeJobJson(FlinkExecutionParam param) {
@@ -212,6 +229,10 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
                     .writeValueAsString(param.getEffectiveTaskData());
             Files.writeString(param.getWorkDir()
                     .resolve(FlinkKubernetesTemplateConstants.JOB_JSON_FILE_NAME), content, StandardCharsets.UTF_8);
+            log.info("写入K8S_OPERATOR Flink job JSON快照, taskInstanceId={}, path={}, bytes={}",
+                    param.getTaskInstanceId(), param.getWorkDir()
+                            .resolve(FlinkKubernetesTemplateConstants.JOB_JSON_FILE_NAME),
+                    content.getBytes(StandardCharsets.UTF_8).length);
             return content;
         } catch (Exception e) {
             throw new IllegalStateException("写入Flink job.json失败: " + e.getMessage(), e);
@@ -222,6 +243,9 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
         try {
             Files.createDirectories(param.getWorkDir());
             Files.writeString(param.getWorkDir().resolve(MANIFEST_FILE_NAME), manifest, StandardCharsets.UTF_8);
+            log.info("写入K8S_OPERATOR Flink deployment YAML, taskInstanceId={}, path={}, bytes={}",
+                    param.getTaskInstanceId(), param.getWorkDir().resolve(MANIFEST_FILE_NAME),
+                    manifest.getBytes(StandardCharsets.UTF_8).length);
         } catch (Exception e) {
             throw new IllegalStateException("写入Flink K8S_OPERATOR deployment yaml失败: " + e.getMessage(), e);
         }
@@ -245,13 +269,6 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
                 .withLabel(labelKey(runtimeRef.getPodLabelSelector()), labelValue(runtimeRef.getPodLabelSelector()))
                 .list()
                 .getItems();
-    }
-
-    private void deleteSecret(FlinkKubernetesRuntimeRef runtimeRef) {
-        client.secrets()
-                .inNamespace(runtimeRef.getNamespace())
-                .withName(runtimeRef.getSecretName())
-                .delete();
     }
 
     private StatusEnum mapOperatorState(String state, StatusEnum localState) {

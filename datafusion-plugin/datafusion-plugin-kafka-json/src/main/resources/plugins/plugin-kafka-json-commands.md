@@ -22,7 +22,7 @@ mvn -DskipTests package -pl datafusion-plugin/datafusion-plugin-kafka-json -am
 ```bash
 cd /Users/lanvendar/Projects/DataFusion
 java -jar datafusion-plugin/datafusion-plugin-kafka-json/target/datafusion-plugin-kafka-json-1.0.0-executable.jar \
-  --config datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/plugins/flink/jobs/sample-standard-kafka-json-paimon-job.json
+  --jobFile datafusion-plugin/datafusion-plugin-kafka-json/src/main/resources/plugins/flink/jobs/sample-standard-kafka-json-paimon-job.json
 ```
 
 标准结构样例用于 Kafka 消息已经包含 `schema.table` / `schema.columns` 的场景，job 配置只保留 Paimon 连接、database、`columnsMapping` 和表 options。通用结构样例用于任意 JSON，通过 job 配置完整定义 `table`、`columns` 和每列的 JMESPath。
@@ -30,8 +30,9 @@ java -jar datafusion-plugin/datafusion-plugin-kafka-json/target/datafusion-plugi
 启动参数：
 
 ```text
---config 或 -c: job JSON 配置文件路径。
-不传 --config 时默认读取当前工作目录下的 job.json。
+--job: base64 编码后的 job JSON 内容。
+--jobFile: job JSON 配置文件路径。
+不传参数时默认读取当前工作目录下的 job.json。
 ```
 
 ## 日志

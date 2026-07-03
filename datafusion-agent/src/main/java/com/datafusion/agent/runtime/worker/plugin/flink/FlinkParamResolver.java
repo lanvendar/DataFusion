@@ -69,11 +69,6 @@ public class FlinkParamResolver {
     private static final String DEFAULT_DEPLOYMENT_NAME_PREFIX = "df-flink-";
 
     /**
-     * Default Secret prefix.
-     */
-    private static final String DEFAULT_SECRET_NAME_PREFIX = "df-flink-job-";
-
-    /**
      * Default upgrade mode.
      */
     private static final String DEFAULT_UPGRADE_MODE = "stateless";
@@ -102,6 +97,16 @@ public class FlinkParamResolver {
      * Checkpoint dir config key.
      */
     private static final String CHECKPOINT_DIR_KEY = "execution.checkpointing.dir";
+
+    /**
+     * State backend config key.
+     */
+    private static final String STATE_BACKEND_KEY = "state.backend";
+
+    /**
+     * Legacy state backend config key.
+     */
+    private static final String LEGACY_STATE_BACKEND_TYPE_KEY = "state.backend.type";
 
     /**
      * State checkpoint dir config key.
@@ -209,18 +214,13 @@ public class FlinkParamResolver {
         JsonNode taskKubernetes = object(taskData, "kubernetes");
         String deploymentPrefix = firstText(text(taskKubernetes, "deploymentNamePrefix"),
                 text(pluginKubernetes, "deploymentNamePrefix"), DEFAULT_DEPLOYMENT_NAME_PREFIX);
-        String secretPrefix = firstText(text(taskKubernetes, "secretNamePrefix"),
-                text(pluginKubernetes, "secretNamePrefix"), DEFAULT_SECRET_NAME_PREFIX);
         String deploymentName = FlinkK8sNameGenerator.deploymentName(deploymentPrefix, request.getTaskInstanceId());
-        String secretName = FlinkK8sNameGenerator.secretName(secretPrefix, request.getTaskInstanceId());
         String namespace = firstText(text(taskKubernetes, "namespace"), text(pluginKubernetes, "namespace"),
                 DEFAULT_K8S_NAMESPACE);
         String flinkAppDir = param.getFlinkAppDir();
         String jarUri = "local://" + joinPath(FlinkKubernetesTemplateConstants.USRLIB_PATH, param.getFlinkAppJar());
         String serviceName = deploymentName + DEFAULT_REST_SERVICE_SUFFIX;
         String webUiTemplate = firstText(text(taskKubernetes, "flinkWebUiUriTemplate"), DEFAULT_WEB_UI_TEMPLATE);
-        String jobJsonMountPath = joinPath(param.getWorkDir().toString(),
-                FlinkKubernetesTemplateConstants.JOB_JSON_FILE_NAME);
         JsonNode imagePullSecrets = firstNode(node(taskKubernetes, "imagePullSecrets"),
                 node(pluginKubernetes, "imagePullSecrets"));
         JsonNode envFrom = firstNode(node(taskKubernetes, "envFrom"), node(pluginKubernetes, "envFrom"));
@@ -240,7 +240,6 @@ public class FlinkParamResolver {
                 .sharedPvcName(firstText(text(taskKubernetes, "sharedPvcName"), text(pluginKubernetes, "sharedPvcName")))
                 .sharedMountPath(sharedMountPath(flinkAppDir))
                 .deploymentName(deploymentName)
-                .secretName(secretName)
                 .flinkWebUiUri(renderWebUiUri(webUiTemplate, namespace, deploymentName, serviceName))
                 .upgradeMode(firstText(text(taskKubernetes, "upgradeMode"), text(pluginKubernetes, "upgradeMode"),
                         DEFAULT_UPGRADE_MODE))
@@ -249,8 +248,6 @@ public class FlinkParamResolver {
                         booleanValue(pluginKubernetes, "collectLogsOnFinish", true)))
                 .deleteDeploymentOnFinish(booleanValue(taskKubernetes, "deleteDeploymentOnFinish",
                         booleanValue(pluginKubernetes, "deleteDeploymentOnFinish", false)))
-                .deleteSecretOnFinish(booleanValue(taskKubernetes, "deleteSecretOnFinish",
-                        booleanValue(pluginKubernetes, "deleteSecretOnFinish", true)))
                 .labels(mergeMap(object(pluginKubernetes, "labels"), object(taskKubernetes, "labels")))
                 .annotations(mergeMap(object(pluginKubernetes, "annotations"), object(taskKubernetes, "annotations")))
                 .env(mergeMap(object(pluginKubernetes, "env"), object(taskKubernetes, "env")))
@@ -267,8 +264,7 @@ public class FlinkParamResolver {
                 .podLabelSelector(FlinkK8sNameGenerator.podLabelSelector(request.getTaskInstanceId()))
                 .flinkAppDir(flinkAppDir)
                 .jarUri(jarUri)
-                .jobJsonMountPath(jobJsonMountPath)
-                .args(resolveKubernetesArgs(args, jobJsonMountPath))
+                .args(args)
                 .jobParallelism(jobParallelism)
                 .jobState(firstText(text(taskKubernetes, "jobState"), text(pluginKubernetes, "jobState")))
                 .build();
@@ -335,9 +331,17 @@ public class FlinkParamResolver {
             JsonNode effectiveTaskData) {
         Map<String, String> map = mergeMap(object(pluginParam, "flinkConfig"));
         map.putAll(mergeMap(object(effectiveTaskData, "flinkConfig")));
+        normalizeStateBackend(map);
         applyS3Options(map, object(object(effectiveTaskData, "sink"), "options"));
         applyCheckpointDirs(map, pluginParam, effectiveTaskData, request);
         return map;
+    }
+
+    private void normalizeStateBackend(Map<String, String> flinkConfig) {
+        String legacyBackend = flinkConfig.remove(LEGACY_STATE_BACKEND_TYPE_KEY);
+        if (!isBlank(legacyBackend)) {
+            flinkConfig.put(STATE_BACKEND_KEY, legacyBackend);
+        }
     }
 
     private void writeFlinkConfig(JsonNode effectiveTaskData, Map<String, String> flinkConfig) {
@@ -430,21 +434,6 @@ public class FlinkParamResolver {
         List<String> list = new ArrayList<>();
         value.forEach(item -> list.add(item.asText()));
         return list;
-    }
-
-    private List<String> resolveKubernetesArgs(List<String> args, String jobJsonMountPath) {
-        if (args == null || args.isEmpty()) {
-            return List.of("--config", jobJsonMountPath);
-        }
-        return replaceArgs(args, jobJsonMountPath);
-    }
-
-    private List<String> replaceArgs(List<String> args, String jobJsonMountPath) {
-        List<String> result = new ArrayList<>();
-        for (String arg : args) {
-            result.add(arg == null ? "" : arg.replace("{{jobJsonMountPath}}", jobJsonMountPath));
-        }
-        return result;
     }
 
     private void applyS3Options(Map<String, String> flinkConfig, JsonNode options) {

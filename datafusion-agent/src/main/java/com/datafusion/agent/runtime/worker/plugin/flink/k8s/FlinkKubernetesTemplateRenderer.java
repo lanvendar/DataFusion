@@ -5,6 +5,7 @@ import com.datafusion.agent.runtime.worker.plugin.template.TemplateSpecRenderer;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.LinkedHashMap;
@@ -32,6 +33,11 @@ public class FlinkKubernetesTemplateRenderer {
     private static final String RUN_MODE = "K8S_OPERATOR";
 
     /**
+     * CPU resource key.
+     */
+    private static final String CPU_RESOURCE_KEY = "cpu";
+
+    /**
      * Template renderer.
      */
     private final TemplateSpecRenderer templateRenderer;
@@ -56,13 +62,10 @@ public class FlinkKubernetesTemplateRenderer {
         FlinkKubernetesParam kubernetes = param.getKubernetes();
         Map<String, String> labels = labels(param);
         Map<String, String> annotations = annotations(kubernetes);
+        String encodedJobContent = Base64.getEncoder().encodeToString(jobContent.getBytes(StandardCharsets.UTF_8));
         Map<String, String> values = new LinkedHashMap<>();
         values.put("namespace", quote(kubernetes.getNamespace()));
-        values.put("secretName", quote(kubernetes.getSecretName()));
         values.put("deploymentName", quote(kubernetes.getDeploymentName()));
-        values.put("jobSecretKey", FlinkKubernetesTemplateConstants.JOB_JSON_FILE_NAME);
-        values.put("jobJsonBase64", quote(Base64.getEncoder()
-                .encodeToString(jobContent.getBytes(StandardCharsets.UTF_8))));
         values.put("labels", mapYaml(labels, 4));
         values.put("deploymentLabels", mapYaml(labels, 4));
         values.put("podLabels", mapYaml(labels, 8));
@@ -83,11 +86,9 @@ public class FlinkKubernetesTemplateRenderer {
         values.put("flinkAppJar", quote(param.getFlinkAppJar()));
         values.put("libDir", quote(param.getLibDir()));
         values.put("usrlibPath", quote(FlinkKubernetesTemplateConstants.USRLIB_PATH));
-        values.put("jobJsonMountDir", quote(parentPath(kubernetes.getJobJsonMountPath())));
-        values.put("jobJsonMountPath", quote(kubernetes.getJobJsonMountPath()));
         values.put("jarUri", quote(kubernetes.getJarUri()));
         values.put("mainClass", quote(param.getMainClass()));
-        values.put("args", listYaml(kubernetes.getArgs(), 8));
+        values.put("args", listYaml(List.of("--job", encodedJobContent), 8));
         values.put("upgradeMode", quote(kubernetes.getUpgradeMode()));
         values.put("jobStateBlock", stringBlock("state", kubernetes.getJobState(), 4));
         values.put("jobParallelismBlock", integerBlock("parallelism", kubernetes.getJobParallelism(), 4));
@@ -193,9 +194,31 @@ public class FlinkKubernetesTemplateRenderer {
         }
         StringBuilder builder = new StringBuilder();
         node.properties().forEach(entry -> builder.append(spaces(indent))
-                .append(quote(entry.getKey())).append(": ").append(quote(entry.getValue().asText()))
+                .append(quote(entry.getKey())).append(": ").append(resourceValue(entry.getKey(), entry.getValue()))
                 .append(System.lineSeparator()));
         return builder.toString();
+    }
+
+    private String resourceValue(String key, JsonNode value) {
+        if (CPU_RESOURCE_KEY.equals(key)) {
+            return numericResourceValue(value);
+        }
+        return quote(value == null ? "" : value.asText());
+    }
+
+    private String numericResourceValue(JsonNode value) {
+        if (value == null || value.isNull()) {
+            return "0";
+        }
+        if (value.isNumber()) {
+            return value.asText();
+        }
+        String text = value.asText();
+        try {
+            return new BigDecimal(text).toPlainString();
+        } catch (NumberFormatException ignored) {
+            return quote(text);
+        }
     }
 
     private String mapBlock(String name, Map<String, String> map, int keyIndent, int valueIndent) {
@@ -242,18 +265,6 @@ public class FlinkKubernetesTemplateRenderer {
         }
         return "k8s-operator://" + kubernetes.getNamespace() + "/flinkdeployments/"
                 + kubernetes.getDeploymentName();
-    }
-
-    private String parentPath(String path) {
-        if (isBlank(path)) {
-            return "/";
-        }
-        String normalized = path.replaceAll("/+$", "");
-        int index = normalized.lastIndexOf('/');
-        if (index <= 0) {
-            return "/";
-        }
-        return normalized.substring(0, index);
     }
 
     private String quote(String value) {

@@ -1,14 +1,3 @@
-apiVersion: v1
-kind: Secret
-metadata:
-  name: {{secretName}}
-  namespace: {{namespace}}
-  labels:
-{{labels}}
-type: Opaque
-data:
-  {{jobSecretKey}}: {{jobJsonBase64}}
----
 apiVersion: flink.apache.org/v1beta1
 kind: FlinkDeployment
 metadata:
@@ -57,15 +46,9 @@ spec:
         - name: "flink-main-container"
 {{envBlock}}{{envFromBlock}}
           volumeMounts:
-            - name: "datafusion-flink-job"
-              mountPath: {{jobJsonMountDir}}
-              readOnly: true
             - name: "datafusion-flink-usrlib"
               mountPath: {{usrlibPath}}
       volumes:
-        - name: "datafusion-flink-job"
-          secret:
-            secretName: {{secretName}}
         - name: "datafusion-flink-shared"
           persistentVolumeClaim:
             claimName: {{sharedPvcName}}
