@@ -1,0 +1,322 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datafusion-agent-spider-env
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: agent-spider
+data:
+  TZ: "Asia/Shanghai"
+
+  # browser-agent
+  APP_ENV: "dev"
+  LOG_LEVEL: "INFO"
+  LOG_FILE_LEVEL: "INFO"
+  MAX_CONCURRENCY: "8"
+  QUEUE_TIMEOUT: "60"
+  REDIS_HOST: ""
+  REDIS_PORT: "6379"
+  REDIS_USERNAME: ""
+  REDIS_MAX_CONNECTIONS: "10"
+  PLANNER_LLM_BASE_URL: ""
+  PLANNER_LLM_MODEL_NAME: ""
+  BROWSER_AGENT_ENABLE_OTEL: "true"
+  OTEL_EXPORTER_OTLP_ENDPOINT: ""
+  OTEL_EXPORTER_OTLP_HEADERS: ""
+  OTEL_LOGS_EXPORTER: "none"
+  OTEL_TRACES_EXPORTER: "none"
+  OTEL_METRICS_EXPORTER: "none"
+
+  # sh-web-spider
+  HTTP_TIMEOUT_SECONDS: "20"
+  HTTP_MAX_RETRIES: "2"
+  HTTP_USER_AGENT: "sh-web-spider/0.1.0"
+  HTTP_RANDOM_DELAY_ENABLED: "false"
+  HTTP_RANDOM_DELAY_RANGE_SECONDS: "[0,60]"
+  MCP_URL: "http://127.0.0.1:8000/mcp"
+  KAFKA_BOOTSTRAP_SERVERS: ""
+  KAFKA_TOPIC: ""
+  KAFKA_CLIENT_ID: "sh-web-spider"
+  KAFKA_SECURITY_PROTOCOL: "PLAINTEXT"
+  KAFKA_SASL_MECHANISM: ""
+  KAFKA_USERNAME: ""
+  KAFKA_CONSUMER_GROUP_ID: "sh-web-spider"
+
+  # datafusion-agent
+  DATAFUSION_ENV: "test"
+  SERVER_PORT: "8081"
+  DATAFUSION_MODULES: "/opt/datafusion"
+  DATAFUSION_PLUGINS_ROOT_DIR: "/opt/datafusion/plugins"
+  DATAFUSION_PLUGINS_INIT_OVERWRITE: "false"
+  DATAFUSION_WORKER_PLUGIN_TYPES: "SPIDER"
+  DATAFUSION_ACCEPT_TASKS_BEFORE_REGISTERED: "false"
+  DATAFUSION_MANAGER_ENABLED: "true"
+  DATAFUSION_MANAGER_URL: "http://datafusion-manager:8080"
+  DATAFUSION_HEARTBEAT_INTERVAL_MS: "15000"
+  DATAFUSION_STATE_REFRESH_INTERVAL_MS: "15000"
+  DATAFUSION_STATE_REFRESH_UNKNOWN_THRESHOLD: "3"
+  DATAFUSION_WORKER_LOG_DIR: "/opt/datafusion/logs/datafusion-agent-spider"
+  DATAFUSION_LOGS_DIR: "logs"
+  DATAFUSION_TASK_RUNTIME_DIR: "/opt/datafusion/task-runtime"
+  DATAFUSION_WORKER_CONFIG_PATH: "/opt/datafusion-builtin/datafusion-agent/worker.config"
+  DATAFUSION_TASK_POOL_CORE_SIZE: "8"
+  DATAFUSION_TASK_POOL_MAX_SIZE: "16"
+  DATAFUSION_TASK_POOL_QUEUE_CAPACITY: "512"
+  DATAFUSION_TASK_POOL_KEEP_ALIVE_SECONDS: "60"
+  DATAFUSION_REPORT_POOL_CORE_SIZE: "2"
+  DATAFUSION_REPORT_POOL_MAX_SIZE: "4"
+  DATAFUSION_REPORT_POOL_QUEUE_CAPACITY: "512"
+  DATAFUSION_REPORT_POOL_KEEP_ALIVE_SECONDS: "60"
+  JAVA_OPTS: "-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8 -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
+
+  # Nacos: 默认复用 datafusion-agent-${DATAFUSION_ENV}.yaml。
+  NACOS_CONFIG_ENABLED: "true"
+  NACOS_DISCOVERY_ENABLED: "true"
+  NACOS_DISCOVERY_REGISTER_ENABLED: "true"
+  NACOS_SERVER_ADDR: "nacos.datafusion.svc.cluster.local:8848"
+  NACOS_CONFIG_TIMEOUT: "10000"
+  NACOS_CONFIG_FILE_EXTENSION: "yaml"
+  NACOS_NAMESPACE: ""
+  NACOS_GROUP: "DEFAULT_GROUP"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: datafusion-agent-spider-secret
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: agent-spider
+type: Opaque
+stringData:
+  REDIS_PASSWORD: ""
+  PLANNER_LLM_API_KEY: ""
+  KAFKA_PASSWORD: ""
+  NACOS_USERNAME: ""
+  NACOS_PASSWORD: ""
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: datafusion-agent-spider
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: agent-spider
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: datafusion-agent-spider-role
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: agent-spider
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - pods/log
+    verbs:
+      - get
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - flink.apache.org
+    resources:
+      - flinkdeployments
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: datafusion-agent-spider-role
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: agent-spider
+subjects:
+  - kind: ServiceAccount
+    name: datafusion-agent-spider
+    namespace: datafusion
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: datafusion-agent-spider-role
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: datafusion-agent-spider
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: agent-spider
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: agent-spider
+  ports:
+    - name: browser-http
+      port: 8000
+      targetPort: browser-http
+    - name: agent-http
+      port: 8081
+      targetPort: agent-http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: datafusion-agent-spider
+  namespace: datafusion
+  labels:
+    app.kubernetes.io/name: datafusion
+    app.kubernetes.io/component: agent-spider
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: datafusion
+      app.kubernetes.io/component: agent-spider
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: datafusion
+        app.kubernetes.io/component: agent-spider
+    spec:
+      serviceAccountName: datafusion-agent-spider
+      terminationGracePeriodSeconds: 60
+      initContainers:
+        - name: seed-datafusion-shared-data
+          image: jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:datafusion-agent-spider-v1.0.0-20260706
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: datafusion-agent-spider-env
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              mkdir -p \
+                /opt/datafusion/logs/datafusion-agent-spider \
+                /opt/datafusion/plugins \
+                /opt/datafusion/task-runtime
+              if [ "${DATAFUSION_PLUGINS_INIT_OVERWRITE:-false}" = "true" ]; then
+                cp -a /opt/datafusion-builtin/plugins/. /opt/datafusion/plugins/
+              else
+                cp -an /opt/datafusion-builtin/plugins/. /opt/datafusion/plugins/
+              fi
+              if [ -f /opt/datafusion/plugins/spider/scripts/init-runtime-unpack.sh ]; then
+                chmod +x /opt/datafusion/plugins/spider/scripts/init-runtime-unpack.sh
+                /opt/datafusion/plugins/spider/scripts/init-runtime-unpack.sh --root /opt/datafusion/plugins/spider
+              fi
+          volumeMounts:
+            - name: datafusion-shared-data
+              mountPath: /opt/datafusion/
+      containers:
+        - name: datafusion-agent-spider
+          image: jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:datafusion-agent-spider-v1.0.0-20260706
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: browser-http
+              containerPort: 8000
+            - name: agent-http
+              containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: datafusion-agent-spider-env
+            - secretRef:
+                name: datafusion-agent-spider-secret
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: datafusion-agent-spider-env
+                  key: DATAFUSION_ENV
+            - name: NACOS_CONFIG_DATA_ID
+              value: datafusion-agent-$(SPRING_PROFILES_ACTIVE)
+            - name: LOG_PATH
+              value: /opt/datafusion/logs/datafusion-agent-spider
+            - name: DATAFUSION_AGENT_WORKER_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: DATAFUSION_AGENT_WORKER_HOST_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: DATAFUSION_AGENT_WORKER_PORT
+              value: "8081"
+          volumeMounts:
+            - name: datafusion-shared-data
+              mountPath: /opt/datafusion/
+          resources:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+            limits:
+              cpu: "4"
+              memory: "6Gi"
+          startupProbe:
+            tcpSocket:
+              port: agent-http
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: agent-http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket:
+              port: agent-http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+      volumes:
+        - name: datafusion-shared-data
+          persistentVolumeClaim:
+            claimName: datafusion-shared-data

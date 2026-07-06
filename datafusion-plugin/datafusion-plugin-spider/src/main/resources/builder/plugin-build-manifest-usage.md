@@ -9,7 +9,7 @@
 先把 runtime 包同步到插件资源目录：
 
 ```bash
-./datafusion-plugin/datafusion-plugin-spider/src/main/resources/plugins/spider/sync-spider-runtime.sh \
+./datafusion-plugin/datafusion-plugin-spider/src/main/resources/docker/sync-spider-runtime.sh \
   --source /Users/lanvendar/PycharmProjects/browser-agent/dist/browser-agent-linux-amd64-runtime.tar.gz \
   --source /Users/lanvendar/PycharmProjects/sh-web-spider/dist/sh-web-spider-linux-amd64-runtime.tar.gz
 ```
@@ -32,13 +32,8 @@ datafusion-agent/src/main/resources/plugins/spider/
     browser-agent-linux-amd64-runtime.tar.gz
   sh-web-spider/
     sh-web-spider-linux-amd64-runtime.tar.gz
-```
-
-Agent 镜像内置通用解压脚本：
-
-```text
-datafusion-agent/src/main/resources/plugins/
-  init-runtime-unpack.sh
+  scripts/
+    init-runtime-unpack.sh
 ```
 
 ## 3) 打包校验

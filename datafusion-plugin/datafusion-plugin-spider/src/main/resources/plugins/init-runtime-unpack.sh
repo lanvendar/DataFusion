@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 扫描插件目录下的 .tar.gz 运行包，并解压到各自所在目录。
+# 扫描 SPIDER 插件目录下的 .tar.gz 运行包，并解压到各自所在目录。
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCES=()
 
 usage() {
   cat <<EOF
 用法:
-  ./init-runtime-unpack.sh [--root <plugins-dir>] [--source <runtime-tar1>[,<runtime-tar2>...]]
+  ./init-runtime-unpack.sh [--root <spider-plugin-dir>] [--source <runtime-tar1>[,<runtime-tar2>...]]
 
 说明:
   未指定 --source 时，默认扫描 --root 目录下所有 *.tar.gz。
   每个运行包都会解压到它所在的目录。
 
 示例:
-  ./init-runtime-unpack.sh --root /opt/datafusion/plugins
+  ./init-runtime-unpack.sh --root /opt/datafusion/plugins/spider
   ./init-runtime-unpack.sh --source /opt/datafusion/plugins/spider/browser-agent/browser-agent-linux-amd64-runtime.tar.gz
 EOF
 }
@@ -50,7 +50,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ ! -d "${ROOT_DIR}" ]; then
-  echo "Plugin root directory not found: ${ROOT_DIR}" >&2
+  echo "SPIDER plugin directory not found: ${ROOT_DIR}" >&2
   exit 1
 fi
 
@@ -76,8 +76,8 @@ for archive in "${SOURCES[@]}"; do
   fi
 
   target_dir="$(cd "$(dirname "${archive}")" && pwd)"
-  echo "Unpack runtime archive: ${archive} -> ${target_dir}"
+  echo "Unpack SPIDER runtime archive: ${archive} -> ${target_dir}"
   tar -C "${target_dir}" -xzf "${archive}"
 done
 
-echo "Runtime unpack done."
+echo "SPIDER runtime unpack done."

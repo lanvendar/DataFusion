@@ -5,12 +5,10 @@ set -euo pipefail
 # 支持重复 --source 或逗号分隔 source 传参。
 # source 未显式映射时按文件名自动映射：
 #   browser-agent-linux-amd64-runtime.tar.gz -> browser-agent/
-#   browser-agent-linux-amd64-venv.tar.gz -> browser-agent/
 #   sh-web-spider-linux-amd64-runtime.tar.gz -> sh-web-spider/
-#   sh-web-spider-linux-amd64-venv.tar.gz -> sh-web-spider/
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODULE_DIR="$(cd "${SCRIPT_DIR}/../../../../../" && pwd)"
+MODULE_DIR="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 
 DEFAULT_BROWSER_AGENT_SOURCE="${BROWSER_AGENT_RUNTIME_SOURCE:-/Users/lanvendar/PycharmProjects/browser-agent/dist/browser-agent-linux-amd64-runtime.tar.gz}"
 DEFAULT_SH_WEB_SOURCE="${SH_WEB_SPIDER_RUNTIME_SOURCE:-/Users/lanvendar/PycharmProjects/sh-web-spider/dist/sh-web-spider-linux-amd64-runtime.tar.gz}"
@@ -39,9 +37,7 @@ Usage: $0 [--source <path>] [--source <path> ...]
 
 默认映射文件名:
   browser-agent-linux-amd64-runtime.tar.gz -> browser-agent
-  browser-agent-linux-amd64-venv.tar.gz -> browser-agent
   sh-web-spider-linux-amd64-runtime.tar.gz -> sh-web-spider
-  sh-web-spider-linux-amd64-venv.tar.gz -> sh-web-spider
 
 未传 --source 时，脚本会尝试使用默认路径:
   ${DEFAULT_BROWSER_AGENT_SOURCE}
@@ -121,10 +117,7 @@ resolve_target_dir() {
     browser-agent-linux-amd64-runtime.tar.gz)
       echo "${source}" "${TARGET_BASE}/browser-agent"
       ;;
-    browser-agent-linux-amd64-venv.tar.gz)
-      echo "${source}" "${TARGET_BASE}/browser-agent"
-      ;;
-    sh-web-spider-linux-amd64-runtime.tar.gz|sh-web-spider-linux-amd64-venv.tar.gz)
+    sh-web-spider-linux-amd64-runtime.tar.gz)
       echo "${source}" "${TARGET_BASE}/sh-web-spider"
       ;;
     *)
