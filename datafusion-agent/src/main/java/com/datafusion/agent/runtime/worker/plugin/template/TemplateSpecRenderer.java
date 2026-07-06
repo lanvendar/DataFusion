@@ -1,11 +1,13 @@
 package com.datafusion.agent.runtime.worker.plugin.template;
 
+import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.common.utils.JacksonUtils;
 import org.springframework.stereotype.Component;
 import org.yaml.snakeyaml.Yaml;
 
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -26,9 +28,23 @@ public class TemplateSpecRenderer {
     private static final Pattern UNRESOLVED_PLACEHOLDER = Pattern.compile("\\{\\{[^}]+}}");
 
     /**
+     * Agent properties.
+     */
+    private final AgentProperties properties;
+
+    /**
+     * Constructor.
+     *
+     * @param properties agent properties
+     */
+    public TemplateSpecRenderer(AgentProperties properties) {
+        this.properties = properties;
+    }
+
+    /**
      * Render template to text.
      *
-     * @param templatePath classpath template path
+     * @param templatePath plugin template path relative to plugins root dir
      * @param values       render values
      * @return rendered text
      */
@@ -47,7 +63,7 @@ public class TemplateSpecRenderer {
     /**
      * Render YAML template to target spec.
      *
-     * @param templatePath classpath template path
+     * @param templatePath plugin template path relative to plugins root dir
      * @param values       render values
      * @param targetClass  target spec class
      * @param <T>          target type
@@ -59,15 +75,26 @@ public class TemplateSpecRenderer {
     }
 
     private String loadTemplate(String templatePath) {
-        try (InputStream stream = Thread.currentThread()
-                .getContextClassLoader()
-                .getResourceAsStream(templatePath)) {
-            if (stream == null) {
-                throw new IllegalStateException("模板不存在: " + templatePath);
-            }
-            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        String pluginsRootDir = properties.getPluginsRootDir();
+        if (pluginsRootDir == null || pluginsRootDir.isBlank()) {
+            throw new IllegalStateException("插件根目录未配置");
+        }
+        Path relativeTemplatePath = Path.of(templatePath);
+        if (relativeTemplatePath.isAbsolute()) {
+            throw new IllegalArgumentException("模板路径必须是插件根目录下的相对路径: " + templatePath);
+        }
+        Path pluginsRootPath = Path.of(pluginsRootDir).normalize();
+        Path templateFile = pluginsRootPath.resolve(relativeTemplatePath).normalize();
+        if (!templateFile.startsWith(pluginsRootPath)) {
+            throw new IllegalArgumentException("外部模板路径越界: " + templatePath);
+        }
+        if (!Files.isRegularFile(templateFile)) {
+            throw new IllegalStateException("模板不存在: " + templateFile);
+        }
+        try {
+            return Files.readString(templateFile, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            throw new IllegalStateException("读取模板失败: " + templatePath, e);
+            throw new IllegalStateException("读取模板失败: " + templateFile, e);
         }
     }
 }

@@ -35,6 +35,11 @@ public class AgentProperties {
     private Storage storage = new Storage();
 
     /**
+     * 插件根目录.
+     */
+    private String pluginsRootDir = "/opt/datafusion/plugins";
+
+    /**
      * 状态刷新配置.
      */
     private StateRefresh stateRefresh = new StateRefresh();

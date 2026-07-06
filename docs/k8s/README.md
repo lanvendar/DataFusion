@@ -31,7 +31,8 @@
    - `NACOS_CONFIG_DATA_ID` 在 Manager/Agent 的 Deployment 中分别默认为 `datafusion-manager-$(SPRING_PROFILES_ACTIVE)` 和 `datafusion-agent-$(SPRING_PROFILES_ACTIVE)`。
    - `DATAFUSION_MANAGER_URL` 默认指向集群内 Service: `http://datafusion-manager:8080`。
    - `LOG_PATH` 在 Manager/Agent 的 Deployment 中分别设置为 `/opt/datafusion/logs/datafusion-manager` 和 `/opt/datafusion/logs/datafusion-agent`。
-   - `DATAFUSION_INIT_OVERWRITE` 默认是 `false`，Agent initContainer 只从镜像内置 `/opt/datafusion-builtin` 补齐 PVC 缺失插件文件；改为 `true` 时会覆盖 PVC 中已有文件。
+   - `DATAFUSION_PLUGINS_ROOT_DIR` 默认指向共享盘插件目录 `/opt/datafusion/plugins`，Agent 运行时只从该目录读取插件配置、模板和运行依赖。
+   - `DATAFUSION_PLUGINS_INIT_OVERWRITE` 默认是 `false`，Agent initContainer 只从镜像内置 `/opt/datafusion-builtin/plugins` 补齐 PVC 缺失插件文件；改为 `true` 时会覆盖 PVC 中已有文件。
    - `DATAFUSION_WORKER_PLUGIN_TYPES` 默认空，表示 Agent 上报已加载的全部插件；可设为 `SHELL`、`DATAX` 或逗号分隔列表限制 worker 承接插件。
    - `SKYWALKING_GRAPHQL_URL`、`DATAFUSION_ETL_*` 按实际外部依赖调整。
 
@@ -55,7 +56,7 @@
 
 6. 确认 PVC 与存储类：
    - `datafusion-common-pvc.yml` 基于 `rook-cephfs` 参数创建 `rook-cephfs-retain`，回收策略为 `Retain`。
-   - PVC `datafusion-shared-data` 使用 `ReadWriteMany`，Manager 和 Agent 共同挂载到 `/opt/datafusion/`。
+   - PVC `datafusion-shared-data` 使用 `ReadWriteMany`，Manager 和 Agent 共同挂载到 `/opt/datafusion/`，Agent 插件运行目录为 `/opt/datafusion/plugins`。
 
 7. 如需外部访问，确认 MetalLB 配置：
    - `datafusion-*-lb.yml` 默认共享 `172.26.185.215`。

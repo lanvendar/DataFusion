@@ -104,7 +104,7 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
     /**
      * Local template path.
      */
-    private static final String LOCAL_TEMPLATE_PATH = "plugins/api/templates/api-local-runtime.yml";
+    private static final String LOCAL_TEMPLATE_PATH = "api/templates/api-local-runtime.yml";
 
     /**
      * agent 配置.

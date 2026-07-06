@@ -12,7 +12,7 @@ public final class FlinkKubernetesTemplateConstants {
     /**
      * Template path.
      */
-    public static final String TEMPLATE_PATH = "plugins/flink/templates/flink-k8s-operator-deployment.yml";
+    public static final String TEMPLATE_PATH = "flink/templates/flink-k8s-operator-deployment.yml";
 
     /**
      * Flink job JSON file name.

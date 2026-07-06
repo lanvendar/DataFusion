@@ -12,6 +12,8 @@ datafusion:
   agent:
     # Agent 模块根目录。
     modules: ${DATAFUSION_MODULES:${user.dir}}
+    # 插件根目录，运行时只从该目录下的各插件子目录读取配置、模板和运行依赖。
+    plugins-root-dir: ${DATAFUSION_PLUGINS_ROOT_DIR:/opt/datafusion/plugins}
     # Worker 注册信息和接单能力配置。
     # plugin-types 用于限制当前 worker 支持的插件集合，例如 SPIDER。
     worker:

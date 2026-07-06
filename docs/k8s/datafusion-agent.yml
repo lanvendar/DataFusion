@@ -137,13 +137,12 @@ spec:
               set -eu
               mkdir -p \
                 /opt/datafusion/logs/datafusion-agent \
-                /opt/datafusion/plugins/datax \
-                /opt/datafusion/plugins/shell \
+                /opt/datafusion/plugins \
                 /opt/datafusion/task-runtime
-              if [ "${DATAFUSION_INIT_OVERWRITE:-false}" = "true" ]; then
-                cp -a /opt/datafusion-builtin/. /opt/datafusion/
+              if [ "${DATAFUSION_PLUGINS_INIT_OVERWRITE:-false}" = "true" ]; then
+                cp -a /opt/datafusion-builtin/plugins/. /opt/datafusion/plugins/
               else
-                cp -an /opt/datafusion-builtin/. /opt/datafusion/
+                cp -an /opt/datafusion-builtin/plugins/. /opt/datafusion/plugins/
               fi
           volumeMounts:
             - name: datafusion-shared-data
