@@ -14,11 +14,11 @@
           "name": "mysqlreader",
           "parameter": {
             "username": "AI_READ",
-            "password": "AIread258.",
+            "password": "AiRead159753",
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://10.10.102.52:3306/srm_prod?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true"
+                  "jdbc:mysql://10.10.11.134:3306/srm_prod?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true"
                 ],
                 "querySql": [
                   "SELECT `budget_subject_id`,`tenant_id`,`subject_num`,`subject_name`,`company_id`,`company_num`,`company_name`,`budget_subject_type`,`project_status`,`investment_estimation`,`enabled`,`project_start_time`,`project_end_time`,`object_version_number`,`creation_date`,`created_by`,`last_updated_by`,`last_update_date` FROM `scux_shsh_budget_subject`"
@@ -34,7 +34,7 @@
             "options": {
               "warehouse": "s3a://data-lake-warehouse/paimon",
               "catalogType": "filesystem",
-              "database": "dw_dev",
+              "database": "dw_prod",
               "endpoint": "http://sz-s3.indusmind.me",
               "region": "us-east-1",
               "accessKey": "DNFY3F8DZ102RKOAXIMJ",

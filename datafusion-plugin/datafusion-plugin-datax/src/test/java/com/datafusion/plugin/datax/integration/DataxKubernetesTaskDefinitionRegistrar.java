@@ -161,13 +161,6 @@ public final class DataxKubernetesTaskDefinitionRegistrar {
     private static final String DEFAULT_TASK_TYPE = "DATAX";
 
     /**
-     * 直接运行 main 时按需修改：只传文件名时默认查找的 DataX 任务 JSON 目录。
-     *
-     * <p>例如传入 {@code ods_shys_gb_bu_td.json} 时，默认会到 {@code job/shys} 目录下查找。
-     */
-    private static final String DEFAULT_JOB_DIRECTORY = "job/shys";
-
-    /**
      * Manager 服务地址。
      */
     private final String apiBaseUrl = setting("datafusion.manager.api-base-url",
@@ -228,6 +221,13 @@ public final class DataxKubernetesTaskDefinitionRegistrar {
         this.jobResource = resolveJobResource(jobResourceInput);
         this.jobKey = jobKey(jobResource);
     }
+
+    /**
+     * 直接运行 main 时按需修改：只传文件名时默认查找的 DataX 任务 JSON 目录。
+     *
+     * <p>例如传入 {@code ods_shys_gb_bu_td.json} 时，默认会到 {@code plugins/datax/jobs/shys} 目录下查找。
+     */
+    private static final String DEFAULT_JOB_DIRECTORY = "plugins/datax/jobs/shcw";
     /**
      * 直接运行 main 时需要修改：默认执行动作。
      *
@@ -242,9 +242,9 @@ public final class DataxKubernetesTaskDefinitionRegistrar {
      * 直接运行 main 时需要修改：默认 DataX 任务 JSON 文件名或 classpath 资源路径。
      *
      * <p>例如 {@code ods_shys_gb_bu_td.json}、{@code shys/ods_shys_gb_bu_td.json}
-     * 或 {@code job/shys/ods_shys_gb_bu_td.json}。
+     * 或 {@code plugins/datax/jobs/shys/ods_shys_gb_bu_td.json}。
      */
-    private static final String DEFAULT_JOB_RESOURCE = "ods_shys_jc_wh_zfir00189.json";
+    private static final String DEFAULT_JOB_RESOURCE = "ods_shcw_scux_shsh_budget_subject.json";
     /**
      * 生成或注册一个 DataX K8S 任务定义。
      *

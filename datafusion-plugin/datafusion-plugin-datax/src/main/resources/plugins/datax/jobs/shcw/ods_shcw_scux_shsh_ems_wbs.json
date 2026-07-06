@@ -1,0 +1,131 @@
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "channel": 1
+      },
+      "errorLimit": {
+        "record": 0
+      }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "mysqlreader",
+          "parameter": {
+            "username": "AI_READ",
+            "password": "AiRead159753",
+            "connection": [
+              {
+                "jdbcUrl": [
+                  "jdbc:mysql://10.10.11.134:3306/srm_prod?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true"
+                ],
+                "querySql": [
+                  "SELECT `id`,`tenant_id`,`subject_code`,`subject_name`,`wbs_code`,`wbs_name`,`origin_contract_data2`,`origin_contract_data1`,`wbs_contract_amount_disassemble`,`payable_amount`,`actually_paid_amount`,`output_value`,`creat_date` FROM `scux_shsh_ems_wbs`"
+                ]
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name": "paimonwriter",
+          "parameter": {
+            "connectType": "S3",
+            "options": {
+              "warehouse": "s3a://data-lake-warehouse/paimon",
+              "catalogType": "filesystem",
+              "database": "dw_prod",
+              "endpoint": "http://sz-s3.indusmind.me",
+              "region": "us-east-1",
+              "accessKey": "DNFY3F8DZ102RKOAXIMJ",
+              "secretKey": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+              "pathStyleAccess": true,
+              "sslEnabled": false,
+              "hadoop.fs.s3a.fast.upload.buffer": "array",
+              "bucket": "2",
+              "write-buffer-size": "128mb",
+              "file.format": "parquet"
+            },
+            "table": "ods_shcw_scux_shsh_ems_wbs",
+            "tableComment": "工程管理系统获取SRM系统wbs信息接口表",
+            "loadMode": "UPSERT",
+            "batchSize": 1000,
+            "overwritePartition": {
+              "enabled": false,
+              "partition": {}
+            },
+            "primaryKey": "id",
+            "partitionKey": "",
+            "column": [
+              {
+                "name": "id",
+                "type": "BIGINT",
+                "comment": "表ID，主键，供其他表做外键"
+              },
+              {
+                "name": "tenant_id",
+                "type": "BIGINT",
+                "comment": "租户id"
+              },
+              {
+                "name": "subject_code",
+                "type": "VARCHAR(64)",
+                "comment": "预算主体编码"
+              },
+              {
+                "name": "subject_name",
+                "type": "VARCHAR(64)",
+                "comment": "预算主体名称"
+              },
+              {
+                "name": "wbs_code",
+                "type": "VARCHAR(64)",
+                "comment": "WBS编码"
+              },
+              {
+                "name": "wbs_name",
+                "type": "VARCHAR(64)",
+                "comment": "WBS名称"
+              },
+              {
+                "name": "origin_contract_data2",
+                "type": "DECIMAL(64,2)",
+                "comment": "原合同数据2"
+              },
+              {
+                "name": "origin_contract_data1",
+                "type": "DECIMAL(64,2)",
+                "comment": "原合同数据1"
+              },
+              {
+                "name": "wbs_contract_amount_disassemble",
+                "type": "DECIMAL(64,2)",
+                "comment": "WBS合同金额(拆分)"
+              },
+              {
+                "name": "payable_amount",
+                "type": "DECIMAL(64,2)",
+                "comment": "应付金额"
+              },
+              {
+                "name": "actually_paid_amount",
+                "type": "DECIMAL(64,2)",
+                "comment": "实付金额"
+              },
+              {
+                "name": "output_value",
+                "type": "DECIMAL(64,2)",
+                "comment": "产值"
+              },
+              {
+                "name": "creat_date",
+                "type": "DATETIME",
+                "comment": "创建日期"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
