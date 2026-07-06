@@ -7,6 +7,22 @@
 
 `sh-web-spider` 以可执行运行目录形式放在 `/opt/sh-web-spider`，由 SPIDER 任务命令调用。
 
+## 启动入口
+
+镜像默认入口是：
+
+```text
+/usr/local/bin/start-datafusion-agent-spider.sh
+```
+
+该脚本来自：
+
+```text
+datafusion-plugin/datafusion-plugin-spider/src/main/resources/docker/start-datafusion-agent-spider.sh
+```
+
+容器启动时由 Docker `ENTRYPOINT` 自动执行，负责同时拉起 `browser-agent` 和 `datafusion-agent`，并在容器停止时转发退出信号、回收两个子进程。通常不需要手工调用该脚本。
+
 ## 运行包约定
 
 镜像构建直接使用两份“依赖 + app 一体”的运行包：
@@ -47,6 +63,8 @@ cd /Users/lanvendar/Projects/DataFusion
 ./datafusion-plugin/datafusion-plugin-spider/src/main/resources/docker/sync-spider-runtime.sh
 ```
 
+镜像构建时会直接解压 `browser-agent` 和 `sh-web-spider` 运行包到 `/opt` 目录，复制 agent 内置插件资源时会排除 `*.tar.gz`，避免运行包在镜像中重复保存。
+
 准备 Chromium 离线 deb 包：
 
 ```bash
@@ -73,16 +91,18 @@ docker buildx build --network none --platform linux/amd64 --load \
   --build-context datafusion-agent=/Users/lanvendar/Projects/DataFusion/datafusion-agent \
   --build-context amd64-debs=/Users/lanvendar/Projects/DockerImagesBuilder/amd64-debs \
   -f datafusion-plugin/datafusion-plugin-spider/src/main/resources/docker/Dockerfile \
-  -t datafusion-agent-spider:v1.0.0-20260706 \
+  -t datafusion-agent-spider:v1.0.0-20260701 \
   datafusion-plugin/datafusion-plugin-spider/src/main/resources/docker
 ```
 
 ## 本地校验
 
+以下命令只校验镜像内关键文件和运行依赖；不执行默认入口脚本：
+
 ```bash
 docker run --rm --platform linux/amd64 \
   --entrypoint /bin/bash \
-  datafusion-agent-spider:v1.0.0-20260706 \
+  datafusion-agent-spider:v1.0.0-20260701 \
   -lc 'set -e
 java -version
 python3.12 --version
@@ -99,11 +119,11 @@ echo image-smoke-ok'
 
 ```bash
 docker tag \
-  datafusion-agent-spider:v1.0.0-20260706 \
-  jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:datafusion-agent-spider-v1.0.0-20260706
+  datafusion-agent-spider:v1.0.0-20260701 \
+  jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:datafusion-agent-spider-v1.0.0-20260701
 
 docker push \
-  jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:datafusion-agent-spider-v1.0.0-20260706
+  jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:datafusion-agent-spider-v1.0.0-20260701
 ```
 
 ## K8S 部署
@@ -133,6 +153,24 @@ kubectl --kubeconfig /Users/lanvendar/vsCode/tmp/rke2.yaml \
 kubectl --kubeconfig /Users/lanvendar/vsCode/tmp/rke2.yaml \
   -n datafusion logs deploy/datafusion-agent-spider -f
 ```
+
+## 下线 spider agent（不清理共享盘）
+
+通过内置脚本下线运行中的实例并清理 spider 相关资源（`Deployment/Service/ConfigMap/Secret/SA/Role/RoleBinding`），不会删除共享盘 PVC：
+
+```bash
+cd /Users/lanvendar/Projects/DataFusion
+
+export KUBECONFIG=/Users/lanvendar/vsCode/tmp/rke2.yaml
+./datafusion-plugin/datafusion-plugin-spider/src/main/resources/docker/datafusion-agent-spider-undeploy.sh
+```
+
+可选环境变量：
+- `NAMESPACE`：默认 `datafusion`
+- `RELEASE_NAME`：默认 `datafusion-agent-spider`
+- `KUBECONFIG`：kubectl 配置路径
+- `TIMEOUT`：等待 Pod 下线超时时间，默认 `180s`
+- `KUBECTL`：kubectl 命令路径，默认 `kubectl`
 
 ## 任务命令示例
 

@@ -11,16 +11,16 @@ data:
 
   # browser-agent
   APP_ENV: "dev"
-  LOG_LEVEL: "INFO"
+  LOG_LEVEL: "DEBUG"
   LOG_FILE_LEVEL: "INFO"
   MAX_CONCURRENCY: "8"
   QUEUE_TIMEOUT: "60"
-  REDIS_HOST: ""
-  REDIS_PORT: "6379"
+  REDIS_HOST: "172.26.185.215"
+  REDIS_PORT: "21003"
   REDIS_USERNAME: ""
   REDIS_MAX_CONNECTIONS: "10"
-  PLANNER_LLM_BASE_URL: ""
-  PLANNER_LLM_MODEL_NAME: ""
+  PLANNER_LLM_BASE_URL: "https://api.indusmind.me/new-api/v1"
+  PLANNER_LLM_MODEL_NAME: "SH/Qwen3.5-27B"
   BROWSER_AGENT_ENABLE_OTEL: "true"
   OTEL_EXPORTER_OTLP_ENDPOINT: ""
   OTEL_EXPORTER_OTLP_HEADERS: ""
@@ -35,21 +35,23 @@ data:
   HTTP_RANDOM_DELAY_ENABLED: "false"
   HTTP_RANDOM_DELAY_RANGE_SECONDS: "[0,60]"
   MCP_URL: "http://127.0.0.1:8000/mcp"
-  KAFKA_BOOTSTRAP_SERVERS: ""
-  KAFKA_TOPIC: ""
+  KAFKA_BOOTSTRAP_SERVERS: "sz-kafka.indusmind.me:9094"
+  KAFKA_TOPIC: "dw-web-spider-paimon-test"
   KAFKA_CLIENT_ID: "sh-web-spider"
-  KAFKA_SECURITY_PROTOCOL: "PLAINTEXT"
-  KAFKA_SASL_MECHANISM: ""
-  KAFKA_USERNAME: ""
-  KAFKA_CONSUMER_GROUP_ID: "sh-web-spider"
+  KAFKA_SECURITY_PROTOCOL: "SASL_SSL"
+  KAFKA_SASL_MECHANISM: "SCRAM-SHA-512"
+  KAFKA_USERNAME: "dw-web-spider"
+  KAFKA_CONSUMER_GROUP_ID: "dw-web-spider"
 
   # datafusion-agent
   DATAFUSION_ENV: "test"
   SERVER_PORT: "8081"
   DATAFUSION_MODULES: "/opt/datafusion"
+  DATAFUSION_INIT_OVERWRITE: "false"
   DATAFUSION_PLUGINS_ROOT_DIR: "/opt/datafusion/plugins"
   DATAFUSION_PLUGINS_INIT_OVERWRITE: "false"
   DATAFUSION_WORKER_PLUGIN_TYPES: "SPIDER"
+  DATAFUSION_SPIDER_PLUGIN_ENABLED: "true"
   DATAFUSION_ACCEPT_TASKS_BEFORE_REGISTERED: "false"
   DATAFUSION_MANAGER_ENABLED: "true"
   DATAFUSION_MANAGER_URL: "http://datafusion-manager:8080"
@@ -70,14 +72,14 @@ data:
   DATAFUSION_REPORT_POOL_KEEP_ALIVE_SECONDS: "60"
   JAVA_OPTS: "-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8 -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
 
-  # Nacos: 默认复用 datafusion-agent-${DATAFUSION_ENV}.yaml。
+  # Nacos: spider agent 使用独立 dataId，避免复用普通 agent 配置。
   NACOS_CONFIG_ENABLED: "true"
   NACOS_DISCOVERY_ENABLED: "true"
   NACOS_DISCOVERY_REGISTER_ENABLED: "true"
   NACOS_SERVER_ADDR: "nacos.datafusion.svc.cluster.local:8848"
   NACOS_CONFIG_TIMEOUT: "10000"
   NACOS_CONFIG_FILE_EXTENSION: "yaml"
-  NACOS_NAMESPACE: ""
+  NACOS_NAMESPACE: "55af8b89-a24c-421b-9e1f-7c50c26e4901"
   NACOS_GROUP: "DEFAULT_GROUP"
 ---
 apiVersion: v1
@@ -90,11 +92,11 @@ metadata:
     app.kubernetes.io/component: agent-spider
 type: Opaque
 stringData:
-  REDIS_PASSWORD: ""
-  PLANNER_LLM_API_KEY: ""
-  KAFKA_PASSWORD: ""
-  NACOS_USERNAME: ""
-  NACOS_PASSWORD: ""
+  REDIS_PASSWORD: "J8dnxTw5vwZDSOWtujv9Io+qxX4V2DFy"
+  PLANNER_LLM_API_KEY: "sk-HEEc0BmVuDi9eC5kOG5TUZkgxLqDwRh9GIYyAHgd7kJo0zEX"
+  KAFKA_PASSWORD: "msh9s4DmH2PwKt9WYtnA3AMLkIjlKGkA"
+  NACOS_USERNAME: "nacos"
+  NACOS_PASSWORD: "nacos"
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -226,8 +228,8 @@ spec:
       terminationGracePeriodSeconds: 60
       initContainers:
         - name: seed-datafusion-shared-data
-          image: jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:datafusion-agent-spider-v1.0.0-20260706
-          imagePullPolicy: IfNotPresent
+          image: jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:datafusion-agent-spider-v1.0.0-20260701
+          imagePullPolicy: Always
           envFrom:
             - configMapRef:
                 name: datafusion-agent-spider-env
@@ -254,8 +256,8 @@ spec:
               mountPath: /opt/datafusion/
       containers:
         - name: datafusion-agent-spider
-          image: jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:datafusion-agent-spider-v1.0.0-20260706
-          imagePullPolicy: IfNotPresent
+          image: jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:datafusion-agent-spider-v1.0.0-20260701
+          imagePullPolicy: Always
           ports:
             - name: browser-http
               containerPort: 8000
@@ -272,8 +274,12 @@ spec:
                 configMapKeyRef:
                   name: datafusion-agent-spider-env
                   key: DATAFUSION_ENV
+            - name: SPRING_APPLICATION_NAME
+              value: datafusion-agent-spider
+            - name: SPRING_CLOUD_NACOS_CONFIG_PREFIX
+              value: datafusion-agent-spider
             - name: NACOS_CONFIG_DATA_ID
-              value: datafusion-agent-$(SPRING_PROFILES_ACTIVE)
+              value: datafusion-agent-spider-$(SPRING_PROFILES_ACTIVE)
             - name: LOG_PATH
               value: /opt/datafusion/logs/datafusion-agent-spider
             - name: DATAFUSION_AGENT_WORKER_IP

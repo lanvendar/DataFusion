@@ -1,0 +1,6 @@
+target/**
+!target/datafusion-agent-*.jar
+target/*.jar.original
+
+src/main/resources/plugins/**/*.jar
+src/main/resources/plugins/**/*.tar.gz

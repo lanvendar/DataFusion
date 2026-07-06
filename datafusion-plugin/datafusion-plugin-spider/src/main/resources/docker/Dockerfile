@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.7
-
 # Build example:
 # docker buildx build --network none --platform linux/amd64 --load \
 #   --build-context browser-agent-dist=/Users/lanvendar/PycharmProjects/browser-agent/dist \
@@ -40,6 +38,11 @@ ENV TZ=Asia/Shanghai \
 WORKDIR /opt/browser-agent
 RUN --mount=type=bind,from=browser-agent-dist,source=browser-agent-linux-amd64-runtime.tar.gz,target=/tmp/browser-agent-linux-amd64-runtime.tar.gz,readonly \
     tar -xzf /tmp/browser-agent-linux-amd64-runtime.tar.gz -C /opt/browser-agent \
+    && PYTHON_BIN="$(command -v python3.12)" \
+    && ln -sf "${PYTHON_BIN}" /opt/browser-agent/.venv/bin/python3.12 \
+    && ln -sf python3.12 /opt/browser-agent/.venv/bin/python3 \
+    && ln -sf python3.12 /opt/browser-agent/.venv/bin/python \
+    && find /opt/browser-agent/.venv/bin -maxdepth 1 -type f -exec sh -c 'for file do if head -n 1 "$file" | grep -q "^#!.*python"; then sed -i "1s|^#!.*python[0-9.]*$|#!/opt/browser-agent/.venv/bin/python3.12|" "$file"; fi; done' sh {} + \
     && if [ -f /opt/browser-agent/run-browser-agent.sh ]; then chmod +x /opt/browser-agent/run-browser-agent.sh; fi
 
 WORKDIR /opt/sh-web-spider
@@ -54,8 +57,11 @@ RUN mkdir -p \
     /opt/datafusion/plugins \
     /opt/datafusion/task-runtime
 
-COPY --from=datafusion-agent src/main/resources/plugins/ /opt/datafusion-builtin/plugins/
-COPY --from=datafusion-agent target/datafusion-agent-*.jar /opt/datafusion-agent/datafusion-agent.jar
+RUN --mount=type=bind,from=datafusion-agent,source=.,target=/tmp/datafusion-agent,readonly \
+    mkdir -p /opt/datafusion-builtin/plugins/spider \
+    && tar --exclude="*.tar.gz" -C /tmp/datafusion-agent/src/main/resources/plugins/spider -cf - . \
+    | tar -C /opt/datafusion-builtin/plugins/spider -xf - \
+    && cp /tmp/datafusion-agent/target/datafusion-agent-*.jar /opt/datafusion-agent/datafusion-agent.jar
 COPY start-datafusion-agent-spider.sh /usr/local/bin/start-datafusion-agent-spider.sh
 RUN chmod +x /usr/local/bin/start-datafusion-agent-spider.sh
 
