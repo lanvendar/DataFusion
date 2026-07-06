@@ -1,5 +1,5 @@
 # FROM eclipse-temurin:17-jre
-FROM jsessh-registry.cn-shanghai.cr.aliyuncs.com/base-images/java_17:latest
+FROM jsessh-registry.cn-shanghai.cr.aliyuncs.com/base-images/eclipse-temurin:17-jre
 
 LABEL org.opencontainers.image.title="datafusion-plugin-datax" \
       org.opencontainers.image.description="DataFusion DataX runtime image for Kubernetes Job mode" \

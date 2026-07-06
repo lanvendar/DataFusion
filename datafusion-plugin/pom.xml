@@ -16,6 +16,7 @@
         <module>datafusion-plugin-api</module>
         <module>datafusion-plugin-datax</module>
         <module>datafusion-plugin-kafka-json</module>
+        <module>datafusion-plugin-spider</module>
     </modules>
 
     <properties>

@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 脚本用途：把外部构建好的 DataX runtime 同步到 datafusion-plugin-datax 的资源目录。
+# 这是“同步脚本”，不负责任何编译（compile）动作。
+# 设计约定：
+# 1) 数据源来自外部目录（DATAX_RUNTIME_SOURCE），通常是 DataX 打包产物目录。
+# 2) 同步目标是插件资源目录（MODULE_DIR 下的 src/main/resources/plugins/datax）。
+# 3) 仅同步 runtime 必要目录，不处理 Job 配置文件，避免污染插件任务模板。
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODULE_DIR="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 
+# 数据源默认值：外部 DataX 打包产物目录；可通过 DATAX_RUNTIME_SOURCE 覆盖。
 SOURCE_DIR="${DATAX_RUNTIME_SOURCE:-/Users/lanvendar/Projects/DataX/packaging/datax-bundle/target/datax}"
+# 目标默认值：datafusion-plugin-datax 模块的插件资源目录；可通过 DATAX_RUNTIME_TARGET 覆盖。
 TARGET_DIR="${DATAX_RUNTIME_TARGET:-${MODULE_DIR}/src/main/resources/plugins/datax}"
 
 usage() {
