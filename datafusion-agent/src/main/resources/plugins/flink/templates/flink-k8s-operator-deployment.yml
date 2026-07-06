@@ -31,11 +31,10 @@ spec:
           args:
             - |
               set -e
-              mkdir -p {{usrlibPath}} /opt/flink/plugins/flink-s3-fs-hadoop
+              mkdir -p {{usrlibPath}}
               cp -a {{flinkAppDir}}/{{flinkAppJar}} {{usrlibPath}}/
               if [ -d {{flinkAppDir}}/{{libDir}} ]; then
-                cp -a {{flinkAppDir}}/{{libDir}}/flink-s3-fs-hadoop-*.jar /opt/flink/plugins/flink-s3-fs-hadoop/ 2>/dev/null || true
-                find {{flinkAppDir}}/{{libDir}} -maxdepth 1 -type f -name '*.jar' ! -name 'flink-s3-fs-hadoop-*.jar' -exec cp -a {} {{usrlibPath}}/ \;
+                find {{flinkAppDir}}/{{libDir}} -maxdepth 1 -type f -name '*.jar' -exec cp -a {} {{usrlibPath}}/ \;
               fi
           volumeMounts:
             - name: "datafusion-flink-shared"
@@ -45,7 +44,10 @@ spec:
               mountPath: {{usrlibPath}}
       containers:
         - name: "flink-main-container"
-{{envBlock}}{{envFromBlock}}
+          env:
+            - name: "ENABLE_BUILT_IN_PLUGINS"
+              value: "flink-s3-fs-hadoop-2.2.0.jar"
+{{envFromBlock}}
           volumeMounts:
             - name: "datafusion-flink-usrlib"
               mountPath: {{usrlibPath}}
