@@ -136,8 +136,18 @@ class ShellLocalPluginTaskExecutorTest {
     private ShellLocalPluginTaskExecutor executor(InMemoryWorkerTaskExecutionStore stateStore) {
         AgentProperties properties = new AgentProperties();
         properties.getStorage().setTaskRuntimeDir(tempDir.resolve("task-runtime").toString());
+        properties.setPluginsRootDir(resolvePluginsRootDir());
         Executor sameThreadExecutor = Runnable::run;
-        return new ShellLocalPluginTaskExecutor(properties, stateStore, new TemplateSpecRenderer(), sameThreadExecutor);
+        return new ShellLocalPluginTaskExecutor(properties, stateStore, new TemplateSpecRenderer(properties), sameThreadExecutor);
+    }
+
+    private String resolvePluginsRootDir() {
+        Path workingDir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        Path moduleResourceDir = workingDir.resolve("src/main/resources");
+        if (Files.isDirectory(moduleResourceDir)) {
+            return moduleResourceDir.toString();
+        }
+        return workingDir.resolve("datafusion-agent/src/main/resources").toString();
     }
 
     private TaskRequest submittedRequest() {

@@ -1,11 +1,14 @@
 package com.datafusion.agent.runtime.worker.plugin.datax.k8s;
 
+import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.template.TemplateSpecRenderer;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -27,7 +30,8 @@ class DataxKubernetesTemplateRendererTest {
 
     @Test
     void shouldRenderSecretAndJobYamlFromTemplate() {
-        DataxKubernetesTemplateRenderer renderer = new DataxKubernetesTemplateRenderer(new TemplateSpecRenderer());
+        DataxKubernetesTemplateRenderer renderer = new DataxKubernetesTemplateRenderer(
+                new TemplateSpecRenderer(pluginsProperties()));
         String yaml = renderer.render(param(), "{\"job\":{\"content\":[]}}");
 
         assertTrue(yaml.contains("kind: Secret"));
@@ -76,5 +80,20 @@ class DataxKubernetesTemplateRendererTest {
                 .resources(resources)
                 .env(Map.of("JAVA_OPTS", "-Xmx1g"))
                 .build();
+    }
+
+    private AgentProperties pluginsProperties() {
+        AgentProperties properties = new AgentProperties();
+        properties.setPluginsRootDir(resolvePluginsRootDir());
+        return properties;
+    }
+
+    private String resolvePluginsRootDir() {
+        Path workingDir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        Path moduleResourceDir = workingDir.resolve("src/main/resources");
+        if (Files.isDirectory(moduleResourceDir)) {
+            return moduleResourceDir.toString();
+        }
+        return workingDir.resolve("datafusion-agent/src/main/resources").toString();
     }
 }

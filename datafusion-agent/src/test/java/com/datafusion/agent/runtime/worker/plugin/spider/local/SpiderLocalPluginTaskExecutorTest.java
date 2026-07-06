@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.Executor;
 
@@ -64,10 +65,20 @@ class SpiderLocalPluginTaskExecutorTest {
     private SpiderLocalPluginTaskExecutor spiderExecutor(InMemoryWorkerTaskExecutionStore stateStore) {
         AgentProperties properties = new AgentProperties();
         properties.getStorage().setTaskRuntimeDir(tempDir.resolve("task-runtime").toString());
+        properties.setPluginsRootDir(resolvePluginsRootDir());
         Executor sameThreadExecutor = Runnable::run;
         ShellLocalPluginTaskExecutor shellExecutor = new ShellLocalPluginTaskExecutor(properties, stateStore,
-                new TemplateSpecRenderer(), sameThreadExecutor);
+                new TemplateSpecRenderer(properties), sameThreadExecutor);
         return new SpiderLocalPluginTaskExecutor(shellExecutor);
+    }
+
+    private String resolvePluginsRootDir() {
+        Path workingDir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        Path moduleResourceDir = workingDir.resolve("src/main/resources");
+        if (Files.isDirectory(moduleResourceDir)) {
+            return moduleResourceDir.toString();
+        }
+        return workingDir.resolve("datafusion-agent/src/main/resources").toString();
     }
 
     private TaskRequest spiderRequest() {

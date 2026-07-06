@@ -32,9 +32,11 @@ class FlinkKubernetesTemplateRendererTest {
 
     @Test
     void shouldRenderOperatorYamlWithDerivedRuntimeDefaults() throws Exception {
-        FlinkParamResolver resolver = new FlinkParamResolver(new AgentProperties());
+        AgentProperties properties = new AgentProperties();
+        properties.setPluginsRootDir(resolvePluginsRootDir());
+        FlinkParamResolver resolver = new FlinkParamResolver(properties);
         FlinkExecutionParam param = resolver.resolve(request());
-        FlinkKubernetesTemplateRenderer renderer = new FlinkKubernetesTemplateRenderer(new TemplateSpecRenderer());
+        FlinkKubernetesTemplateRenderer renderer = new FlinkKubernetesTemplateRenderer(new TemplateSpecRenderer(properties));
         String yaml = renderer.render(param, OBJECT_MAPPER.writeValueAsString(param.getEffectiveTaskData()));
         Files.createDirectories(Path.of("target"));
         Files.writeString(Path.of("target/flink-k8s-operator-generated.yml"), yaml, StandardCharsets.UTF_8);
@@ -134,5 +136,14 @@ class FlinkKubernetesTemplateRendererTest {
         sink.set("options", options);
         taskData.set("sink", sink);
         return taskData;
+    }
+
+    private String resolvePluginsRootDir() {
+        Path workingDir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        Path moduleResourceDir = workingDir.resolve("src/main/resources");
+        if (Files.isDirectory(moduleResourceDir)) {
+            return moduleResourceDir.toString();
+        }
+        return workingDir.resolve("datafusion-agent/src/main/resources").toString();
     }
 }
