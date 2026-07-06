@@ -72,7 +72,7 @@ jar、`lib/`、`conf/`、`jobs/` 和命令文档，不清理 agent 侧 `plugins/
 
 构建元数据放在 `datafusion-plugin-api/src/main/resources/builder/plugin-build-manifest.json`。公共 builder 启动时读取
 `modulePath`、`artifactId`、`runtimeResourceDir`、`agentPublishDir`、`resourceDirs`、`resourceFiles`，并校验
-`pluginType=API`、`multiApp=false`；该文件不复制到 `plugins/api/` 运行目录。
+`pluginType=API`；该文件不复制到 `plugins/api/` 运行目录。
 
 支持两种发布模式：
 

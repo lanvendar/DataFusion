@@ -170,7 +170,7 @@ load_build_manifest() {
         exit 1
     fi
 
-    local artifact_mode manifest_dir plugin_type multi_app app_dir runtime_resource_dir agent_publish_dir
+    local artifact_mode manifest_dir runtime_resource_dir agent_publish_dir
     manifest_dir="$(cd "$(dirname "${BUILD_MANIFEST_FILE}")" && pwd)"
     MODULE_DIR="$(cd "${manifest_dir}/../../../.." && pwd)"
     REPO_ROOT="$(cd "${MODULE_DIR}/../.." && pwd)"
@@ -179,15 +179,12 @@ load_build_manifest() {
     MODULE_PATH="$(read_manifest_value "modulePath")"
     ARTIFACT_ID="$(read_manifest_value "artifactId")"
     ARTIFACT_MODE="$(read_manifest_value "artifactMode")"
-    multi_app="$(read_manifest_value "multiApp")"
-    app_dir="$(read_manifest_value "appDir")"
     runtime_resource_dir="$(read_manifest_value "runtimeResourceDir")"
     agent_publish_dir="$(read_manifest_value "agentPublishDir")"
     artifact_mode="${ARTIFACT_MODE:-jar}"
     ARTIFACT_MODE="${artifact_mode}"
 
-    plugin_type="${PLUGIN_TYPE}"
-    if [ -z "${plugin_type}" ]; then
+    if [ -z "${PLUGIN_TYPE}" ]; then
         echo "Build manifest must define pluginType." >&2
         exit 1
     fi
@@ -207,26 +204,6 @@ load_build_manifest() {
         echo "Build manifest must define artifactId when artifactMode=jar." >&2
         exit 1
     fi
-    case "${multi_app}" in
-        true|false)
-            ;;
-        *)
-            echo "Build manifest multiApp must be true or false, got: ${multi_app}" >&2
-            exit 1
-            ;;
-    esac
-    if [ "${multi_app}" = "true" ]; then
-        if [ -z "${app_dir}" ]; then
-            echo "Build manifest must define appDir when multiApp=true." >&2
-            exit 1
-        fi
-        case "${app_dir}" in
-            */*|.*|*..*)
-                echo "Build manifest appDir must be a single plain directory name, got: ${app_dir}" >&2
-                exit 1
-                ;;
-        esac
-    fi
     if [ -z "${runtime_resource_dir}" ] || [ -z "${agent_publish_dir}" ]; then
         echo "Build manifest must define runtimeResourceDir and agentPublishDir." >&2
         exit 1
@@ -235,9 +212,6 @@ load_build_manifest() {
     TARGET_DIR="${MODULE_DIR}/target"
     SOURCE_RUNTIME_DIR="$(resolve_module_path "${runtime_resource_dir}")"
     AGENT_PUBLISH_DIR="$(resolve_repo_path "${agent_publish_dir}")"
-    if [ "${multi_app}" = "true" ]; then
-        AGENT_PUBLISH_DIR="${AGENT_PUBLISH_DIR}/${app_dir}"
-    fi
 }
 
 # 执行 Maven package，支持通过 --no-maven 跳过构建。

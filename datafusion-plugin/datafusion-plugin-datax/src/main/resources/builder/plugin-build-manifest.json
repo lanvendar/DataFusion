@@ -1,6 +1,5 @@
 {
   "pluginType": "DATAX",
-  "multiApp": false,
   "modulePath": "datafusion-plugin/datafusion-plugin-datax",
   "artifactMode": "none",
   "runtimeResourceDir": "src/main/resources/plugins/datax",

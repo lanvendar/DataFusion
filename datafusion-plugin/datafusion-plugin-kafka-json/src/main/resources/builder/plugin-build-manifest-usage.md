@@ -6,7 +6,7 @@
 
 ### 1) 打包发布 fat jar（首版默认）
 
-首版使用 jar 模式发布，构建并发布可直接运行的 executable fat jar 到 Agent Flink 插件目录。
+首版使用 jar 模式发布，构建并发布可直接运行的 executable fat jar 到 Agent Flink app 目录。
 
 ```bash
 ./datafusion-plugin/build-plugin.sh \
@@ -18,14 +18,15 @@
 
 ```text
 datafusion-agent/src/main/resources/plugins/flink/
-  datafusion-plugin-kafka-json-1.0.0-executable.jar
-  conf/
-  jobs/
-  lib/
-  plugin-kafka-json-commands.md
+  datafusion-plugin-kafka-json/
+    datafusion-plugin-kafka-json-1.0.0-executable.jar
+    conf/
+    jobs/
+    lib/
+    plugin-kafka-json-commands.md
 ```
 
-`lib/` 在 fat jar 模式下会保留为空目录。`templates/` 不由当前 manifest 管理，公共 builder 不会清理该目录。
+`lib/` 在 fat jar 模式下会保留为空目录。`templates/` 不由当前 manifest 管理，公共 builder 不会清理 Flink 类型根目录。
 
 ### 2) 无 Maven 发布（复用已有产物）
 

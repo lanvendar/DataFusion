@@ -1,6 +1,5 @@
 {
   "pluginType": "API",
-  "multiApp": false,
   "modulePath": "datafusion-plugin/datafusion-plugin-api",
   "artifactId": "datafusion-plugin-api",
   "artifactMode": "jar",

@@ -1,0 +1,11 @@
+{
+  "pluginType": "SPIDER",
+  "modulePath": "datafusion-plugin/datafusion-plugin-spider",
+  "artifactMode": "none",
+  "runtimeResourceDir": "src/main/resources/plugins/spider",
+  "agentPublishDir": "datafusion-agent/src/main/resources/plugins/spider",
+  "resourceDirs": [
+    "browser-agent",
+    "sh-web-spider"
+  ]
+}

@@ -144,6 +144,10 @@ spec:
               else
                 cp -an /opt/datafusion-builtin/plugins/. /opt/datafusion/plugins/
               fi
+              if [ -f /opt/datafusion/plugins/init-runtime-unpack.sh ]; then
+                chmod +x /opt/datafusion/plugins/init-runtime-unpack.sh
+                /opt/datafusion/plugins/init-runtime-unpack.sh --root /opt/datafusion/plugins
+              fi
           volumeMounts:
             - name: datafusion-shared-data
               mountPath: /opt/datafusion/

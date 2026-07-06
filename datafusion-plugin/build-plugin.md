@@ -60,8 +60,6 @@ thin jar + lib 模式：
 ```json
 {
   "pluginType": "API",
-  "multiApp": false,
-  "appDir": null,
   "modulePath": "datafusion-plugin/datafusion-plugin-api",
   "artifactId": "datafusion-plugin-api",
   "artifactMode": "jar",
@@ -73,7 +71,7 @@ thin jar + lib 模式：
   ],
   "resourceFiles": [
     {
-      "source": "src/main/resources/plugins/plugin-api-commands.md",
+      "source": "src/main/resources/plugin-api-commands.md",
       "target": "plugin-api-commands.md"
     }
   ]
@@ -85,25 +83,37 @@ thin jar + lib 模式：
 | 字段 | 必填 | 说明 |
 |------|------|------|
 | `pluginType` | 是 | 插件类型，例如 `API`、`FLINK` |
-| `multiApp` | 是 | 是否发布到插件类型目录下的 app 子目录 |
-| `appDir` | `multiApp=true` 时是 | app 子目录名；`multiApp=false` 时可为空或 `null` |
 | `modulePath` | 是 | Maven reactor 模块路径，相对仓库根目录 |
 | `artifactId` | `artifactMode=jar` 时是 | Maven artifactId，用于定位 jar |
 | `artifactMode` | 否 | 构建产物模式，默认 `jar`；资源型插件使用 `none` |
 | `runtimeResourceDir` | 是 | 插件模块内运行资源目录，相对插件模块根目录 |
-| `agentPublishDir` | 是 | 发布到 agent 的插件类型目录，相对仓库根目录 |
+| `agentPublishDir` | 是 | 最终发布到 agent 的目录，相对仓库根目录 |
 | `resourceDirs` | 否 | 从 `runtimeResourceDir` 下复制的目录列表 |
 | `resourceFiles` | 否 | 从插件模块复制到发布目录的文件映射 |
 
 ## 发布行为
 
-最终发布目录由 `multiApp` 决定：
+最终发布目录只由 `agentPublishDir` 决定。脚本不会再根据 `multiApp`、`appDir` 二次拼接目录。
 
-- `multiApp=false`：最终发布目录为 `agentPublishDir`
-- `multiApp=true`：最终发布目录为 `agentPublishDir/appDir`
+单包插件可以直接发布到插件类型根目录：
 
-`multiApp=true` 时 `appDir` 不能为空，且只能是单层目录名，不能包含 `/`、`.` 或 `..`。`appDir` 不会从
-`artifactId` 推导，避免构建产物名和运行目录名产生歧义。
+```json
+{
+  "pluginType": "API",
+  "agentPublishDir": "datafusion-agent/src/main/resources/plugins/api"
+}
+```
+
+同一插件类型下存在多个 app 时，把 app 目录直接写进 `agentPublishDir`：
+
+```json
+{
+  "pluginType": "FLINK",
+  "agentPublishDir": "datafusion-agent/src/main/resources/plugins/flink/datafusion-plugin-kafka-json"
+}
+```
+
+这样目录结构由 manifest 的路径显式表达，避免 `agentPublishDir + appDir` 两套字段同时描述发布目标。
 
 脚本会先执行：
 
