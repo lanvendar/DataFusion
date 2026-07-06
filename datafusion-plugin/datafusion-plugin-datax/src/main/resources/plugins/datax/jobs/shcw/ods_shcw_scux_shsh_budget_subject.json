@@ -14,7 +14,7 @@
           "name": "mysqlreader",
           "parameter": {
             "username": "AI_READ",
-            "password": "AiRead159753",
+            "password": "AiRead159753.",
             "connection": [
               {
                 "jdbcUrl": [
