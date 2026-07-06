@@ -244,7 +244,7 @@ public final class DataxKubernetesTaskDefinitionRegistrar {
      * <p>例如 {@code ods_shys_gb_bu_td.json}、{@code shys/ods_shys_gb_bu_td.json}
      * 或 {@code plugins/datax/jobs/shys/ods_shys_gb_bu_td.json}。
      */
-    private static final String DEFAULT_JOB_RESOURCE = "ods_shcw_scux_shsh_budget_subject.json";
+    private static final String DEFAULT_JOB_RESOURCE = "ods_shcw_scux_shsh_ems_wbs.json";
     /**
      * 生成或注册一个 DataX K8S 任务定义。
      *

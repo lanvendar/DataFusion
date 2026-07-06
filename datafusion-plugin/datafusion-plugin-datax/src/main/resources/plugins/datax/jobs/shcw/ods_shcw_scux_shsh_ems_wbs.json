@@ -89,32 +89,32 @@
               },
               {
                 "name": "origin_contract_data2",
-                "type": "DECIMAL(64,2)",
+                "type": "DECIMAL(38,2)",
                 "comment": "原合同数据2"
               },
               {
                 "name": "origin_contract_data1",
-                "type": "DECIMAL(64,2)",
+                "type": "DECIMAL(38,2)",
                 "comment": "原合同数据1"
               },
               {
                 "name": "wbs_contract_amount_disassemble",
-                "type": "DECIMAL(64,2)",
+                "type": "DECIMAL(38,2)",
                 "comment": "WBS合同金额(拆分)"
               },
               {
                 "name": "payable_amount",
-                "type": "DECIMAL(64,2)",
+                "type": "DECIMAL(38,2)",
                 "comment": "应付金额"
               },
               {
                 "name": "actually_paid_amount",
-                "type": "DECIMAL(64,2)",
+                "type": "DECIMAL(38,2)",
                 "comment": "实付金额"
               },
               {
                 "name": "output_value",
-                "type": "DECIMAL(64,2)",
+                "type": "DECIMAL(38,2)",
                 "comment": "产值"
               },
               {
