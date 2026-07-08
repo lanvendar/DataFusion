@@ -122,7 +122,7 @@ K8S_OPERATOR 集群前置条件：
     -> appId = FlinkDeployment name
     -> 按 http://{serviceName}.{namespace}.svc:8081 生成 flinkWebUiUri
     -> 写 WorkerTaskExecutionSnap(...)
-    -> 写 WorkerTaskExecutionState(status=RUNNING, appId=deploymentName, workDirPath=任务运行目录, result.pluginLogUri=插件日志入口, result.flinkWebUiUri=Flink Web UI 地址)
+    -> 写 WorkerTaskExecutionState(status=SUBMIT_SUCCESS, appId=deploymentName, workDirPath=任务运行目录, result.pluginLogUri=插件日志入口, result.flinkWebUiUri=Flink Web UI 地址)
 ```
 
 K8S_OPERATOR 资源约定：
@@ -275,32 +275,38 @@ K8S_OPERATOR 提交流程的文件读取步骤。
 
 | 动作 | 行为 | 返回状态 |
 |------|------|----------|
-| `submit` | 校验共享盘依赖目录和主 jar，创建或更新 `FlinkDeployment` | `RUNNING`；校验、创建或提交失败返回 `SUBMIT_FAILURE` |
-| `stop` | patch `spec.job.state=SUSPENDED`；checkpoint / savepoint 存储路径来自任务配置 JSON 中的 S3 配置 | `STOPPING`，待状态映射转终态 |
-| `kill` | 删除 `FlinkDeployment`；必要时删除匹配 Pod | 成功或无资源返回 `KILLED`；失败返回 `UNKNOWN` |
-| `finish` | 查询终态，按配置采集日志，清理 `FlinkDeployment` | 当前终态 |
+| `submit` | 校验共享盘依赖目录和主 jar，创建或更新 `FlinkDeployment` | `SUBMIT_SUCCESS`；校验、创建或提交失败返回 `SUBMIT_FAILURE` |
+| `stop` | 发起 Flink 作业停止，不表达暂停语义；停止过程中可先更新 `spec.job.state=SUSPENDED`，最终以 `CANCELED` 或资源消失为停止完成依据 | `STOPPING`，待状态映射转终态 |
+| `kill` | 强制清理 K8S 运行资源；清理操作必须幂等，先检查资源存在性，存在才删除，不存在视为已清理 | 成功或无资源返回 `KILLED`；失败返回 `UNKNOWN` |
+| `finish` | 查询终态，按配置采集日志，复用 kill 的 K8S 清理能力做最终清理 | 当前终态 |
 
-`stop` 是温和停止，允许 Operator 按 `upgradeMode` 处理挂起；`kill` 是不可恢复的 Kubernetes 资源清理。
+`stop` 是温和停止，目标是停止作业并释放运行容器，不把 `SUSPENDED` 作为 DataFusion 终态；`kill` 是不可恢复的
+Kubernetes 资源清理。K8S 清理逻辑由 `kill` 和 `finish` 共用，必须可以重复执行：先读取
+`FlinkDeployment`、Pod、Service 等资源是否存在，存在则删除，不存在直接返回成功。`KILLED` 场景应无条件清理；
+普通终态是否清理 `FlinkDeployment` 仍由 `deleteDeploymentOnFinish` 控制。
 首版不承诺自动从 savepoint 恢复新任务，只记录 Operator status 中暴露的 `savepointLocation` 到 `.state.result`。
 checkpoint / savepoint 的 S3 目录统一在任务配置 JSON 中声明，不放在共享盘或 agent 配置中。
 
 ## 8. 状态映射
 
-`K8sOperatorRunModeStateMapping` 查询 `FlinkDeployment.status` 和 Pod 状态，再结合本地控制状态映射：
+`K8sOperatorRunModeStateMapping` 按本地阶段映射 `FlinkDeployment.status` 和运行资源状态。实现上优先
+按阶段分派，避免把提交、运行、停止、强杀逻辑塞进一个大 `switch`。
 
-| FlinkDeployment / Operator 状态 | DataFusion 状态 |
-|----------------------------------|-----------------|
-| `RUNNING`, `CREATED`, `INITIALIZING`, `RECONCILING`, `RESTARTING` | `RUNNING` |
-| `FINISHED` | `RUN_SUCCESS` |
-| `FAILED`, `FAILING` | `RUN_FAILURE` |
-| `CANCELLING` | `STOPPING` |
-| `CANCELED`, `SUSPENDED` 且本地状态为 `STOPPING` | `STOP_SUCCESS` |
-| `CANCELED`, `SUSPENDED` 且本地状态不是 `STOPPING` | `RUN_FAILURE` |
-| 本地 `KILLING` 且 `FlinkDeployment` 和 Pod 都不存在 | `KILLED` |
-| `FlinkDeployment` 不存在且本地非终态 | `UNKNOWN` |
+| 本地状态 | FlinkDeployment / Operator 状态 | DataFusion 状态 |
+|----------|----------------------------------|-----------------|
+| `SUBMITTING` / `SUBMIT_SUCCESS` | `CREATED`, `INITIALIZING`, `RECONCILING` | `SUBMIT_SUCCESS` |
+| `SUBMITTING` / `SUBMIT_SUCCESS` | `RUNNING`, `RESTARTING` | `RUNNING` |
+| `RUNNING` | `CREATED`, `INITIALIZING`, `RECONCILING`, `RESTARTING`, `FAILING` | `RUNNING` |
+| 任意非终态 | `FINISHED` | `RUN_SUCCESS` |
+| 任意非终态 | `FAILED` | `RUN_FAILURE` |
+| `STOPPING` | `RUNNING`, `SUSPENDED`, `CANCELLING`, `RECONCILING` 等过渡态 | `STOPPING` |
+| `STOPPING` | `CANCELED` 或运行 Pod 已不存在 | `STOP_SUCCESS` |
+| 非 `STOPPING` | `CANCELED` | `STOP_FAILURE` |
+| `KILLING` | `FlinkDeployment`、Pod、Service 等资源已不存在 | `KILLED` |
+| 非终态 | 资源不存在且无法确认终态 | `UNKNOWN` |
 
-状态刷新只查询终端状态，不主动 stop、kill 或重启任务。连续 `UNKNOWN` 的推进仍遵循 agent 公共
-`AgentProperties.StateRefresh.unknownThreshold` 规则。
+状态刷新只做状态查询，不触发 stop、kill 或重启；连续 `UNKNOWN` 仍按
+`AgentProperties.StateRefresh.unknownThreshold` 推进。
 
 ## 9. 日志
 

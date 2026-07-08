@@ -20,19 +20,14 @@ public final class FlinkKubernetesTemplateConstants {
     public static final String JOB_JSON_FILE_NAME = "flink-job.json";
 
     /**
+     * Rendered FlinkDeployment manifest file name.
+     */
+    public static final String MANIFEST_FILE_NAME = "flink-k8s-operator-deployment.yml";
+
+    /**
      * Flink usrlib path.
      */
     public static final String USRLIB_PATH = "/opt/flink/usrlib";
-
-    /**
-     * Main Flink container name.
-     */
-    public static final String FLINK_MAIN_CONTAINER_NAME = "flink-main-container";
-
-    /**
-     * Init container name.
-     */
-    public static final String INIT_CONTAINER_NAME = "datafusion-flink-usrlib";
 
     private FlinkKubernetesTemplateConstants() {
     }

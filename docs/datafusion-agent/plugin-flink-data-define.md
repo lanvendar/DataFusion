@@ -288,7 +288,7 @@ agent 发布侧仍按 `plugins/flink/{appDirName}/` 组织；运行侧由 `plugi
 | `runMode` | `WorkerTaskExecutionSnap` | `LOCAL`, `STANDALONE`, `YARN`, `K8S`, `K8S_OPERATOR` | String | 由 `FlinkExecutionParam.runMode` 写入 | 状态映射按 `FLINK + runMode` 选择 |
 | `appId` | `WorkerTaskExecutionState` | K8S: cluster id；K8S_OPERATOR: `FlinkDeployment` name | String | Runner 提交后写入 | 终端任务 ID |
 | `workDirPath` | `WorkerTaskExecutionState` | 任务运行目录 | String | Runner 提交后写入 | 保存 `job.json` 快照和终态日志 |
-| `status` | `WorkerTaskExecutionState` | `RUNNING`, `RUN_SUCCESS`, `RUN_FAILURE`, `STOPPING`, `STOP_SUCCESS`, `KILLING`, `KILLED`, `UNKNOWN` | `StatusEnum` | K8S 由 Flink REST / Kubernetes Deployment / Pod 状态映射；K8S_OPERATOR 由 `FlinkDeployment.status` 映射 | 不新增 Agent 私有状态 |
+| `status` | `WorkerTaskExecutionState` | `SUBMIT_SUCCESS`, `RUNNING`, `RUN_SUCCESS`, `RUN_FAILURE`, `STOPPING`, `STOP_SUCCESS`, `STOP_FAILURE`, `KILLING`, `KILLED`, `UNKNOWN` | `StatusEnum` | K8S 由 Flink REST / Kubernetes Deployment / Pod 状态映射；K8S_OPERATOR 由本地状态 + `FlinkDeployment.status` 映射 | 提交成功先落 `SUBMIT_SUCCESS`；`RECONCILING` 等中间态按本地阶段映射；不新增 Agent 私有状态 |
 | `result` | `WorkerTaskExecutionState` | `JsonNode` | Java object | Runner / 状态映射写入 | 可包含 `pluginLogUri`、`flinkWebUiUri`、`flinkJobId`、`savepointLocation`，不包含完整 job JSON 或密码 |
 
 ## 10. 复用结构

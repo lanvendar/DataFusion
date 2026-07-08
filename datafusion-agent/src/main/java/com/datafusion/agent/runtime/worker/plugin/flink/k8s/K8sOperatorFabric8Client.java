@@ -2,10 +2,12 @@ package com.datafusion.agent.runtime.worker.plugin.flink.k8s;
 
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.flink.FlinkExecutionParam;
+import com.datafusion.common.constant.SystemConstant;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.GenericKubernetesResource;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.ConfigBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -48,14 +50,29 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
     private static final List<String> JOB_STATUS_PATH = List.of("status", "jobStatus", "state");
 
     /**
+     * FlinkDeployment spec property.
+     */
+    private static final String SPEC_PROPERTY = "spec";
+
+    /**
+     * FlinkDeployment job property.
+     */
+    private static final String JOB_PROPERTY = "job";
+
+    /**
+     * FlinkDeployment job state property.
+     */
+    private static final String STATE_PROPERTY = "state";
+
+    /**
+     * Flink Operator suspended state.
+     */
+    private static final String OPERATOR_SUSPENDED_STATE = "SUSPENDED";
+
+    /**
      * Object mapper.
      */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-    /**
-     * Rendered manifest file name.
-     */
-    private static final String MANIFEST_FILE_NAME = "flink-k8s-operator-deployment.yml";
 
     /**
      * Kubernetes client.
@@ -88,9 +105,10 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
         validateSharedPluginFiles(param);
         FlinkKubernetesParam kubernetes = param.getKubernetes();
         log.info("提交K8S_OPERATOR FlinkDeployment, namespace={}, deploymentName={}, image={}, jarURI={}, "
-                        + "manifestPath={}",
+                + "manifestPath={}",
                 kubernetes.getNamespace(), kubernetes.getDeploymentName(), kubernetes.getImage(),
-                kubernetes.getJarUri(), param.getWorkDir().resolve(MANIFEST_FILE_NAME));
+                kubernetes.getJarUri(),
+                param.getWorkDir().resolve(FlinkKubernetesTemplateConstants.MANIFEST_FILE_NAME));
         client.load(new ByteArrayInputStream(manifest.getBytes(StandardCharsets.UTF_8))).createOrReplace();
         log.info("K8S_OPERATOR FlinkDeployment提交完成, namespace={}, deploymentName={}, flinkWebUiUri={}",
                 kubernetes.getNamespace(), kubernetes.getDeploymentName(), kubernetes.getFlinkWebUiUri());
@@ -113,11 +131,11 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
                     runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
             return;
         }
-        Map<String, Object> spec = objectMap(deployment.getAdditionalProperties(), "spec");
-        Map<String, Object> job = objectMap(spec, "job");
-        job.put("state", "SUSPENDED");
-        spec.put("job", job);
-        deployment.setAdditionalProperty("spec", spec);
+        Map<String, Object> spec = objectMap(deployment.getAdditionalProperties(), SPEC_PROPERTY);
+        Map<String, Object> job = objectMap(spec, JOB_PROPERTY);
+        job.put(STATE_PROPERTY, OPERATOR_SUSPENDED_STATE);
+        spec.put(JOB_PROPERTY, job);
+        deployment.setAdditionalProperty(SPEC_PROPERTY, spec);
         deployments(runtimeRef).withName(runtimeRef.getDeploymentName()).replace(deployment);
         log.info("K8S_OPERATOR FlinkDeployment已更新为SUSPENDED, namespace={}, deploymentName={}",
                 runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
@@ -125,9 +143,7 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
 
     @Override
     public void kill(FlinkKubernetesRuntimeRef runtimeRef) {
-        log.info("删除K8S_OPERATOR FlinkDeployment, namespace={}, deploymentName={}",
-                runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
-        deployments(runtimeRef).withName(runtimeRef.getDeploymentName()).withGracePeriod(0L).delete();
+        cleanupRuntimeResources(runtimeRef, true);
     }
 
     @Override
@@ -136,10 +152,21 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
             return localState;
         }
         GenericKubernetesResource deployment = deployment(runtimeRef);
-        if (localState == StatusEnum.KILLING && deployment == null && pods(runtimeRef).isEmpty()) {
-            log.info("K8S_OPERATOR Flink资源已删除, namespace={}, deploymentName={}, localState={}",
+        List<Pod> podList = pods(runtimeRef);
+        if (localState == StatusEnum.KILLING) {
+            if (isAllResourceAbsent(deployment, podList, services(runtimeRef))) {
+                log.info("K8S_OPERATOR Flink资源已删除, namespace={}, deploymentName={}, localState={}",
+                        runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), localState);
+                return StatusEnum.KILLED;
+            }
+            log.info("K8S_OPERATOR Flink资源仍在清理中, namespace={}, deploymentName={}, localState={}",
                     runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), localState);
-            return StatusEnum.KILLED;
+            return StatusEnum.KILLING;
+        }
+        if (localState == StatusEnum.STOPPING && deployment == null && podList.isEmpty()) {
+            log.info("K8S_OPERATOR Flink运行资源不存在, 视为停止完成, namespace={}, deploymentName={}",
+                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
+            return StatusEnum.STOP_SUCCESS;
         }
         if (deployment == null) {
             log.info("查询K8S_OPERATOR FlinkDeployment不存在, namespace={}, deploymentName={}, localState={}",
@@ -147,7 +174,7 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
             return StatusEnum.UNKNOWN;
         }
         String state = stringAt(deployment, JOB_STATUS_PATH);
-        StatusEnum mappedState = mapOperatorState(state, localState);
+        StatusEnum mappedState = mapOperatorState(state, localState, podList.isEmpty());
         log.debug("查询K8S_OPERATOR FlinkDeployment状态, namespace={}, deploymentName={}, operatorState={}, "
                         + "localState={}, mappedState={}",
                 runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), state, localState, mappedState);
@@ -176,12 +203,16 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
     @Override
     public void cleanup(FlinkKubernetesRuntimeRef runtimeRef) {
         if (runtimeRef.isDeleteDeploymentOnFinish()) {
-            log.info("清理K8S_OPERATOR FlinkDeployment, namespace={}, deploymentName={}",
-                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
-            deployments(runtimeRef).withName(runtimeRef.getDeploymentName()).delete();
+            cleanupRuntimeResources(runtimeRef, false);
         }
     }
 
+    /**
+     * Build Kubernetes client config.
+     *
+     * @param kubernetes Kubernetes config
+     * @return Fabric8 config, or null when using default config
+     */
     private static Config config(AgentProperties.Kubernetes kubernetes) {
         if (!hasCustomConfig(kubernetes)) {
             return null;
@@ -205,6 +236,11 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
         return builder.build();
     }
 
+    /**
+     * Validate shared Flink plugin files before submitting FlinkDeployment.
+     *
+     * @param param execution parameter
+     */
     private void validateSharedPluginFiles(FlinkExecutionParam param) {
         Path appDir = Path.of(param.getKubernetes().getFlinkAppDir());
         if (!Files.exists(appDir)) {
@@ -222,6 +258,12 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
                 appDir, mainJar, Files.exists(libDir));
     }
 
+    /**
+     * Write task job JSON snapshot to work directory.
+     *
+     * @param param execution parameter
+     * @return job JSON content
+     */
     private String writeJobJson(FlinkExecutionParam param) {
         try {
             Files.createDirectories(param.getWorkDir());
@@ -239,22 +281,42 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
         }
     }
 
+    /**
+     * Write rendered FlinkDeployment YAML to work directory.
+     *
+     * @param param    execution parameter
+     * @param manifest rendered YAML content
+     */
     private void writeYml(FlinkExecutionParam param, String manifest) {
         try {
             Files.createDirectories(param.getWorkDir());
-            Files.writeString(param.getWorkDir().resolve(MANIFEST_FILE_NAME), manifest, StandardCharsets.UTF_8);
+            Files.writeString(param.getWorkDir().resolve(FlinkKubernetesTemplateConstants.MANIFEST_FILE_NAME),
+                    manifest, StandardCharsets.UTF_8);
             log.info("写入K8S_OPERATOR Flink deployment YAML, taskInstanceId={}, path={}, bytes={}",
-                    param.getTaskInstanceId(), param.getWorkDir().resolve(MANIFEST_FILE_NAME),
+                    param.getTaskInstanceId(),
+                    param.getWorkDir().resolve(FlinkKubernetesTemplateConstants.MANIFEST_FILE_NAME),
                     manifest.getBytes(StandardCharsets.UTF_8).length);
         } catch (Exception e) {
             throw new IllegalStateException("写入Flink K8S_OPERATOR deployment yaml失败: " + e.getMessage(), e);
         }
     }
 
+    /**
+     * Get FlinkDeployment resource.
+     *
+     * @param runtimeRef runtime reference
+     * @return FlinkDeployment resource, or null if absent
+     */
     private GenericKubernetesResource deployment(FlinkKubernetesRuntimeRef runtimeRef) {
         return deployments(runtimeRef).withName(runtimeRef.getDeploymentName()).get();
     }
 
+    /**
+     * Build FlinkDeployment resource client.
+     *
+     * @param runtimeRef runtime reference
+     * @return namespaced FlinkDeployment client
+     */
     private io.fabric8.kubernetes.client.dsl.NonNamespaceOperation<GenericKubernetesResource,
             io.fabric8.kubernetes.api.model.GenericKubernetesResourceList,
             io.fabric8.kubernetes.client.dsl.Resource<GenericKubernetesResource>> deployments(
@@ -263,6 +325,12 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
                 .inNamespace(runtimeRef.getNamespace());
     }
 
+    /**
+     * List runtime Pods by DataFusion task label.
+     *
+     * @param runtimeRef runtime reference
+     * @return runtime Pods
+     */
     private List<Pod> pods(FlinkKubernetesRuntimeRef runtimeRef) {
         return client.pods()
                 .inNamespace(runtimeRef.getNamespace())
@@ -271,22 +339,193 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
                 .getItems();
     }
 
-    private StatusEnum mapOperatorState(String state, StatusEnum localState) {
-        if (isBlank(state)) {
-            return StatusEnum.RUNNING;
+    /**
+     * List runtime Services by DataFusion task label.
+     *
+     * @param runtimeRef runtime reference
+     * @return runtime Services
+     */
+    private List<Service> services(FlinkKubernetesRuntimeRef runtimeRef) {
+        return client.services()
+                .inNamespace(runtimeRef.getNamespace())
+                .withLabel(labelKey(runtimeRef.getPodLabelSelector()), labelValue(runtimeRef.getPodLabelSelector()))
+                .list()
+                .getItems();
+    }
+
+    /**
+     * Cleanup K8S runtime resources idempotently.
+     *
+     * @param runtimeRef runtime reference
+     * @param force      whether to delete resources immediately
+     */
+    private void cleanupRuntimeResources(FlinkKubernetesRuntimeRef runtimeRef, boolean force) {
+        GenericKubernetesResource deployment = deployment(runtimeRef);
+        List<Pod> podList = pods(runtimeRef);
+        List<Service> serviceList = services(runtimeRef);
+        if (isAllResourceAbsent(deployment, podList, serviceList)) {
+            log.info("K8S_OPERATOR Flink运行资源已不存在, namespace={}, deploymentName={}, force={}",
+                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), force);
+            return;
         }
-        String normalized = state.trim().toUpperCase();
-        return switch (normalized) {
-            case "RUNNING", "CREATED", "INITIALIZING", "RECONCILING", "RESTARTING" -> StatusEnum.RUNNING;
+        if (deployment != null) {
+            log.info("清理K8S_OPERATOR FlinkDeployment, namespace={}, deploymentName={}, force={}",
+                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), force);
+            if (force) {
+                deployments(runtimeRef).withName(runtimeRef.getDeploymentName()).withGracePeriod(0L).delete();
+            } else {
+                deployments(runtimeRef).withName(runtimeRef.getDeploymentName()).delete();
+            }
+        }
+        if (!podList.isEmpty()) {
+            log.info("清理K8S_OPERATOR Flink Pod, namespace={}, deploymentName={}, podCount={}, force={}",
+                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), podList.size(), force);
+            if (force) {
+                client.pods()
+                        .inNamespace(runtimeRef.getNamespace())
+                        .withLabel(labelKey(runtimeRef.getPodLabelSelector()),
+                                labelValue(runtimeRef.getPodLabelSelector()))
+                        .withGracePeriod(0L)
+                        .delete();
+            } else {
+                client.pods()
+                        .inNamespace(runtimeRef.getNamespace())
+                        .withLabel(labelKey(runtimeRef.getPodLabelSelector()),
+                                labelValue(runtimeRef.getPodLabelSelector()))
+                        .delete();
+            }
+        }
+        if (!serviceList.isEmpty()) {
+            log.info("清理K8S_OPERATOR Flink Service, namespace={}, deploymentName={}, serviceCount={}, force={}",
+                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), serviceList.size(), force);
+            client.services()
+                    .inNamespace(runtimeRef.getNamespace())
+                    .withLabel(labelKey(runtimeRef.getPodLabelSelector()), labelValue(runtimeRef.getPodLabelSelector()))
+                    .delete();
+        }
+    }
+
+    /**
+     * Check whether all runtime resources have disappeared.
+     *
+     * @param deployment  FlinkDeployment resource
+     * @param podList     runtime Pods
+     * @param serviceList runtime Services
+     * @return true if FlinkDeployment, Pods and Services are all absent
+     */
+    private boolean isAllResourceAbsent(GenericKubernetesResource deployment, List<Pod> podList,
+            List<Service> serviceList) {
+        return deployment == null && podList.isEmpty() && serviceList.isEmpty();
+    }
+
+    /**
+     * Map Operator state by local DataFusion stage.
+     *
+     * @param state             Operator state
+     * @param localState        current local state
+     * @param runtimePodsAbsent whether runtime Pods are absent
+     * @return mapped DataFusion state
+     */
+    private StatusEnum mapOperatorState(String state, StatusEnum localState, boolean runtimePodsAbsent) {
+        String normalized = normalizeState(state);
+        if (localState != null && localState.isSubmitting()) {
+            return mapSubmittingState(normalized);
+        }
+        if (localState == StatusEnum.RUNNING) {
+            return mapRunningState(normalized);
+        }
+        if (localState == StatusEnum.STOPPING) {
+            return mapStoppingState(normalized, runtimePodsAbsent);
+        }
+        if (localState == StatusEnum.KILLING) {
+            return StatusEnum.KILLING;
+        }
+        log.warn("K8S_OPERATOR Flink本地状态不支持映射, localState={}, operatorState={}", localState, state);
+        return StatusEnum.UNKNOWN;
+    }
+
+    /**
+     * Map Operator state while local task is submitting.
+     *
+     * @param state Operator state
+     * @return mapped DataFusion state
+     */
+    private StatusEnum mapSubmittingState(String state) {
+        if (isBlank(state)) {
+            return StatusEnum.SUBMIT_SUCCESS;
+        }
+        return switch (state) {
+            case "CREATED", "INITIALIZING", "RECONCILING" -> StatusEnum.SUBMIT_SUCCESS;
+            case "RUNNING", "RESTARTING", "FAILING" -> StatusEnum.RUNNING;
             case "FINISHED" -> StatusEnum.RUN_SUCCESS;
-            case "FAILED", "FAILING" -> StatusEnum.RUN_FAILURE;
-            case "CANCELLING" -> StatusEnum.STOPPING;
-            case "CANCELED", "SUSPENDED" -> localState == StatusEnum.STOPPING ? StatusEnum.STOP_SUCCESS
-                    : StatusEnum.RUN_FAILURE;
+            case "FAILED" -> StatusEnum.RUN_FAILURE;
+            case "CANCELLING", "SUSPENDED" -> StatusEnum.STOPPING;
+            case "CANCELED" -> StatusEnum.STOP_FAILURE;
             default -> StatusEnum.UNKNOWN;
         };
     }
 
+    /**
+     * Map Operator state while local task is running.
+     *
+     * @param state Operator state
+     * @return mapped DataFusion state
+     */
+    private StatusEnum mapRunningState(String state) {
+        if (isBlank(state)) {
+            return StatusEnum.RUNNING;
+        }
+        return switch (state) {
+            case "RUNNING", "CREATED", "INITIALIZING", "RECONCILING", "RESTARTING", "FAILING" -> StatusEnum.RUNNING;
+            case "FINISHED" -> StatusEnum.RUN_SUCCESS;
+            case "FAILED" -> StatusEnum.RUN_FAILURE;
+            case "CANCELLING" -> StatusEnum.STOPPING;
+            case "CANCELED", "SUSPENDED" -> StatusEnum.STOP_FAILURE;
+            default -> StatusEnum.UNKNOWN;
+        };
+    }
+
+    /**
+     * Map Operator state while local task is stopping.
+     *
+     * @param state             Operator state
+     * @param runtimePodsAbsent whether runtime Pods are absent
+     * @return mapped DataFusion state
+     */
+    private StatusEnum mapStoppingState(String state, boolean runtimePodsAbsent) {
+        if (isBlank(state)) {
+            return runtimePodsAbsent ? StatusEnum.STOP_SUCCESS : StatusEnum.STOPPING;
+        }
+        return switch (state) {
+            case "FINISHED" -> StatusEnum.RUN_SUCCESS;
+            case "FAILED" -> StatusEnum.RUN_FAILURE;
+            case "CANCELED" -> StatusEnum.STOP_SUCCESS;
+            case "SUSPENDED", "CANCELLING", "RECONCILING", "RUNNING", "RESTARTING", "CREATED", "INITIALIZING",
+                    "FAILING" -> runtimePodsAbsent ? StatusEnum.STOP_SUCCESS : StatusEnum.STOPPING;
+            default -> StatusEnum.UNKNOWN;
+        };
+    }
+
+    /**
+     * Normalize Operator state text.
+     *
+     * @param state raw Operator state
+     * @return normalized state
+     */
+    private String normalizeState(String state) {
+        if (isBlank(state)) {
+            return null;
+        }
+        return state.trim().toUpperCase();
+    }
+
+    /**
+     * Read nested object map.
+     *
+     * @param map source map
+     * @param key object key
+     * @return copied object map, or empty map if absent
+     */
     private Map<String, Object> objectMap(Map<String, Object> map, String key) {
         Object value = map.get(key);
         if (value instanceof Map<?, ?> valueMap) {
@@ -297,34 +536,71 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
         return new LinkedHashMap<>();
     }
 
+    /**
+     * Read string value by Kubernetes resource path.
+     *
+     * @param resource Kubernetes resource
+     * @param path     nested property path
+     * @return string value, or null if absent
+     */
     private String stringAt(GenericKubernetesResource resource, List<String> path) {
         Object value = resource.get(path.toArray());
         return value == null ? null : String.valueOf(value);
     }
 
+    /**
+     * Check whether custom Kubernetes client config is provided.
+     *
+     * @param kubernetes Kubernetes config
+     * @return true if custom config exists
+     */
     private static boolean hasCustomConfig(AgentProperties.Kubernetes kubernetes) {
         return !isBlank(kubernetes.getApiServer()) || !isBlank(kubernetes.getToken())
                 || exists(kubernetes.getTokenFile()) || exists(kubernetes.getCaCertFile());
     }
 
+    /**
+     * Resolve label selector key.
+     *
+     * @param selector selector text
+     * @return label key
+     */
     private String labelKey(String selector) {
-        if (selector == null || !selector.contains("=")) {
+        if (selector == null || !selector.contains(SystemConstant.EQ)) {
             return FlinkK8sNameGenerator.TASK_LABEL;
         }
-        return selector.substring(0, selector.indexOf('='));
+        return selector.substring(0, selector.indexOf(SystemConstant.EQ));
     }
 
+    /**
+     * Resolve label selector value.
+     *
+     * @param selector selector text
+     * @return label value
+     */
     private String labelValue(String selector) {
-        if (selector == null || !selector.contains("=")) {
-            return "";
+        if (selector == null || !selector.contains(SystemConstant.EQ)) {
+            return SystemConstant.BLANK;
         }
-        return selector.substring(selector.indexOf('=') + 1);
+        return selector.substring(selector.indexOf(SystemConstant.EQ) + SystemConstant.EQ.length());
     }
 
+    /**
+     * Check whether text is blank.
+     *
+     * @param value text value
+     * @return true if text is blank
+     */
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
 
+    /**
+     * Check whether filesystem path exists.
+     *
+     * @param path filesystem path
+     * @return true if path exists
+     */
     private static boolean exists(String path) {
         return !isBlank(path) && Files.exists(Path.of(path));
     }

@@ -76,7 +76,7 @@ public class K8sOperatorFlinkTaskRunner implements FlinkTaskRunner {
                     request.getTaskInstanceId(), runtimeRef.getNamespace(), runtimeRef.getDeploymentName(),
                     runtimeRef.getFlinkWebUiUri(), param.getWorkDir());
             return FlinkSubmitResult.builder()
-                    .status(StatusEnum.RUNNING)
+                    .status(StatusEnum.SUBMIT_SUCCESS)
                     .appId(runtimeRef.getDeploymentName())
                     .workDirPath(param.getWorkDir().toString())
                     .result(resultJson("K8S_OPERATOR Flink job submitted", runtimeRef))

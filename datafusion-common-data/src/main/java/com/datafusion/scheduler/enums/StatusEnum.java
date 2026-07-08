@@ -213,6 +213,15 @@ public enum StatusEnum {
     public boolean isWait() {
         return this == WAIT_DEPENDENT || this == WAIT_RESOURCES;
     }
+
+    /**
+     * 判断是否提交中.
+     *
+     * @return true：提交中 false：非提交中
+     */
+    public boolean isSubmitting() {
+        return this == SUBMITTING || this == SUBMIT_SUCCESS;
+    }
     
     /**
      * 判断是否可以重启的状态.
