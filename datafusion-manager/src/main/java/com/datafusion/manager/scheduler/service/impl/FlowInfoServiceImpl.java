@@ -168,6 +168,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         if (entity == null) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程不存在");
         }
+        checkFlowEditable(entity, "流程已发布, 请先取消发布后再编辑");
 
         if (StringUtils.isNotBlank(dto.getFlowCode())) {
             checkCodeUnique(dto.getFlowCode(), dto.getId());
@@ -213,11 +214,11 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         if (entity == null) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程不存在");
         }
-        if (Boolean.TRUE.equals(entity.getEnabled())) {
-            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程调度中, 无法删除");
-        }
         if (Boolean.TRUE.equals(entity.getPublishState())) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程已发布, 无法删除");
+        }
+        if (Boolean.TRUE.equals(entity.getEnabled())) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程调度中, 无法删除");
         }
 
         // 解绑所有任务
@@ -330,6 +331,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         if (flowEntity == null) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程不存在");
         }
+        checkFlowEditable(flowEntity, "流程已发布, 请先取消发布后再保存编排");
 
         UUID flowId = dto.getFlowId();
 
@@ -518,6 +520,18 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
      */
     private void checkFlowHasTask(UUID flowId, String errorMessage) {
         if (CollectionUtils.isEmpty(taskInfoService.listByFlowId(flowId))) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, errorMessage);
+        }
+    }
+
+    /**
+     * 校验流程定义可编辑.
+     *
+     * @param entity       流程定义
+     * @param errorMessage 校验失败提示
+     */
+    private void checkFlowEditable(FlowInfoEntity entity, String errorMessage) {
+        if (entity != null && Boolean.TRUE.equals(entity.getPublishState())) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, errorMessage);
         }
     }

@@ -19,7 +19,7 @@ FlowController -> FlowInfoService -> FlowInfoServiceImpl -> FlowInfoMapper -> sc
 |------|------|------|
 | 基础定义 | `scheduler_flow_info` | 流程名称、编码、类型、变量、触发器、事件依赖 |
 | DAG 编排 | `scheduler_task_info`、`scheduler_task_link` | 流程任务绑定、上下游依赖和画布视图 |
-| 发布调度 | `publish_state`、`publish_version`、`enabled` | 控制流程是否可进入 master 调度队列 |
+| 发布调度 | `publish_state`、`publish_version`、`enabled` | `publish_state` 控制定义可编辑性，`enabled` 控制是否进入 master 调度队列 |
 
 ## 接口
 
@@ -47,7 +47,7 @@ API 前缀：`/api/scheduler/flow`
 - 新增流程要求 `flowName/flowCode/flowType/triggerId` 必填，且 `flowCode` 唯一。
 - 流程 ID 使用 `UUID.nameUUIDFromBytes(flowCode)` 生成，因此新增前必须先校验编码唯一。
 - 新增默认 `enabled=false`、`publishState=false`、`publishVersion=0`。
-- 修改、删除、保存 DAG 只允许在未发布且未调度状态下进行。
+- `publishState=true` 时禁止编辑流程、保存 DAG 和删除；`enabled` 只控制调度，不参与编辑判断。
 - 删除流程前需要解绑任务并删除流程连线，失败时整体回滚。
 - 保存 DAG 采用全量替换：解绑旧任务，绑定新任务，重建连线。
 - 保存 DAG 只维护任务绑定关系、节点视图和连线，不修改任务定义、任务参数和 `syncFlag`。
@@ -65,7 +65,7 @@ API 前缀：`/api/scheduler/flow`
 - 任务池只展示未绑定任务；支持关键字按任务名称或编码查询。
 - 画布支持拖拽任务、移动节点、连线、删除节点/边、缩放和保存。
 - 节点坐标写入 `nodeView`，连线样式和 handle 信息写入 `edgeView`。
-- 已发布或调度中的流程只能查看 DAG，不允许拖拽、连线、删除或保存。
+- 已发布流程只能查看 DAG，不允许拖拽、连线、删除或保存；调度状态 `enabled` 不影响 DAG 编辑权限。
 - 右侧“调度信息”维护节点级 `pluginId`、依赖事件、生成事件开关和任务变量。
 
 ## 调度集成

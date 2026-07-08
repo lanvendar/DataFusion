@@ -25,11 +25,14 @@ datafusion-plugin/datafusion-plugin-spider/src/main/resources/docker/start-dataf
 
 ## 运行包约定
 
-镜像构建直接使用两份“依赖 + app 一体”的运行包：
+镜像构建使用两份“依赖 + app 一体”的运行包。运行包先由 Python 工程生成到各自 `dist` 目录，再通过 `sync-spider-runtime.sh` 同步到 SPIDER 插件资源目录：
 
 ```text
 /Users/lanvendar/PycharmProjects/browser-agent/dist/browser-agent-linux-amd64-runtime.tar.gz
 /Users/lanvendar/PycharmProjects/sh-web-spider/dist/sh-web-spider-linux-amd64-runtime.tar.gz
+
+datafusion-plugin/datafusion-plugin-spider/src/main/resources/plugins/spider/browser-agent/browser-agent-linux-amd64-runtime.tar.gz
+datafusion-plugin/datafusion-plugin-spider/src/main/resources/plugins/spider/sh-web-spider/sh-web-spider-linux-amd64-runtime.tar.gz
 ```
 
 这两份包都应将可运行内容平铺在 tar 根目录。解压后目录示例：
@@ -63,7 +66,7 @@ cd /Users/lanvendar/Projects/DataFusion
 ./datafusion-plugin/datafusion-plugin-spider/src/main/resources/docker/sync-spider-runtime.sh
 ```
 
-镜像构建时会直接解压 `browser-agent` 和 `sh-web-spider` 运行包到 `/opt` 目录，复制 agent 内置插件资源时会排除 `*.tar.gz`，避免运行包在镜像中重复保存。
+镜像构建时从同步后的插件资源目录读取 runtime 包，并直接解压 `browser-agent` 和 `sh-web-spider` 到 `/opt` 目录；复制 agent 内置插件资源时会排除 `*.tar.gz`，避免运行包在镜像中重复保存。
 
 准备 Chromium 离线 deb 包：
 
@@ -86,8 +89,8 @@ docker run --rm --platform linux/amd64 \
 cd /Users/lanvendar/Projects/DataFusion
 
 docker buildx build --network none --platform linux/amd64 --load \
-  --build-context browser-agent-dist=/Users/lanvendar/PycharmProjects/browser-agent/dist \
-  --build-context sh-web-spider-dist=/Users/lanvendar/PycharmProjects/sh-web-spider/dist \
+  --build-context browser-agent-dist=/Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-spider/src/main/resources/plugins/spider/browser-agent \
+  --build-context sh-web-spider-dist=/Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-spider/src/main/resources/plugins/spider/sh-web-spider \
   --build-context datafusion-agent=/Users/lanvendar/Projects/DataFusion/datafusion-agent \
   --build-context amd64-debs=/Users/lanvendar/Projects/DockerImagesBuilder/amd64-debs \
   -f datafusion-plugin/datafusion-plugin-spider/src/main/resources/docker/Dockerfile \

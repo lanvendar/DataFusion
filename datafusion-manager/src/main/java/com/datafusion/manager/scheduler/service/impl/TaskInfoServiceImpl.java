@@ -16,12 +16,15 @@ import com.datafusion.manager.scheduler.dto.TaskInfoDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoQueryDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoSaveDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoUpdateDto;
+import com.datafusion.manager.scheduler.po.FlowInfoEntity;
 import com.datafusion.manager.scheduler.po.TaskInfoEntity;
+import com.datafusion.manager.scheduler.service.FlowInfoService;
 import com.datafusion.manager.scheduler.service.TaskInfoService;
 import com.datafusion.manager.system.service.TaskTypeConfigService;
 import com.datafusion.manager.utils.HttpUtils;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,6 +85,11 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
      * 任务类型配置Service.
      */
     private final TaskTypeConfigService taskTypeConfigService;
+
+    /**
+     * 流程信息Service提供器.
+     */
+    private final ObjectProvider<FlowInfoService> flowInfoServiceProvider;
 
     @Override
     public TaskInfoEntity getTaskInfo(UUID taskId) {
@@ -205,6 +213,7 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
         if (entity == null) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "任务不存在");
         }
+        checkTaskEditable(entity);
 
         if (StringUtils.isNotBlank(dto.getTaskCode())) {
             checkCodeUnique(dto.getTaskCode(), dto.getId());
@@ -385,6 +394,31 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
         }
         if (baseMapper.selectCount(wrapper) > 0) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "任务编码已存在");
+        }
+    }
+
+    /**
+     * 校验任务定义可编辑.
+     *
+     * @param entity 任务定义
+     */
+    private void checkTaskEditable(TaskInfoEntity entity) {
+        checkTaskFlowPublished(entity, "任务所属流程已发布, 请先取消发布后再编辑任务");
+    }
+
+    /**
+     * 校验任务所属流程未发布.
+     *
+     * @param entity       任务定义
+     * @param errorMessage 校验失败提示
+     */
+    private void checkTaskFlowPublished(TaskInfoEntity entity, String errorMessage) {
+        if (entity == null || entity.getFlowId() == null) {
+            return;
+        }
+        FlowInfoEntity flowInfo = flowInfoServiceProvider.getObject().getFlowInfo(entity.getFlowId());
+        if (flowInfo != null && Boolean.TRUE.equals(flowInfo.getPublishState())) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, errorMessage);
         }
     }
 

@@ -52,6 +52,7 @@ API 前缀：`/api/scheduler/task`
 - 副本固定为未绑定状态：`isBound=false`、`flowId=null`、`view=null`、`depEventIds=null`、`eventId=null`、`enabled=true`；`pluginId` 按 `taskType` 解析默认执行插件。
 - 已绑定流程的任务允许复制，但副本保持未绑定，后续由流程编排页重新拖入流程。
 - 修改任务先查询旧实体，再合并非空字段；`taskName/taskCode` 不超过 235 个字符；任务定义页面不应提交调度编排字段。
+- 任务编辑只受所属流程 `publishState` 控制：未绑定流程的任务可编辑；已绑定流程且流程 `publishState=true` 时拒绝编辑；流程 `enabled` 不参与编辑判断。
 - 修改后置 `syncFlag=false`，表示定义已变更。
 - 删除任务前必须确认任务未绑定流程；已绑定时拒绝删除。
 - `clearEventId=true` 仅用于流程编排中的事件关闭场景，不属于普通任务定义编辑入口。
