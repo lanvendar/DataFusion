@@ -87,6 +87,7 @@ public abstract class AbstractFlowMsgHandler implements FlowMsgHandler {
      * 处理手工动作.
      *
      * @param msg 消息
+     * @param actorSysContext Actor 系统上下文
      */
     protected abstract void handleManualAction(FlowMsg msg, ActorSysContext actorSysContext);
 

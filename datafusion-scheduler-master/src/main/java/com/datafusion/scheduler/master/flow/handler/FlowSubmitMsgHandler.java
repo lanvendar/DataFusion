@@ -52,6 +52,7 @@ public class FlowSubmitMsgHandler extends AbstractFlowMsgHandler {
     @Override
     protected void handleAction(FlowMsg msg, ActorSysContext context) {
         FlowInstance flowIns = super.getInstanceById(msg.getFlowInstanceId());
+        fillStartTimeIfAbsent(flowIns);
         flowIns.setState(StatusEnum.SUBMITTING);
         super.saveFlowInstance(flowIns);
         //流程依赖结束,通知任务.
@@ -67,9 +68,21 @@ public class FlowSubmitMsgHandler extends AbstractFlowMsgHandler {
     protected void handleManualAction(FlowMsg msg, ActorSysContext context) {
         // 更新提交中状态.
         FlowInstance flowIns = super.getInstanceById(msg.getFlowInstanceId());
+        fillStartTimeIfAbsent(flowIns);
         flowIns.setState(StatusEnum.SUBMITTING);
         super.saveFlowInstance(flowIns);
         msg.setManualAction(false);
         context.notify(msg);
+    }
+
+    /**
+     * 首次提交时记录流程开始时间.
+     *
+     * @param flowIns 流程实例
+     */
+    private void fillStartTimeIfAbsent(FlowInstance flowIns) {
+        if (flowIns.getStartTime() == null || flowIns.getStartTime() <= 0) {
+            flowIns.setStartTime(System.currentTimeMillis());
+        }
     }
 }
