@@ -27,7 +27,7 @@
     "execution.checkpointing.timeout": "10 min",
     "execution.checkpointing.max-concurrent-checkpoints": "1",
     "execution.checkpointing.storage": "filesystem",
-    "execution.checkpointing.dir": "file:///tmp/flink-checkpoints/kafka-json-ods-spider-oilchem-price-market",
+    "execution.checkpointing.dir": "file:///tmp/flink-checkpoints/flink-table-spider-sites",
     "state.backend.type": "hashmap",
     "restart-strategy.type": "fixed-delay",
     "restart-strategy.fixed-delay.attempts": "3",
