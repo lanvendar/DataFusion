@@ -1,9 +1,9 @@
 import { Button, Descriptions, Drawer, Empty, Space, Spin, Tag } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { taskApi } from "../../api";
-import { EMPTY_PLACEHOLDER, taskTypeColorMap } from "../../constants";
+import { EMPTY_PLACEHOLDER } from "../../constants";
 import type { TaskItem } from "../../dto";
-import { formatJsonText } from "../../utils";
+import { formatJsonText, getTaskTypeColor } from "../../utils";
 import { JsonEditor } from "../json-editor";
 
 interface TaskDetailProps {
@@ -82,7 +82,7 @@ export function TaskDetail({ open, taskId, onClose }: TaskDetailProps) {
                 {detailData.taskCode || EMPTY_PLACEHOLDER}
               </Descriptions.Item>
               <Descriptions.Item label="任务类型">
-                <Tag color={taskTypeColorMap[detailData.taskType] || "default"}>
+                <Tag color={getTaskTypeColor(detailData.taskType)}>
                   {detailData.taskType || EMPTY_PLACEHOLDER}
                 </Tag>
               </Descriptions.Item>

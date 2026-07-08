@@ -1,15 +1,16 @@
 import { CopyOutlined, DeleteOutlined, EditOutlined, EyeOutlined } from "@ant-design/icons";
 import { Button, Popconfirm, Space, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { EMPTY_PLACEHOLDER, taskTypeColorMap } from "../../constants";
+import { EMPTY_PLACEHOLDER } from "../../constants";
 import { PageActionEnum, type TaskItem } from "../../dto";
+import { getTaskTypeColor } from "../../utils";
 
 interface UseColumnsProps {
   onAction: (action: PageActionEnum, record?: TaskItem) => void;
 }
 
 function renderTaskType(value?: string) {
-  return <Tag color={value ? taskTypeColorMap[value] || "default" : "default"}>{value || EMPTY_PLACEHOLDER}</Tag>;
+  return <Tag color={getTaskTypeColor(value)}>{value || EMPTY_PLACEHOLDER}</Tag>;
 }
 
 function renderBound(value?: boolean) {

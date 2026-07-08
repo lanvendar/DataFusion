@@ -32,13 +32,6 @@ export const syncFlagOptions = [
   { label: "未同步", value: false },
 ];
 
-export const taskTypeColorMap: Record<string, string> = {
-  API: "purple",
-  DATAX: "blue",
-  SHELL: "green",
-  SQL: "gold",
-};
-
 export const demoTaskRows: TaskItem[] = [
   {
     id: "task-1",

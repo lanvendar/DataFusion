@@ -34,3 +34,27 @@ export function normalizeJsonText(value: string | undefined, fieldLabel: string)
     throw new Error(`${fieldLabel}不是合法的 JSON`);
   }
 }
+
+const taskTypeColorPalette = [
+  "blue",
+  "green",
+  "gold",
+  "purple",
+  "cyan",
+  "magenta",
+  "volcano",
+  "geekblue",
+  "lime",
+  "orange",
+];
+
+export function getTaskTypeColor(taskType?: string) {
+  const normalizedTaskType = taskType?.trim();
+  if (!normalizedTaskType) return "default";
+
+  let hash = 0;
+  for (let index = 0; index < normalizedTaskType.length; index += 1) {
+    hash = (hash * 31 + normalizedTaskType.charCodeAt(index)) >>> 0;
+  }
+  return taskTypeColorPalette[hash % taskTypeColorPalette.length];
+}
