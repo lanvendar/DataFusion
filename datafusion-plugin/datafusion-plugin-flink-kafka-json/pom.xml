@@ -9,7 +9,7 @@
         <version>1.0.0</version>
     </parent>
 
-    <artifactId>datafusion-plugin-kafka-json</artifactId>
+    <artifactId>datafusion-plugin-flink-kafka-json</artifactId>
     <packaging>jar</packaging>
 
     <name>DataFusion : plugin : kafka json paimon</name>
