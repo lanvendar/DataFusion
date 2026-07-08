@@ -1,6 +1,12 @@
 import { FileTextOutlined } from "@ant-design/icons";
 import { App, Button, Space, Typography } from "antd";
-import { useCallback, useEffect, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useState,
+} from "react";
 import { taskInstanceApi } from "../../api";
 import {
   DEFAULT_LOG_LIMIT,
@@ -18,11 +24,18 @@ interface TaskLogContentProps {
   logType: TaskInstanceLogType;
 }
 
-export function TaskLogContent({
-  flowInstanceId,
-  taskInstanceId,
-  logType,
-}: TaskLogContentProps) {
+export interface TaskLogContentRef {
+  refresh: () => Promise<void>;
+}
+
+export const TaskLogContent = forwardRef<TaskLogContentRef, TaskLogContentProps>(function TaskLogContent(
+  {
+    flowInstanceId,
+    taskInstanceId,
+    logType,
+  },
+  ref,
+) {
   const { message } = App.useApp();
   const [logContent, setLogContent] = useState("");
   const [logMeta, setLogMeta] = useState<TaskInstanceLogContent>();
@@ -58,18 +71,31 @@ export function TaskLogContent({
     [message],
   );
 
+  const refreshLog = useCallback(async () => {
+    const query = createQuery(0);
+    if (!query) return;
+    await fetchLog(query, false);
+  }, [createQuery, fetchLog]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      refresh: refreshLog,
+    }),
+    [refreshLog],
+  );
+
   useEffect(() => {
     setLogContent("");
     setLogMeta(undefined);
-    const query = createQuery(0);
-    if (query) void fetchLog(query, false);
-  }, [createQuery, fetchLog]);
+    void refreshLog();
+  }, [refreshLog]);
 
   const loadMoreLog = useCallback(() => {
-    if (logMeta?.nextOffset === undefined) return;
+    if (!logMeta?.hasMore || logMeta.nextOffset === undefined) return;
     const query = createQuery(logMeta.nextOffset);
     if (query) void fetchLog(query, true);
-  }, [createQuery, fetchLog, logMeta?.nextOffset]);
+  }, [createQuery, fetchLog, logMeta?.hasMore, logMeta?.nextOffset]);
 
   return (
     <Space direction="vertical" size={12} style={{ width: "100%" }}>
@@ -97,4 +123,4 @@ export function TaskLogContent({
       </Button>
     </Space>
   );
-}
+});

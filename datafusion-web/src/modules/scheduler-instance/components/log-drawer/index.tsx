@@ -1,9 +1,9 @@
-import { ExportOutlined } from "@ant-design/icons";
+import { ExportOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Button, Drawer, Segmented, Space } from "antd";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { logTypeOptions } from "../../constants";
 import type { TaskInstanceItem, TaskInstanceLogType } from "../../dto";
-import { TaskLogContent } from "../log-content";
+import { TaskLogContent, type TaskLogContentRef } from "../log-content";
 
 interface TaskLogDrawerProps {
   open: boolean;
@@ -13,10 +13,22 @@ interface TaskLogDrawerProps {
 
 export function TaskLogDrawer({ open, task, onClose }: TaskLogDrawerProps) {
   const [logType, setLogType] = useState<TaskInstanceLogType>("LOG");
+  const [refreshing, setRefreshing] = useState(false);
+  const logContentRef = useRef<TaskLogContentRef>(null);
 
   const handleClose = () => {
     setLogType("LOG");
+    setRefreshing(false);
     onClose();
+  };
+
+  const refreshLog = async () => {
+    setRefreshing(true);
+    try {
+      await logContentRef.current?.refresh();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const openLogPage = () => {
@@ -32,7 +44,20 @@ export function TaskLogDrawer({ open, task, onClose }: TaskLogDrawerProps) {
 
   return (
     <Drawer
-      title="任务日志"
+      title={
+        <Space>
+          <span>任务日志</span>
+          <Button
+            size="small"
+            icon={<ReloadOutlined />}
+            loading={refreshing}
+            disabled={!task}
+            onClick={() => void refreshLog()}
+          >
+            刷新
+          </Button>
+        </Space>
+      }
       open={open}
       width={820}
       onClose={handleClose}
@@ -54,7 +79,14 @@ export function TaskLogDrawer({ open, task, onClose }: TaskLogDrawerProps) {
         </Space>
       }
     >
-      {open ? <TaskLogContent flowInstanceId={task?.flowInstanceId} taskInstanceId={task?.id} logType={logType} /> : null}
+      {open ? (
+        <TaskLogContent
+          ref={logContentRef}
+          flowInstanceId={task?.flowInstanceId}
+          taskInstanceId={task?.id}
+          logType={logType}
+        />
+      ) : null}
     </Drawer>
   );
 }

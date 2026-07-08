@@ -31,13 +31,13 @@ public class TaskInstanceLogQueryDto {
     /**
      * 日志类型.
      */
-    @Schema(name = "logType", description = "LOG、ERROR、STATUS")
+    @Schema(name = "logType", description = "LOG、ERROR、STATUS、PLUGIN")
     private String logType;
 
     /**
      * 读取偏移.
      */
-    @Schema(name = "offset", description = "读取偏移")
+    @Schema(name = "offset", description = "读取偏移, 刷新时传0")
     private Long offset;
 
     /**

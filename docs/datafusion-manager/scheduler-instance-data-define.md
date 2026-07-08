@@ -153,7 +153,7 @@
 | `TaskInstanceLogQueryDto` | `Query` | 日志读取 | `flowInstanceId` | `UUID` | 必填 | 流程实例 ID |
 | `TaskInstanceLogQueryDto` | `Query` | 日志读取 | `taskInstanceId` | `UUID` | 必填 | 任务实例 ID |
 | `TaskInstanceLogQueryDto` | `Query` | 日志读取 | `logType` | `String` | 必填，`LOG` / `ERROR` / `STATUS` / `PLUGIN` | 日志类型 |
-| `TaskInstanceLogQueryDto` | `Query` | 日志读取 | `offset` / `limit` | `Long` / `Integer` | 可选 | 分段读取 |
+| `TaskInstanceLogQueryDto` | `Query` | 日志读取 | `offset` / `limit` | `Long` / `Integer` | 可选；刷新时 `offset=0` | 分段读取；刷新重读当前日志，加载更多按 `nextOffset` 追加 |
 | `SchedulerInstanceActionDto` | `Action` | 流程实例操作 | `flowInstanceId` | `UUID` | 必填 | 流程实例 ID |
 | `SchedulerInstanceActionDto` | `Action` | 流程实例操作 | `actionType` | `String` | 必填，允许 `SUBMIT` / `STOP`；不开放 `REINIT` | 映射 `MasterService.getFlowAction()` 公开能力 |
 | `SchedulerInstanceActionDto` | `Action` | 任务实例操作 | `taskInstanceId` | `UUID` | 必填 | 任务实例 ID |

@@ -94,6 +94,11 @@ PLUGIN -> workerResult.pluginLogUri
 日志抽屉中的 `LOG`、`ERROR`、`STATUS`、`PLUGIN` 四种日志均支持打开独立页面，独立页复用同一日志读取接口和
 “加载更多”能力。
 
+前端在日志抽屉标题“任务日志”右侧、独立日志页标题右侧展示“刷新”按钮。刷新当前选中的日志类型时，
+复用 `/api/scheduler/task/instance/log/content`，使用当前 `flowInstanceId/taskInstanceId/logType/limit` 并传
+`offset=0` 重新读取；刷新会替换当前日志内容和 `nextOffset`，不追加旧内容。“加载更多”只在
+`hasMore=true` 时按 `nextOffset` 追加读取，不承担刷新语义。
+
 当任务实例存在 `workDirPath` 时，操作列展示“工作目录”入口，前端调用
 `/api/scheduler/task/instance/log/filebrowser/{taskInstanceId}` 并由后端重定向到 FileBrowser。前端不拼接
 FileBrowser 地址，也不保存或展示 FileBrowser 用户名密码。
