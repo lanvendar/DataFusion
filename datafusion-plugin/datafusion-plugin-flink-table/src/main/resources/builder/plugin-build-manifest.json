@@ -1,0 +1,18 @@
+{
+  "pluginType": "FLINK",
+  "modulePath": "datafusion-plugin/datafusion-plugin-flink-table",
+  "artifactId": "datafusion-plugin-flink-table",
+  "artifactMode": "jar",
+  "runtimeResourceDir": "src/main/resources/plugins/flink",
+  "agentPublishDir": "datafusion-agent/src/main/resources/plugins/flink/datafusion-plugin-flink-table",
+  "resourceDirs": [
+    "conf",
+    "jobs"
+  ],
+  "resourceFiles": [
+    {
+      "source": "src/main/resources/plugins/plugin-flink-table-commands.md",
+      "target": "plugin-flink-table-commands.md"
+    }
+  ]
+}

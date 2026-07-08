@@ -79,10 +79,10 @@ class FlinkKubernetesTemplateRendererTest {
     private ObjectNode pluginParam() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
         pluginParam.put("runMode", "K8S_OPERATOR");
-        pluginParam.put("flinkAppDir", "/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json");
+        pluginParam.put("flinkAppDir", "/opt/datafusion/plugins/flink/datafusion-plugin-flink-table");
         pluginParam.put("launchMode", "JAR");
-        pluginParam.put("flinkAppJar", "datafusion-plugin-kafka-json-1.0.0-executable.jar");
-        pluginParam.put("mainClass", "com.datafusion.plugin.kafka.json.KafkaJsonPaimonApplication");
+        pluginParam.put("flinkAppJar", "datafusion-plugin-flink-table-1.0.0-executable.jar");
+        pluginParam.put("mainClass", "com.datafusion.plugin.flink.table.FlinkTablePaimonApplication");
         pluginParam.put("flinkVersion", "2.2.0");
         pluginParam.put("libDir", "lib");
         pluginParam.put("flinkCheckpointRootDir", "s3a://data-lake-warehouse/flink/");

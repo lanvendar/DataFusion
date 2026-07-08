@@ -109,7 +109,7 @@ thin jar + lib 模式：
 ```json
 {
   "pluginType": "FLINK",
-  "agentPublishDir": "datafusion-agent/src/main/resources/plugins/flink/datafusion-plugin-kafka-json"
+  "agentPublishDir": "datafusion-agent/src/main/resources/plugins/flink/datafusion-plugin-flink-table"
 }
 ```
 

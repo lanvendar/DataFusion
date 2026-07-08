@@ -41,7 +41,7 @@ Agent 不从 `taskData.runMode` 或配置文件推断运行模式。
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `runMode` | `String` | 是 | 无 | 支持 `LOCAL`、`STANDALONE`、`YARN`、`K8S`、`K8S_OPERATOR` |
-| `flinkAppDir` | `String` | K8S_OPERATOR 必填 | `/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json` | Flink Pod 内共享盘 app 目录；目录下保存主 jar 和依赖目录 |
+| `flinkAppDir` | `String` | K8S_OPERATOR 必填 | `/opt/datafusion/plugins/flink/datafusion-plugin-flink-table` | Flink Pod 内共享盘 app 目录；目录下保存主 jar 和依赖目录 |
 | `launchMode` | `String` | 否 | `JAR` | 启动模式，首版只实现 `JAR`；`CLASSPATH` 预留给后续无主 jar 或多 classpath 启动 |
 | `flinkAppJar` | `String` | K8S_OPERATOR 且 `launchMode=JAR` 必填 | 无 | app 主 jar 文件名，用于派生 `jarURI=local:///opt/flink/usrlib/{flinkAppJar}` |
 | `classpath` | `String` | 否 | 空 | 额外 classpath 表达式；首版 `JAR` 模式默认不使用，后续 `CLASSPATH` 模式或特殊依赖顺序场景使用 |
@@ -59,11 +59,11 @@ Agent 不从 `taskData.runMode` 或配置文件推断运行模式。
 ```json
 {
   "runMode": "K8S_OPERATOR",
-  "flinkAppDir": "/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json",
+  "flinkAppDir": "/opt/datafusion/plugins/flink/datafusion-plugin-flink-table",
   "launchMode": "JAR",
-  "flinkAppJar": "datafusion-plugin-kafka-json-1.0.0-executable.jar",
+  "flinkAppJar": "datafusion-plugin-flink-table-1.0.0-executable.jar",
   "classpath": "",
-  "mainClass": "com.datafusion.plugin.kafka.json.KafkaJsonPaimonApplication",
+  "mainClass": "com.datafusion.plugin.flink.table.FlinkTablePaimonApplication",
   "flinkVersion": "2.2.0",
   "libDir": "lib",
   "flinkCheckpointRootDir": "s3a://data-lake-warehouse/flink",
@@ -124,13 +124,13 @@ Agent 不从 `taskData.runMode` 或配置文件推断运行模式。
 `pluginParam.flinkConfig`。例如插件级可以固定 state backend，任务模板层或单次任务再按任务类型设置并行度、
 checkpoint 和 savepoint 目录。
 
-`flinkAppDir` 是 Pod 内共享盘 app 目录，例如 `/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json`。
+`flinkAppDir` 是 Pod 内共享盘 app 目录，例如 `/opt/datafusion/plugins/flink/datafusion-plugin-flink-table`。
 Agent 会从该路径反推出共享 PVC 挂载点：如果路径包含 `/plugins/`，默认把 PVC 挂载到 `/plugins/`
 之前的目录，例如 `/opt/datafusion`。
 
 `libDir` 和 `classpath` 的职责不同：
 
-- `libDir` 是 `flinkAppDir` 下的依赖目录，例如 `/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json/lib`；
+- `libDir` 是 `flinkAppDir` 下的依赖目录，例如 `/opt/datafusion/plugins/flink/datafusion-plugin-flink-table/lib`；
   initContainer 根据它把依赖 jar 复制到 `/opt/flink/usrlib`。
 - `classpath` 是额外传给 Flink runtime 的 classpath 表达式。首版 `launchMode=JAR` 下依赖统一通过
   `/opt/flink/usrlib` 被 Flink 发现，因此 `classpath` 默认留空，不作为依赖目录配置入口。
@@ -248,7 +248,7 @@ s3a://data-lake-warehouse/flink/savepoints/{jobId}
 | `operatorVersion` | 固定约定 | 首版目标集群为 `flink-kubernetes-operator:1.14.0`，仅用于环境校验 |
 | `operatorFlinkVersion` | `pluginParam.flinkVersion` | `2.2.0` 映射为 `FlinkDeployment.spec.flinkVersion=v2_2` |
 | `jarURI` | `pluginParam.flinkAppJar` | `local:///opt/flink/usrlib/{flinkAppJar}` |
-| `flinkAppDir` | `pluginParam.flinkAppDir` | Pod 内共享盘 app 目录，例如 `/opt/datafusion/plugins/flink/datafusion-plugin-kafka-json` |
+| `flinkAppDir` | `pluginParam.flinkAppDir` | Pod 内共享盘 app 目录，例如 `/opt/datafusion/plugins/flink/datafusion-plugin-flink-table` |
 | `sharedMountPath` | `pluginParam.flinkAppDir` | 如果 `flinkAppDir` 包含 `/plugins/`，挂载点为 `/plugins/` 前缀目录；否则使用 `flinkAppDir` 父目录 |
 | `usrlibPath` | 固定约定 | `/opt/flink/usrlib` |
 | `deploymentNamePrefix` | 固定约定 | `df-flink-` |

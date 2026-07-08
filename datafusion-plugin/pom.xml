@@ -15,7 +15,7 @@
     <modules>
         <module>datafusion-plugin-api</module>
         <module>datafusion-plugin-datax</module>
-        <module>datafusion-plugin-flink-kafka-json</module>
+        <module>datafusion-plugin-flink-table</module>
         <module>datafusion-plugin-spider</module>
         <module>datafusion-plugin-spark-sql</module>
     </modules>
