@@ -201,11 +201,6 @@ class K8sDataxTaskRunnerTest {
         private Boolean forcibly;
 
         /**
-         * Query status.
-         */
-        private StatusEnum status = StatusEnum.RUNNING;
-
-        /**
          * Cleanup resource count.
          */
         private int cleanupCount;
@@ -272,9 +267,15 @@ class K8sDataxTaskRunnerTest {
         }
 
         @Override
-        public StatusEnum queryStatus(DataxKubernetesRuntimeRef runtimeRef, StatusEnum localState) {
+        public DataxKubernetesStatus queryStatus(DataxKubernetesRuntimeRef runtimeRef) {
             this.lastRuntimeRef = runtimeRef;
-            return status;
+            return DataxKubernetesStatus.builder()
+                    .state(DataxKubernetesStatus.State.ACTIVE)
+                    .jobExists(true)
+                    .jobStatusExists(true)
+                    .podExists(true)
+                    .podRunning(true)
+                    .build();
         }
 
         @Override

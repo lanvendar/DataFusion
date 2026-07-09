@@ -9,33 +9,35 @@ import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * K8S DataX task runner.
+ * K8S DataX 任务运行器.
  *
  * @author datafusion
  * @version 1.0.0, 2026/6/8
  * @since 1.0.0
  */
 @Component
+@Slf4j
 public class K8sDataxTaskRunner implements DataxTaskRunner {
 
     /**
-     * Kubernetes client.
+     * Kubernetes 客户端.
      */
     private final DataxKubernetesClient kubernetesClient;
 
     /**
-     * State store.
+     * 状态存储.
      */
     private final WorkerTaskExecutionStore stateStore;
 
     /**
-     * Constructor.
+     * 构造函数.
      *
-     * @param kubernetesClient Kubernetes client
-     * @param stateStore       state store
+     * @param kubernetesClient Kubernetes 客户端
+     * @param stateStore       状态存储
      */
     public K8sDataxTaskRunner(DataxKubernetesClient kubernetesClient, WorkerTaskExecutionStore stateStore) {
         this.kubernetesClient = kubernetesClient;
@@ -94,6 +96,8 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
             kubernetesClient.stop(runtimeRef, true);
             return result(state, StatusEnum.KILLED, "K8S DataX kill completed", null);
         } catch (RuntimeException e) {
+            log.warn("DataX K8S强杀失败, taskInstanceId={}, appId={}, error={}",
+                    param.getTaskInstanceId(), state.getAppId(), e.getMessage());
             return result(state, StatusEnum.UNKNOWN, "K8S DataX kill failed: " + e.getMessage(), null);
         }
     }

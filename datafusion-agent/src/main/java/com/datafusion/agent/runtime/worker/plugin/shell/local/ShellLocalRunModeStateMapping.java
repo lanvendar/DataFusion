@@ -3,6 +3,7 @@ package com.datafusion.agent.runtime.worker.plugin.shell.local;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
@@ -15,6 +16,7 @@ import java.util.Optional;
  * @since 1.0.0
  */
 @Component
+@Slf4j
 public class ShellLocalRunModeStateMapping implements PluginRunModeStateMapping {
 
     /**
@@ -35,6 +37,7 @@ public class ShellLocalRunModeStateMapping implements PluginRunModeStateMapping 
     @Override
     public StatusEnum mapState(WorkerTaskExecutionState state) {
         if (state == null) {
+            log.warn("Shell LOCAL的状态为空, taskState=null");
             return StatusEnum.UNKNOWN;
         }
         StatusEnum currentStatus = state.getStatus();
@@ -46,10 +49,16 @@ public class ShellLocalRunModeStateMapping implements PluginRunModeStateMapping 
         }
         Optional<Long> pid = parsePid(state.getAppId());
         if (pid.isEmpty()) {
+            log.warn("Shell LOCAL的pid为空, taskInstanceId={}, appId={}",
+                    state.getTaskInstanceId(), state.getAppId());
             return StatusEnum.UNKNOWN;
         }
-        return ProcessHandle.of(pid.get()).map(ProcessHandle::isAlive).orElse(false)
-                ? StatusEnum.RUNNING : StatusEnum.UNKNOWN;
+        if (ProcessHandle.of(pid.get()).map(ProcessHandle::isAlive).orElse(false)) {
+            return StatusEnum.RUNNING;
+        }
+        log.warn("Shell LOCAL的进程不存在, taskInstanceId={}, pid={}",
+                state.getTaskInstanceId(), pid.get());
+        return StatusEnum.UNKNOWN;
     }
 
     private Optional<Long> parsePid(String appId) {

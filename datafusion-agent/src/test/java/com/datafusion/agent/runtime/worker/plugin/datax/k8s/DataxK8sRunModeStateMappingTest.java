@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for {@link DataxK8sRunModeStateMapping}.
+ * DataX K8S 状态映射测试.
  *
  * @author datafusion
  * @version 1.0.0, 2026/6/24
@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DataxK8sRunModeStateMappingTest {
 
     /**
-     * Object mapper.
+     * JSON 处理器.
      */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -56,6 +56,28 @@ class DataxK8sRunModeStateMappingTest {
         assertEquals(logFile.toString(), state.getResult().path("pluginLogUri").asText());
         assertTrue(state.getResult().path("finalized").asBoolean());
         assertEquals(0, client.cleanupCount);
+    }
+
+    @Test
+    void shouldMapKubernetesStatus() {
+        FakeKubernetesClient client = new FakeKubernetesClient();
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        DataxK8sRunModeStateMapping mapping = new DataxK8sRunModeStateMapping(client,
+                new DataxParamResolver(properties()), stateStore);
+        TaskRequest request = request();
+        stateStore.saveSnapshot(snapshot(request));
+
+        client.status = status(DataxKubernetesStatus.State.ACTIVE, true, true, true, true);
+        assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.RUNNING)));
+
+        client.status = status(DataxKubernetesStatus.State.COMPLETE, true, true, false, false);
+        assertEquals(StatusEnum.RUN_SUCCESS, mapping.mapState(state(StatusEnum.RUNNING)));
+
+        client.status = status(DataxKubernetesStatus.State.NONE, true, false, false, false);
+        assertEquals(StatusEnum.UNKNOWN, mapping.mapState(state(StatusEnum.RUNNING)));
+
+        client.status = status(DataxKubernetesStatus.State.NONE, false, false, false, false);
+        assertEquals(StatusEnum.KILLED, mapping.mapState(state(StatusEnum.KILLING)));
     }
 
     private AgentProperties properties() {
@@ -97,29 +119,53 @@ class DataxK8sRunModeStateMappingTest {
     }
 
     private WorkerTaskExecutionState state() {
+        return state(StatusEnum.RUN_SUCCESS);
+    }
+
+    private WorkerTaskExecutionState state(StatusEnum status) {
         return WorkerTaskExecutionState.builder()
                 .taskInstanceId("task-1")
                 .appId("df-datax-task-1")
                 .workDirPath(tempDir.resolve("task-runtime").resolve("20260624")
                         .resolve("flow-1").resolve("task-1").toString())
-                .status(StatusEnum.RUN_SUCCESS)
+                .status(status)
+                .build();
+    }
+
+    private DataxKubernetesStatus status(DataxKubernetesStatus.State state, boolean jobExists,
+            boolean jobStatusExists, boolean podExists, boolean podRunning) {
+        return DataxKubernetesStatus.builder()
+                .state(state)
+                .jobExists(jobExists)
+                .jobStatusExists(jobStatusExists)
+                .podExists(podExists)
+                .podRunning(podRunning)
                 .build();
     }
 
     /**
-     * Fake Kubernetes client.
+     * 测试用 Kubernetes client.
      */
     private static class FakeKubernetesClient implements DataxKubernetesClient {
 
         /**
-         * Cleanup count.
+         * 清理次数.
          */
         private int cleanupCount;
 
         /**
-         * Last cleanup mode.
+         * 最后一次清理模式.
          */
         private DataxKubernetesCleanupMode lastCleanupMode;
+
+        /**
+         * Kubernetes 状态.
+         */
+        private DataxKubernetesStatus status = DataxKubernetesStatus.builder()
+                .state(DataxKubernetesStatus.State.COMPLETE)
+                .jobExists(true)
+                .jobStatusExists(true)
+                .build();
 
         @Override
         public DataxKubernetesRuntimeRef submit(DataxExecutionParam param) {
@@ -138,8 +184,8 @@ class DataxK8sRunModeStateMappingTest {
         }
 
         @Override
-        public StatusEnum queryStatus(DataxKubernetesRuntimeRef runtimeRef, StatusEnum localState) {
-            return StatusEnum.RUN_SUCCESS;
+        public DataxKubernetesStatus queryStatus(DataxKubernetesRuntimeRef runtimeRef) {
+            return status;
         }
 
         @Override

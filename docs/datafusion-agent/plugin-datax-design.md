@@ -149,6 +149,9 @@ Job 约定：
 
 状态映射：
 
+`DataxKubernetesClient` 只查询 `DataxKubernetesStatus`，包含 Job 状态和 Pod 存活事实。
+`DataxK8sRunModeStateMapping` 结合本地状态转换为 DataFusion 状态。
+
 | Kubernetes Job 状态 | DataFusion 状态 |
 |---------------------|-----------------|
 | `Complete=True` | `RUN_SUCCESS` |
@@ -156,7 +159,7 @@ Job 约定：
 | `active > 0` | `RUNNING` |
 | 本地 `STOPPING` 且 Pod 全部退出 | `STOP_SUCCESS` |
 | 本地 `KILLING` 且 Pod 全部退出 | `KILLED` |
-| Job 不存在且本地非终态 | `UNKNOWN` |
+| Job 不存在、Job status 为空或 Job 未激活 | `UNKNOWN` |
 
 控制规则：
 

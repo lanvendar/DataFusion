@@ -3,7 +3,6 @@ package com.datafusion.agent.runtime.worker.plugin.datax.k8s;
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxJobFileService;
-import com.datafusion.scheduler.enums.StatusEnum;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import io.fabric8.kubernetes.api.model.batch.v1.JobCondition;
@@ -20,7 +19,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Fabric8 DataX Kubernetes client.
+ * Fabric8 DataX Kubernetes 客户端.
  *
  * @author datafusion
  * @version 1.0.0, 2026/6/8
@@ -30,56 +29,56 @@ import java.util.List;
 public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
 
     /**
-     * Kubernetes client.
+     * Kubernetes 客户端.
      */
     private final KubernetesClient client;
 
     /**
-     * Job file service.
+     * Job 文件服务.
      */
     private final DataxJobFileService jobFileService;
 
     /**
-     * YAML template renderer.
+     * YAML 模板渲染器.
      */
     private final DataxKubernetesTemplateRenderer templateRenderer;
 
     /**
-     * Complete condition type.
+     * 完成条件类型.
      */
     private static final String COMPLETE_CONDITION = "Complete";
 
     /**
-     * Failed condition type.
+     * 失败条件类型.
      */
     private static final String FAILED_CONDITION = "Failed";
 
     /**
-     * Running pod phase.
+     * Pod 运行阶段.
      */
     private static final String RUNNING_PHASE = "Running";
 
     /**
-     * Pending pod phase.
+     * Pod 等待阶段.
      */
     private static final String PENDING_PHASE = "Pending";
 
     /**
-     * Cleanup wait timeout in milliseconds.
+     * 清理等待超时时间.
      */
     private static final long CLEANUP_WAIT_TIMEOUT_MS = 30_000L;
 
     /**
-     * Cleanup wait interval in milliseconds.
+     * 清理等待间隔.
      */
     private static final long CLEANUP_WAIT_INTERVAL_MS = 500L;
 
     /**
-     * Constructor.
+     * 构造函数.
      *
-     * @param properties       agent properties
-     * @param jobFileService   job file service
-     * @param templateRenderer YAML template renderer
+     * @param properties       Agent 配置
+     * @param jobFileService   Job 文件服务
+     * @param templateRenderer YAML 模板渲染器
      */
     public Fabric8DataxKubernetesClient(AgentProperties properties, DataxJobFileService jobFileService,
             DataxKubernetesTemplateRenderer templateRenderer) {
@@ -118,24 +117,25 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
     }
 
     @Override
-    public StatusEnum queryStatus(DataxKubernetesRuntimeRef runtimeRef, StatusEnum localState) {
-        if (localState != null && localState.isFinalState()) {
-            return localState;
-        }
-        if (isTerminatingState(localState)) {
-            return podsRunning(runtimeRef) ? localState : terminalControlState(localState);
-        }
+    public DataxKubernetesStatus queryStatus(DataxKubernetesRuntimeRef runtimeRef) {
         Job job = job(runtimeRef);
-        if (job == null || job.getStatus() == null) {
-            return StatusEnum.UNKNOWN;
+        List<Pod> pods = pods(runtimeRef);
+        boolean podRunning = pods.stream().anyMatch(this::podRunning);
+        if (job == null) {
+            return status(DataxKubernetesStatus.State.NONE, false, false, !pods.isEmpty(), podRunning);
+        }
+        if (job.getStatus() == null) {
+            return status(DataxKubernetesStatus.State.NONE, true, false, !pods.isEmpty(), podRunning);
         }
         if (hasCondition(job, COMPLETE_CONDITION)) {
-            return StatusEnum.RUN_SUCCESS;
+            return status(DataxKubernetesStatus.State.COMPLETE, true, true, !pods.isEmpty(), podRunning);
         }
         if (hasCondition(job, FAILED_CONDITION)) {
-            return StatusEnum.RUN_FAILURE;
+            return status(DataxKubernetesStatus.State.FAILED, true, true, !pods.isEmpty(), podRunning);
         }
-        return isActive(job) ? StatusEnum.RUNNING : StatusEnum.UNKNOWN;
+        DataxKubernetesStatus.State state = isActive(job) ? DataxKubernetesStatus.State.ACTIVE
+                : DataxKubernetesStatus.State.NONE;
+        return status(state, true, true, !pods.isEmpty(), podRunning);
     }
 
     @Override
@@ -295,10 +295,6 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
                 && "True".equals(condition.getStatus()));
     }
 
-    private boolean podsRunning(DataxKubernetesRuntimeRef runtimeRef) {
-        return pods(runtimeRef).stream().anyMatch(this::podRunning);
-    }
-
     private boolean podRunning(Pod pod) {
         if (pod.getStatus() == null) {
             return false;
@@ -307,17 +303,20 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
         return RUNNING_PHASE.equals(phase) || PENDING_PHASE.equals(phase);
     }
 
-    private boolean isTerminatingState(StatusEnum localState) {
-        return localState == StatusEnum.STOPPING || localState == StatusEnum.KILLING;
-    }
-
-    private StatusEnum terminalControlState(StatusEnum localState) {
-        return localState == StatusEnum.STOPPING ? StatusEnum.STOP_SUCCESS : StatusEnum.KILLED;
-    }
-
     private boolean isActive(Job job) {
         Integer active = job.getStatus().getActive();
         return active != null && active > 0;
+    }
+
+    private DataxKubernetesStatus status(DataxKubernetesStatus.State state, boolean jobExists, boolean jobStatusExists,
+            boolean podExists, boolean podRunning) {
+        return DataxKubernetesStatus.builder()
+                .state(state)
+                .jobExists(jobExists)
+                .jobStatusExists(jobStatusExists)
+                .podExists(podExists)
+                .podRunning(podRunning)
+                .build();
     }
 
     private void ensureImage(DataxKubernetesParam kubernetes) {

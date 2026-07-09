@@ -1,10 +1,9 @@
 package com.datafusion.agent.runtime.worker.plugin.datax.k8s;
 
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
-import com.datafusion.scheduler.enums.StatusEnum;
 
 /**
- * DataX Kubernetes client.
+ * DataX Kubernetes 客户端.
  *
  * @author datafusion
  * @version 1.0.0, 2026/6/8
@@ -13,44 +12,43 @@ import com.datafusion.scheduler.enums.StatusEnum;
 public interface DataxKubernetesClient {
 
     /**
-     * Submit Kubernetes Job.
+     * 提交 Kubernetes Job.
      *
-     * @param param execution param
-     * @return runtime reference
+     * @param param 执行参数
+     * @return 运行时引用
      */
     DataxKubernetesRuntimeRef submit(DataxExecutionParam param);
 
     /**
-     * Stop Kubernetes Job.
+     * 停止 Kubernetes Job.
      *
-     * @param runtimeRef runtime reference
-     * @param forcibly   forcibly delete pods
+     * @param runtimeRef 运行时引用
+     * @param forcibly   是否强制删除
      */
     void stop(DataxKubernetesRuntimeRef runtimeRef, boolean forcibly);
 
     /**
-     * Query status.
+     * 查询 Kubernetes 状态.
      *
-     * @param runtimeRef runtime reference
-     * @param localState local state
-     * @return mapped status
+     * @param runtimeRef 运行时引用
+     * @return Kubernetes 状态快照
      */
-    StatusEnum queryStatus(DataxKubernetesRuntimeRef runtimeRef, StatusEnum localState);
+    DataxKubernetesStatus queryStatus(DataxKubernetesRuntimeRef runtimeRef);
 
     /**
-     * Collect logs.
+     * 采集日志.
      *
-     * @param runtimeRef runtime reference
-     * @return logs
+     * @param runtimeRef 运行时引用
+     * @return 日志内容
      */
     String collectLogs(DataxKubernetesRuntimeRef runtimeRef);
 
     /**
-     * Cleanup resources.
+     * 清理资源.
      *
-     * @param runtimeRef runtime reference
-     * @param mode       cleanup mode
-     * @return true if cleanup completed
+     * @param runtimeRef 运行时引用
+     * @param mode       清理模式
+     * @return true 表示清理完成
      */
     boolean cleanup(DataxKubernetesRuntimeRef runtimeRef, DataxKubernetesCleanupMode mode);
 }

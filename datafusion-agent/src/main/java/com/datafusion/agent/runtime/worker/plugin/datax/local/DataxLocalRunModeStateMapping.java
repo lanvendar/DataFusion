@@ -5,18 +5,20 @@ import com.datafusion.agent.runtime.worker.plugin.datax.DataxRunMode;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
 /**
- * DataX LOCAL run mode state mapping.
+ * DataX LOCAL 运行模式状态映射.
  *
  * @author datafusion
  * @version 1.0.0, 2026/6/8
  * @since 1.0.0
  */
 @Component
+@Slf4j
 public class DataxLocalRunModeStateMapping implements PluginRunModeStateMapping {
 
     @Override
@@ -32,6 +34,7 @@ public class DataxLocalRunModeStateMapping implements PluginRunModeStateMapping 
     @Override
     public StatusEnum mapState(WorkerTaskExecutionState state) {
         if (state == null) {
+            log.warn("DataX LOCAL的状态为空, taskState=null");
             return StatusEnum.UNKNOWN;
         }
         StatusEnum currentStatus = state.getStatus();
@@ -43,10 +46,16 @@ public class DataxLocalRunModeStateMapping implements PluginRunModeStateMapping 
         }
         Optional<Long> pid = parsePid(state.getAppId());
         if (pid.isEmpty()) {
+            log.warn("DataX LOCAL的pid为空, taskInstanceId={}, appId={}",
+                    state.getTaskInstanceId(), state.getAppId());
             return StatusEnum.UNKNOWN;
         }
-        return ProcessHandle.of(pid.get()).map(ProcessHandle::isAlive).orElse(false)
-                ? StatusEnum.RUNNING : StatusEnum.UNKNOWN;
+        if (ProcessHandle.of(pid.get()).map(ProcessHandle::isAlive).orElse(false)) {
+            return StatusEnum.RUNNING;
+        }
+        log.warn("DataX LOCAL的进程不存在, taskInstanceId={}, pid={}",
+                state.getTaskInstanceId(), pid.get());
+        return StatusEnum.UNKNOWN;
     }
 
     private Optional<Long> parsePid(String appId) {
