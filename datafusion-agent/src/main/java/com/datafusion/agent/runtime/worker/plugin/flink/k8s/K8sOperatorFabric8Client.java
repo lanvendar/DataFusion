@@ -3,7 +3,6 @@ package com.datafusion.agent.runtime.worker.plugin.flink.k8s;
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.flink.FlinkExecutionParam;
 import com.datafusion.common.constant.SystemConstant;
-import com.datafusion.scheduler.enums.StatusEnum;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.GenericKubernetesResource;
 import io.fabric8.kubernetes.api.model.Pod;
@@ -147,38 +146,26 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
     }
 
     @Override
-    public StatusEnum queryStatus(FlinkKubernetesRuntimeRef runtimeRef, StatusEnum localState) {
-        if (localState != null && localState.isFinalState()) {
-            return localState;
-        }
+    public FlinkOperatorStatus queryStatus(FlinkKubernetesRuntimeRef runtimeRef) {
         GenericKubernetesResource deployment = deployment(runtimeRef);
         List<Pod> podList = pods(runtimeRef);
-        if (localState == StatusEnum.KILLING) {
-            if (isAllResourceAbsent(deployment, podList, services(runtimeRef))) {
-                log.info("K8S_OPERATOR Flink资源已删除, namespace={}, deploymentName={}, localState={}",
-                        runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), localState);
-                return StatusEnum.KILLED;
-            }
-            log.info("K8S_OPERATOR Flink资源仍在清理中, namespace={}, deploymentName={}, localState={}",
-                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), localState);
-            return StatusEnum.KILLING;
+        List<Service> serviceList = services(runtimeRef);
+        String state = deployment == null ? null : stringAt(deployment, JOB_STATUS_PATH);
+        FlinkOperatorStatus.State operatorState = FlinkOperatorStatus.State.from(state);
+        if (operatorState == FlinkOperatorStatus.State.UNKNOWN) {
+            log.warn("K8S_OPERATOR FlinkDeployment返回未知状态, namespace={}, deploymentName={}, operatorState={}",
+                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), state);
         }
-        if (localState == StatusEnum.STOPPING && deployment == null && podList.isEmpty()) {
-            log.info("K8S_OPERATOR Flink运行资源不存在, 视为停止完成, namespace={}, deploymentName={}",
-                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
-            return StatusEnum.STOP_SUCCESS;
-        }
-        if (deployment == null) {
-            log.info("查询K8S_OPERATOR FlinkDeployment不存在, namespace={}, deploymentName={}, localState={}",
-                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), localState);
-            return StatusEnum.UNKNOWN;
-        }
-        String state = stringAt(deployment, JOB_STATUS_PATH);
-        StatusEnum mappedState = mapOperatorState(state, localState, podList.isEmpty());
         log.debug("查询K8S_OPERATOR FlinkDeployment状态, namespace={}, deploymentName={}, operatorState={}, "
-                        + "localState={}, mappedState={}",
-                runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), state, localState, mappedState);
-        return mappedState;
+                        + "deploymentExists={}, podExists={}, serviceExists={}",
+                runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), state, deployment != null,
+                !podList.isEmpty(), !serviceList.isEmpty());
+        return FlinkOperatorStatus.builder()
+                .state(operatorState)
+                .deploymentExists(deployment != null)
+                .podExists(!podList.isEmpty())
+                .serviceExists(!serviceList.isEmpty())
+                .build();
     }
 
     @Override
@@ -412,118 +399,9 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
         }
     }
 
-    /**
-     * Check whether all runtime resources have disappeared.
-     *
-     * @param deployment  FlinkDeployment resource
-     * @param podList     runtime Pods
-     * @param serviceList runtime Services
-     * @return true if FlinkDeployment, Pods and Services are all absent
-     */
     private boolean isAllResourceAbsent(GenericKubernetesResource deployment, List<Pod> podList,
             List<Service> serviceList) {
         return deployment == null && podList.isEmpty() && serviceList.isEmpty();
-    }
-
-    /**
-     * Map Operator state by local DataFusion stage.
-     *
-     * @param state             Operator state
-     * @param localState        current local state
-     * @param runtimePodsAbsent whether runtime Pods are absent
-     * @return mapped DataFusion state
-     */
-    private StatusEnum mapOperatorState(String state, StatusEnum localState, boolean runtimePodsAbsent) {
-        String normalized = normalizeState(state);
-        if (localState != null && localState.isSubmitting()) {
-            return mapSubmittingState(normalized);
-        }
-        if (localState == StatusEnum.RUNNING) {
-            return mapRunningState(normalized);
-        }
-        if (localState == StatusEnum.STOPPING) {
-            return mapStoppingState(normalized, runtimePodsAbsent);
-        }
-        if (localState == StatusEnum.KILLING) {
-            return StatusEnum.KILLING;
-        }
-        log.warn("K8S_OPERATOR Flink本地状态不支持映射, localState={}, operatorState={}", localState, state);
-        return StatusEnum.UNKNOWN;
-    }
-
-    /**
-     * Map Operator state while local task is submitting.
-     *
-     * @param state Operator state
-     * @return mapped DataFusion state
-     */
-    private StatusEnum mapSubmittingState(String state) {
-        if (isBlank(state)) {
-            return StatusEnum.SUBMIT_SUCCESS;
-        }
-        return switch (state) {
-            case "CREATED", "INITIALIZING", "RECONCILING" -> StatusEnum.SUBMIT_SUCCESS;
-            case "RUNNING", "RESTARTING", "FAILING" -> StatusEnum.RUNNING;
-            case "FINISHED" -> StatusEnum.RUN_SUCCESS;
-            case "FAILED" -> StatusEnum.RUN_FAILURE;
-            case "CANCELLING", "SUSPENDED" -> StatusEnum.STOPPING;
-            case "CANCELED" -> StatusEnum.STOP_FAILURE;
-            default -> StatusEnum.UNKNOWN;
-        };
-    }
-
-    /**
-     * Map Operator state while local task is running.
-     *
-     * @param state Operator state
-     * @return mapped DataFusion state
-     */
-    private StatusEnum mapRunningState(String state) {
-        if (isBlank(state)) {
-            return StatusEnum.RUNNING;
-        }
-        return switch (state) {
-            case "RUNNING", "CREATED", "INITIALIZING", "RECONCILING", "RESTARTING", "FAILING" -> StatusEnum.RUNNING;
-            case "FINISHED" -> StatusEnum.RUN_SUCCESS;
-            case "FAILED" -> StatusEnum.RUN_FAILURE;
-            case "CANCELLING" -> StatusEnum.STOPPING;
-            case "CANCELED", "SUSPENDED" -> StatusEnum.STOP_FAILURE;
-            default -> StatusEnum.UNKNOWN;
-        };
-    }
-
-    /**
-     * Map Operator state while local task is stopping.
-     *
-     * @param state             Operator state
-     * @param runtimePodsAbsent whether runtime Pods are absent
-     * @return mapped DataFusion state
-     */
-    private StatusEnum mapStoppingState(String state, boolean runtimePodsAbsent) {
-        if (isBlank(state)) {
-            return runtimePodsAbsent ? StatusEnum.STOP_SUCCESS : StatusEnum.STOPPING;
-        }
-        return switch (state) {
-            case "FINISHED" -> StatusEnum.RUN_SUCCESS;
-            case "FAILED" -> StatusEnum.RUN_FAILURE;
-            case "CANCELED" -> StatusEnum.STOP_SUCCESS;
-            case "SUSPENDED", "CANCELLING", "RECONCILING", "RUNNING", "RESTARTING", "CREATED", "INITIALIZING",
-                    "FAILING" -> runtimePodsAbsent ? StatusEnum.STOP_SUCCESS : StatusEnum.STOPPING;
-            default -> StatusEnum.UNKNOWN;
-        };
-    }
-
-    /**
-     * Normalize Operator state text.
-     *
-     * @param state raw Operator state
-     * @return normalized state
-     */
-    private String normalizeState(String state) {
-        if (isBlank(state)) {
-            return null;
-        }
-        return state.trim().toUpperCase();
     }
 
     /**

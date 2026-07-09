@@ -1,10 +1,9 @@
 package com.datafusion.agent.runtime.worker.plugin.flink.k8s;
 
 import com.datafusion.agent.runtime.worker.plugin.flink.FlinkExecutionParam;
-import com.datafusion.scheduler.enums.StatusEnum;
 
 /**
- * Flink Kubernetes Operator client.
+ * Flink Kubernetes Operator 客户端.
  *
  * @author datafusion
  * @version 1.0.0, 2026/7/3
@@ -13,49 +12,48 @@ import com.datafusion.scheduler.enums.StatusEnum;
 public interface K8sOperatorClient {
 
     /**
-     * Submit FlinkDeployment.
+     * 提交 FlinkDeployment.
      *
-     * @param param execution parameter
-     * @return runtime reference
+     * @param param 执行参数
+     * @return 运行引用
      */
     FlinkKubernetesRuntimeRef submit(FlinkExecutionParam param);
 
     /**
-     * Stop FlinkDeployment.
+     * 停止 FlinkDeployment.
      *
-     * @param runtimeRef runtime reference
+     * @param runtimeRef 运行引用
      */
     void stop(FlinkKubernetesRuntimeRef runtimeRef);
 
     /**
-     * Kill FlinkDeployment.
+     * 强制清理 FlinkDeployment.
      *
-     * @param runtimeRef runtime reference
+     * @param runtimeRef 运行引用
      */
     void kill(FlinkKubernetesRuntimeRef runtimeRef);
 
     /**
-     * Query status.
+     * 查询 Operator 状态.
      *
-     * @param runtimeRef runtime reference
-     * @param localState local state
-     * @return status
+     * @param runtimeRef 运行引用
+     * @return Operator 状态快照
      */
-    StatusEnum queryStatus(FlinkKubernetesRuntimeRef runtimeRef, StatusEnum localState);
+    FlinkOperatorStatus queryStatus(FlinkKubernetesRuntimeRef runtimeRef);
 
     /**
-     * Collect logs.
+     * 采集日志.
      *
-     * @param runtimeRef runtime reference
-     * @return log content
+     * @param runtimeRef 运行引用
+     * @return 日志内容
      */
     String collectLogs(FlinkKubernetesRuntimeRef runtimeRef);
 
     /**
-     * Cleanup runtime resources.
+     * 清理运行资源.
      *
-     * @param runtimeRef runtime reference
-     * @return true if cleanup completed
+     * @param runtimeRef 运行引用
+     * @return true 表示清理完成
      */
     boolean cleanup(FlinkKubernetesRuntimeRef runtimeRef);
 }

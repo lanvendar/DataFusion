@@ -277,6 +277,7 @@ agent 发布侧仍按 `plugins/flink/{appDirName}/` 组织；运行侧由 `plugi
 | `FlinkExecutionParam` | 归一化执行参数 | `runMode`, `args`, `jobJson`, `effectiveTaskData`, `workDir`, `flinkConfig`, `flinkAppDir`, `launchMode`, `flinkAppJar`, `classpath`, `mainClass`, `flinkVersion`, `libDir`, `kubernetes` | Java object | 单次任务 | 从 `TaskRequest` 归一化；runner 只消费该对象 |
 | `FlinkKubernetesParam` | K8S / K8S_OPERATOR 提交参数 | `namespace`, `deploymentName`, `image`, `sharedPvcName`, `sharedMountPath`, `upgradeMode`, `flinkWebUiUri` | Java object | 单次任务 | 只保存 Kubernetes 运行时字段；构建和 jar 路径由 `pluginParam` / 固定约定派生 |
 | `FlinkKubernetesRuntimeRef` | K8S / K8S_OPERATOR 接管参数 | `namespace`, `deploymentName`, `podLabelSelector`, `logStorageUri`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish` | Java object | 单次状态查询或控制命令 | 由 `.snap` 中的 `pluginParam/taskData` 和 `.state.appId` 重建 |
+| `FlinkOperatorStatus` | K8S_OPERATOR 状态事实 | `state`, `deploymentExists`, `podExists`, `serviceExists` | Java object | 单次状态查询 | client 只返回 Operator 状态和资源存在性，DataFusion 状态映射由 `K8sOperatorRunModeStateMapping` 完成 |
 | `FlinkTaskRunner` | 运行模式分派 | `runMode()`, `submit(param)`, `stop(param, state)`, `kill(param, state)`, `finish(param, state)` | interface | Spring Bean | 各运行模式 Runner 只处理 Flink 执行参数 |
 | `FlinkTaskResult` | Runner 返回 | `status`, `appId`, `workDirPath`, `result`, `kubernetesRuntimeRef` | Java object | 单次动作 | 由 `FlinkPluginTaskExecutor` 转为 `TaskResult.workerResult` |
 
