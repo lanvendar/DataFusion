@@ -40,7 +40,7 @@ com.datafusion.scheduler.worker.reporter
 
 - `WorkerTaskOperator`：worker 侧任务控制入口，定义 `submitTask`、`stopTask`、`killTask`、`finishTask`。
 - `WorkerTaskService`：默认实现，负责参数校验、插件路由、提交语义、上下文幂等和结果上报。
-- `PluginTaskExecutor`：插件执行器，负责某一 `pluginType` 的 prepare、submit、stop、kill、finish/destroy。
+- `PluginTaskExecutor`：插件执行器，负责某一 `pluginType` 的 validate、submit、stop、kill、finish/destroy。
 - `PluginRunModeStateMapping`：插件状态映射器，按 `pluginType + runMode` 把终端状态映射为 `StatusEnum`。
 - `RunningTaskContext`：进程内运行上下文，直接组合 `WorkerTaskExecutionSnap` 和
   `WorkerTaskExecutionState`，不重复声明二者已有属性，也不内嵌完整 `TaskRequest` / `TaskResult`。
@@ -55,7 +55,7 @@ com.datafusion.scheduler.worker.reporter
 TaskRequest
     -> WorkerTaskService
     -> WorkerTaskOperatorRouter.route(pluginType)
-    -> PluginTaskExecutor.prepareTask
+    -> PluginTaskExecutor.validateTaskRequest
     -> PluginTaskExecutor.submitTask / stopTask / killTask / finishTask
     -> RunningTaskContext 更新
     -> TaskResultReporter.report

@@ -201,9 +201,16 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
     }
 
     @Override
-    public void cleanup(FlinkKubernetesRuntimeRef runtimeRef) {
-        if (runtimeRef.isDeleteDeploymentOnFinish()) {
-            cleanupRuntimeResources(runtimeRef, false);
+    public boolean cleanup(FlinkKubernetesRuntimeRef runtimeRef) {
+        try {
+            if (runtimeRef.isDeleteDeploymentOnFinish()) {
+                cleanupRuntimeResources(runtimeRef, false);
+            }
+            return true;
+        } catch (RuntimeException e) {
+            log.warn("清理K8S_OPERATOR Flink运行资源失败, namespace={}, deploymentName={}",
+                    runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), e);
+            return false;
         }
     }
 

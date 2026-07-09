@@ -7,7 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 
 /**
- * Flink submit result.
+ * Flink task result.
  *
  * @author datafusion
  * @version 1.0.0, 2026/7/3
@@ -15,10 +15,10 @@ import lombok.Data;
  */
 @Data
 @Builder
-public class FlinkSubmitResult {
+public class FlinkTaskResult {
 
     /**
-     * Submit status.
+     * Task status.
      */
     private StatusEnum status;
 

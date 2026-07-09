@@ -11,6 +11,8 @@ import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -29,6 +31,11 @@ import java.nio.file.Path;
 @Slf4j
 @Component
 public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping {
+
+    /**
+     * Object mapper.
+     */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
      * Operator client.
@@ -97,7 +104,6 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
         FlinkExecutionParam param = paramResolver.resolve(taskRequest(snapshot));
         FlinkKubernetesRuntimeRef runtimeRef = runtimeRef(param, state);
         String pluginLogUri = collectLogs(state, param, runtimeRef);
-        cleanup(runtimeRef);
         ObjectNode result = PluginResultJson.build("K8S_OPERATOR Flink task finished", pluginType(), runMode(),
                 pluginLogUri, null);
         result.put("flinkWebUiUri", runtimeRef.getFlinkWebUiUri());
@@ -138,14 +144,6 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
         }
     }
 
-    private void cleanup(FlinkKubernetesRuntimeRef runtimeRef) {
-        try {
-            operatorClient.cleanup(runtimeRef);
-        } catch (Exception e) {
-            log.warn("清理K8S_OPERATOR Flink运行资源失败, deploymentName={}", runtimeRef.getDeploymentName(), e);
-        }
-    }
-
     private Path taskRuntimeDir(WorkerTaskExecutionState state, FlinkExecutionParam param) {
         if (!isBlank(state.getWorkDirPath())) {
             return Path.of(state.getWorkDirPath());
@@ -160,8 +158,17 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
         request.setTaskName(snapshot.getTaskName());
         request.setPluginType(snapshot.getPluginType());
         request.setTaskData(snapshot.getTaskData());
-        request.setPluginParam(snapshot.getPluginParam());
+        request.setPluginParam(resolvedPluginParam(snapshot));
         return request;
+    }
+
+    private JsonNode resolvedPluginParam(WorkerTaskExecutionSnap snapshot) {
+        ObjectNode pluginParam = snapshot.getPluginParam() != null && snapshot.getPluginParam().isObject()
+                ? (ObjectNode) snapshot.getPluginParam().deepCopy() : OBJECT_MAPPER.createObjectNode();
+        if (!pluginParam.hasNonNull(FlinkParamResolver.FIELD_RUN_MODE) && snapshot.getRunMode() != null) {
+            pluginParam.put(FlinkParamResolver.FIELD_RUN_MODE, snapshot.getRunMode());
+        }
+        return pluginParam;
     }
 
     private String pluginLogUri(FlinkKubernetesRuntimeRef runtimeRef) {

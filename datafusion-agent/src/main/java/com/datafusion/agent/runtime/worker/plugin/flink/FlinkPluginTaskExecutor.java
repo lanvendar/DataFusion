@@ -74,54 +74,56 @@ public class FlinkPluginTaskExecutor implements PluginTaskExecutor {
 
     @Override
     public void validateTaskRequest(TaskRequest request) {
-        FlinkExecutionParam param = paramResolver.resolve(request);
-        request.setPluginParam(mergedPluginParam(request.getPluginParam(), param));
+        paramResolver.resolve(request);
     }
 
     @Override
     public TaskResult submitTask(TaskRequest request) {
         FlinkExecutionParam param = paramResolver.resolve(request);
-        FlinkSubmitResult submitResult = runner(param.getRunMode()).submit(request, param);
+        FlinkTaskResult result = runner(param.getRunMode()).submit(param);
         stateStore.saveSnapshot(snapshot(request, param));
         WorkerResult requestWorkerResult = request.getWorkerResult();
         WorkerTaskExecutionState state = WorkerTaskExecutionState.builder()
                 .taskInstanceId(request.getTaskInstanceId())
                 .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
-                .appId(submitResult.getAppId())
-                .workDirPath(submitResult.getWorkDirPath())
-                .status(submitResult.getStatus())
-                .result(submitResult.getResult())
+                .appId(result.getAppId())
+                .workDirPath(result.getWorkDirPath())
+                .status(result.getStatus())
+                .result(result.getResult())
                 .build();
         stateStore.saveState(state);
-        return TaskResult.builder()
-                .taskInstanceId(request.getTaskInstanceId())
-                .flowInstanceId(request.getFlowInstanceId())
-                .taskName(request.getTaskName())
-                .taskState(submitResult.getStatus())
-                .workerResult(workerResult(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId(),
-                        submitResult.getAppId(), submitResult.getWorkDirPath(), submitResult.getResult()))
-                .build();
+        return taskResult(request, result);
     }
 
     @Override
     public TaskResult stopTask(TaskRequest request) {
         WorkerTaskExecutionState state = currentState(request);
-        TaskResult result = runner(resolveRunMode(request, state)).stop(request, state);
-        recordControlResult(request, state, result);
-        return result;
+        TaskRequest resolvedRequest = resolveRequest(request, state);
+        FlinkExecutionParam param = paramResolver.resolve(resolvedRequest);
+        FlinkTaskResult result = runner(param.getRunMode()).stop(param, state);
+        recordControlResult(resolvedRequest, state, result);
+        return taskResult(resolvedRequest, result);
     }
 
     @Override
     public TaskResult killTask(TaskRequest request) {
         WorkerTaskExecutionState state = currentState(request);
-        TaskResult result = runner(resolveRunMode(request, state)).kill(request, state);
-        recordControlResult(request, state, result);
-        return result;
+        TaskRequest resolvedRequest = resolveRequest(request, state);
+        FlinkExecutionParam param = paramResolver.resolve(resolvedRequest);
+        FlinkTaskResult result = runner(param.getRunMode()).kill(param, state);
+        recordControlResult(resolvedRequest, state, result);
+        return taskResult(resolvedRequest, result);
     }
 
     @Override
     public boolean finishTask(TaskRequest request) {
-        return true;
+        WorkerTaskExecutionState state = currentState(request);
+        TaskRequest resolvedRequest = resolveRequest(request, state);
+        if (resolvedRequest.getPluginParam() == null) {
+            return true;
+        }
+        FlinkExecutionParam param = paramResolver.resolve(resolvedRequest);
+        return runner(param.getRunMode()).finish(param, state);
     }
 
     private FlinkTaskRunner runner(FlinkRunMode runMode) {
@@ -143,52 +145,39 @@ public class FlinkPluginTaskExecutor implements PluginTaskExecutor {
                         .build());
     }
 
-    private FlinkRunMode resolveRunMode(TaskRequest request, WorkerTaskExecutionState state) {
-        JsonNode pluginParam = request.getPluginParam();
-        if (pluginParam == null && state != null) {
-            pluginParam = stateStore.readSnapshot(state.getTaskInstanceId())
-                    .map(WorkerTaskExecutionSnap::getPluginParam)
-                    .orElse(null);
+    private TaskRequest resolveRequest(TaskRequest request, WorkerTaskExecutionState state) {
+        if (request.getPluginParam() != null && request.getTaskData() != null) {
+            return request;
         }
-        return FlinkRunMode.parse(pluginParam == null ? null : pluginParam.path("runMode").asText(null));
+        WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(request.getTaskInstanceId()).orElse(null);
+        if (snapshot == null && state != null) {
+            snapshot = stateStore.readSnapshot(state.getTaskInstanceId()).orElse(null);
+        }
+        if (snapshot == null) {
+            return request;
+        }
+        TaskRequest resolvedRequest = new TaskRequest();
+        resolvedRequest.setFlowInstanceId(firstText(request.getFlowInstanceId(), snapshot.getFlowInstanceId()));
+        resolvedRequest.setTaskInstanceId(firstText(request.getTaskInstanceId(), snapshot.getTaskInstanceId()));
+        resolvedRequest.setTaskName(firstText(request.getTaskName(), snapshot.getTaskName()));
+        resolvedRequest.setPluginType(firstText(request.getPluginType(), snapshot.getPluginType()));
+        resolvedRequest.setWorkerResult(request.getWorkerResult());
+        resolvedRequest.setTaskState(request.getTaskState());
+        resolvedRequest.setSubmitMode(request.getSubmitMode());
+        resolvedRequest.setTaskData(request.getTaskData() == null ? snapshot.getTaskData() : request.getTaskData());
+        resolvedRequest.setPluginParam(resolvedPluginParam(request, snapshot));
+        return resolvedRequest;
     }
 
-    private void recordControlResult(TaskRequest request, WorkerTaskExecutionState state, TaskResult result) {
+    private void recordControlResult(TaskRequest request, WorkerTaskExecutionState state, FlinkTaskResult result) {
         WorkerTaskExecutionState next = state == null ? currentState(request) : state;
-        WorkerResult workerResult = result.getWorkerResult();
         WorkerResult requestWorkerResult = request.getWorkerResult();
-        next.setStatus(result.getTaskState());
-        next.setWorkerId(firstText(next.getWorkerId(), workerResult == null ? null : workerResult.getWorkerId(),
-                requestWorkerResult == null ? null : requestWorkerResult.getWorkerId()));
-        next.setAppId(workerResult == null || workerResult.getAppId() == null ? next.getAppId() : workerResult.getAppId());
-        next.setWorkDirPath(workerResult == null || workerResult.getWorkDirPath() == null ? next.getWorkDirPath()
-                : workerResult.getWorkDirPath());
-        next.setResult(resultJson(workerResult));
+        next.setStatus(result.getStatus());
+        next.setWorkerId(firstText(next.getWorkerId(), requestWorkerResult == null ? null : requestWorkerResult.getWorkerId()));
+        next.setAppId(result.getAppId() == null ? next.getAppId() : result.getAppId());
+        next.setWorkDirPath(result.getWorkDirPath() == null ? next.getWorkDirPath() : result.getWorkDirPath());
+        next.setResult(result.getResult());
         stateStore.saveState(next);
-    }
-
-    private WorkerResult workerResult(String workerId, String appId, String workDirPath, JsonNode result) {
-        return WorkerResult.builder()
-                .workerId(workerId)
-                .appId(appId)
-                .workDirPath(workDirPath)
-                .message(resultText(result, "message"))
-                .pluginLogUri(resultText(result, "pluginLogUri"))
-                .build();
-    }
-
-    private JsonNode resultJson(WorkerResult workerResult) {
-        if (workerResult == null) {
-            return null;
-        }
-        ObjectNode result = OBJECT_MAPPER.createObjectNode();
-        if (workerResult.getMessage() != null) {
-            result.put("message", workerResult.getMessage());
-        }
-        if (workerResult.getPluginLogUri() != null) {
-            result.put("pluginLogUri", workerResult.getPluginLogUri());
-        }
-        return result;
     }
 
     private String resultText(JsonNode result, String fieldName) {
@@ -212,11 +201,38 @@ public class FlinkPluginTaskExecutor implements PluginTaskExecutor {
                 .build();
     }
 
-    private JsonNode mergedPluginParam(JsonNode pluginParam, FlinkExecutionParam param) {
-        ObjectNode merged = pluginParam != null && pluginParam.isObject()
-                ? pluginParam.deepCopy() : OBJECT_MAPPER.createObjectNode();
-        merged.put("runMode", param.getRunMode().name());
-        return merged;
+    private TaskResult taskResult(TaskRequest request, FlinkTaskResult result) {
+        WorkerResult requestWorkerResult = request.getWorkerResult();
+        return TaskResult.builder()
+                .taskInstanceId(request.getTaskInstanceId())
+                .flowInstanceId(request.getFlowInstanceId())
+                .taskName(request.getTaskName())
+                .taskState(result.getStatus())
+                .workerResult(workerResult(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId(),
+                        result.getAppId(), result.getWorkDirPath(), result.getResult()))
+                .build();
+    }
+
+    private WorkerResult workerResult(String workerId, String appId, String workDirPath, JsonNode result) {
+        return WorkerResult.builder()
+                .workerId(workerId)
+                .appId(appId)
+                .workDirPath(workDirPath)
+                .message(resultText(result, "message"))
+                .pluginLogUri(resultText(result, "pluginLogUri"))
+                .build();
+    }
+
+    private JsonNode resolvedPluginParam(TaskRequest request, WorkerTaskExecutionSnap snapshot) {
+        if (request.getPluginParam() != null) {
+            return request.getPluginParam();
+        }
+        ObjectNode pluginParam = snapshot.getPluginParam() != null && snapshot.getPluginParam().isObject()
+                ? (ObjectNode) snapshot.getPluginParam().deepCopy() : OBJECT_MAPPER.createObjectNode();
+        if (!pluginParam.hasNonNull(FlinkParamResolver.FIELD_RUN_MODE) && snapshot.getRunMode() != null) {
+            pluginParam.put(FlinkParamResolver.FIELD_RUN_MODE, snapshot.getRunMode());
+        }
+        return pluginParam;
     }
 
     private String firstText(String... values) {

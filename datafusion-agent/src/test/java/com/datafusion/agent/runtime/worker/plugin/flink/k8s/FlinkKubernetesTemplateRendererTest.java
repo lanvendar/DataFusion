@@ -140,10 +140,10 @@ class FlinkKubernetesTemplateRendererTest {
 
     private String resolvePluginsRootDir() {
         Path workingDir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
-        Path moduleResourceDir = workingDir.resolve("src/main/resources");
-        if (Files.isDirectory(moduleResourceDir)) {
-            return moduleResourceDir.toString();
+        Path modulePluginsDir = workingDir.resolve("src/main/resources/plugins");
+        if (Files.isDirectory(modulePluginsDir)) {
+            return modulePluginsDir.toString();
         }
-        return workingDir.resolve("datafusion-agent/src/main/resources").toString();
+        return workingDir.resolve("datafusion-agent/src/main/resources/plugins").toString();
     }
 }

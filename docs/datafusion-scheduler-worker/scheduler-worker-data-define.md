@@ -55,7 +55,7 @@
 | `WorkerTaskExecutionSnap` | 可持久化提交快照 | `taskInstanceId` | `String` | 提交后固定 | 任务实例 ID |
 | `WorkerTaskExecutionSnap` | 可持久化提交快照 | `taskName` | `String` | 提交后固定 | 任务名称 |
 | `WorkerTaskExecutionSnap` | 可持久化提交快照 | `pluginType` | `String` | 提交后固定 | 插件类型 |
-| `WorkerTaskExecutionSnap` | 可持久化提交快照 | `runMode` | `String` | 插件 prepare 后确定 | 终端运行模式 |
+| `WorkerTaskExecutionSnap` | 可持久化提交快照 | `runMode` | `String` | 插件提交解析后确定 | 终端运行模式 |
 | `WorkerTaskExecutionSnap` | 可持久化提交快照 | `workerId` | `String` | 提交后固定 | worker 节点 ID |
 | `WorkerTaskExecutionSnap` | 可持久化提交快照 | `taskData` | `JsonNode` | 提交后固定 | 渲染后的任务执行数据 |
 | `WorkerTaskExecutionSnap` | 可持久化提交快照 | `pluginParam` | `JsonNode` | 提交后固定 | 插件参数 |
@@ -93,7 +93,7 @@
 |------|----------|----------|
 | `TaskInstance` -> `TaskRequest` | manager/master 侧运行时转换 | `pluginData.pluginType/pluginParam` 映射为 `pluginType/pluginParam` |
 | `TaskRequest` -> `RunningTaskContext` | worker 接收请求后创建或复用上下文 | 幂等键为 `taskInstanceId`；worker 信息来自 `request.workerResult` |
-| `PluginTaskExecutor.prepareTask` -> `TaskRequest` | 插件补齐 `runMode`、插件参数和任务数据 | 返回值不能为空 |
+| `PluginTaskExecutor.validateTaskRequest` -> `TaskRequest` | 插件在提交前校验任务请求 | 校验失败返回 `SUBMIT_FAILURE` |
 | `PluginTaskExecutor.submitTask` -> `TaskResult` | 插件返回执行结果 | worker 补齐任务身份、`submitMode` 和 `workerResult.workerId` |
 | `RunningTaskContext` -> `TaskResult` | 重复请求返回最近结果或当前状态 | 已有终态直接返回终态；无状态时 `ASYNC` 返回 `SUBMITTING`，`SYNC` 返回 `RUNNING` |
 | `TaskResult` -> `TaskResultReporter.report` | worker 异步上报 manager/master | 上报实现位于 `datafusion-agent` |

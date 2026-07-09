@@ -55,6 +55,7 @@ public interface K8sOperatorClient {
      * Cleanup runtime resources.
      *
      * @param runtimeRef runtime reference
+     * @return true if cleanup completed
      */
-    void cleanup(FlinkKubernetesRuntimeRef runtimeRef);
+    boolean cleanup(FlinkKubernetesRuntimeRef runtimeRef);
 }

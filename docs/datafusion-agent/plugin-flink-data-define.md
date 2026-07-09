@@ -34,7 +34,7 @@ Flink 运行参数不定义在 `datafusion-agent/src/main/resources/application.
 
 `pluginParam` 是插件级运行配置，来源于 Manager 侧 `system_plugin_config.plugin_param`，并由 Manager 把
 `PluginConfigEntity.runMode` 注入到 `pluginParam.runMode`。`runMode` 与现有规范一致，使用大写枚举值。
-Agent 不从 `taskData.runMode` 或配置文件推断运行模式。
+Agent 提交时不从 `taskData.runMode` 或配置文件推断运行模式，也不回写 `pluginParam`。
 
 ### 3.1 FlinkPluginParam
 
@@ -274,18 +274,18 @@ agent 发布侧仍按 `plugins/flink/{appDirName}/` 组织；运行侧由 `plugi
 | 对象 | 场景 | 字段 | 字段类型 | 生命周期 | 说明 |
 |------|------|------|----------|----------|------|
 | `FlinkRunMode` | 运行模式枚举 | `LOCAL`, `STANDALONE`, `YARN`, `K8S`, `K8S_OPERATOR` | enum | 请求解析后固定 | 与现有规范一致，配置和状态均使用大写枚举 |
-| `FlinkExecutionParam` | 提交前归一化参数 | `runMode`, `args`, `jobJson`, `effectiveTaskData`, `workDir`, `flinkConfig`, `flinkAppDir`, `launchMode`, `flinkAppJar`, `classpath`, `mainClass`, `flinkVersion`, `libDir`, `kubernetes` | Java object | 单次任务 | 从 `pluginParam` 和 `taskData` 归一化 |
+| `FlinkExecutionParam` | 归一化执行参数 | `runMode`, `args`, `jobJson`, `effectiveTaskData`, `workDir`, `flinkConfig`, `flinkAppDir`, `launchMode`, `flinkAppJar`, `classpath`, `mainClass`, `flinkVersion`, `libDir`, `kubernetes` | Java object | 单次任务 | 从 `TaskRequest` 归一化；runner 只消费该对象 |
 | `FlinkKubernetesParam` | K8S / K8S_OPERATOR 提交参数 | `namespace`, `deploymentName`, `image`, `sharedPvcName`, `sharedMountPath`, `upgradeMode`, `flinkWebUiUri` | Java object | 单次任务 | 只保存 Kubernetes 运行时字段；构建和 jar 路径由 `pluginParam` / 固定约定派生 |
 | `FlinkKubernetesRuntimeRef` | K8S / K8S_OPERATOR 接管参数 | `namespace`, `deploymentName`, `podLabelSelector`, `logStorageUri`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish` | Java object | 单次状态查询或控制命令 | 由 `.snap` 中的 `pluginParam/taskData` 和 `.state.appId` 重建 |
-| `FlinkTaskRunner` | 运行模式分派 | `runMode()` | interface | Spring Bean | 各运行模式 Runner 实现同一接口 |
-| `FlinkSubmitResult` | Runner 提交返回 | `status`, `appId`, `workDirPath`, `result`, `kubernetesRuntimeRef` | Java object | 单次提交 | 由 `FlinkPluginTaskExecutor` 转为 `TaskResult.workerResult` |
+| `FlinkTaskRunner` | 运行模式分派 | `runMode()`, `submit(param)`, `stop(param, state)`, `kill(param, state)`, `finish(param, state)` | interface | Spring Bean | 各运行模式 Runner 只处理 Flink 执行参数 |
+| `FlinkTaskResult` | Runner 返回 | `status`, `appId`, `workDirPath`, `result`, `kubernetesRuntimeRef` | Java object | 单次动作 | 由 `FlinkPluginTaskExecutor` 转为 `TaskResult.workerResult` |
 
 ## 9. 状态模型
 
 | 字段 / 枚举 | 所属对象 | 值 | 存储类型 | 转换规则 | 说明 |
 |-------------|----------|----|----------|----------|------|
 | `pluginType` | `WorkerTaskExecutionSnap` | `FLINK` | String | 固定大写 | Flink 插件路由键 |
-| `runMode` | `WorkerTaskExecutionSnap` | `LOCAL`, `STANDALONE`, `YARN`, `K8S`, `K8S_OPERATOR` | String | 由 `FlinkExecutionParam.runMode` 写入 | 状态映射按 `FLINK + runMode` 选择 |
+| `runMode` | `WorkerTaskExecutionSnap` | `LOCAL`, `STANDALONE`, `YARN`, `K8S`, `K8S_OPERATOR` | String | 由 `FlinkExecutionParam.runMode` 写入 | 状态映射和控制请求恢复按 `FLINK + runMode` 选择 |
 | `appId` | `WorkerTaskExecutionState` | K8S: cluster id；K8S_OPERATOR: `FlinkDeployment` name | String | Runner 提交后写入 | 终端任务 ID |
 | `workDirPath` | `WorkerTaskExecutionState` | 任务运行目录 | String | Runner 提交后写入 | 保存 `job.json` 快照和终态日志 |
 | `status` | `WorkerTaskExecutionState` | `SUBMIT_SUCCESS`, `RUNNING`, `RUN_SUCCESS`, `RUN_FAILURE`, `STOPPING`, `STOP_SUCCESS`, `STOP_FAILURE`, `KILLING`, `KILLED`, `UNKNOWN` | `StatusEnum` | K8S 由 Flink REST / Kubernetes Deployment / Pod 状态映射；K8S_OPERATOR 由本地状态 + `FlinkDeployment.status` 映射 | 提交成功先落 `SUBMIT_SUCCESS`；`RECONCILING` 等中间态按本地阶段映射；不新增 Agent 私有状态 |

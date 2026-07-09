@@ -1,7 +1,5 @@
 package com.datafusion.agent.runtime.worker.plugin.flink;
 
-import com.datafusion.scheduler.model.TaskRequest;
-import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 
 /**
@@ -22,28 +20,37 @@ public interface FlinkTaskRunner {
 
     /**
      * Submit Flink task.
-     *
-     * @param request task request
-     * @param param   execution parameter
+     * @param param execution parameter
      * @return submit result
      */
-    FlinkSubmitResult submit(TaskRequest request, FlinkExecutionParam param);
+    FlinkTaskResult submit(FlinkExecutionParam param);
 
     /**
      * Stop Flink task.
      *
-     * @param request task request
+     * @param param execution parameter
      * @param state   current state
      * @return task result
      */
-    TaskResult stop(TaskRequest request, WorkerTaskExecutionState state);
+    FlinkTaskResult stop(FlinkExecutionParam param, WorkerTaskExecutionState state);
 
     /**
      * Kill Flink task.
      *
-     * @param request task request
+     * @param param execution parameter
      * @param state   current state
      * @return task result
      */
-    TaskResult kill(TaskRequest request, WorkerTaskExecutionState state);
+    FlinkTaskResult kill(FlinkExecutionParam param, WorkerTaskExecutionState state);
+
+    /**
+     * Finish Flink task.
+     *
+     * @param param execution parameter
+     * @param state current state
+     * @return true if finish completed
+     */
+    default boolean finish(FlinkExecutionParam param, WorkerTaskExecutionState state) {
+        return true;
+    }
 }
