@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{configMapName}}
+  namespace: {{namespace}}
+  labels:
+{{labels}}data:
+  job.json: |-
+{{jobConfigData}}
+---
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: {{applicationName}}
+  namespace: {{namespace}}
+  labels:
+{{applicationLabels}}  annotations:
+{{annotations}}spec:
+  type: Java
+  mode: cluster
+  image: {{image}}
+  imagePullPolicy: {{imagePullPolicy}}
+  sparkVersion: {{sparkVersion}}
+  mainClass: {{mainClass}}
+  mainApplicationFile: {{mainApplicationFile}}
+  restartPolicy:
+    type: Never
+  arguments:
+{{arguments}}  sparkConf:
+{{sparkConf}}  hadoopConf:
+{{hadoopConf}}{{serviceAccountBlock}}  volumes:
+    - name: spark-sql-job
+      configMap:
+        name: {{configMapName}}
+    - name: shared-plugins
+      persistentVolumeClaim:
+        claimName: {{sharedPvcName}}
+    - name: spark-plugin
+      emptyDir: {}
+  driver:
+    cores: {{driverCores}}
+    memory: {{driverMemory}}
+    labels:
+{{driverLabels}}{{nodeSelectorBlock}}    volumeMounts:
+      - name: spark-sql-job
+        mountPath: {{jobConfigMountPath}}
+      - name: spark-plugin
+        mountPath: {{jarMountPath}}
+    initContainers:
+      - name: copy-spark-plugin
+        image: {{image}}
+        command:
+          - sh
+          - -c
+          - cp {{pluginAppDir}}/*.jar {{jarMountPath}}/
+        volumeMounts:
+          - name: shared-plugins
+            mountPath: {{sharedMountPath}}
+          - name: spark-plugin
+            mountPath: {{jarMountPath}}
+  executor:
+    instances: {{executorInstances}}
+    cores: {{executorCores}}
+    memory: {{executorMemory}}
+    labels:
+{{executorLabels}}{{nodeSelectorBlock}}    volumeMounts:
+      - name: spark-plugin
+        mountPath: {{jarMountPath}}
+    initContainers:
+      - name: copy-spark-plugin
+        image: {{image}}
+        command:
+          - sh
+          - -c
+          - cp {{pluginAppDir}}/*.jar {{jarMountPath}}/
+        volumeMounts:
+          - name: shared-plugins
+            mountPath: {{sharedMountPath}}
+          - name: spark-plugin
+            mountPath: {{jarMountPath}}

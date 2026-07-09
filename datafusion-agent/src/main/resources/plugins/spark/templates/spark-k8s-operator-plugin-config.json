@@ -1,0 +1,36 @@
+{
+  "runMode": "K8S_OPERATOR",
+  "sparkVersion": "4.0.2",
+  "mainClass": "com.datafusion.plugin.spark.sql.SparkSqlApplication",
+  "kubernetes": {
+    "namespace": "default",
+    "image": "apache/spark:4.0.2-scala2.13-java17-ubuntu",
+    "imagePullPolicy": "IfNotPresent",
+    "applicationNamePrefix": "df-spark-",
+    "configMapNamePrefix": "df-spark-sql-job-",
+    "sharedPvcName": "",
+    "sharedMountPath": "/opt/datafusion/plugins",
+    "pluginAppDir": "/opt/datafusion/plugins/spark/datafusion-plugin-spark-sql",
+    "pluginJarName": "plugin-spark-sql.jar",
+    "jarMountPath": "/opt/datafusion/spark/jars",
+    "jobConfigMountPath": "/opt/datafusion/spark/jobs",
+    "collectLogsOnFinish": true,
+    "driver": {
+      "cores": 1,
+      "memory": "1g"
+    },
+    "executor": {
+      "instances": 1,
+      "cores": 1,
+      "memory": "1g"
+    }
+  },
+  "defaultTaskData": {
+    "applicationType": "SQL",
+    "job": {},
+    "sql": {},
+    "sparkConf": {},
+    "catalogs": [],
+    "runtime": {}
+  }
+}
