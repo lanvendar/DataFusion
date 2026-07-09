@@ -171,6 +171,7 @@ public class DataxParamResolver {
         validateKubernetes(kubernetes);
         return DataxExecutionParam.builder()
                 .runMode(runMode)
+                .taskInstanceId(request.getTaskInstanceId())
                 .flowInstanceId(request.getFlowInstanceId())
                 .jobJson(jobJson(taskData))
                 .effectiveTaskData(effectiveTaskData)

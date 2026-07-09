@@ -21,6 +21,14 @@ public interface DataxKubernetesClient {
     DataxKubernetesRuntimeRef submit(DataxExecutionParam param);
 
     /**
+     * Cleanup existing Kubernetes resources before submit.
+     *
+     * @param runtimeRef runtime reference
+     * @return true if cleanup completed
+     */
+    boolean cleanupIfExists(DataxKubernetesRuntimeRef runtimeRef);
+
+    /**
      * Stop Kubernetes Job.
      *
      * @param runtimeRef runtime reference

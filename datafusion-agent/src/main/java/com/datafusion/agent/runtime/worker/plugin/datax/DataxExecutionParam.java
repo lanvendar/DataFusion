@@ -26,6 +26,11 @@ public class DataxExecutionParam {
     private DataxRunMode runMode;
 
     /**
+     * Task instance ID.
+     */
+    private String taskInstanceId;
+
+    /**
      * Flow instance ID.
      */
     private String flowInstanceId;

@@ -4,10 +4,9 @@ import com.datafusion.agent.runtime.worker.InMemoryWorkerTaskExecutionStore;
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxParamResolver;
+import com.datafusion.agent.runtime.worker.plugin.datax.DataxTaskResult;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
-import com.datafusion.scheduler.model.TaskResult;
-import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -42,9 +41,9 @@ class K8sDataxTaskRunnerTest {
         FakeKubernetesClient client = new FakeKubernetesClient();
         K8sDataxTaskRunner runner = runner(client);
 
-        TaskResult result = runner.stop(request(), state(StatusEnum.RUNNING));
+        DataxTaskResult result = runner.stop(param(), state(StatusEnum.RUNNING));
 
-        assertEquals(StatusEnum.STOPPING, result.getTaskState());
+        assertEquals(StatusEnum.STOPPING, result.getStatus());
         assertEquals(false, client.forcibly);
     }
 
@@ -53,9 +52,9 @@ class K8sDataxTaskRunnerTest {
         FakeKubernetesClient client = new FakeKubernetesClient();
         K8sDataxTaskRunner runner = runner(client);
 
-        TaskResult result = runner.kill(request(), state(StatusEnum.UNKNOWN));
+        DataxTaskResult result = runner.kill(param(), state(StatusEnum.UNKNOWN));
 
-        assertEquals(StatusEnum.KILLED, result.getTaskState());
+        assertEquals(StatusEnum.KILLED, result.getStatus());
         assertEquals(true, client.forcibly);
         assertEquals("df-datax-task-1", client.lastRuntimeRef.getJobName());
     }
@@ -66,10 +65,10 @@ class K8sDataxTaskRunnerTest {
         client.stopException = new IllegalStateException("delete failed");
         K8sDataxTaskRunner runner = runner(client);
 
-        TaskResult result = runner.kill(request(), state(StatusEnum.UNKNOWN));
+        DataxTaskResult result = runner.kill(param(), state(StatusEnum.UNKNOWN));
 
-        assertEquals(StatusEnum.UNKNOWN, result.getTaskState());
-        assertEquals("K8S DataX kill failed: delete failed", result.getWorkerResult().getMessage());
+        assertEquals(StatusEnum.UNKNOWN, result.getStatus());
+        assertEquals("K8S DataX kill failed: delete failed", result.getResult().path("message").asText());
     }
 
     @Test
@@ -77,27 +76,42 @@ class K8sDataxTaskRunnerTest {
         FakeKubernetesClient client = new FakeKubernetesClient();
         K8sDataxTaskRunner runner = runner(client);
 
-        TaskResult result = runner.kill(request(), stateWithoutAppId(StatusEnum.UNKNOWN));
+        DataxTaskResult result = runner.kill(param(), stateWithoutAppId(StatusEnum.UNKNOWN));
 
-        assertEquals(StatusEnum.KILLED, result.getTaskState());
+        assertEquals(StatusEnum.KILLED, result.getStatus());
         assertNull(client.forcibly);
     }
 
     @Test
-    void shouldRestoreRuntimeRefFromSnapshotWhenControlRequestIsMinimal() {
+    void shouldCleanupOldKubernetesJobBeforeSubmit() {
         FakeKubernetesClient client = new FakeKubernetesClient();
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        stateStore.saveState(state(StatusEnum.RUN_FAILURE));
         K8sDataxTaskRunner runner = runner(client, stateStore);
-        TaskRequest request = request(false);
-        stateStore.saveSnapshot(snapshot(request));
 
-        TaskResult result = runner.stop(minimalRequest(), state(StatusEnum.RUNNING));
+        DataxTaskResult result = runner.submit(param());
 
-        assertEquals(StatusEnum.STOPPING, result.getTaskState());
-        assertEquals("flow-1", result.getFlowInstanceId());
-        assertEquals("DataX", result.getTaskName());
+        assertEquals(StatusEnum.RUNNING, result.getStatus());
+        assertEquals(1, client.cleanupIfExistsCount);
+        assertEquals(1, client.submitCount);
         assertEquals("df-datax-task-1", client.lastRuntimeRef.getJobName());
-        assertEquals("df", client.lastRuntimeRef.getNamespace());
+    }
+
+    @Test
+    void shouldReturnSubmitFailureWhenOldKubernetesCleanupFails() {
+        FakeKubernetesClient client = new FakeKubernetesClient();
+        client.cleanupIfExistsResult = false;
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        stateStore.saveState(state(StatusEnum.RUN_FAILURE));
+        K8sDataxTaskRunner runner = runner(client, stateStore);
+
+        DataxTaskResult result = runner.submit(param());
+
+        assertEquals(StatusEnum.SUBMIT_FAILURE, result.getStatus());
+        assertEquals(1, client.cleanupIfExistsCount);
+        assertEquals(0, client.submitCount);
+        assertEquals("df-datax-task-1", client.lastRuntimeRef.getJobName());
+        assertTrue(result.getResult().path("message").asText().contains("cleanup before submit unfinished"));
     }
 
     private AgentProperties properties() {
@@ -112,8 +126,7 @@ class K8sDataxTaskRunnerTest {
     }
 
     private K8sDataxTaskRunner runner(FakeKubernetesClient client, InMemoryWorkerTaskExecutionStore stateStore) {
-        AgentProperties properties = properties();
-        return new K8sDataxTaskRunner(client, new DataxParamResolver(properties), stateStore);
+        return new K8sDataxTaskRunner(client, stateStore);
     }
 
     private TaskRequest request() {
@@ -139,22 +152,8 @@ class K8sDataxTaskRunnerTest {
         return request;
     }
 
-    private TaskRequest minimalRequest() {
-        TaskRequest request = new TaskRequest();
-        request.setTaskInstanceId("task-1");
-        return request;
-    }
-
-    private WorkerTaskExecutionSnap snapshot(TaskRequest request) {
-        return WorkerTaskExecutionSnap.builder()
-                .flowInstanceId(request.getFlowInstanceId())
-                .taskInstanceId(request.getTaskInstanceId())
-                .taskName(request.getTaskName())
-                .pluginType(request.getPluginType())
-                .runMode("K8S")
-                .taskData(request.getTaskData())
-                .pluginParam(request.getPluginParam())
-                .build();
+    private DataxExecutionParam param() {
+        return new DataxParamResolver(properties()).resolve(request());
     }
 
     private WorkerTaskExecutionState state(StatusEnum status) {
@@ -173,17 +172,6 @@ class K8sDataxTaskRunnerTest {
                 .workDirPath(tempDir.resolve("task-runtime").resolve("20260621").resolve("flow-1")
                         .resolve("task-1").toString())
                 .status(status)
-                .build();
-    }
-
-    private DataxKubernetesRuntimeRef runtimeRef() {
-        return DataxKubernetesRuntimeRef.builder()
-                .namespace("df")
-                .jobName("df-datax-task-1")
-                .secretName("df-datax-job-task-1")
-                .podLabelSelector("datafusion.io/task-instance-id=task-1")
-                .containerName("datax")
-                .collectLogsOnFinish(false)
                 .build();
     }
 
@@ -208,6 +196,21 @@ class K8sDataxTaskRunnerTest {
         private int cleanupCount;
 
         /**
+         * Cleanup existing resource count.
+         */
+        private int cleanupIfExistsCount;
+
+        /**
+         * Submit count.
+         */
+        private int submitCount;
+
+        /**
+         * Cleanup existing resource result.
+         */
+        private boolean cleanupIfExistsResult = true;
+
+        /**
          * Pod logs.
          */
         private String logs = "";
@@ -224,7 +227,23 @@ class K8sDataxTaskRunnerTest {
 
         @Override
         public DataxKubernetesRuntimeRef submit(DataxExecutionParam param) {
-            return null;
+            submitCount++;
+            return DataxKubernetesRuntimeRef.builder()
+                    .namespace(param.getKubernetes().getNamespace())
+                    .jobName(param.getKubernetes().getJobName())
+                    .secretName(param.getKubernetes().getSecretName())
+                    .podLabelSelector(param.getKubernetes().getPodLabelSelector())
+                    .containerName(param.getKubernetes().getContainerName())
+                    .collectLogsOnFinish(param.getKubernetes().isCollectLogsOnFinish())
+                    .deleteJobOnFinish(param.getKubernetes().isDeleteJobOnFinish())
+                    .build();
+        }
+
+        @Override
+        public boolean cleanupIfExists(DataxKubernetesRuntimeRef runtimeRef) {
+            cleanupIfExistsCount++;
+            lastRuntimeRef = runtimeRef;
+            return cleanupIfExistsResult;
         }
 
         @Override

@@ -1,7 +1,5 @@
 package com.datafusion.agent.runtime.worker.plugin.datax;
 
-import com.datafusion.scheduler.model.TaskRequest;
-import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 
 /**
@@ -23,28 +21,27 @@ public interface DataxTaskRunner {
     /**
      * Submit task.
      *
-     * @param request task request
-     * @param param   execution param
+     * @param param execution param
      * @return submit result
      */
-    DataxSubmitResult submit(TaskRequest request, DataxExecutionParam param);
+    DataxTaskResult submit(DataxExecutionParam param);
 
     /**
      * Stop task.
      *
-     * @param request task request
-     * @param state   execution state
+     * @param param execution param
+     * @param state execution state
      * @return task result
      */
-    TaskResult stop(TaskRequest request, WorkerTaskExecutionState state);
+    DataxTaskResult stop(DataxExecutionParam param, WorkerTaskExecutionState state);
 
     /**
      * Kill task.
      *
-     * @param request task request
-     * @param state   execution state
+     * @param param execution param
+     * @param state execution state
      * @return task result
      */
-    TaskResult kill(TaskRequest request, WorkerTaskExecutionState state);
+    DataxTaskResult kill(DataxExecutionParam param, WorkerTaskExecutionState state);
 
 }

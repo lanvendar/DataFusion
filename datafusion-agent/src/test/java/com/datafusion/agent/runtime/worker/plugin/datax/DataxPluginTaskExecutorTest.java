@@ -83,7 +83,7 @@ class DataxPluginTaskExecutorTest {
         }
 
         @Override
-        public DataxSubmitResult submit(TaskRequest request, DataxExecutionParam param) {
+        public DataxTaskResult submit(DataxExecutionParam param) {
             DataxKubernetesRuntimeRef runtimeRef = DataxKubernetesRuntimeRef.builder()
                     .namespace(param.getKubernetes().getNamespace())
                     .jobName(param.getKubernetes().getJobName())
@@ -94,7 +94,7 @@ class DataxPluginTaskExecutorTest {
                     .collectLogsOnFinish(param.getKubernetes().isCollectLogsOnFinish())
                     .deleteJobOnFinish(param.getKubernetes().isDeleteJobOnFinish())
                     .build();
-            return DataxSubmitResult.builder()
+            return DataxTaskResult.builder()
                     .status(StatusEnum.RUNNING)
                     .appId(runtimeRef.getJobName())
                     .workDirPath(param.getWorkDir().toString())
@@ -104,13 +104,13 @@ class DataxPluginTaskExecutorTest {
         }
 
         @Override
-        public TaskResult stop(TaskRequest request, WorkerTaskExecutionState state) {
-            return TaskResult.builder().taskState(StatusEnum.STOPPING).build();
+        public DataxTaskResult stop(DataxExecutionParam param, WorkerTaskExecutionState state) {
+            return DataxTaskResult.builder().status(StatusEnum.STOPPING).build();
         }
 
         @Override
-        public TaskResult kill(TaskRequest request, WorkerTaskExecutionState state) {
-            return TaskResult.builder().taskState(StatusEnum.KILLING).build();
+        public DataxTaskResult kill(DataxExecutionParam param, WorkerTaskExecutionState state) {
+            return DataxTaskResult.builder().status(StatusEnum.KILLING).build();
         }
 
     }

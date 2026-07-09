@@ -122,6 +122,11 @@ class DataxK8sRunModeStateMappingTest {
         }
 
         @Override
+        public boolean cleanupIfExists(DataxKubernetesRuntimeRef runtimeRef) {
+            return true;
+        }
+
+        @Override
         public void stop(DataxKubernetesRuntimeRef runtimeRef, boolean forcibly) {
         }
 

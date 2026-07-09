@@ -65,6 +65,16 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
     private static final String PENDING_PHASE = "Pending";
 
     /**
+     * Cleanup wait timeout in milliseconds.
+     */
+    private static final long CLEANUP_WAIT_TIMEOUT_MS = 30_000L;
+
+    /**
+     * Cleanup wait interval in milliseconds.
+     */
+    private static final long CLEANUP_WAIT_INTERVAL_MS = 500L;
+
+    /**
      * Constructor.
      *
      * @param properties       agent properties
@@ -96,6 +106,18 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
                 .collectLogsOnFinish(kubernetes.isCollectLogsOnFinish())
                 .deleteJobOnFinish(kubernetes.isDeleteJobOnFinish())
                 .build();
+    }
+
+    @Override
+    public boolean cleanupIfExists(DataxKubernetesRuntimeRef runtimeRef) {
+        List<Pod> podList = pods(runtimeRef);
+        if (job(runtimeRef) == null && podList.isEmpty() && !secretExists(runtimeRef)) {
+            return true;
+        }
+        deleteJob(runtimeRef, true);
+        deletePods(runtimeRef);
+        deleteSecret(runtimeRef);
+        return waitCleanup(runtimeRef);
     }
 
     @Override
@@ -192,6 +214,13 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
                 .getItems();
     }
 
+    private boolean secretExists(DataxKubernetesRuntimeRef runtimeRef) {
+        return client.secrets()
+                .inNamespace(runtimeRef.getNamespace())
+                .withName(runtimeRef.getSecretName())
+                .get() != null;
+    }
+
     private String podLog(DataxKubernetesRuntimeRef runtimeRef, Pod pod) {
         return client.pods()
                 .inNamespace(runtimeRef.getNamespace())
@@ -219,11 +248,38 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
                 .delete();
     }
 
+    private void deletePods(DataxKubernetesRuntimeRef runtimeRef) {
+        if (pods(runtimeRef).isEmpty()) {
+            return;
+        }
+        client.pods()
+                .inNamespace(runtimeRef.getNamespace())
+                .withLabel(DataxK8sNameGenerator.TASK_LABEL, labelValueFromSelector(runtimeRef.getPodLabelSelector()))
+                .withGracePeriod(0L)
+                .delete();
+    }
+
     private void deleteSecret(DataxKubernetesRuntimeRef runtimeRef) {
         client.secrets()
                 .inNamespace(runtimeRef.getNamespace())
                 .withName(runtimeRef.getSecretName())
                 .delete();
+    }
+
+    private boolean waitCleanup(DataxKubernetesRuntimeRef runtimeRef) {
+        long deadline = System.currentTimeMillis() + CLEANUP_WAIT_TIMEOUT_MS;
+        while (System.currentTimeMillis() < deadline) {
+            if (job(runtimeRef) == null && pods(runtimeRef).isEmpty() && !secretExists(runtimeRef)) {
+                return true;
+            }
+            try {
+                Thread.sleep(CLEANUP_WAIT_INTERVAL_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("等待DataX K8S旧资源清理被中断: " + runtimeRef.getJobName(), e);
+            }
+        }
+        return false;
     }
 
     private static boolean hasCustomConfig(AgentProperties.Kubernetes kubernetes) {

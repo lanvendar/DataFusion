@@ -7,12 +7,9 @@ import com.datafusion.agent.runtime.worker.plugin.template.TemplateYamlFragments
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxJobFileService;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxRunMode;
-import com.datafusion.agent.runtime.worker.plugin.datax.DataxSubmitResult;
+import com.datafusion.agent.runtime.worker.plugin.datax.DataxTaskResult;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxTaskRunner;
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.model.TaskRequest;
-import com.datafusion.scheduler.model.TaskResult;
-import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -85,7 +82,7 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
     }
 
     @Override
-    public DataxSubmitResult submit(TaskRequest request, DataxExecutionParam param) {
+    public DataxTaskResult submit(DataxExecutionParam param) {
         try {
             Path jobFile = jobFileService.resolveJobFile(param);
             Files.createDirectories(param.getWorkDir());
@@ -96,15 +93,15 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
             builder.redirectError(ProcessBuilder.Redirect.appendTo(param.getLogFile().toFile()));
             Process process = builder.start();
             String appId = String.valueOf(process.pid());
-            watchExit(process, request.getTaskInstanceId());
-            return DataxSubmitResult.builder()
+            watchExit(process, param.getTaskInstanceId());
+            return DataxTaskResult.builder()
                     .status(StatusEnum.RUNNING)
                     .appId(appId)
                     .workDirPath(param.getWorkDir().toString())
                     .result(resultJson("LOCAL DataX task submitted", param.getLogFile().toString(), null))
                     .build();
         } catch (Exception e) {
-            return DataxSubmitResult.builder()
+            return DataxTaskResult.builder()
                     .status(StatusEnum.SUBMIT_FAILURE)
                     .result(resultJson(e.getMessage(), null, null))
                     .build();
@@ -112,13 +109,13 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
     }
 
     @Override
-    public TaskResult stop(TaskRequest request, WorkerTaskExecutionState state) {
-        return stopProcess(request, state, false);
+    public DataxTaskResult stop(DataxExecutionParam param, WorkerTaskExecutionState state) {
+        return stopProcess(state, false);
     }
 
     @Override
-    public TaskResult kill(TaskRequest request, WorkerTaskExecutionState state) {
-        return stopProcess(request, state, true);
+    public DataxTaskResult kill(DataxExecutionParam param, WorkerTaskExecutionState state) {
+        return stopProcess(state, true);
     }
 
     private LocalProcessSpec localProcessSpec(DataxExecutionParam param, Path jobFile) {
@@ -144,10 +141,9 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
         return spec;
     }
 
-    private TaskResult stopProcess(TaskRequest request, WorkerTaskExecutionState state, boolean forcibly) {
+    private DataxTaskResult stopProcess(WorkerTaskExecutionState state, boolean forcibly) {
         StatusEnum targetStatus = forcibly ? StatusEnum.KILLED : StatusEnum.STOP_SUCCESS;
-        WorkerResult requestWorkerResult = request.getWorkerResult();
-        ProcessHandle handle = processHandle(resolveAppId(request, state));
+        ProcessHandle handle = processHandle(resolveAppId(state));
         if (handle != null) {
             if (forcibly) {
                 handle.destroyForcibly();
@@ -155,15 +151,12 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
                 handle.destroy();
             }
         }
-        return TaskResult.builder()
-                .taskInstanceId(request.getTaskInstanceId())
-                .flowInstanceId(request.getFlowInstanceId())
-                .taskName(request.getTaskName())
-                .taskState(targetStatus)
-                .workerResult(workerResult(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId(),
-                        resolveAppId(request, state),
-                        state == null ? null : state.getWorkDirPath(),
-                        handle == null ? "LOCAL DataX process not found" : "LOCAL DataX process stopped", pluginLogUri(state)))
+        return DataxTaskResult.builder()
+                .status(targetStatus)
+                .appId(resolveAppId(state))
+                .workDirPath(state == null ? null : state.getWorkDirPath())
+                .result(resultJson(handle == null ? "LOCAL DataX process not found" : "LOCAL DataX process stopped",
+                        pluginLogUri(state), null))
                 .build();
     }
 
@@ -199,12 +192,11 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
         }
     }
 
-    private String resolveAppId(TaskRequest request, WorkerTaskExecutionState state) {
+    private String resolveAppId(WorkerTaskExecutionState state) {
         if (state != null && state.getAppId() != null) {
             return state.getAppId();
         }
-        WorkerResult workerResult = request == null ? null : request.getWorkerResult();
-        return workerResult == null ? null : workerResult.getAppId();
+        return null;
     }
 
     private String required(String value, String message) {
@@ -216,17 +208,6 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
 
     private ObjectNode resultJson(String message, String pluginLogUri, Integer exitCode) {
         return PluginResultJson.build(message, "DATAX", DataxRunMode.LOCAL.name(), pluginLogUri, exitCode);
-    }
-
-    private WorkerResult workerResult(String workerId, String appId, String workDirPath, String message,
-            String pluginLogUri) {
-        return WorkerResult.builder()
-                .workerId(workerId)
-                .appId(appId)
-                .workDirPath(workDirPath)
-                .message(message)
-                .pluginLogUri(pluginLogUri)
-                .build();
     }
 
     private String pluginLogUri(WorkerTaskExecutionState state) {
