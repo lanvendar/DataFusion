@@ -44,4 +44,15 @@ public interface DataxTaskRunner {
      */
     DataxTaskResult kill(DataxExecutionParam param, WorkerTaskExecutionState state);
 
+    /**
+     * Finish task.
+     *
+     * @param param execution param
+     * @param state execution state
+     * @return true if finished
+     */
+    default boolean finish(DataxExecutionParam param, WorkerTaskExecutionState state) {
+        return true;
+    }
+
 }

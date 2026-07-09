@@ -52,7 +52,7 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
         WorkerTaskExecutionState oldState = stateStore.readState(param.getTaskInstanceId()).orElse(null);
         if (oldState != null && !isBlank(oldState.getAppId())) {
             try {
-                if (!kubernetesClient.cleanupIfExists(runtimeRef(param, oldState))) {
+                if (!kubernetesClient.cleanup(runtimeRef(param, oldState), DataxKubernetesCleanupMode.BEFORE_SUBMIT)) {
                     return result(oldState, StatusEnum.SUBMIT_FAILURE, "K8S DataX cleanup before submit unfinished", null);
                 }
             } catch (RuntimeException e) {
@@ -96,6 +96,14 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
         } catch (RuntimeException e) {
             return result(state, StatusEnum.UNKNOWN, "K8S DataX kill failed: " + e.getMessage(), null);
         }
+    }
+
+    @Override
+    public boolean finish(DataxExecutionParam param, WorkerTaskExecutionState state) {
+        if (state == null || isBlank(state.getAppId())) {
+            return true;
+        }
+        return kubernetesClient.cleanup(runtimeRef(param, state), DataxKubernetesCleanupMode.AFTER_FINISH);
     }
 
     private DataxTaskResult result(WorkerTaskExecutionState state, StatusEnum status, String message, String pluginLogPath) {

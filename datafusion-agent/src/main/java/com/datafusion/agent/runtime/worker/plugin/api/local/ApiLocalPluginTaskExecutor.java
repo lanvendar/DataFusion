@@ -141,10 +141,9 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
-    public TaskRequest prepareTask(TaskRequest request) {
+    public void validateTaskRequest(TaskRequest request) {
         effectiveJob(request);
-        delegate.prepareTask(shellRequest(request));
-        return request;
+        delegate.validateTaskRequest(shellRequest(request));
     }
 
     @Override

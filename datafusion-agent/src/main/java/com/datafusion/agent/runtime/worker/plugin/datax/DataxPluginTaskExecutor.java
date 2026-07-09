@@ -3,10 +3,10 @@ package com.datafusion.agent.runtime.worker.plugin.datax;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.WorkerResult;
-import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
+import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -73,10 +73,8 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
-    public TaskRequest prepareTask(TaskRequest request) {
-        DataxExecutionParam param = paramResolver.resolve(request);
-        request.setPluginParam(mergedPluginParam(request.getPluginParam(), param));
-        return request;
+    public void validateTaskRequest(TaskRequest request) {
+        paramResolver.resolve(request);
     }
 
     @Override
@@ -120,7 +118,13 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
 
     @Override
     public boolean finishTask(TaskRequest request) {
-        return true;
+        WorkerTaskExecutionState state = currentState(request);
+        TaskRequest resolvedRequest = resolveRequest(request, state);
+        if (resolvedRequest.getPluginParam() == null) {
+            return true;
+        }
+        DataxExecutionParam param = paramResolver.resolve(resolvedRequest);
+        return runner(param.getRunMode()).finish(param, state);
     }
 
     private DataxTaskRunner runner(DataxRunMode runMode) {
@@ -162,8 +166,7 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
         resolvedRequest.setTaskState(request.getTaskState());
         resolvedRequest.setSubmitMode(request.getSubmitMode());
         resolvedRequest.setTaskData(request.getTaskData() == null ? snapshot.getTaskData() : request.getTaskData());
-        resolvedRequest.setPluginParam(request.getPluginParam() == null ? snapshot.getPluginParam()
-                : request.getPluginParam());
+        resolvedRequest.setPluginParam(resolvedPluginParam(request, snapshot));
         return resolvedRequest;
     }
 
@@ -221,11 +224,16 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
                 .build();
     }
 
-    private JsonNode mergedPluginParam(JsonNode pluginParam, DataxExecutionParam param) {
-        ObjectNode merged = pluginParam != null && pluginParam.isObject()
-                ? pluginParam.deepCopy() : OBJECT_MAPPER.createObjectNode();
-        merged.put("runMode", param.getRunMode().name());
-        return merged;
+    private JsonNode resolvedPluginParam(TaskRequest request, WorkerTaskExecutionSnap snapshot) {
+        if (request.getPluginParam() != null) {
+            return request.getPluginParam();
+        }
+        ObjectNode pluginParam = snapshot.getPluginParam() != null && snapshot.getPluginParam().isObject()
+                ? (ObjectNode) snapshot.getPluginParam().deepCopy() : OBJECT_MAPPER.createObjectNode();
+        if (!pluginParam.hasNonNull(DataxParamResolver.FIELD_RUN_MODE) && snapshot.getRunMode() != null) {
+            pluginParam.put(DataxParamResolver.FIELD_RUN_MODE, snapshot.getRunMode());
+        }
+        return pluginParam;
     }
 
     private String firstText(String... values) {

@@ -55,7 +55,7 @@ class DataxK8sRunModeStateMappingTest {
         assertEquals("k8s datax logs", Files.readString(logFile));
         assertEquals(logFile.toString(), state.getResult().path("pluginLogUri").asText());
         assertTrue(state.getResult().path("finalized").asBoolean());
-        assertEquals(1, client.cleanupCount);
+        assertEquals(0, client.cleanupCount);
     }
 
     private AgentProperties properties() {
@@ -116,13 +116,20 @@ class DataxK8sRunModeStateMappingTest {
          */
         private int cleanupCount;
 
+        /**
+         * Last cleanup mode.
+         */
+        private DataxKubernetesCleanupMode lastCleanupMode;
+
         @Override
         public DataxKubernetesRuntimeRef submit(DataxExecutionParam param) {
             return null;
         }
 
         @Override
-        public boolean cleanupIfExists(DataxKubernetesRuntimeRef runtimeRef) {
+        public boolean cleanup(DataxKubernetesRuntimeRef runtimeRef, DataxKubernetesCleanupMode mode) {
+            cleanupCount++;
+            lastCleanupMode = mode;
             return true;
         }
 
@@ -138,11 +145,6 @@ class DataxK8sRunModeStateMappingTest {
         @Override
         public String collectLogs(DataxKubernetesRuntimeRef runtimeRef) {
             return "k8s datax logs";
-        }
-
-        @Override
-        public void cleanup(DataxKubernetesRuntimeRef runtimeRef) {
-            cleanupCount++;
         }
     }
 }

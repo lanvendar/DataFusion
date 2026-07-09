@@ -97,7 +97,6 @@ public class DataxK8sRunModeStateMapping implements PluginRunModeStateMapping {
         DataxExecutionParam param = paramResolver.resolve(taskRequest(snapshot));
         DataxKubernetesRuntimeRef runtimeRef = runtimeRef(param, state);
         String pluginLogUri = collectLogs(state, param, runtimeRef);
-        cleanup(runtimeRef);
         ObjectNode result = PluginResultJson.build("K8S DataX task finished", pluginType(), runMode(), pluginLogUri, null);
         result.put("finalized", true);
         state.setResult(result);
@@ -134,14 +133,6 @@ public class DataxK8sRunModeStateMapping implements PluginRunModeStateMapping {
         } catch (Exception e) {
             log.warn("采集K8S DataX日志失败, taskInstanceId={}", state.getTaskInstanceId(), e);
             return firstText(pluginLogUri(state), pluginLogUri(runtimeRef));
-        }
-    }
-
-    private void cleanup(DataxKubernetesRuntimeRef runtimeRef) {
-        try {
-            kubernetesClient.cleanup(runtimeRef);
-        } catch (Exception e) {
-            log.warn("清理K8S DataX运行资源失败, jobName={}", runtimeRef.getJobName(), e);
         }
     }
 

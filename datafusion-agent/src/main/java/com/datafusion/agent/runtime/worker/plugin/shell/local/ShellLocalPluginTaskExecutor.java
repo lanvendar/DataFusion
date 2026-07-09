@@ -99,9 +99,8 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
-    public TaskRequest prepareTask(TaskRequest request) {
+    public void validateTaskRequest(TaskRequest request) {
         localProcessSpec(request);
-        return request;
     }
 
     @Override

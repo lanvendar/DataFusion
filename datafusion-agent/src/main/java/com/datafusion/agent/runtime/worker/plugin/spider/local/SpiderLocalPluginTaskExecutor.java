@@ -44,8 +44,8 @@ public class SpiderLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
-    public TaskRequest prepareTask(TaskRequest request) {
-        return delegate.prepareTask(request);
+    public void validateTaskRequest(TaskRequest request) {
+        delegate.validateTaskRequest(request);
     }
 
     @Override

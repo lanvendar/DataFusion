@@ -106,36 +106,35 @@ public class WorkerTaskService implements WorkerTaskOperator {
                 updateContext(context, result);
                 return result;
             }
-            TaskRequest preparedRequest;
             try {
-                preparedRequest = prepareRequest(executor, request);
+                validateTaskRequest(executor, request);
             } catch (RuntimeException e) {
                 TaskResult result = failureResult(request, StatusEnum.SUBMIT_FAILURE, e.getMessage());
                 updateContext(context, result);
                 return result;
             }
-            context.updateSnapshot(preparedRequest);
+            context.updateSnapshot(request);
 
-            if (preparedRequest.getSubmitMode() == SubmitModeEnum.ASYNC) {
-                TaskResult accepted = baseResult(preparedRequest, StatusEnum.SUBMITTING, null);
+            if (request.getSubmitMode() == SubmitModeEnum.ASYNC) {
+                TaskResult accepted = baseResult(request, StatusEnum.SUBMITTING, null);
                 updateContext(context, accepted);
                 try {
                     asyncExecutor.execute(() -> {
-                        TaskResult result = safeExecuteSubmit(executor, preparedRequest);
-                        TaskResult submitResult = normalizeSubmitResult(preparedRequest, result);
+                        TaskResult result = safeExecuteSubmit(executor, request);
+                        TaskResult submitResult = normalizeSubmitResult(request, result);
                         updateContext(context, submitResult);
                         resultReporter.report(submitResult);
                     });
                 } catch (RuntimeException e) {
-                    TaskResult result = failureResult(preparedRequest, StatusEnum.SUBMIT_FAILURE, e.getMessage());
+                    TaskResult result = failureResult(request, StatusEnum.SUBMIT_FAILURE, e.getMessage());
                     updateContext(context, result);
                     return result;
                 }
                 return accepted;
             }
 
-            TaskResult result = safeExecuteSubmit(executor, preparedRequest);
-            TaskResult submitResult = normalizeSubmitResult(preparedRequest, result);
+            TaskResult result = safeExecuteSubmit(executor, request);
+            TaskResult submitResult = normalizeSubmitResult(request, result);
             updateContext(context, submitResult);
             return submitResult;
         }
@@ -241,13 +240,9 @@ public class WorkerTaskService implements WorkerTaskOperator {
         }
     }
 
-    private TaskRequest prepareRequest(PluginTaskExecutor executor, TaskRequest request) {
-        TaskRequest preparedRequest = executor.prepareTask(request);
-        if (preparedRequest == null) {
-            throw new IllegalArgumentException("插件准备结果不能为空");
-        }
-        normalizeRequest(preparedRequest);
-        return preparedRequest;
+    private void validateTaskRequest(PluginTaskExecutor executor, TaskRequest request) {
+        executor.validateTaskRequest(request);
+        normalizeRequest(request);
     }
 
     private TaskRequest snapshotRequest(TaskRequest request) {

@@ -109,18 +109,6 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
     }
 
     @Override
-    public boolean cleanupIfExists(DataxKubernetesRuntimeRef runtimeRef) {
-        List<Pod> podList = pods(runtimeRef);
-        if (job(runtimeRef) == null && podList.isEmpty() && !secretExists(runtimeRef)) {
-            return true;
-        }
-        deleteJob(runtimeRef, true);
-        deletePods(runtimeRef);
-        deleteSecret(runtimeRef);
-        return waitCleanup(runtimeRef);
-    }
-
-    @Override
     public void stop(DataxKubernetesRuntimeRef runtimeRef, boolean forcibly) {
         try {
             deleteJob(runtimeRef, forcibly);
@@ -164,14 +152,18 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
     }
 
     @Override
-    public void cleanup(DataxKubernetesRuntimeRef runtimeRef) {
-        try {
-            if (runtimeRef.isDeleteJobOnFinish()) {
-                deleteJob(runtimeRef, false);
-            }
-        } finally {
+    public boolean cleanup(DataxKubernetesRuntimeRef runtimeRef, DataxKubernetesCleanupMode mode) {
+        if (mode == DataxKubernetesCleanupMode.BEFORE_SUBMIT) {
+            deleteJob(runtimeRef, true);
+            deletePods(runtimeRef);
             deleteSecret(runtimeRef);
+            return waitCleanup(runtimeRef, mode);
         }
+        if (runtimeRef.isDeleteJobOnFinish()) {
+            deleteJob(runtimeRef, false);
+        }
+        deleteSecret(runtimeRef);
+        return waitCleanup(runtimeRef, mode);
     }
 
     private static Config config(AgentProperties.Kubernetes kubernetes) {
@@ -266,10 +258,10 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
                 .delete();
     }
 
-    private boolean waitCleanup(DataxKubernetesRuntimeRef runtimeRef) {
+    private boolean waitCleanup(DataxKubernetesRuntimeRef runtimeRef, DataxKubernetesCleanupMode mode) {
         long deadline = System.currentTimeMillis() + CLEANUP_WAIT_TIMEOUT_MS;
         while (System.currentTimeMillis() < deadline) {
-            if (job(runtimeRef) == null && pods(runtimeRef).isEmpty() && !secretExists(runtimeRef)) {
+            if (cleanedUp(runtimeRef, mode)) {
                 return true;
             }
             try {
@@ -280,6 +272,13 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
             }
         }
         return false;
+    }
+
+    private boolean cleanedUp(DataxKubernetesRuntimeRef runtimeRef, DataxKubernetesCleanupMode mode) {
+        if (mode == DataxKubernetesCleanupMode.AFTER_FINISH && !runtimeRef.isDeleteJobOnFinish()) {
+            return !secretExists(runtimeRef);
+        }
+        return job(runtimeRef) == null && pods(runtimeRef).isEmpty() && !secretExists(runtimeRef);
     }
 
     private static boolean hasCustomConfig(AgentProperties.Kubernetes kubernetes) {

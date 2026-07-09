@@ -92,7 +92,8 @@ class K8sDataxTaskRunnerTest {
         DataxTaskResult result = runner.submit(param());
 
         assertEquals(StatusEnum.RUNNING, result.getStatus());
-        assertEquals(1, client.cleanupIfExistsCount);
+        assertEquals(1, client.cleanupCount);
+        assertEquals(DataxKubernetesCleanupMode.BEFORE_SUBMIT, client.lastCleanupMode);
         assertEquals(1, client.submitCount);
         assertEquals("df-datax-task-1", client.lastRuntimeRef.getJobName());
     }
@@ -100,7 +101,7 @@ class K8sDataxTaskRunnerTest {
     @Test
     void shouldReturnSubmitFailureWhenOldKubernetesCleanupFails() {
         FakeKubernetesClient client = new FakeKubernetesClient();
-        client.cleanupIfExistsResult = false;
+        client.cleanupResult = false;
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         stateStore.saveState(state(StatusEnum.RUN_FAILURE));
         K8sDataxTaskRunner runner = runner(client, stateStore);
@@ -108,10 +109,24 @@ class K8sDataxTaskRunnerTest {
         DataxTaskResult result = runner.submit(param());
 
         assertEquals(StatusEnum.SUBMIT_FAILURE, result.getStatus());
-        assertEquals(1, client.cleanupIfExistsCount);
+        assertEquals(1, client.cleanupCount);
+        assertEquals(DataxKubernetesCleanupMode.BEFORE_SUBMIT, client.lastCleanupMode);
         assertEquals(0, client.submitCount);
         assertEquals("df-datax-task-1", client.lastRuntimeRef.getJobName());
         assertTrue(result.getResult().path("message").asText().contains("cleanup before submit unfinished"));
+    }
+
+    @Test
+    void shouldCleanupKubernetesRuntimeOnFinish() {
+        FakeKubernetesClient client = new FakeKubernetesClient();
+        K8sDataxTaskRunner runner = runner(client);
+
+        boolean result = runner.finish(param(), state(StatusEnum.RUN_SUCCESS));
+
+        assertTrue(result);
+        assertEquals(1, client.cleanupCount);
+        assertEquals(DataxKubernetesCleanupMode.AFTER_FINISH, client.lastCleanupMode);
+        assertEquals("df-datax-task-1", client.lastRuntimeRef.getJobName());
     }
 
     private AgentProperties properties() {
@@ -191,14 +206,9 @@ class K8sDataxTaskRunnerTest {
         private StatusEnum status = StatusEnum.RUNNING;
 
         /**
-         * Cleanup count.
+         * Cleanup resource count.
          */
         private int cleanupCount;
-
-        /**
-         * Cleanup existing resource count.
-         */
-        private int cleanupIfExistsCount;
 
         /**
          * Submit count.
@@ -206,9 +216,14 @@ class K8sDataxTaskRunnerTest {
         private int submitCount;
 
         /**
-         * Cleanup existing resource result.
+         * Cleanup resource result.
          */
-        private boolean cleanupIfExistsResult = true;
+        private boolean cleanupResult = true;
+
+        /**
+         * Last cleanup mode.
+         */
+        private DataxKubernetesCleanupMode lastCleanupMode;
 
         /**
          * Pod logs.
@@ -240,10 +255,11 @@ class K8sDataxTaskRunnerTest {
         }
 
         @Override
-        public boolean cleanupIfExists(DataxKubernetesRuntimeRef runtimeRef) {
-            cleanupIfExistsCount++;
+        public boolean cleanup(DataxKubernetesRuntimeRef runtimeRef, DataxKubernetesCleanupMode mode) {
+            cleanupCount++;
             lastRuntimeRef = runtimeRef;
-            return cleanupIfExistsResult;
+            lastCleanupMode = mode;
+            return cleanupResult;
         }
 
         @Override
@@ -266,9 +282,5 @@ class K8sDataxTaskRunnerTest {
             return logs;
         }
 
-        @Override
-        public void cleanup(DataxKubernetesRuntimeRef runtimeRef) {
-            cleanupCount++;
-        }
     }
 }

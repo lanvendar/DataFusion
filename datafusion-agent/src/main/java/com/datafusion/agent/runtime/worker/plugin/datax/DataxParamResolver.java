@@ -29,6 +29,11 @@ import java.util.Map;
 public class DataxParamResolver {
 
     /**
+     * Run mode field name.
+     */
+    public static final String FIELD_RUN_MODE = "runMode";
+
+    /**
      * Date formatter.
      */
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
@@ -152,7 +157,7 @@ public class DataxParamResolver {
         }
         JsonNode taskData = request.getTaskData();
         JsonNode pluginParam = request.getPluginParam();
-        DataxRunMode runMode = DataxRunMode.parse(text(pluginParam, "runMode"));
+        DataxRunMode runMode = DataxRunMode.parse(text(pluginParam, FIELD_RUN_MODE));
         String date = LocalDate.now().format(DATE_FORMATTER);
         Path runtimeDir = taskRuntimeDir(date, request);
         JsonNode effectiveTaskData = effectiveTaskData(pluginParam, taskData);

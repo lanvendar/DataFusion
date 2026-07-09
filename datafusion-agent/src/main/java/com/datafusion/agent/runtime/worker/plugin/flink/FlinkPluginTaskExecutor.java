@@ -73,10 +73,9 @@ public class FlinkPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
-    public TaskRequest prepareTask(TaskRequest request) {
+    public void validateTaskRequest(TaskRequest request) {
         FlinkExecutionParam param = paramResolver.resolve(request);
         request.setPluginParam(mergedPluginParam(request.getPluginParam(), param));
-        return request;
     }
 
     @Override
