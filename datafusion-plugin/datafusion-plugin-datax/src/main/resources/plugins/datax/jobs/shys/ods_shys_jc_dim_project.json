@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `project_code`,`project_desc`,`project_type_code`,`project_type_desc`,`company_code`,`biz_seg_code`,`biz_seg_desc`,`del_flag`,`etl_time`,`wbs_level`,`company_desc`,`_id` FROM `shjc_ods_dim_project_jc`"

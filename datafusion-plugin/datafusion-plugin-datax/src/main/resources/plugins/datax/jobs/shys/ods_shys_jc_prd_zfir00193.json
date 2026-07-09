@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `fiscal_year`,`fiscal_month`,`year_month`,`company_code`,`company_desc`,`factory_code`,`factory_desc`,`work_center_code`,`work_center_desc`,`master_product_flag`,`product_code`,`product_desc`,`product_version`,`man_hour`,`man_hour_unit`,`material_code`,`material_desc`,`production_type_code`,`production_type_name`,`type1_code`,`type1_name`,`evaluation_type`,`evaluation_class`,`evaluation_class_desc`,`yield`,`unit`,`primary_cost`,`diff_cost`,`actual_cost`,`actual_price`,`currency`,`etl_time`,`modify_time`,`modifier`,`_id`,STR_TO_DATE(CONCAT(`year_month`, '-01'), '%Y-%m-%d') AS `day_pt` FROM `shjc_ods_prd_zfir00193_jc` WHERE (`etl_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `etl_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d')) OR (`modify_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `modify_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d'))"

@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `currency_type`,`currency_from`,`currency_to`,`rate_month`,`end_exc_rate`,`ratio_form`,`ratio_to`,`create_time`,`creator`,`update_time`,`updator`,`ds`,`etl_time`,`modifier`,`modify_time`,`_id` FROM `shjc_ods_fin_endperiod_exchange_rate_cfg_jc`"

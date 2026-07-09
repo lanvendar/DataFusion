@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `decimal_val`,`string_val`,`year`,`period`,`scenario`,`version`,`entity`,`product`,`material`,`account`,`type`,`flow`,`trail`,`object`,`bu`,`mix`,`misc`,`item`,`_url`,`_file_name`,`_upload_time`,`_upload_user`,`view`,`createdate`,`createtime` FROM `shys_sh_co_file_gb`"

@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `_id`,`ds`,`year_month`,`company_code`,`company_name`,`beginning_total_assets`,`ytd_total_assets`,`avg_total_assets`,`main_income`,`asset_turnover_ratio`,`beginning_total_equity`,`ytd_total_equity`,`avg_total_equity`,`ytd_net_profit`,`roe`,`ytd_total_profit`,`ytd_interest`,`ebit`,`roa`,`etl_time`,`modify_time`,`modifier` FROM `shjc_ods_cap_company_cm_jc`"

@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `_id`,`ds`,`invoice_no`,`invc_posting_date`,`voucher_no`,`invoice_type_code`,`invoice_type_desc`,`item_no`,`item_unit`,`so_no`,`so_item_no`,`gr_no`,`gr_item_no`,`mat_acc_grp_code`,`mat_acc_grp_desc`,`profit_center_code`,`profit_center_desc`,`mat_grp_code`,`mat_grp_desc`,`prd_grp_code`,`prd_grp_desc`,`factory_code`,`factory_desc`,`store_location_code`,`reject_reason_code`,`reject_reason_desc`,`currency`,`acct_vouch_exc_rate`,`invoce_item_qty`,`unit_price`,`net_amt`,`tax_amt`,`fiscal_year`,`fiscal_month`,`company_code`,`company_desc`,`customer_code`,`customer_desc`,`home_or_abroad`,`trading_direction`,`customer_country`,`material_code`,`material_desc`,`etl_time`,`modify_time`,`modifier`,`calendar_year_month`,`trading_partner_code`,`cny_net_amt`,`cny_tax_amt`,STR_TO_DATE(`ds`, '%Y-%m-%d') AS `day_pt` FROM `shjc_ods_mkt_so_invoice_dtl_jc` WHERE (`etl_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `etl_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d')) OR (`modify_time` >= STR_TO_DATE('#day(_biz_date_, -1D, yyyyMMdd)', '%Y%m%d') AND `modify_time` < STR_TO_DATE('#day(_biz_date_, 0D, yyyyMMdd)', '%Y%m%d'))"

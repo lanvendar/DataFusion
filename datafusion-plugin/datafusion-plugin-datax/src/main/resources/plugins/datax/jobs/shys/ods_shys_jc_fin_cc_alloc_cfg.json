@@ -18,7 +18,7 @@
             "connection": [
               {
                 "jdbcUrl": [
-                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai"
+                  "jdbc:mysql://bigdata-transit-cache-mysql-ro-lb.bigdata.svc:3307/jt_szhb_uslkmw_business?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
                 ],
                 "querySql": [
                   "SELECT `_id`,`ds`,`fiscal_year`,`fiscal_month`,`year_month`,`company_code`,`company_desc`,`source_cost_center_code`,`source_cost_center_desc`,`alloc_source_code`,`alloc_source_desc`,`etl_time`,`modify_time`,`modifier` FROM `shjc_ods_fin_cc_alloc_cfg_jc`"
