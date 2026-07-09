@@ -19,6 +19,7 @@ rules:
   - apiGroups:
       - ""
     resources:
+      - configmaps
       - secrets
     verbs:
       - get
@@ -35,12 +36,22 @@ rules:
       - get
       - list
       - watch
+      - delete
   - apiGroups:
       - ""
     resources:
       - pods/log
     verbs:
       - get
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+      - delete
   - apiGroups:
       - batch
     resources:
@@ -57,6 +68,18 @@ rules:
       - flink.apache.org
     resources:
       - flinkdeployments
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - sparkoperator.k8s.io
+    resources:
+      - sparkapplications
     verbs:
       - get
       - list

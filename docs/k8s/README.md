@@ -72,8 +72,9 @@
 ## Agent K8s 任务权限
 
 Agent 里的 DataX K8s runner 会通过 Fabric8 client 创建 `Secret` 和 `batch/v1 Job`，并查询 Pod 状态与日志。
-Flink K8S_OPERATOR runner 会创建 `flinkdeployments.flink.apache.org`，并查询 Pod 状态与日志。当前 Role 只授权
-`datafusion` 命名空间。
+Flink K8S_OPERATOR runner 会创建 `flinkdeployments.flink.apache.org`，并查询 Pod / Service 状态与日志。Spark
+K8S_OPERATOR runner 会创建 `sparkapplications.sparkoperator.k8s.io` 和 ConfigMap。当前 Role 只授权 `datafusion`
+命名空间。
 
 如果任务参数中的 Kubernetes namespace 不是 `datafusion`，需要在对应 namespace 额外创建同等权限的 `RoleBinding`，或改成受控的 `ClusterRoleBinding`。
 
