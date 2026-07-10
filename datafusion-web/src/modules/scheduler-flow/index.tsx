@@ -10,7 +10,7 @@ import { SCHEDULER_FLOW_QUERY_KEY } from "./constants";
 import { PageActionEnum, type FlowFormMode, type FlowItem } from "./dto";
 
 export default function SchedulerFlowPage() {
-  const { message, modal } = App.useApp();
+  const { message } = App.useApp();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [formOpen, setFormOpen] = useState(false);
@@ -51,19 +51,17 @@ export default function SchedulerFlowPage() {
     [message, refreshList],
   );
 
-  const confirmPublish = useCallback(
-    (record: FlowItem) => {
-      modal.confirm({
-        title: "确认发布流程",
-        content: `确认发布流程「${record.flowName}」吗？`,
-        onOk: async () => {
-          await flowApi.publish(record.id);
-          message.success("发布成功");
-          refreshList();
-        },
-      });
+  const publishFlow = useCallback(
+    async (record: FlowItem) => {
+      try {
+        await flowApi.publish(record.id);
+        message.success("发布成功");
+        refreshList();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "发布失败");
+      }
     },
-    [message, modal, refreshList],
+    [message, refreshList],
   );
 
   const confirmUnpublish = useCallback(
@@ -118,7 +116,7 @@ export default function SchedulerFlowPage() {
           deleteMutation.mutate(record.id);
           break;
         case PageActionEnum.PUBLISH:
-          if (record?.id) confirmPublish(record);
+          if (record?.id) void publishFlow(record);
           break;
         case PageActionEnum.UNPUBLISH:
           if (record?.id) void confirmUnpublish(record);
@@ -138,12 +136,12 @@ export default function SchedulerFlowPage() {
     },
     [
       confirmDisable,
-      confirmPublish,
       confirmUnpublish,
       deleteMutation,
       message,
       navigate,
       openForm,
+      publishFlow,
     ],
   );
 

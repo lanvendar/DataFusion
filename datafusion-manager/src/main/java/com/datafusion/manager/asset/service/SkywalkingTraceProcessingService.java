@@ -346,7 +346,7 @@ public class SkywalkingTraceProcessingService {
                     snapshot = new ResourceSnapshotBuilder.ApiResourceResultSnapshot();
                 }
                 snapshot.setCallChain(chain);
-                resource.setResultSnapshot(JacksonUtils.convertPojoToJsonNodeSafely(snapshot));
+                resource.setResultSnapshot(JacksonUtils.pojo2JsonNodeOrNull(snapshot));
                 finished.add(resource);
             }
             updateResourceStatus(finished, ResourceStatusEnum.PARSE_SUCCESS.getStatus(), null);

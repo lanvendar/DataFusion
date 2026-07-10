@@ -126,7 +126,7 @@ public class AssetResourceApiService extends BaseResourceService<ApiResourceInfo
                 .setResourceType(ResourceTypeEnum.API.getResouceType())
                 .setResourceName(resourceName(contextData))
                 .setResourceTag(ResourceTagEnum.NODE_AND_EDGE.getResourceTagType())
-                .setResourceSnapshot(JacksonUtils.convertPojoToJsonNodeSafely(convertSnapshot(contextData)))
+                .setResourceSnapshot(JacksonUtils.pojo2JsonNodeOrNull(convertSnapshot(contextData)))
                 .setStatus(ResourceStatusEnum.IMPORT_SUCCESS.getStatus())
                 .setCreator(currentUser)
                 .setUpdater(currentUser)
@@ -425,7 +425,7 @@ public class AssetResourceApiService extends BaseResourceService<ApiResourceInfo
         nodeEntity.setNodeName(edge.getUrl());
         nodeEntity.setNodeType(NodeTypeEnum.SERVICE.getNodeType());
         nodeEntity.setNodeSubType(NodeSubTypeEnum.API.getNodeSubType());
-        nodeEntity.setNodeProp(JacksonUtils.convertPojoToJsonNodeSafely(edge));
+        nodeEntity.setNodeProp(JacksonUtils.pojo2JsonNodeOrNull(edge));
         nodeEntity.setId(UUID.randomUUID());
         nodeEntity.setCreator(currentUser);
         nodeEntity.setCreateTime(now);
@@ -449,7 +449,7 @@ public class AssetResourceApiService extends BaseResourceService<ApiResourceInfo
             JsonNode prop = null;
             //存储边的测点信息
             if (edge.getMiddle() != null) {
-                prop = JacksonUtils.convertPojoToJsonNodeSafely(edge.getMiddle());
+                prop = JacksonUtils.pojo2JsonNodeOrNull(edge.getMiddle());
             }
             edgeEntityList.add(super.buildEdge(sourceUrn, targetUrn, resource, now, currentUser, prop));
         }

@@ -148,7 +148,7 @@ public class AssetResourceEtlService extends BaseResourceService<EtlResourceInfo
         entity.setResourceName(etlSnapshot.getTaskName());
         entity.setResourceType(ResourceTypeEnum.ETL.getResouceType());
         entity.setResourceTag(ResourceTagEnum.EDGE.getResourceTagType());
-        entity.setResourceSnapshot(JacksonUtils.convertPojoToJsonNodeSafely(etlSnapshot));
+        entity.setResourceSnapshot(JacksonUtils.pojo2JsonNodeOrNull(etlSnapshot));
         // ETL资源默认状态为解析成功
         entity.setStatus(ResourceStatusEnum.PARSE_SUCCESS.getStatus());
         entity.setCreator(currentUser);

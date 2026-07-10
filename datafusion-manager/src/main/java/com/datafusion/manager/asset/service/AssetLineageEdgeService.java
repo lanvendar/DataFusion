@@ -39,6 +39,7 @@ import com.datafusion.manager.asset.po.AssetLineageEdgeEntity;
 import com.datafusion.manager.asset.po.AssetLineageNodeEntity;
 import com.datafusion.manager.asset.po.AssetLineageNodeResourceRelationEntity;
 import com.datafusion.manager.asset.po.AssetLineageResourceEntity;
+import com.datafusion.manager.asset.util.AssetJsonUtils;
 import com.datafusion.manager.metadata.dto.DataSourceInfoDto;
 import com.datafusion.manager.metadata.dto.DataSourceTableColumnDto;
 import com.datafusion.manager.metadata.dto.EdgeColumnInfoDto;
@@ -80,8 +81,6 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import static com.datafusion.manager.asset.constant.AssetLineageConstant.TAG_SET;
 
 /**
  * .
@@ -861,7 +860,7 @@ public class AssetLineageEdgeService {
                     .setNodeUrn(tableUrn)
                     .setNodeType(NodeTypeEnum.DATABASE.getNodeType())
                     .setNodeSubType(NodeSubTypeEnum.TABLE.getNodeSubType())
-                    .setNodeProp(JacksonUtils.convertPojoToJsonNodeSafely(prop))
+                    .setNodeProp(JacksonUtils.pojo2JsonNodeOrNull(prop))
                     .setCreateTime(new Date())
                     .setUpdateTime(new Date())
                     .setUpdater(HttpUtils.getCurrentUserName())
@@ -896,7 +895,7 @@ public class AssetLineageEdgeService {
                         .setNodeUrn(columnUrn)
                         .setNodeType(NodeTypeEnum.DATABASE.getNodeType())
                         .setNodeSubType(NodeSubTypeEnum.COLUMN.getNodeSubType())
-                        .setNodeProp(JacksonUtils.convertPojoToJsonNodeSafely(columnProp))
+                        .setNodeProp(JacksonUtils.pojo2JsonNodeOrNull(columnProp))
                         .setCreateTime(new Date())
                         .setUpdateTime(new Date())
                         .setUpdater(HttpUtils.getCurrentUserName())
@@ -1610,8 +1609,7 @@ public class AssetLineageEdgeService {
         }
 
         try {
-            // 假设 TAG_SET = "tagSet"
-            JsonNode tagSetArray = JacksonUtils.unwrapTagSet(edgeProp, TAG_SET);
+            JsonNode tagSetArray = AssetJsonUtils.unwrapTagSet(edgeProp);
             if (tagSetArray.isArray()) {
                 for (JsonNode item : tagSetArray) {
                     if (tag.equals(item.path("tag").asText()) && dimension.equals(item.path("dimension").asText())) {
@@ -1697,8 +1695,7 @@ public class AssetLineageEdgeService {
                         // 合并边上的属性（如 tag, dimension 等信息）
                         if (edge.getEdgeProp() != null) {
                             ArrayNode merged = pairToPropMap.computeIfAbsent(pairKey, k -> mapper.createArrayNode());
-                            // TAG_SET 通常定义为 "tagSet"
-                            JsonNode tagSetArray = JacksonUtils.unwrapTagSet(edge.getEdgeProp(), TAG_SET);
+                            JsonNode tagSetArray = AssetJsonUtils.unwrapTagSet(edge.getEdgeProp());
                             if (tagSetArray.isArray()) {
                                 merged.addAll((ArrayNode) tagSetArray);
                             } else {
@@ -1793,7 +1790,7 @@ public class AssetLineageEdgeService {
                         ev.setSource(sContainer);
                         ev.setTarget(tContainer);
                         // 包装边属性回 Json 格式
-                        ev.setEdgeProp(JacksonUtils.wrapTagSet(pairToPropMap.get(pair), TAG_SET));
+                        ev.setEdgeProp(AssetJsonUtils.wrapTagSet(pairToPropMap.get(pair)));
                         finalEntityEdges.add(ev);
                     }
                 }

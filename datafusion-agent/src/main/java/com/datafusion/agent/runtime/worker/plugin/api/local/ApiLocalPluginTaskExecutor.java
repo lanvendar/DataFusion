@@ -242,7 +242,7 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
         Path jobFile = jobFile(request);
         try {
             Files.createDirectories(jobFile.getParent());
-            Files.writeString(jobFile, JacksonUtils.obj2Str(effectiveJob(request)), StandardCharsets.UTF_8);
+            Files.writeString(jobFile, JacksonUtils.compactJson(effectiveJob(request)), StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw new IllegalStateException("准备API job文件失败: " + e.getMessage(), e);
         }

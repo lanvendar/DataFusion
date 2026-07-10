@@ -17,6 +17,7 @@ import com.datafusion.manager.asset.po.AssetLineageEdgeEntity;
 import com.datafusion.manager.asset.po.AssetLineageNodeEntity;
 import com.datafusion.manager.asset.po.AssetLineageNodeResourceRelationEntity;
 import com.datafusion.manager.asset.po.AssetLineageResourceEntity;
+import com.datafusion.manager.asset.util.AssetJsonUtils;
 import com.datafusion.manager.utils.HttpUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
@@ -33,8 +34,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
-import static com.datafusion.manager.asset.constant.AssetLineageConstant.TAG_SET;
 
 /**
  * 资源服务基类 - 提供资源、节点、边血缘关系更新的模板方法.
@@ -226,7 +225,7 @@ public abstract class BaseResourceService<T> extends ServiceImpl<AssetResourceMa
             } catch (Exception e) {
                 log.error("资源导入失败，resourceName:{}", resourceEntity.getResourceName(), e);
                 resourceEntity.setStatus(ResourceStatusEnum.IMPORT_EDGE_FAILED.getStatus());
-                resourceEntity.setResult(JacksonUtils.convertPojoToJsonNodeSafely(e.getMessage()));
+                resourceEntity.setResult(JacksonUtils.pojo2JsonNodeOrNull(e.getMessage()));
                 resourceEntity.setUpdateTime(now);
                 resourceEntity.setUpdater(currentUser);
                 this.getBaseMapper().updateById(resourceEntity);
@@ -392,7 +391,7 @@ public abstract class BaseResourceService<T> extends ServiceImpl<AssetResourceMa
     protected AssetLineageEdgeEntity buildEdge(String sourceUrn, String targetUrn,
             AssetLineageResourceEntity resource, Date now, String currentUser, JsonNode edgeProp) {
         AssetLineageEdgeEntity edge = buildEdge(sourceUrn, targetUrn, resource, now, currentUser);
-        edge.setEdgeProp(JacksonUtils.wrapTagSet(edgeProp, TAG_SET));
+        edge.setEdgeProp(AssetJsonUtils.wrapTagSet(edgeProp));
         return edge;
     }
 
@@ -521,7 +520,7 @@ public abstract class BaseResourceService<T> extends ServiceImpl<AssetResourceMa
         if (newSet != null) {
             mergedSet.addAll(newSet);
         }
-        return wrapTagSet(JacksonUtils.convertPojoToJsonNodeSafely(mergedSet));
+        return wrapTagSet(JacksonUtils.pojo2JsonNodeOrNull(mergedSet));
     }
 
     /**
@@ -532,7 +531,7 @@ public abstract class BaseResourceService<T> extends ServiceImpl<AssetResourceMa
      * @return 包装后的JsonNode
      */
     protected JsonNode wrapTagSet(JsonNode tagArray) {
-        return JacksonUtils.wrapTagSet(tagArray, TAG_SET);
+        return AssetJsonUtils.wrapTagSet(tagArray);
     }
 
     /**
@@ -543,7 +542,7 @@ public abstract class BaseResourceService<T> extends ServiceImpl<AssetResourceMa
      * @return 解包后的tagSet数组
      */
     protected JsonNode unwrapTagSet(JsonNode edgeProp) {
-        return JacksonUtils.unwrapTagSet(edgeProp, TAG_SET);
+        return AssetJsonUtils.unwrapTagSet(edgeProp);
     }
 
     // ===================== 内部类 =====================

@@ -41,7 +41,7 @@
                 </if>
             </if>
         </where>
-        order by ti.start_time desc nulls last, ti.create_time desc
+        order by ti.create_time desc, ti.id desc
     </select>
 
     <select id="getInstanceById" resultType="com.datafusion.manager.scheduler.po.TaskInstanceEntity">
@@ -60,7 +60,7 @@
         select *
         from scheduler_task_instance
         where flow_instance_id = #{flowInstanceId}
-        order by create_time asc
+        order by create_time asc, id asc
     </select>
 
     <delete id="removeByInstanceId">

@@ -26,6 +26,11 @@ function normalizeTriggerOption(item: TriggerListItem) {
   };
 }
 
+function createDefaultScheduleWindow(): [Dayjs, Dayjs] {
+  const startTime = dayjs();
+  return [startTime, startTime.add(1, "year")];
+}
+
 export function FlowScheduleModal({
   open,
   currentRecord,
@@ -53,11 +58,10 @@ export function FlowScheduleModal({
 
     const savedStartTime = normalizeTimestamp(currentRecord?.startTime);
     const savedEndTime = normalizeTimestamp(currentRecord?.endTime);
-    const defaultStartTime = dayjs();
     const scheduleWindow: [Dayjs, Dayjs] =
       savedStartTime && savedEndTime
         ? [dayjs(savedStartTime), dayjs(savedEndTime)]
-        : [defaultStartTime, defaultStartTime.add(1, "year")];
+        : createDefaultScheduleWindow();
 
     form.setFieldsValue({
       triggerId: currentRecord?.triggerId ? String(currentRecord.triggerId) : undefined,
@@ -132,7 +136,11 @@ export function FlowScheduleModal({
             },
           ]}
         >
-          <DatePicker.RangePicker showTime style={{ width: "100%" }} />
+          <DatePicker.RangePicker
+            showTime
+            presets={[{ label: "今天起一年", value: createDefaultScheduleWindow }]}
+            style={{ width: "100%" }}
+          />
         </Form.Item>
       </Form>
     </Modal>

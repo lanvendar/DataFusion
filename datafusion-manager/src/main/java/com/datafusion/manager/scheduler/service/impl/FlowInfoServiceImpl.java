@@ -247,11 +247,11 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
                 }
                 // 解析 style
                 if (viewNode.has("style") && viewNode.get("style").isObject()) {
-                    nodeView.setStyle(JacksonUtils.convertJsonNodeToPojoSafely(viewNode.get("style"), java.util.Map.class));
+                    nodeView.setStyle(JacksonUtils.jsonNode2PojoOrNull(viewNode.get("style"), java.util.Map.class));
                 }
                 // 解析 extra
                 if (viewNode.has("extra") && viewNode.get("extra").isObject()) {
-                    nodeView.setExtra(JacksonUtils.convertJsonNodeToPojoSafely(viewNode.get("extra"), java.util.Map.class));
+                    nodeView.setExtra(JacksonUtils.jsonNode2PojoOrNull(viewNode.get("extra"), java.util.Map.class));
                 }
                 node.setNodeView(nodeView);
             }
@@ -295,11 +295,11 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
                 }
                 // 解析 style
                 if (viewNode.has("style") && viewNode.get("style").isObject()) {
-                    edgeView.setStyle(JacksonUtils.convertJsonNodeToPojoSafely(viewNode.get("style"), java.util.Map.class));
+                    edgeView.setStyle(JacksonUtils.jsonNode2PojoOrNull(viewNode.get("style"), java.util.Map.class));
                 }
                 // 解析 extra
                 if (viewNode.has("extra") && viewNode.get("extra").isObject()) {
-                    edgeView.setExtra(JacksonUtils.convertJsonNodeToPojoSafely(viewNode.get("extra"), java.util.Map.class));
+                    edgeView.setExtra(JacksonUtils.jsonNode2PojoOrNull(viewNode.get("extra"), java.util.Map.class));
                 }
                 edge.setEdgeView(edgeView);
             }
@@ -360,7 +360,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
 
                 // 将 edgeView 写入 view JSON
                 if (edge.getEdgeView() != null) {
-                    link.setView(JacksonUtils.convertPojoToJsonNodeSafely(edge.getEdgeView()));
+                    link.setView(JacksonUtils.pojo2JsonNodeOrNull(edge.getEdgeView()));
                 }
 
                 linkEntities.add(link);
@@ -578,7 +578,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         }
 
         if (node.getNodeView() != null) {
-            wrapper.set(TaskInfoEntity::getView, JacksonUtils.convertPojoToJsonNodeSafely(node.getNodeView()));
+            wrapper.set(TaskInfoEntity::getView, JacksonUtils.pojo2JsonNodeOrNull(node.getNodeView()));
         }
         taskInfoService.update(wrapper);
     }

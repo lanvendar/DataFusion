@@ -527,8 +527,8 @@ public class AssetResourceMenuService extends BaseResourceService<MenuResourceIn
         entity.setResourceName(resourceName);
         entity.setResourceType(ResourceTypeEnum.GUI.getResouceType());
         entity.setResourceTag(ResourceTagEnum.NODE_AND_EDGE.getResourceTagType());
-        entity.setResourceSnapshot(JacksonUtils.convertPojoToJsonNodeSafely(menuSnapshot));
-        entity.setResultSnapshot(JacksonUtils.convertPojoToJsonNodeSafely(menuResultSnapshot));
+        entity.setResourceSnapshot(JacksonUtils.pojo2JsonNodeOrNull(menuSnapshot));
+        entity.setResultSnapshot(JacksonUtils.pojo2JsonNodeOrNull(menuResultSnapshot));
         // 菜单默认直接就是导入血缘成功
         entity.setStatus(ResourceStatusEnum.PARSE_SUCCESS.getStatus());
         entity.setCreator(currentUser);
@@ -590,7 +590,7 @@ public class AssetResourceMenuService extends BaseResourceService<MenuResourceIn
         node.setNodeName(snapshot.getMenuName());
         node.setNodeType(NodeTypeEnum.GUI.getNodeType());
         node.setNodeSubType(NodeSubTypeEnum.MENU.getNodeSubType());
-        node.setNodeProp(JacksonUtils.convertPojoToJsonNodeSafely(menuNodeProp));
+        node.setNodeProp(JacksonUtils.pojo2JsonNodeOrNull(menuNodeProp));
         node.setCreator(currentUser);
         node.setCreateTime(now);
         node.setUpdater(currentUser);
@@ -631,7 +631,7 @@ public class AssetResourceMenuService extends BaseResourceService<MenuResourceIn
             edge.setUpdateTime(now);
             Set<MetricsTagDto> tagInfo = snapshot.getApiResourceIds().get(apiResourceEntity.getId());
             if (CollectionUtil.isNotEmpty(tagInfo)) {
-                edge.setEdgeProp(wrapTagSet(JacksonUtils.convertPojoToJsonNodeSafely(tagInfo)));
+                edge.setEdgeProp(wrapTagSet(JacksonUtils.pojo2JsonNodeOrNull(tagInfo)));
             }
             edgeEntityList.add(edge);
         });

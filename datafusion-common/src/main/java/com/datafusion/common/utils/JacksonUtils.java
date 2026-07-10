@@ -86,6 +86,9 @@ public class JacksonUtils {
      */
     private static final JavaTimeModule JAVA_TIME_MODULE;
 
+    private JacksonUtils() {
+    }
+
     static {
         JAVA_TIME_MODULE = new JavaTimeModule();
         // LocalDateTime序列化/反序列化 使用指定的日期格式
@@ -93,7 +96,7 @@ public class JacksonUtils {
         JAVA_TIME_MODULE.addDeserializer(LocalDateTime.class, new LocalDateTimeDeserializer(DATE_TIME_FORMATTER));
 
         MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        MAPPER.registerModule(new JavaTimeModule());
+        MAPPER.registerModule(JAVA_TIME_MODULE);
         MAPPER.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         // 不使用科学计数
         MAPPER.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
@@ -136,6 +139,46 @@ public class JacksonUtils {
     }
 
     /**
+     * 严格反序列化 JSON，拒绝未知字段和非标准语法.
+     *
+     * @param json JSON 字符串
+     * @param type 目标类型
+     * @param <T>  目标类型
+     * @return 反序列化结果
+     * @throws JsonProcessingException JSON 解析异常
+     */
+    public static <T> T readStrict(String json, Class<T> type) throws JsonProcessingException {
+        AssertUtils.notNull(json, JSON_CHECK_MSG);
+        AssertUtils.notNull(type, CLASS_CHECK_MSG);
+        return MAPPER.readerFor(type)
+                .with(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                .without(JsonParser.Feature.ALLOW_SINGLE_QUOTES)
+                .readValue(json);
+    }
+
+    /**
+     * 严格反序列化 JSON，拒绝未知字段和非标准语法.
+     *
+     * @param json JSON 字符串
+     * @param type 目标类型引用
+     * @param <T>  目标类型
+     * @return 反序列化结果
+     * @throws JsonProcessingException JSON 解析异常
+     */
+    public static <T> T readStrict(String json, TypeReference<T> type) throws JsonProcessingException {
+        AssertUtils.notNull(json, JSON_CHECK_MSG);
+        AssertUtils.notNull(type, TYPEREFERENCE_CHECK_MSG);
+        return MAPPER.readerFor(type)
+                .with(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                .without(JsonParser.Feature.ALLOW_SINGLE_QUOTES)
+                .readValue(json);
+    }
+
+    /**
      * 尝试将字符串反序列化成指定类对象.
      *
      * @param json json
@@ -147,8 +190,7 @@ public class JacksonUtils {
         try {
             return str2Bean(json, cls);
         } catch (JsonProcessingException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON反序列化异常", e);
         }
     }
 
@@ -164,8 +206,7 @@ public class JacksonUtils {
         try {
             return str2Bean(json, typeReference);
         } catch (JsonProcessingException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON反序列化异常", e);
         }
     }
 
@@ -179,7 +220,7 @@ public class JacksonUtils {
      * @throws IOException 异常信息
      */
     public static <T> T bytes2Bean(byte[] bytes, Class<T> cls) throws IOException {
-        AssertUtils.notNull(bytes, JSON_CHECK_MSG);
+        AssertUtils.notNull(bytes, BYTES_CHECK_MSG);
         AssertUtils.notNull(cls, CLASS_CHECK_MSG);
         return MAPPER.readValue(bytes, cls);
     }
@@ -196,8 +237,7 @@ public class JacksonUtils {
         try {
             return bytes2Bean(bytes, cls);
         } catch (IOException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON反序列化异常", e);
         }
     }
 
@@ -258,8 +298,7 @@ public class JacksonUtils {
         try {
             return stream2Bean(inputStream, cls);
         } catch (IOException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON反序列化异常", e);
         }
     }
 
@@ -309,9 +348,8 @@ public class JacksonUtils {
     public static <T> T tryObj2Bean(Object obj, Class<T> cls) {
         try {
             return obj2Bean(obj, cls);
-        } catch (JsonProcessingException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+        } catch (JsonProcessingException | IllegalArgumentException e) {
+            throw jsonException("JSON反序列化异常", e);
         }
     }
 
@@ -326,28 +364,9 @@ public class JacksonUtils {
     public static <T> T tryObj2Bean(Object obj, TypeReference<T> typeReference) {
         try {
             return obj2Bean(obj, typeReference);
-        } catch (JsonProcessingException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+        } catch (JsonProcessingException | IllegalArgumentException e) {
+            throw jsonException("JSON反序列化异常", e);
         }
-    }
-
-    /**
-     * 根据传入的TypeReference进行反序列化.
-     *
-     * @param obj 对象
-     * @param cls Class对象
-     * @param <T> 泛型
-     * @return 数据
-     * @throws JsonProcessingException 异常信息
-     */
-    public static <T> T obj2Map(Object obj, Class<T> cls) throws JsonProcessingException {
-        AssertUtils.notNull(obj, OBJ_CHECK_MSG);
-        AssertUtils.notNull(cls, CLASS_CHECK_MSG);
-        if (obj instanceof String) {
-            return str2Bean((String) obj, cls);
-        }
-        return MAPPER.convertValue(obj, cls);
     }
 
     /**
@@ -410,8 +429,7 @@ public class JacksonUtils {
         try {
             return str2BeanList(json, cls);
         } catch (JsonProcessingException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON反序列化异常", e);
         }
     }
 
@@ -427,8 +445,7 @@ public class JacksonUtils {
         try {
             return str2BeanList(json, typeReference);
         } catch (JsonProcessingException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON反序列化异常", e);
         }
     }
 
@@ -480,9 +497,8 @@ public class JacksonUtils {
     public static <T> List<T> tryObj2BeanList(Object obj, Class<T> cls) {
         try {
             return obj2BeanList(obj, cls);
-        } catch (JsonProcessingException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+        } catch (JsonProcessingException | IllegalArgumentException e) {
+            throw jsonException("JSON反序列化异常", e);
         }
     }
 
@@ -499,9 +515,8 @@ public class JacksonUtils {
         AssertUtils.notNull(typeReference, TYPEREFERENCE_CHECK_MSG);
         try {
             return obj2BeanList(obj, typeReference);
-        } catch (JsonProcessingException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+        } catch (JsonProcessingException | IllegalArgumentException e) {
+            throw jsonException("JSON反序列化异常", e);
         }
     }
 
@@ -580,8 +595,7 @@ public class JacksonUtils {
         try {
             return stream2BeanList(inputStream, cls);
         } catch (IOException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON反序列化异常", e);
         }
     }
 
@@ -612,8 +626,7 @@ public class JacksonUtils {
         try {
             return treeNode2Bean(json, cls);
         } catch (JsonProcessingException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON反序列化异常", e);
         }
     }
 
@@ -641,9 +654,8 @@ public class JacksonUtils {
     public static JsonNode tryObj2JsonNode(Object obj) {
         try {
             return obj2JsonNode(obj);
-        } catch (JsonProcessingException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+        } catch (JsonProcessingException | IllegalArgumentException e) {
+            throw jsonException("JSON转换异常", e);
         }
     }
 
@@ -660,6 +672,28 @@ public class JacksonUtils {
     }
 
     /**
+     * 判断字符串是否为标准 JSON.
+     *
+     * @param json 待校验字符串
+     * @return 是标准 JSON 返回 true，否则返回 false
+     */
+    public static boolean isValidJson(String json) {
+        if (json == null || json.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            MAPPER.readerFor(JsonNode.class)
+                    .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                    .with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                    .without(JsonParser.Feature.ALLOW_SINGLE_QUOTES)
+                    .readValue(json);
+            return true;
+        } catch (JsonProcessingException e) {
+            return false;
+        }
+    }
+
+    /**
      * 从字符串反序列化为JsonNode，比较明确字符串为json的前提下使用.
      *
      * @param json json字符串
@@ -669,8 +703,7 @@ public class JacksonUtils {
         try {
             return str2JsonNode(json);
         } catch (JsonProcessingException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON反序列化异常", e);
         }
     }
 
@@ -714,9 +747,8 @@ public class JacksonUtils {
         AssertUtils.notNull(obj, OBJ_CHECK_MSG);
         try {
             return obj2ArrayNode(obj);
-        } catch (JsonProcessingException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+        } catch (JsonProcessingException | IllegalArgumentException e) {
+            throw jsonException("JSON转换异常", e);
         }
     }
 
@@ -748,8 +780,7 @@ public class JacksonUtils {
         try {
             return str2Map(json);
         } catch (JsonProcessingException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON反序列化异常", e);
         }
     }
 
@@ -774,51 +805,53 @@ public class JacksonUtils {
     //region 序列化方法
 
     /**
-     * 将Object转换成json字符串.
+     * 将对象序列化为美化后的 JSON.
      *
-     * @param obj Object对象
-     * @return json字符串
-     * @throws JsonProcessingException 异常
+     * @param value 待序列化对象
+     * @return 美化后的 JSON 字符串
+     * @throws JsonProcessingException JSON 序列化异常
      */
-    public static String obj2Str(Object obj) throws JsonProcessingException {
-        AssertUtils.notNull(obj, "obj不能为空");
-        if (obj instanceof String) {
-            // 字符串不做序列化处理，直接返回
-            return (String) obj;
-        }
-        return MAPPER.writeValueAsString(obj);
+    public static String prettyJson(Object value) throws JsonProcessingException {
+        AssertUtils.notNull(value, OBJ_CHECK_MSG);
+        return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(value);
     }
 
     /**
-     * 将Object转换成json字符串.
+     * 将对象序列化为紧凑 JSON.
      *
-     * @param obj    Object对象
-     * @param pretty 是否美化json
-     * @return json字符串
-     * @throws JsonProcessingException 异常
+     * @param value 待序列化对象
+     * @return 紧凑 JSON 字符串
+     * @throws JsonProcessingException JSON 序列化异常
      */
-    public static String obj2Str(Object obj, boolean pretty) throws JsonProcessingException {
-        AssertUtils.notNull(obj, "obj不能为空");
-        if (obj instanceof String) {
-            // 字符串不做序列化处理，直接返回
-            return (String) obj;
-        }
-        return pretty ? obj2PrettyStr(obj) : obj2Str(obj);
+    public static String compactJson(Object value) throws JsonProcessingException {
+        AssertUtils.notNull(value, OBJ_CHECK_MSG);
+        return MAPPER.writeValueAsString(value);
     }
 
     /**
-     * 将Object转换成json字符串.
+     * 将已有 JSON 字符串转换为紧凑格式.
      *
-     * @param obj    Object对象
-     * @param pretty 是否美化json
-     * @return json字符串
+     * @param json JSON 字符串
+     * @return 紧凑 JSON 字符串
+     * @throws JsonProcessingException JSON 格式错误
      */
-    public static String tryObj2Str(Object obj, boolean pretty) {
+    public static String minifyJson(String json) throws JsonProcessingException {
+        AssertUtils.notNull(json, JSON_CHECK_MSG);
+        JsonNode jsonNode = MAPPER.readValue(json, JsonNode.class);
+        return MAPPER.writeValueAsString(jsonNode);
+    }
+
+    /**
+     * 将 JSON 字符串转换为紧凑格式，失败时抛出统一异常.
+     *
+     * @param json JSON 字符串
+     * @return 紧凑 JSON 字符串
+     */
+    public static String tryMinifyJson(String json) {
         try {
-            return pretty ? obj2PrettyStr(obj) : obj2Str(obj);
+            return minifyJson(json);
         } catch (JsonProcessingException e) {
-            log.error("JSON反序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON格式化异常", e);
         }
     }
 
@@ -830,27 +863,10 @@ public class JacksonUtils {
      */
     public static String tryObj2Str(Object obj) {
         try {
-            return obj2Str(obj);
+            return compactJson(obj);
         } catch (JsonProcessingException e) {
-            log.error("JSON序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON序列化异常", e);
         }
-    }
-
-    /**
-     * 将Object转换成json字符串并进行美化.
-     *
-     * @param obj Object对象
-     * @return json字符串
-     * @throws JsonProcessingException json处理异常
-     */
-    public static String obj2PrettyStr(Object obj) throws JsonProcessingException {
-        AssertUtils.notNull(obj, "obj不能为空");
-        if (obj instanceof String) {
-            // 字符串不做序列化处理，直接返回
-            return (String) obj;
-        }
-        return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(obj);
     }
 
     /**
@@ -878,8 +894,7 @@ public class JacksonUtils {
         try {
             return obj2Bytes(obj);
         } catch (JsonProcessingException e) {
-            log.error("JSON序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON序列化异常", e);
         }
     }
 
@@ -906,8 +921,7 @@ public class JacksonUtils {
         try {
             obj2File(file, obj);
         } catch (IOException e) {
-            log.error("JSON序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON序列化异常", e);
         }
     }
 
@@ -920,6 +934,7 @@ public class JacksonUtils {
      */
     public static void obj2Stream(OutputStream outputStream, Object obj) throws IOException {
         AssertUtils.notNull(outputStream, "outputStream不能为空");
+        AssertUtils.notNull(obj, OBJ_CHECK_MSG);
         MAPPER.writeValue(outputStream, obj);
     }
 
@@ -933,8 +948,7 @@ public class JacksonUtils {
         try {
             obj2Stream(outputStream, obj);
         } catch (IOException e) {
-            log.error("JSON序列化异常: ", e);
-            throw new CommonException("JSON反序列化异常");
+            throw jsonException("JSON序列化异常", e);
         }
     }
 
@@ -974,47 +988,6 @@ public class JacksonUtils {
     }
 
     /**
-     * 将 tagSet 数组包装为 {"tagSet": [...]} 格式.
-     * 兼容旧数据：如果已经是新格式则直接返回。
-     *
-     * @param tagArray tagSet数组
-     * @param fieldName 键值key
-     * @return 包装后的JsonNode
-     */
-    public static JsonNode wrapTagSet(JsonNode tagArray, String fieldName) {
-        if (tagArray == null || tagArray.isNull() || (tagArray.isArray() && tagArray.isEmpty())) {
-            return null;
-        }
-        if (tagArray.has(fieldName)) {
-            if (tagArray.get(fieldName).isArray() && tagArray.get(fieldName).isEmpty()) {
-                return null;
-            }
-            return tagArray;
-        }
-        ObjectNode wrapper = createObjectNode();
-        wrapper.set(fieldName, tagArray);
-        return wrapper;
-    }
-
-    /**
-     * 从 edgeProp 中解包出 tagSet 数组.
-     * 兼容旧数据：如果直接是数组格式则原样返回。
-     *
-     * @param edgeProp edgeProp字段值
-     * @param fieldName 键值key
-     * @return 解包后的tagSet数组
-     */
-    public static JsonNode unwrapTagSet(JsonNode edgeProp, String fieldName) {
-        if (edgeProp == null || edgeProp.isNull()) {
-            return createArrayNode();
-        }
-        if (edgeProp.has(fieldName)) {
-            return edgeProp.get(fieldName);
-        }
-        return edgeProp;
-    }
-
-    /**
      * 判断json是否为空.
      *
      * @param node 待检测jsonnode
@@ -1026,59 +999,52 @@ public class JacksonUtils {
     //endregion
 
     /**
-     * 将给定的 Java 实体对象转换为 Jackson 的 JsonNode.
+     * 将 POJO 转换为 JsonNode，字符串按普通值处理.
      *
-     * @param pojo 待转换的 Java 实体对象 (Plain Old Java Object)。
-     *             它可以是任何普通的 Java 对象，或者 List/Map 等集合类型。
-     * @return 转换后的 JsonNode 对象。如果转换失败，返回 null 或抛出 IOException。
-     * @throws IOException 如果对象无法被序列化为 JSON 格式。
+     * @param pojo 待转换对象
+     * @return JsonNode，输入为空时返回 null
      */
-    public static JsonNode convertPojoToJsonNode(Object pojo) throws IOException {
-        if (pojo == null) {
-            return null; // 或者可以返回 objectMapper.createObjectNode() 等空 JsonNode
-        }
-        // valueToTree() 方法将 Java 对象序列化为一个 JsonNode 树
-        return MAPPER.valueToTree(pojo);
+    public static JsonNode pojo2JsonNode(Object pojo) {
+        return pojo == null ? null : MAPPER.valueToTree(pojo);
     }
 
     /**
-     * 将给定的 Java 实体对象转换为 JsonNode，并捕获 IOException，
-     * 在发生异常时返回 null 或记录日志.
+     * 将 POJO 转换为 JsonNode，失败时返回 null.
      *
-     * @param pojo 待转换的 Java 实体对象。
-     * @return 转换后的 JsonNode 对象，如果发生错误则返回 null。
+     * @param pojo 待转换对象
+     * @return JsonNode，输入为空或转换失败时返回 null
      */
-    public static JsonNode convertPojoToJsonNodeSafely(Object pojo) {
+    public static JsonNode pojo2JsonNodeOrNull(Object pojo) {
         try {
-            return convertPojoToJsonNode(pojo);
-        } catch (IOException e) {
-            System.err.println("Error converting POJO to JsonNode: " + e.getMessage());
-            // 生产环境中应该使用日志框架记录异常
-            // log.error("Error converting POJO to JsonNode", e);
+            return pojo2JsonNode(pojo);
+        } catch (IllegalArgumentException e) {
+            log.error("POJO转换JsonNode失败, type={}", pojo == null ? null : pojo.getClass().getName(), e);
             return null;
         }
     }
 
     /**
-     * 将 JsonNode 安全地转换为指定的 POJO 对象.
-     * 如果转换失败，返回 null。
+     * 将 JsonNode 转换为指定对象，失败时返回 null.
      *
-     * @param jsonNode 待转换的 JsonNode
-     * @param clazz 目标 POJO 类
-     * @param <T> 目标类型
-     * @return 转换后的对象，失败则为 null
+     * @param jsonNode 待转换节点
+     * @param clazz    目标类型
+     * @param <T>      目标类型
+     * @return 转换结果，参数为空或转换失败时返回 null
      */
-    public static <T> T convertJsonNodeToPojoSafely(JsonNode jsonNode, Class<T> clazz) {
+    public static <T> T jsonNode2PojoOrNull(JsonNode jsonNode, Class<T> clazz) {
         if (jsonNode == null || clazz == null) {
             return null;
         }
         try {
             return MAPPER.treeToValue(jsonNode, clazz);
-        } catch (Exception e) {
-            log.error("Failed to convert JsonNode to POJO of type {}. JsonNode: {}",
-                    clazz.getName(), jsonNode.toString(), e);
-            // 转换失败，安全返回 null
+        } catch (JsonProcessingException | IllegalArgumentException e) {
+            log.error("JsonNode转换POJO失败, type={}", clazz.getName(), e);
             return null;
         }
+    }
+
+    private static CommonException jsonException(String message, Exception exception) {
+        log.error(message, exception);
+        return new CommonException(message, exception);
     }
 }

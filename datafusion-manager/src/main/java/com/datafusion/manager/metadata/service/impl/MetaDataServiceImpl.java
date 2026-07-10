@@ -446,7 +446,7 @@ public class MetaDataServiceImpl implements MetaDataService {
         operateLogEntity.setTargetDatasourceId(dto.getTargetDatasourceId());
         
         try {
-            JsonNode snapshotStep1 = JacksonUtils.str2JsonNode(JacksonUtils.obj2PrettyStr(dto));
+            JsonNode snapshotStep1 = JacksonUtils.str2JsonNode(JacksonUtils.prettyJson(dto));
             operateLogEntity.setSnapshotStep1(snapshotStep1);
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize BatchCreateTableCheckDto for operation log, trackId: {}", dto.getTrackId(), e);
@@ -763,7 +763,7 @@ public class MetaDataServiceImpl implements MetaDataService {
         MetadataTableOperateLogEntity operateLogEntity = metadataTableOperateLogService.getWithCheckNonNull(dto.getTrackId());
         operateLogEntity.setOperateTime(LocalDateTime.now());
         try {
-            operateLogEntity.setSnapshotStep2(JacksonUtils.str2JsonNode(JacksonUtils.obj2PrettyStr(dto)));
+            operateLogEntity.setSnapshotStep2(JacksonUtils.str2JsonNode(JacksonUtils.prettyJson(dto)));
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize BatchCreateTableDdlDto for operation log (step 2), trackId: {}", dto.getTrackId(), e);
         }
@@ -930,7 +930,7 @@ public class MetaDataServiceImpl implements MetaDataService {
         operateLogEntity.setOperateTime(LocalDateTime.now());
         try {
             operateLogEntity.setSnapshotStep3(JacksonUtils.str2JsonNode(
-                    JacksonUtils.obj2PrettyStr(runSqlDto)));
+                    JacksonUtils.prettyJson(runSqlDto)));
         } catch (JsonProcessingException e) {
             log.error("序列化出现异常", e);
         }
@@ -1166,7 +1166,7 @@ public class MetaDataServiceImpl implements MetaDataService {
         operateLogEntity.setTargetDatasourceId(batchMetaDataCompareDto.getTarget().getDatasourceId());
         try {
             operateLogEntity.setSnapshotStep1(JacksonUtils.str2JsonNode(
-                    JacksonUtils.obj2PrettyStr(batchMetaDataCompareDto)));
+                    JacksonUtils.prettyJson(batchMetaDataCompareDto)));
         } catch (JsonProcessingException e) {
             log.error("序列化出现异常", e);
         }
@@ -1296,7 +1296,7 @@ public class MetaDataServiceImpl implements MetaDataService {
         operateLogEntity.setOperateTime(LocalDateTime.now());
         try {
             operateLogEntity.setSnapshotStep2(JacksonUtils.str2JsonNode(
-                    JacksonUtils.obj2PrettyStr(tableCompareGenerateDdlRequestDto)));
+                    JacksonUtils.prettyJson(tableCompareGenerateDdlRequestDto)));
         } catch (JsonProcessingException e) {
             log.error("序列化出现异常", e);
         }

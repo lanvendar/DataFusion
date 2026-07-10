@@ -46,8 +46,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static com.datafusion.manager.asset.constant.AssetLineageConstant.TAG_SET;
-
 /**
  * 指标资源服务实现类.
  *
@@ -429,10 +427,10 @@ public class AssetResourceMetricsService extends BaseResourceService<MetricInfoD
         entity.setResourceName(resourceName);
         entity.setResourceType(ResourceTypeEnum.METRIC.getResouceType());
         entity.setResourceTag(ResourceTagEnum.NODE_AND_EDGE.getResourceTagType());
-        entity.setResourceSnapshot(JacksonUtils.convertPojoToJsonNodeSafely(metricResourceSnapshot));
+        entity.setResourceSnapshot(JacksonUtils.pojo2JsonNodeOrNull(metricResourceSnapshot));
         ResourceSnapshotBuilder.MetricResourceResultSnapshot metricResourceResultSnapshot = new ResourceSnapshotBuilder.MetricResourceResultSnapshot();
         metricResourceResultSnapshot.setMetricDto(metricDto);
-        entity.setResultSnapshot(JacksonUtils.convertPojoToJsonNodeSafely(metricResourceResultSnapshot));
+        entity.setResultSnapshot(JacksonUtils.pojo2JsonNodeOrNull(metricResourceResultSnapshot));
         // 指标默认直接就是导入血缘成功
         entity.setStatus(ResourceStatusEnum.PARSE_SUCCESS.getStatus());
         entity.setCreator(currentUser);
@@ -560,7 +558,7 @@ public class AssetResourceMetricsService extends BaseResourceService<MetricInfoD
                 Set<MetricsTagDto> tagSet = new HashSet<>();
                 tagSet.add(new MetricsTagDto(unMetricResourceSnapshot.getCode(), unMetricResourceSnapshot.getDimension()));
                 edgeList.add(super.buildEdge(apiNodeUrn, unApiNodeUrn, resource, now, currentUser,
-                        JacksonUtils.wrapTagSet(JacksonUtils.convertPojoToJsonNodeSafely(tagSet), TAG_SET)));
+                        wrapTagSet(JacksonUtils.pojo2JsonNodeOrNull(tagSet))));
                 //构建边的属性
 
             }
@@ -590,7 +588,7 @@ public class AssetResourceMetricsService extends BaseResourceService<MetricInfoD
         node.setNodeName(snapshot.getRequestUrl());
         node.setNodeType("SERVICE");
         node.setNodeSubType(NodeSubTypeEnum.API.getNodeSubType());
-        node.setNodeProp(JacksonUtils.convertPojoToJsonNodeSafely(prop));
+        node.setNodeProp(JacksonUtils.pojo2JsonNodeOrNull(prop));
         node.setCreator(currentUser);
         node.setUpdater(currentUser);
         node.setCreateTime(now);
@@ -624,7 +622,7 @@ public class AssetResourceMetricsService extends BaseResourceService<MetricInfoD
         node.setNodeName(snapshot.getCode());
         node.setNodeType("SERVICE");
         node.setNodeSubType(NodeSubTypeEnum.METRIC.getNodeSubType());
-        node.setNodeProp(JacksonUtils.convertPojoToJsonNodeSafely(prop));
+        node.setNodeProp(JacksonUtils.pojo2JsonNodeOrNull(prop));
         node.setCreator(currentUser);
         node.setUpdater(currentUser);
         node.setCreateTime(now);
@@ -664,7 +662,7 @@ public class AssetResourceMetricsService extends BaseResourceService<MetricInfoD
         node.setNodeName(snapshot.getMetricDto().getTableName());
         node.setNodeType("DATABASE");
         node.setNodeSubType(NodeSubTypeEnum.TABLE.getNodeSubType());
-        node.setNodeProp(JacksonUtils.convertPojoToJsonNodeSafely(prop));
+        node.setNodeProp(JacksonUtils.pojo2JsonNodeOrNull(prop));
         node.setCreator(currentUser);
         node.setUpdater(currentUser);
         node.setCreateTime(now);
@@ -706,7 +704,7 @@ public class AssetResourceMetricsService extends BaseResourceService<MetricInfoD
         node.setNodeName(snapshot.getMetricDto().getColumnName());
         node.setNodeType("DATABASE");
         node.setNodeSubType(NodeSubTypeEnum.COLUMN.getNodeSubType());
-        node.setNodeProp(JacksonUtils.convertPojoToJsonNodeSafely(prop));
+        node.setNodeProp(JacksonUtils.pojo2JsonNodeOrNull(prop));
         node.setCreator(currentUser);
         node.setUpdater(currentUser);
         node.setCreateTime(now);
@@ -753,7 +751,7 @@ public class AssetResourceMetricsService extends BaseResourceService<MetricInfoD
         node.setNodeName(columnInfo.getTableName());
         node.setNodeType("DATABASE");
         node.setNodeSubType(NodeSubTypeEnum.TABLE.getNodeSubType());
-        node.setNodeProp(JacksonUtils.convertPojoToJsonNodeSafely(prop));
+        node.setNodeProp(JacksonUtils.pojo2JsonNodeOrNull(prop));
         node.setCreator(currentUser);
         node.setUpdater(currentUser);
         node.setCreateTime(now);
@@ -802,7 +800,7 @@ public class AssetResourceMetricsService extends BaseResourceService<MetricInfoD
         node.setNodeName(columnInfo.getColumnName());
         node.setNodeType("DATABASE");
         node.setNodeSubType(NodeSubTypeEnum.COLUMN.getNodeSubType());
-        node.setNodeProp(JacksonUtils.convertPojoToJsonNodeSafely(prop));
+        node.setNodeProp(JacksonUtils.pojo2JsonNodeOrNull(prop));
         node.setCreator(currentUser);
         node.setUpdater(currentUser);
         node.setCreateTime(now);

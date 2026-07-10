@@ -134,7 +134,7 @@ public class AssetResourceTableService extends BaseResourceService<TableResource
         entity.setResourceName(tableColumn.getTableName());
         entity.setResourceType(ResourceTypeEnum.DATABASE.getResouceType());
         entity.setResourceTag(ResourceTagEnum.NODE.getResourceTagType());
-        entity.setResourceSnapshot(JacksonUtils.convertPojoToJsonNodeSafely(snapshot));
+        entity.setResourceSnapshot(JacksonUtils.pojo2JsonNodeOrNull(snapshot));
         // 库表资源默认直接就是导入血缘成功
         entity.setStatus(ResourceStatusEnum.PARSE_SUCCESS.getStatus());
         entity.setCreator(currentUser);
@@ -158,7 +158,7 @@ public class AssetResourceTableService extends BaseResourceService<TableResource
             String currentUser) {
         List<AssetLineageNodeEntity> nodeList = new ArrayList<>();
 
-        DbTableSnapshot snapshot = JacksonUtils.convertJsonNodeToPojoSafely(resource.getResourceSnapshot(), DbTableSnapshot.class);
+        DbTableSnapshot snapshot = JacksonUtils.jsonNode2PojoOrNull(resource.getResourceSnapshot(), DbTableSnapshot.class);
         String tableName = snapshot.getTableName();
 
         // 构建表节点
@@ -266,7 +266,7 @@ public class AssetResourceTableService extends BaseResourceService<TableResource
             TableResourceResp resp = new TableResourceResp();
             resp.setResourceId(resource.getId());
 
-            DbTableSnapshot snapshot = JacksonUtils.convertJsonNodeToPojoSafely(
+            DbTableSnapshot snapshot = JacksonUtils.jsonNode2PojoOrNull(
                     resource.getResourceSnapshot(), DbTableSnapshot.class);
             BeanUtil.copyProperties(snapshot, resp);
 
