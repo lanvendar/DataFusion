@@ -4,6 +4,7 @@ import type { Dayjs } from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { flowApi, schedulerFlowRelationApi } from "../../api";
+import { scheduleWindowPresetDefinitions } from "../../constants";
 import type { FlowItem, TriggerListItem } from "../../dto";
 import { normalizeTimestamp } from "../../utils";
 
@@ -26,10 +27,28 @@ function normalizeTriggerOption(item: TriggerListItem) {
   };
 }
 
-function createDefaultScheduleWindow(): [Dayjs, Dayjs] {
-  const startTime = dayjs();
-  return [startTime, startTime.add(1, "year")];
+function createScheduleWindow(durationMonths = 12): [Dayjs, Dayjs] {
+  const startTime = dayjs().startOf("day");
+  const endTime = startTime.add(durationMonths, "month").endOf("day");
+  return [startTime, endTime];
 }
+
+function createCurrentDayScheduleWindow(): [Dayjs, Dayjs] {
+  const startTime = dayjs().millisecond(0);
+  return [startTime, startTime.endOf("day")];
+}
+
+const scheduleWindowPresets = scheduleWindowPresetDefinitions.map((definition) => ({
+  label: definition.label,
+  value: () => definition.type === "CURRENT_DAY"
+    ? createCurrentDayScheduleWindow()
+    : createScheduleWindow(definition.durationMonths),
+}));
+
+const scheduleWindowDefaultOpenTime: [Dayjs, Dayjs] = [
+  dayjs().startOf("day"),
+  dayjs().endOf("day"),
+];
 
 export function FlowScheduleModal({
   open,
@@ -61,7 +80,7 @@ export function FlowScheduleModal({
     const scheduleWindow: [Dayjs, Dayjs] =
       savedStartTime && savedEndTime
         ? [dayjs(savedStartTime), dayjs(savedEndTime)]
-        : createDefaultScheduleWindow();
+        : createScheduleWindow();
 
     form.setFieldsValue({
       triggerId: currentRecord?.triggerId ? String(currentRecord.triggerId) : undefined,
@@ -137,8 +156,8 @@ export function FlowScheduleModal({
           ]}
         >
           <DatePicker.RangePicker
-            showTime
-            presets={[{ label: "今天起一年", value: createDefaultScheduleWindow }]}
+            showTime={{ defaultOpenValue: scheduleWindowDefaultOpenTime }}
+            presets={scheduleWindowPresets}
             style={{ width: "100%" }}
           />
         </Form.Item>

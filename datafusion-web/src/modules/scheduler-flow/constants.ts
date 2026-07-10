@@ -29,6 +29,16 @@ export const publishStateOptions = [
   { label: "未发布", value: false },
 ];
 
+export const scheduleWindowPresetDefinitions = [
+  { label: "当前时间", type: "CURRENT_DAY" },
+  { label: "今天(3月)", type: "DURATION", durationMonths: 3 },
+  { label: "今天(6月)", type: "DURATION", durationMonths: 6 },
+  { label: "今天(1年)", type: "DURATION", durationMonths: 12 },
+  { label: "今天(2年)", type: "DURATION", durationMonths: 24 },
+  { label: "今天(3年)", type: "DURATION", durationMonths: 36 },
+  { label: "今天(5年)", type: "DURATION", durationMonths: 60 },
+] as const;
+
 export const defaultFilter: FlowPageOption = {
   flowName: undefined,
   flowType: undefined,
