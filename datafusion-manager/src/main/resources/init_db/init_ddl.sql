@@ -481,7 +481,7 @@ CREATE TABLE scheduler_flow_info (
  update_time timestamp(6) NOT NULL, -- 修改时间
  CONSTRAINT flow_info_pkey PRIMARY KEY (id)
 );
-COMMENT ON TABLE scheduler_flow_info IS '流程信息';
+COMMENT ON TABLE scheduler_flow_info IS '流程信息,备注:trigger_id,start_time,end_time这三个字段是否有必要放在scheduler_flow_trigger会更好?';
 
 -- Column comments
 
