@@ -1,0 +1,44 @@
+{
+  "job": {
+    "id": "ods_hqpl_product_info",
+    "name": "化纤产品信息表api接口同步paimon",
+    "description": "[startTime]:产品更新时间，时间越早信息越全，初始化的时候跑一次,startTime=2018-10-01,可以手工,之后使用业务日期表达式按调度日期增量同步",
+    "version": "1.0.0"
+  },
+  "sqlTargetType": "PAIMON",
+  "catalogName": "paimon",
+  "databaseName": "ods",
+  "useDatabase": false,
+  "enableHiveSupport": false,
+  "enableSqlLogging": true,
+  "allowSqlFailure": false,
+  "statements": [
+    {
+      "comment": "创建 ods database",
+      "sql": "create database if not exists paimon.ods"
+    },
+    {
+      "comment": "创建测试表",
+      "sql": "create table if not exists paimon.ods.t (id int, name string) tblproperties ('primary-key'='id')"
+    },
+    {
+      "comment": "写入测试数据",
+      "sql": "insert into paimon.ods.t values (1, 'a')"
+    },
+    {
+      "comment": "查询测试数据",
+      "sql": "select * from paimon.ods.t"
+    }
+  ],
+  "paimonConf": {
+    "spark.sql.extensions": "org.apache.paimon.spark.extensions.PaimonSparkSessionExtensions",
+    "spark.sql.catalog.paimon": "org.apache.paimon.spark.SparkCatalog",
+    "spark.sql.catalog.paimon.warehouse": "s3://data-lake-warehouse/paimon",
+    "spark.sql.catalog.paimon.s3.endpoint": "http://ceph-rgw.storage.svc:7480",
+    "spark.sql.catalog.paimon.s3.path.style.access": "true"
+  },
+  "sparkConf": {
+    "spark.sql.shuffle.partitions": "4"
+  },
+  "hadoopConf": {}
+}

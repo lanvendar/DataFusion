@@ -326,6 +326,11 @@
             </dependency>
             <dependency>
                 <groupId>org.apache.paimon</groupId>
+                <artifactId>paimon-spark-4.0_${spark.scala.binary.version}</artifactId>
+                <version>${paimon.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.paimon</groupId>
                 <artifactId>paimon-s3</artifactId>
                 <version>${paimon.version}</version>
             </dependency>

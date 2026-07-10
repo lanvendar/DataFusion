@@ -20,10 +20,10 @@
 | Scenario | Source | Through | Target | Data structure | Notes |
 |----------|--------|---------|--------|----------------|-------|
 | 提交 Spark SQL | Manager `TaskRequest` | `SparkPluginTaskExecutor.validateTaskRequest` -> `SparkParamResolver` | `SparkExecutionParam` | `pluginParam + taskData` | `pluginParam.runMode` 必须为 `K8S_OPERATOR`，Agent 不回写 `pluginParam` |
-| 生成任务配置 | `effectiveTaskData` | `K8sOperatorSparkTaskRunner` | 本地任务运行目录 | `spark-sql-job.json` | 用于排查和 ConfigMap 内容来源 |
-| 创建 SQL 配置资源 | `spark-sql-job.json` | Fabric8 client | Kubernetes ConfigMap | `df-spark-sql-job-{taskInstanceId}` | 默认只挂载到 driver pod |
+| 生成任务配置 | `pluginParam.defaultTaskData + taskData` | `SparkParamResolver` -> `K8sOperatorSparkTaskRunner` | 本地任务运行目录 | `spark-sql-job.json` | resolver 深度合并业务参数并排除 Agent 专用 `kubernetes`，runner 直接写入 `effectiveTaskData` |
+| 创建 SQL 配置资源 | `spark-sql-job.json` | Fabric8 client | Kubernetes ConfigMap | `df-spark-sql-job-{taskInstanceId}` | key 固定为 `spark-sql-job.json`，只挂载到 driver pod |
 | 创建 Spark 应用 | `SparkExecutionParam` | `SparkKubernetesTemplateRenderer` | Kubernetes API | `SparkApplication` | `apiVersion=sparkoperator.k8s.io/v1beta2` |
-| 加载插件 jar | 共享插件目录 | driver / executor initContainer | pod 内 `emptyDir` | `plugin-spark-sql.jar` | 不二次制作业务镜像 |
+| 加载插件 jar | 共享插件目录 | driver / executor initContainer | pod 内 `emptyDir` | `plugin-spark-sql.jar` | 单个 fat jar，包含 Paimon Spark 和 Paimon S3 |
 | 状态刷新 | `SparkApplication.status` / pod 存活事实 | `K8sOperatorRunModeStateMapping` | `WorkerTaskExecutionState` | `StatusEnum` | Client 只返回 Kubernetes 状态事实，mapping 负责转换调度状态 |
 | 终态处理 | driver pod log / CRD status | `beforeFinalReport` | `WorkerResult` | `pluginLogUri`, `sparkWebUiUri` | 只采集日志和写最终结果，资源清理由 finish 处理 |
 
@@ -106,7 +106,7 @@
 | Spark 镜像 | 默认 `apache/spark:4.0.2-scala2.13-java17-ubuntu` | 任务级可覆盖，但必须由显式配置承担兼容风险 |
 | Operator 版本 | 目标集群为 kubeflow `spark-operator` 2.5.0，CRD 为 `sparkoperator.k8s.io/v1beta2` | CRD 不存在或不支持字段时提交失败 |
 | 重启策略 | `restartPolicy.type` 固定为 `Never`，DataFusion 重启通过新任务实例和新 SparkApplication 完成 | 不依赖 Operator 原地重启 |
-| 插件 jar | `plugin-spark-sql.jar` 位于共享插件目录，driver/executor initContainer 复制到 pod 内 `emptyDir` | 源路径不存在或不是文件时提交失败 |
+| 插件 jar | `plugin-spark-sql.jar` 位于共享插件目录，driver/executor initContainer 复制到 pod 内 `emptyDir` | fat jar 源路径不存在或不是文件时提交失败 |
 | SQL 配置 | SQL job 配置写入 ConfigMap，启动参数只传 `--job-file` | 不把完整 SQL 放进 SparkApplication arguments |
 | 用户 labels | 不允许覆盖 `datafusion.*` / `datafusion.io/*` 保留 label | 覆盖项被拒绝 |
 | 重启提交 | `.state.appId` 存在时先清理旧 SparkApplication 和 ConfigMap | 清理失败返回 `SUBMIT_FAILURE` |
@@ -143,7 +143,7 @@
 
 - Current user: agent 运行用户和 Kubernetes ServiceAccount。
 - Tenant / project / app context: 不新增租户字段，任务身份通过 `flowInstanceId`、`taskInstanceId`、label 和 annotation 传递。
-- Password / token handling: Kubernetes API token 继续由 `AgentProperties.Kubernetes` 或 Pod ServiceAccount 提供；SQL job ConfigMap 不应写入密码。需要敏感参数时后续扩展 Secret 模式。
+- Password / token handling: Kubernetes API token 由 `AgentProperties.Kubernetes` 或 Pod ServiceAccount 提供；Ceph 凭据通过 Kubernetes Secret 注入 driver 和 executor，不写入 SQL job ConfigMap。
 - Permission boundary: agent ServiceAccount 只授予目标 namespace 内 `sparkapplications`, `configmaps`, `pods`, `pods/log`, `services` 的必要权限。
 
 ## 9. Out of Scope

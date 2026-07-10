@@ -1,0 +1,17 @@
+{
+  "pluginType": "SPARK",
+  "modulePath": "datafusion-plugin/datafusion-plugin-spark-sql",
+  "artifactMode": "none",
+  "runtimeResourceDir": "src/main/resources/plugins/spark",
+  "agentPublishDir": "datafusion-agent/src/main/resources/plugins/spark/datafusion-plugin-spark-sql",
+  "resourceDirs": [
+    "conf",
+    "jobs"
+  ],
+  "resourceFiles": [
+    {
+      "source": "target/plugin-spark-sql.jar",
+      "target": "plugin-spark-sql.jar"
+    }
+  ]
+}

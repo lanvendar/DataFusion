@@ -46,6 +46,7 @@ class SparkKubernetesTemplateRendererTest {
         assertTrue(yaml.contains("df-spark-sql-job-task-1"));
         assertTrue(yaml.contains("--job-file"));
         assertTrue(yaml.contains("/opt/datafusion/spark/jobs/spark-sql-job.json"));
+        assertTrue(yaml.contains("\"spark-sql-job.json\": |-"));
         assertTrue(yaml.contains("select 1"));
         assertTrue(yaml.contains("claimName: \"datafusion-shared-data\""));
     }
@@ -74,9 +75,16 @@ class SparkKubernetesTemplateRendererTest {
 
     private ObjectNode taskData() {
         ObjectNode taskData = OBJECT_MAPPER.createObjectNode();
-        ObjectNode sql = OBJECT_MAPPER.createObjectNode();
-        sql.put("text", "select 1");
-        taskData.set("sql", sql);
+        taskData.putObject("job").put("id", "spark-test");
+        taskData.put("sqlTargetType", "PAIMON");
+        taskData.put("catalogName", "paimon");
+        taskData.put("databaseName", "ods");
+        taskData.put("useDatabase", false);
+        taskData.putArray("statements").addObject().put("sql", "select 1");
+        ObjectNode paimonConf = taskData.putObject("paimonConf");
+        paimonConf.put("spark.sql.extensions", "org.apache.paimon.spark.extensions.PaimonSparkSessionExtensions");
+        paimonConf.put("spark.sql.catalog.paimon", "org.apache.paimon.spark.SparkCatalog");
+        paimonConf.put("spark.sql.catalog.paimon.warehouse", "file:/tmp/paimon");
         return taskData;
     }
 

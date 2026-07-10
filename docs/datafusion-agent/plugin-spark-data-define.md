@@ -48,7 +48,7 @@
 | Object | Scenario | Field | Field type | Lifecycle | Notes |
 |--------|----------|-------|------------|-----------|-------|
 | `SparkRunMode` | 运行模式枚举 | `K8S_OPERATOR` | enum | 请求解析后固定 | 首版只实现 `K8S_OPERATOR`；后续再扩展 `LOCAL`、`THRIFT` |
-| `SparkExecutionParam` | 归一化执行参数 | `runMode`, `flowInstanceId`, `taskInstanceId`, `jobJson`, `effectiveTaskData`, `workDir`, `sparkVersion`, `mainClass`, `mainApplicationFile`, `sparkConf`, `hadoopConf`, `arguments`, `kubernetes` | Java object | 单次任务 | 从 `TaskRequest` 归一化；runner 只消费该对象 |
+| `SparkExecutionParam` | 归一化执行参数 | `runMode`, `flowInstanceId`, `taskInstanceId`, `effectiveTaskData`, `workDir`, `sparkVersion`, `mainClass`, `mainApplicationFile`, `sparkConf`, `hadoopConf`, `arguments`, `kubernetes` | Java object | 单次任务 | 从 `TaskRequest` 归一化；runner 只消费该对象 |
 | `SparkKubernetesParam` | `K8S_OPERATOR` 提交参数 | `namespace`, `applicationName`, `image`, `serviceAccountName`, `pluginAppDir`, `sharedPvcName`, `sharedMountPath`, `pluginJarName`, `jarMountPath`, `jobConfigMountPath`, `driver`, `executor`, `labels`, `annotations` | Java object | 单次任务 | 用于渲染 `SparkApplication`、SQL job ConfigMap 和运行引用 |
 | `SparkKubernetesRuntimeRef` | `K8S_OPERATOR` 接管参数 | `namespace`, `applicationName`, `configMapName`, `podLabelSelector`, `logStorageUri`, `sparkWebUiUri`, `collectLogsOnFinish` | Java object | 单次状态查询或控制命令 | 由 `.snap` 中的 `pluginParam/taskData` 和 `.state.appId` 重建 |
 | `SparkOperatorStatus` | `K8S_OPERATOR` 状态事实 | `state`, `applicationExists`, `podExists`, `podRunning`, `serviceExists` | Java object | 单次状态查询 | Client 只返回 Kubernetes 事实，DataFusion 状态由 `K8sOperatorRunModeStateMapping` 映射 |
@@ -60,9 +60,9 @@
 | Object | Integration target | Direction | Field | Field type | Conversion rule | Notes |
 |--------|--------------------|-----------|-------|------------|-----------------|-------|
 | `TaskRequest.pluginParam` | Manager `system_plugin_config.plugin_param` | Inbound | `runMode` | `String` | Manager 注入 `PluginConfigEntity.runMode` | 必须为 `K8S_OPERATOR` |
-| `TaskRequest.taskData` | Manager scheduler task data | Inbound | `jobJson` / `job` / `sql` / `sparkConf` / `kubernetes` | `JsonNode` | 与 `pluginParam.defaultTaskData` 深度合并 | 生成 `effectiveTaskData` 和 SQL job ConfigMap |
+| `TaskRequest.taskData` | Manager scheduler task data | Inbound | Spark SQL job config、`sparkConf`、`hadoopConf`、`kubernetes` | `JsonNode` | 业务参数与 `pluginParam.defaultTaskData` 深度合并；`kubernetes` 单独解析为 `SparkKubernetesParam` | `kubernetes` 支持任务级覆盖，并由 resolver 排除在 `effectiveTaskData` 之外 |
 | `SparkKubernetesParam` | Kubernetes API | Outbound | `applicationName`, `namespace`, `image`, `driver`, `executor`, `sparkConf`, `hadoopConf` | Java object | 渲染为 `SparkApplication` | API version 固定 `sparkoperator.k8s.io/v1beta2` |
-| `SparkKubernetesParam` | Kubernetes API | Outbound | `jobConfigConfigMapName` | `String` | 渲染为 ConfigMap 并挂载到 driver pod | 默认 key 为 `job.json` |
+| `SparkKubernetesParam` | Kubernetes API | Outbound | `jobConfigConfigMapName` | `String` | 渲染为 ConfigMap 并挂载到 driver pod | key 固定为 `spark-sql-job.json` |
 | `SparkKubernetesRuntimeRef` | Kubernetes API | Inbound/Control | `applicationName`, `podLabelSelector` | `String` | 查询 `SparkApplication` 状态、driver pod 日志和资源清理 | 支持 agent 重启后接管 |
 
 ### 2.6 State / Enum Model
@@ -107,10 +107,11 @@
 |-----------|-----------------|------------------|
 | `PluginConfigEntity.runMode` -> `TaskRequest.pluginParam.runMode` | Manager 在 `TaskStorageImpl.toPluginData` 中注入 | Agent 收不到 `runMode` 时提交失败 |
 | `TaskRequest.pluginParam + taskData` -> `SparkExecutionParam` | `pluginParam` 提供插件级默认值，`taskData` 提供任务级覆盖；Agent 不回写 `pluginParam` | 数组整体替换，对象深度合并，任务级优先 |
-| `SparkExecutionParam.effectiveTaskData` -> job config file | 写入 `${taskRuntimeDir}/{date}/{flowInstanceId}/{taskInstanceId}/spark-sql-job.json` | 本地快照用于排查，不写敏感凭据 |
-| job config file -> Kubernetes ConfigMap | 创建 `df-spark-sql-job-{taskInstanceId}`，key 固定 `job.json` | SQL 内容不进入 command line；后续可扩展 Secret 模式 |
+| `TaskRequest` -> `SparkExecutionParam.effectiveTaskData` | resolver 深度合并 `pluginParam.defaultTaskData` 与 `taskData`，排除 Agent 专用 `kubernetes` | 数组整体替换，对象深度合并，任务级优先 |
+| `SparkExecutionParam.effectiveTaskData` -> job config file | 直接写入 `${taskRuntimeDir}/{date}/{flowInstanceId}/{taskInstanceId}/spark-sql-job.json` | 本地快照用于排查，不写敏感凭据 |
+| job config file -> Kubernetes ConfigMap | 创建 `df-spark-sql-job-{taskInstanceId}`，key 固定 `spark-sql-job.json` | SQL 内容不进入 command line |
 | `SparkExecutionParam` -> `SparkApplication` | 渲染 `sparkoperator.k8s.io/v1beta2` `SparkApplication` | `mainApplicationFile=local://{jarMountPath}/{pluginJarName}`，`restartPolicy.type=Never` |
-| plugin directory -> Spark pod runtime | driver / executor `initContainers` 从共享插件目录复制 `plugin-spark-sql.jar` 到 `emptyDir` | 官方 Spark 镜像保持 `apache/spark:4.0.2-scala2.13-java17-ubuntu` |
+| plugin directory -> Spark pod runtime | driver / executor `initContainers` 从共享插件目录复制 fat jar `plugin-spark-sql.jar` 到 `emptyDir` | jar 内含 Paimon 1.4.1；官方 Spark 镜像保持不变 |
 | submit result -> `WorkerTaskExecutionState` | `appId=SparkApplication.metadata.name`，`workDirPath=任务运行目录`，`result.pluginLogUri` 写初始日志入口 | `.snap.runMode` 保存运行模式，`.snap` 保存重建参数，状态查询不依赖控制请求携带完整参数 |
 | `SparkOperatorStatus` -> `StatusEnum` | `SUBMISSION_FAILED -> SUBMIT_FAILURE`，`COMPLETED -> RUN_SUCCESS`，`FAILED -> RUN_FAILURE`，`RUNNING/SUBMITTED -> RUNNING`，`SUSPENDED after STOPPING -> STOP_SUCCESS` | `SparkApplication` 不存在或状态无法识别时返回 `UNKNOWN` 并打印精简 warn |
 | final state -> `WorkerTaskExecutionState.result` | 终态上报前采集 driver pod 日志并写入 `pluginLogUri/sparkWebUiUri/finalized` | 不做资源清理 |

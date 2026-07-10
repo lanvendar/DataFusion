@@ -5,7 +5,7 @@ metadata:
   namespace: {{namespace}}
   labels:
 {{labels}}data:
-  job.json: |-
+  {{jobFileName}}: |-
 {{jobConfigData}}
 ---
 apiVersion: sparkoperator.k8s.io/v1beta2
