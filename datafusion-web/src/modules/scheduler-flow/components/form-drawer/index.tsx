@@ -1,11 +1,10 @@
-import { Button, DatePicker, Drawer, Form, Input, Select, Space, Spin } from "antd";
-import dayjs from "dayjs";
+import { Button, Drawer, Form, Input, Select, Space, Spin } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { flowApi, schedulerFlowRelationApi } from "../../api";
 import { flowTypeOptions } from "../../constants";
-import type { EventListItem, FlowFormMode, FlowItem, TriggerListItem } from "../../dto";
-import { formatJsonText, normalizeStringArray, normalizeTimestamp } from "../../utils";
+import type { EventListItem, FlowFormMode, FlowItem } from "../../dto";
+import { formatJsonText, normalizeStringArray } from "../../utils";
 import { JsonEditor } from "../json-editor";
 import { useFlowSubmit } from "./use-submit";
 
@@ -15,13 +14,6 @@ interface FlowFormProps {
   currentRecord?: FlowItem;
   onClose: () => void;
   onSubmitSuccess: () => void;
-}
-
-function normalizeTriggerOption(item: TriggerListItem) {
-  return {
-    label: item.name || item.triggerName || item.id,
-    value: String(item.id),
-  };
 }
 
 function normalizeEventOption(item: EventListItem) {
@@ -47,22 +39,11 @@ export function FlowForm({
     onSubmitSuccess,
   });
 
-  const triggerQuery = useQuery({
-    queryKey: ["scheduler-flow-triggers"],
-    queryFn: schedulerFlowRelationApi.triggers,
-    enabled: open,
-  });
-
   const eventQuery = useQuery({
     queryKey: ["scheduler-flow-events"],
     queryFn: schedulerFlowRelationApi.events,
     enabled: open,
   });
-
-  const triggerOptions = useMemo(
-    () => (Array.isArray(triggerQuery.data) ? triggerQuery.data.map(normalizeTriggerOption) : []),
-    [triggerQuery.data],
-  );
 
   const eventOptions = useMemo(
     () => (Array.isArray(eventQuery.data) ? eventQuery.data.map(normalizeEventOption) : []),
@@ -77,9 +58,6 @@ export function FlowForm({
         setLoading(true);
         try {
           const detail = await flowApi.detail(currentRecord.id);
-          const startTime = normalizeTimestamp(detail.startTime);
-          const endTime = normalizeTimestamp(detail.endTime);
-
           setDetailData(detail);
           form.setFieldsValue({
             flowName: detail.flowName,
@@ -87,9 +65,7 @@ export function FlowForm({
             groupId: detail.groupId,
             description: detail.description,
             flowType: detail.flowType,
-            triggerId: detail.triggerId ? String(detail.triggerId) : undefined,
             depEventIds: normalizeStringArray(detail.depEventIds),
-            scheduleWindow: startTime && endTime ? [dayjs(startTime), dayjs(endTime)] : undefined,
             flowParamText: formatJsonText(detail.flowParam),
           });
         } finally {
@@ -127,7 +103,7 @@ export function FlowForm({
         </Space>
       }
     >
-      <Spin spinning={loading || triggerQuery.isFetching || eventQuery.isFetching}>
+      <Spin spinning={loading || eventQuery.isFetching}>
         <Form form={form} layout="vertical">
           <Form.Item
             name="flowName"
@@ -151,19 +127,6 @@ export function FlowForm({
           </Form.Item>
           <Form.Item name="flowType" label="流程类型" rules={[{ required: true, message: "请选择流程类型" }]}>
             <Select options={flowTypeOptions} placeholder="请选择流程类型" />
-          </Form.Item>
-          <Form.Item name="triggerId" label="触发器" rules={[{ required: true, message: "请选择触发器" }]}>
-            <Select
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              options={triggerOptions}
-              placeholder="请选择触发器"
-              loading={triggerQuery.isFetching}
-            />
-          </Form.Item>
-          <Form.Item name="scheduleWindow" label="调度窗口">
-            <DatePicker.RangePicker showTime style={{ width: "100%" }} />
           </Form.Item>
           <Form.Item name="groupId" label="流程分组">
             <Input placeholder="请输入流程分组 ID" />

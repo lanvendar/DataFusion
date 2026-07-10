@@ -65,16 +65,15 @@ export interface FlowSaveReq {
   groupId?: string;
   description?: string;
   flowType: string;
-  triggerId?: string;
   depEventIds?: string[];
   flowParam?: string;
-  startTime?: number;
-  endTime?: number;
 }
 
-export interface FlowPublishReq {
+export interface FlowScheduleReq {
   id: string;
-  enableSchedule?: boolean;
+  triggerId: string;
+  startTime: number;
+  endTime: number;
 }
 
 export interface TriggerListItem {

@@ -9,7 +9,7 @@ import com.datafusion.manager.scheduler.dto.FlowInfoDto;
 import com.datafusion.manager.scheduler.dto.FlowInfoQueryDto;
 import com.datafusion.manager.scheduler.dto.FlowInfoSaveDto;
 import com.datafusion.manager.scheduler.dto.FlowInfoUpdateDto;
-import com.datafusion.manager.scheduler.dto.FlowPublishDto;
+import com.datafusion.manager.scheduler.dto.FlowScheduleDto;
 import com.datafusion.manager.scheduler.po.FlowInfoEntity;
 
 import java.util.List;
@@ -106,10 +106,10 @@ public interface FlowInfoService extends IService<FlowInfoEntity> {
     /**
      * 发布流程.
      *
-     * @param dto 发布请求
+     * @param id 流程ID
      * @return 是否成功
      */
-    boolean publish(FlowPublishDto dto);
+    boolean publish(UUID id);
 
     /**
      * 取消发布.
@@ -122,10 +122,10 @@ public interface FlowInfoService extends IService<FlowInfoEntity> {
     /**
      * 开始调度.
      *
-     * @param id 流程ID
+     * @param dto 调度配置
      * @return 是否成功
      */
-    boolean enable(UUID id);
+    boolean enable(FlowScheduleDto dto);
 
     /**
      * 取消调度.

@@ -120,7 +120,7 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<FlowItem>
                 取消调度
               </Button>
             ) : (
-              <Button type="link" icon={<PlayCircleOutlined />} disabled={!published} onClick={() => onAction(PageActionEnum.ENABLE, record)}>
+              <Button type="link" icon={<PlayCircleOutlined />} onClick={() => onAction(PageActionEnum.ENABLE, record)}>
                 开始调度
               </Button>
             )}

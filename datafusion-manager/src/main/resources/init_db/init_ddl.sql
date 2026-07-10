@@ -463,12 +463,12 @@ CREATE TABLE scheduler_flow_info (
  flow_name varchar(255) NOT NULL, -- 流程名称
  flow_code varchar(255) NOT NULL, -- 流程编码
  group_id uuid NULL, -- 流程分组
- trigger_id uuid NOT NULL, -- 触发器ID
+ trigger_id uuid NULL, -- 触发器ID:调度时不能为空
  description varchar(1000) NULL, -- 流程描述
  flow_type varchar NOT NULL, -- 流程类型
  flow_param json NULL, -- 流程变量参数信息
- start_time int8 NULL, -- 调度开始时间
- end_time int8 NULL, -- 调度结束时间
+ start_time int8 NULL, -- 调度开始时间:调度时不能为空
+ end_time int8 NULL, -- 调度结束时间:调度时不能为空
  enabled bool DEFAULT false NOT NULL, -- 是否调度:0-未调度,1-调度中
  dep_event_ids varchar NULL, -- 依赖事件id,逗号分割
  event_id uuid NULL, -- 事件id
@@ -489,12 +489,12 @@ COMMENT ON COLUMN scheduler_flow_info.id IS '主键';
 COMMENT ON COLUMN scheduler_flow_info.flow_name IS '流程名称';
 COMMENT ON COLUMN scheduler_flow_info.flow_code IS '流程编码';
 COMMENT ON COLUMN scheduler_flow_info.group_id IS '流程分组';
-COMMENT ON COLUMN scheduler_flow_info.trigger_id IS '触发器ID';
+COMMENT ON COLUMN scheduler_flow_info.trigger_id IS '触发器ID:调度时不能为空';
 COMMENT ON COLUMN scheduler_flow_info.description IS '流程描述';
 COMMENT ON COLUMN scheduler_flow_info.flow_type IS '流程类型';
 COMMENT ON COLUMN scheduler_flow_info.flow_param IS '流程变量参数信息';
-COMMENT ON COLUMN scheduler_flow_info.start_time IS '调度开始时间';
-COMMENT ON COLUMN scheduler_flow_info.end_time IS '调度结束时间';
+COMMENT ON COLUMN scheduler_flow_info.start_time IS '调度开始时间:调度时不能为空';
+COMMENT ON COLUMN scheduler_flow_info.end_time IS '调度结束时间:调度时不能为空';
 COMMENT ON COLUMN scheduler_flow_info.enabled IS '是否调度:0-未调度,1-调度中';
 COMMENT ON COLUMN scheduler_flow_info.dep_event_ids IS '依赖事件id,逗号分割';
 COMMENT ON COLUMN scheduler_flow_info.event_id IS '事件id';

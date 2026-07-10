@@ -7,7 +7,7 @@
 ### 1.1 表信息
 
 - 表名: `scheduler_flow_info`
-- 操作: 不涉及
+- 操作: 修改 `trigger_id` 为可空
 - 主键: `id uuid`
 - 说明: 调度流程定义表，保存流程基础信息、调度窗口、触发器引用、事件依赖、发布状态和前端视图信息。
 
@@ -19,7 +19,7 @@ CREATE TABLE scheduler_flow_info (
     flow_name varchar(255) NOT NULL,
     flow_code varchar(255) NOT NULL,
     group_id uuid NULL,
-    trigger_id uuid NOT NULL,
+    trigger_id uuid NULL,
     description varchar(1000) NULL,
     flow_type varchar NOT NULL,
     flow_param json NULL,
@@ -37,6 +37,12 @@ CREATE TABLE scheduler_flow_info (
     update_time timestamp(6) NOT NULL,
     CONSTRAINT flow_info_pkey PRIMARY KEY (id)
 );
+```
+
+已有数据库需要执行：
+
+```sql
+ALTER TABLE scheduler_flow_info ALTER COLUMN trigger_id DROP NOT NULL;
 ```
 
 当前 DDL 未对 `flow_code` 建唯一索引，唯一性由 Service 层校验。
@@ -72,7 +78,7 @@ CREATE TABLE scheduler_task_link (
 | `flow_name` | `flowName` | `String` | 是 | 无 | 流程名称 |
 | `flow_code` | `flowCode` | `String` | 是 | 无 | 流程编码，全局唯一性由 Service 校验 |
 | `group_id` | `groupId` | `UUID` | 否 | 无 | 流程分组 |
-| `trigger_id` | `triggerId` | `UUID` | 是 | 无 | 触发器 ID |
+| `trigger_id` | `triggerId` | `UUID` | 否 | 无 | 最近一次调度使用的触发器 ID，开始调度时写入 |
 | `description` | `description` | `String` | 否 | 无 | 流程描述 |
 | `flow_type` | `flowType` | `String` | 是 | 无 | 流程类型 |
 | `flow_param` | `flowParam` | `JsonNode` | 否 | 无 | 流程变量参数 JSON，遵循 `ParamData.vars` |
@@ -128,10 +134,7 @@ CREATE TABLE scheduler_task_link (
 | `FlowInfoSaveDto` | `Request` | 新增流程 | `description` | `String` | 可选 | 流程描述 |
 | `FlowInfoSaveDto` | `Request` | 新增流程 | `flowType` | `String` | `@NotBlank` | 流程类型 |
 | `FlowInfoSaveDto` | `Request` | 新增流程 | `flowParam` | `String` | 可选，JSON 字符串 | 流程变量参数 |
-| `FlowInfoSaveDto` | `Request` | 新增流程 | `startTime` | `Long` | 可选 | 调度开始时间 |
-| `FlowInfoSaveDto` | `Request` | 新增流程 | `endTime` | `Long` | 可选 | 调度结束时间 |
 | `FlowInfoSaveDto` | `Request` | 新增流程 | `depEventIds` | `List<String>` | 可选 | 依赖事件 ID 列表 |
-| `FlowInfoSaveDto` | `Request` | 新增流程 | `triggerId` | `UUID` | `@NotNull` | 触发器 ID，流程新增时必须选择触发器 |
 | `FlowInfoUpdateDto` | `Request` | 修改流程 | `id` | `UUID` | `@NotNull` | 流程 ID |
 | `FlowInfoUpdateDto` | `Request` | 修改流程 | `flowName` | `String` | 非空时更新 | 流程名称 |
 | `FlowInfoUpdateDto` | `Request` | 修改流程 | `flowCode` | `String` | 非空时唯一性校验后更新 | 流程编码 |
@@ -139,12 +142,11 @@ CREATE TABLE scheduler_task_link (
 | `FlowInfoUpdateDto` | `Request` | 修改流程 | `description` | `String` | 非 `null` 时更新 | 流程描述 |
 | `FlowInfoUpdateDto` | `Request` | 修改流程 | `flowType` | `String` | 非空时更新 | 流程类型 |
 | `FlowInfoUpdateDto` | `Request` | 修改流程 | `flowParam` | `String` | 非 `null` 时按 JSON 更新 | 流程变量参数 |
-| `FlowInfoUpdateDto` | `Request` | 修改流程 | `startTime` | `Long` | 非 `null` 时更新 | 调度开始时间 |
-| `FlowInfoUpdateDto` | `Request` | 修改流程 | `endTime` | `Long` | 非 `null` 时更新 | 调度结束时间 |
 | `FlowInfoUpdateDto` | `Request` | 修改流程 | `depEventIds` | `List<String>` | 非 `null` 时覆盖 | 依赖事件 ID 列表 |
-| `FlowInfoUpdateDto` | `Request` | 修改流程 | `triggerId` | `UUID` | 非 `null` 时更新 | 触发器 ID |
-| `FlowPublishDto` | `Request` | 发布流程 | `id` | `UUID` | `@NotNull` | 流程 ID |
-| `FlowPublishDto` | `Request` | 发布流程 | `enableSchedule` | `Boolean` | 可选 | 发布后是否同时启用调度 |
+| `FlowScheduleDto` | `Request` | 开始调度 | `id` | `UUID` | `@NotNull` | 流程 ID |
+| `FlowScheduleDto` | `Request` | 开始调度 | `triggerId` | `UUID` | `@NotNull` + 存在性校验 | 触发器 ID |
+| `FlowScheduleDto` | `Request` | 开始调度 | `startTime` | `Long` | `@NotNull` | 调度窗口开始时间 |
+| `FlowScheduleDto` | `Request` | 开始调度 | `endTime` | `Long` | `@NotNull`，且必须晚于 `startTime` | 调度窗口结束时间 |
 | `FlowInfoDto` | `Response` | 查询响应 | `id/flowName/flowCode/groupId/description/flowType` | 多类型 | 无 | 流程基础信息 |
 | `FlowInfoDto` | `Response` | 查询响应 | `flowParam` | `String` | `JsonNode` -> JSON 字符串 | 流程变量参数 |
 | `FlowInfoDto` | `Response` | 查询响应 | `startTime/endTime/enabled` | 多类型 | 无 | 调度窗口和启用状态 |
@@ -190,17 +192,18 @@ CREATE TABLE scheduler_task_link (
 | `POST /api/scheduler/flow/delete/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 删除流程 |
 | `GET /api/scheduler/flow/dag/detail/{id}` | path `UUID id` | `FlowDagDto` | `Result<T>` | 查询流程 DAG |
 | `POST /api/scheduler/flow/dag/save` | `DagSaveDto` | `Boolean` | `Result<T>` | 保存流程 DAG |
-| `POST /api/scheduler/flow/publish` | `FlowPublishDto` | `Boolean` | `Result<T>` | 发布流程；发布前必须至少绑定一个任务节点 |
+| `POST /api/scheduler/flow/publish/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 发布流程；发布前必须至少绑定一个任务节点 |
 | `POST /api/scheduler/flow/unpublish/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 取消发布 |
-| `POST /api/scheduler/flow/enable/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 启用调度；启用前必须已发布且至少绑定一个任务节点 |
+| `POST /api/scheduler/flow/enable` | `FlowScheduleDto` | `Boolean` | `Result<T>` | 保存调度配置并启用；未发布时自动发布，且必须至少绑定一个任务节点 |
 | `POST /api/scheduler/flow/disable/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 停用调度 |
 
 ## 5. 层间转换规则
 
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
-| `FlowInfoSaveDto` -> `FlowInfoEntity` | 复制基础字段和调度字段 | `id` 使用 `UUID.nameUUIDFromBytes(flowCode)`；`triggerId` 必填；`flowParam` JSON 字符串转 `JsonNode`；`depEventIds` 列表转逗号字符串；默认 `enabled=false/publishState=false/publishVersion=0` |
+| `FlowInfoSaveDto` -> `FlowInfoEntity` | 复制流程基础字段 | `id` 使用 `UUID.nameUUIDFromBytes(flowCode)`；`flowParam` JSON 字符串转 `JsonNode`；`depEventIds` 列表转逗号字符串；默认 `enabled=false/publishState=false/publishVersion=0` |
 | `FlowInfoUpdateDto` -> existing `FlowInfoEntity` | 仅允许未发布且未启用流程合并非空字段 | `flowCode` 非空时重新校验唯一；`depEventIds` 非 `null` 时整体覆盖 |
+| `FlowScheduleDto` -> existing `FlowInfoEntity` | 覆盖 `triggerId/startTime/endTime` 并置 `enabled=true` | 未发布时同时置 `publishState=true` 并生成 `publishVersion`；已发布流程保留原发布版本 |
 | `FlowInfoEntity` -> `FlowInfoDto` | 字段逐一复制 | `flowParam` 转 JSON 字符串；`depEventIds` 逗号字符串拆成列表 |
 | `FlowInfoQueryDto` -> `LambdaQueryWrapper` | `flowName` 模糊匹配，`flowType/enabled/publishState` 精确匹配 | 默认按 `createTime desc` 排序 |
 | `TaskInfoEntity` -> `NodeDto` | `task_info.id` 作为 `node.id`，任务基本信息和节点调度信息填充 `node.data` | `task_info.view` 解析为 `NodeViewDto`；`node.data` 需覆盖右侧【基本信息】展示字段，并提供 `enabled/eventId/depEventIds/pluginId` 给画布颜色和调度信息初始展示；保存 DAG 请求不提交 `syncFlag`，后端不修改 `syncFlag` |
@@ -222,7 +225,7 @@ CREATE TABLE scheduler_task_link (
 | `task_info.view` | `json` | `JsonNode` | `NodeViewDto` 与 `JsonNode` 互转 | DAG 节点视图；前端需要持久化的节点位置、样式和展示信息都可放入 `nodeView` |
 | `task_link.view` | `json` | `JsonNode` | `EdgeViewDto` 与 `JsonNode` 互转 | DAG 连线视图；前端需要持久化的边样式、展示信息和 `sourceHandle/targetHandle` 等连线锚点都可放入 `edgeView` |
 | `publishVersion` | `int8` | `Long` | 发布时使用 `System.currentTimeMillis()` | 调度框架版本字符串来源 |
-| `enabled` | `bool` | `Boolean` | 发布后可启用，取消发布时置 `false` | 调度开关 |
+| `enabled` | `bool` | `Boolean` | 开始调度时置 `true`；未发布流程同时自动发布 | 调度开关 |
 | `publishState` | `bool` | `Boolean` | 发布置 `true`，取消发布置 `false` | 发布状态 |
 
 ## 7. 复用对象

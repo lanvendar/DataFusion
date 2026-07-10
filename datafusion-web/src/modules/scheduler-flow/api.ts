@@ -6,7 +6,7 @@ import type {
   FlowItem,
   FlowPageReq,
   FlowPageRes,
-  FlowPublishReq,
+  FlowScheduleReq,
   FlowSaveReq,
   PluginConfigListItem,
   TaskListItem,
@@ -42,16 +42,16 @@ export const flowApi = {
     return request<boolean>({ url: `${prefix}/delete/${id}`, method: "POST" });
   },
 
-  publish(params: FlowPublishReq): Promise<boolean> {
-    return request<boolean>({ url: `${prefix}/publish`, method: "POST", data: params });
+  publish(id: string): Promise<boolean> {
+    return request<boolean>({ url: `${prefix}/publish/${id}`, method: "POST" });
   },
 
   unpublish(id: string): Promise<boolean> {
     return request<boolean>({ url: `${prefix}/unpublish/${id}`, method: "POST" });
   },
 
-  enable(id: string): Promise<boolean> {
-    return request<boolean>({ url: `${prefix}/enable/${id}`, method: "POST" });
+  enable(params: FlowScheduleReq): Promise<boolean> {
+    return request<boolean>({ url: `${prefix}/enable`, method: "POST", data: params });
   },
 
   disable(id: string): Promise<boolean> {

@@ -1,5 +1,4 @@
 import { App, Form } from "antd";
-import type { Dayjs } from "dayjs";
 import { useMemo } from "react";
 import { flowApi } from "../../api";
 import type { FlowFormMode, FlowItem, FlowSaveReq } from "../../dto";
@@ -11,9 +10,7 @@ export interface FlowFormValues {
   groupId?: string;
   description?: string;
   flowType: string;
-  triggerId?: string;
   depEventIds?: string[];
-  scheduleWindow?: [Dayjs, Dayjs];
   flowParamText?: string;
 }
 
@@ -44,11 +41,8 @@ export function useFlowSubmit({
         groupId: values.groupId,
         description: values.description,
         flowType: values.flowType,
-        triggerId: values.triggerId,
         depEventIds: values.depEventIds || [],
         flowParam: normalizeJsonText(values.flowParamText, "流程变量参数"),
-        startTime: values.scheduleWindow?.[0]?.valueOf(),
-        endTime: values.scheduleWindow?.[1]?.valueOf(),
       };
 
       if (mode === "edit") {

@@ -58,26 +58,9 @@ public class FlowInfoSaveDto {
     private String flowParam;
 
     /**
-     * 调度开始时间.
-     */
-    @Schema(name = "startTime", description = "调度开始时间")
-    private Long startTime;
-
-    /**
-     * 调度结束时间.
-     */
-    @Schema(name = "endTime", description = "调度结束时间")
-    private Long endTime;
-
-    /**
      * 依赖事件ID列表.
      */
     @Schema(name = "depEventIds", description = "依赖事件ID列表")
     private List<String> depEventIds;
 
-    /**
-     * 触发器ID.
-     */
-    @Schema(name = "triggerId", description = "触发器ID")
-    private UUID triggerId;
 }

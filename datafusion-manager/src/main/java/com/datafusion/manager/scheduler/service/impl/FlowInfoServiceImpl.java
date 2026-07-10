@@ -20,7 +20,7 @@ import com.datafusion.manager.scheduler.dto.FlowInfoDto;
 import com.datafusion.manager.scheduler.dto.FlowInfoQueryDto;
 import com.datafusion.manager.scheduler.dto.FlowInfoSaveDto;
 import com.datafusion.manager.scheduler.dto.FlowInfoUpdateDto;
-import com.datafusion.manager.scheduler.dto.FlowPublishDto;
+import com.datafusion.manager.scheduler.dto.FlowScheduleDto;
 import com.datafusion.manager.scheduler.dto.NodeDataDto;
 import com.datafusion.manager.scheduler.dto.NodeDto;
 import com.datafusion.manager.scheduler.dto.NodeViewDto;
@@ -144,10 +144,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         if (StringUtils.isNotBlank(dto.getFlowParam())) {
             entity.setFlowParam(JacksonUtils.tryStr2JsonNode(dto.getFlowParam()));
         }
-        entity.setStartTime(dto.getStartTime());
-        entity.setEndTime(dto.getEndTime());
         entity.setDepEventIds(joinDepEventIds(dto.getDepEventIds()));
-        entity.setTriggerId(dto.getTriggerId());
         entity.setEnabled(false);
         entity.setPublishState(false);
         entity.setPublishVersion(0L);
@@ -189,19 +186,9 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         if (StringUtils.isNotBlank(dto.getFlowParam())) {
             entity.setFlowParam(JacksonUtils.tryStr2JsonNode(dto.getFlowParam()));
         }
-        if (dto.getStartTime() != null) {
-            entity.setStartTime(dto.getStartTime());
-        }
-        if (dto.getEndTime() != null) {
-            entity.setEndTime(dto.getEndTime());
-        }
         if (dto.getDepEventIds() != null) {
             entity.setDepEventIds(joinDepEventIds(dto.getDepEventIds()));
         }
-        if (dto.getTriggerId() != null) {
-            entity.setTriggerId(dto.getTriggerId());
-        }
-
         entity.setUpdater(HttpUtils.getCurrentUserName());
         entity.setUpdateTime(new Date());
         return updateById(entity);
@@ -385,8 +372,8 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
     }
 
     @Override
-    public boolean publish(FlowPublishDto dto) {
-        FlowInfoEntity entity = getById(dto.getId());
+    public boolean publish(UUID id) {
+        FlowInfoEntity entity = getById(id);
         if (entity == null) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程不存在");
         }
@@ -394,16 +381,9 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
 
         entity.setPublishState(true);
         entity.setPublishVersion(System.currentTimeMillis());
-        if (Boolean.TRUE.equals(dto.getEnableSchedule())) {
-            entity.setEnabled(true);
-        }
         entity.setUpdater(HttpUtils.getCurrentUserName());
         entity.setUpdateTime(new Date());
-        boolean updated = updateById(entity);
-        if (updated && Boolean.TRUE.equals(dto.getEnableSchedule())) {
-            addSchedule(entity.getId());
-        }
-        return updated;
+        return updateById(entity);
     }
 
     @Override
@@ -427,22 +407,25 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
     }
 
     @Override
-    public boolean enable(UUID id) {
-        FlowInfoEntity entity = getById(id);
+    @Transactional(rollbackFor = Exception.class)
+    public boolean enable(FlowScheduleDto dto) {
+        FlowInfoEntity entity = getById(dto.getId());
         if (entity == null) {
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程不存在");
         }
-        if (!Boolean.TRUE.equals(entity.getPublishState())) {
-            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "流程未发布, 无法开始调度");
-        }
         checkFlowHasTask(entity.getId(), "空流程无法开始调度");
+        applyScheduleConfig(entity, dto);
 
+        if (!Boolean.TRUE.equals(entity.getPublishState())) {
+            entity.setPublishState(true);
+            entity.setPublishVersion(System.currentTimeMillis());
+        }
         entity.setEnabled(true);
         entity.setUpdater(HttpUtils.getCurrentUserName());
         entity.setUpdateTime(new Date());
         boolean updated = updateById(entity);
         if (updated) {
-            addSchedule(id);
+            addSchedule(entity.getId());
         }
         return updated;
     }
@@ -465,6 +448,26 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
     }
 
     // region 私有方法
+
+    /**
+     * 校验并写入流程调度配置.
+     *
+     * @param entity 流程实体
+     * @param dto 调度配置
+     */
+    private void applyScheduleConfig(FlowInfoEntity entity, FlowScheduleDto dto) {
+        if (dto.getStartTime() == null || dto.getEndTime() == null
+                || dto.getEndTime() <= dto.getStartTime()) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "调度结束时间必须晚于开始时间");
+        }
+        TriggerInfoEntity trigger = triggerInfoMapper.selectById(dto.getTriggerId());
+        if (trigger == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "触发器不存在");
+        }
+        entity.setTriggerId(dto.getTriggerId());
+        entity.setStartTime(dto.getStartTime());
+        entity.setEndTime(dto.getEndTime());
+    }
 
     /**
      * 构建查询条件.

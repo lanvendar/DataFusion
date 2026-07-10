@@ -9,7 +9,7 @@ import com.datafusion.manager.scheduler.dto.FlowInfoDto;
 import com.datafusion.manager.scheduler.dto.FlowInfoQueryDto;
 import com.datafusion.manager.scheduler.dto.FlowInfoSaveDto;
 import com.datafusion.manager.scheduler.dto.FlowInfoUpdateDto;
-import com.datafusion.manager.scheduler.dto.FlowPublishDto;
+import com.datafusion.manager.scheduler.dto.FlowScheduleDto;
 import com.datafusion.manager.scheduler.service.FlowInfoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -148,13 +148,13 @@ public class FlowController {
     /**
      * 发布流程.
      *
-     * @param dto 发布请求
+     * @param id 流程ID
      * @return 是否成功
      */
-    @PostMapping("/publish")
+    @PostMapping("/publish/{id}")
     @Operation(summary = "发布流程")
-    public Result<Boolean> publish(@RequestBody @Validated FlowPublishDto dto) {
-        return Result.success(flowInfoService.publish(dto));
+    public Result<Boolean> publish(@PathVariable UUID id) {
+        return Result.success(flowInfoService.publish(id));
     }
 
     /**
@@ -172,13 +172,13 @@ public class FlowController {
     /**
      * 开始调度.
      *
-     * @param id 流程ID
+     * @param dto 调度配置
      * @return 是否成功
      */
-    @PostMapping("/enable/{id}")
+    @PostMapping("/enable")
     @Operation(summary = "开始调度")
-    public Result<Boolean> enable(@PathVariable UUID id) {
-        return Result.success(flowInfoService.enable(id));
+    public Result<Boolean> enable(@RequestBody @Validated FlowScheduleDto dto) {
+        return Result.success(flowInfoService.enable(dto));
     }
 
     /**

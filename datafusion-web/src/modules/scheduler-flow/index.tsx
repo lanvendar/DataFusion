@@ -1,10 +1,10 @@
-import { App, Checkbox, Space } from "antd";
+import { App, Space } from "antd";
 import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/page-layout";
 import { flowApi } from "./api";
-import { FlowDetail, FlowForm, FlowListTable } from "./components";
+import { FlowDetail, FlowForm, FlowListTable, FlowScheduleModal } from "./components";
 import { DagEditor } from "./dag-editor";
 import { SCHEDULER_FLOW_QUERY_KEY } from "./constants";
 import { PageActionEnum, type FlowFormMode, type FlowItem } from "./dto";
@@ -16,6 +16,7 @@ export default function SchedulerFlowPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [dagOpen, setDagOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [formMode, setFormMode] = useState<FlowFormMode>("add");
   const [currentRecord, setCurrentRecord] = useState<FlowItem>();
 
@@ -37,19 +38,6 @@ export default function SchedulerFlowPage() {
     setFormOpen(true);
   }, []);
 
-  const confirmEnable = useCallback(
-    async (record: FlowItem) => {
-      try {
-        await flowApi.enable(record.id);
-        message.success("开始调度成功");
-        refreshList();
-      } catch (error) {
-        message.error(error instanceof Error ? error.message : "开始调度失败");
-      }
-    },
-    [message, refreshList],
-  );
-
   const confirmDisable = useCallback(
     async (record: FlowItem) => {
       try {
@@ -65,21 +53,12 @@ export default function SchedulerFlowPage() {
 
   const confirmPublish = useCallback(
     (record: FlowItem) => {
-      let enableSchedule = false;
-
       modal.confirm({
         title: "确认发布流程",
-        content: (
-          <Space direction="vertical" size={12}>
-            <span>{`确认发布流程「${record.flowName}」吗？`}</span>
-            <Checkbox onChange={(event) => { enableSchedule = event.target.checked; }}>
-              同时开始调度
-            </Checkbox>
-          </Space>
-        ),
+        content: `确认发布流程「${record.flowName}」吗？`,
         onOk: async () => {
-          await flowApi.publish({ id: record.id, enableSchedule });
-          message.success(enableSchedule ? "发布并开始调度成功" : "发布成功");
+          await flowApi.publish(record.id);
+          message.success("发布成功");
           refreshList();
         },
       });
@@ -146,11 +125,8 @@ export default function SchedulerFlowPage() {
           break;
         case PageActionEnum.ENABLE:
           if (record?.id) {
-            if (!record.publishState) {
-              message.warning("流程未发布，无法开始调度");
-              return;
-            }
-            void confirmEnable(record);
+            setCurrentRecord(record);
+            setScheduleOpen(true);
           }
           break;
         case PageActionEnum.DISABLE:
@@ -162,7 +138,6 @@ export default function SchedulerFlowPage() {
     },
     [
       confirmDisable,
-      confirmEnable,
       confirmPublish,
       confirmUnpublish,
       deleteMutation,
@@ -200,6 +175,13 @@ export default function SchedulerFlowPage() {
         open={dagOpen}
         currentRecord={currentRecord}
         onClose={() => setDagOpen(false)}
+        onSubmitSuccess={refreshList}
+      />
+
+      <FlowScheduleModal
+        open={scheduleOpen}
+        currentRecord={currentRecord}
+        onClose={() => setScheduleOpen(false)}
         onSubmitSuccess={refreshList}
       />
     </Space>
