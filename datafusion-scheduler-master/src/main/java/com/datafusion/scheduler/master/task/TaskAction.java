@@ -137,6 +137,7 @@ public class TaskAction implements TaskResultHandler {
                     .flowInstanceId(triggerInstance.getInstanceId())//
                     .version(triggerInstance.getVersion())//
                     .scheduleTime(triggerInstance.getScheduleTime())//
+                    .flowParamData(flowIns.getFlowParam())//
                     .taskId(taskInfo.getTaskId())
                     .taskInstanceId(taskInsId)//
                     .actionType(ActionType.INIT)//
