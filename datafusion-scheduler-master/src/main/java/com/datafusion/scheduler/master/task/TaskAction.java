@@ -31,13 +31,17 @@ import com.datafusion.scheduler.model.TaskResult;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -125,14 +129,40 @@ public class TaskAction implements TaskResultHandler {
         // 获取流程实例
         FlowInstance flowIns = masterStorage.getFlowStorage().getInstanceById(triggerInstance.getInstanceId());
         List<TaskInfo> taskInfos = masterStorage.getTaskStorage().getTaskInfoByFlowId(flowIns.getFlowId());
-        // key: taskId ,value: taskInsId
-        Map<String, String> taskIdToInsIdMap = new HashMap<>(2);
+        // 处理任务实例上下游的依赖关系（单任务流程可能无连线）
+        List<TaskLink> taskInfoLink = masterStorage.getTaskStorage().getTaskInfoLink(flowIns.getFlowId());
+        if (CollectionUtil.isEmpty(taskInfoLink)) {
+            taskInfoLink = Collections.emptyList();
+        }
+
+        initEnabledTasks(triggerInstance, flowIns, taskInfos, taskInfoLink);
+
+        // 更新流程实例状态
+        flowIns.setState(StatusEnum.INIT_SUCCESS);
+        masterStorage.getFlowStorage().saveInstance(flowIns);
+    }
+
+    /**
+     * 初始化启用任务实例及其依赖关系.
+     *
+     * @param triggerInstance 调度器缓存实例
+     * @param flowIns         流程实例
+     * @param taskInfos       任务定义
+     * @param taskLinks       任务连线
+     */
+    private void initEnabledTasks(TriggerInstance triggerInstance, FlowInstance flowIns, List<TaskInfo> taskInfos,
+                                  List<TaskLink> taskLinks) {
+        // 先收缩禁用节点, 确保实例依赖只引用本次实际创建的启用任务.
+        DagResolver<String> dagResolver = buildEnabledTaskDag(taskInfos, taskLinks);
+        // 实例ID由流程实例和任务定义稳定生成, 前后依赖可按需转换, 无需维护额外映射.
+        Function<String, String> taskInstanceIdResolver = taskId -> UUID.nameUUIDFromBytes((
+                flowIns.getInstanceId() + SystemConstant.UNDER_LINE + taskId).getBytes(StandardCharsets.UTF_8)).toString();
         for (TaskInfo taskInfo : taskInfos) {
-            // flowInstanceId = payloadId(flowId) + "_" + scheduleTime + "_" + version 生成 uuid
-            // taskInstanceId = flowInstanceId + "_" + taskId 生成 uuid
-            String taskInsId = UUID.nameUUIDFromBytes((//
-                    flowIns.getInstanceId() + SystemConstant.UNDER_LINE + taskInfo.getTaskId()).getBytes(StandardCharsets.UTF_8)).toString();
-            // 构建消息
+            if (Boolean.FALSE.equals(taskInfo.getIsAble())) {
+                log.info("跳过禁用任务, flowInstanceId={}, taskId={}", flowIns.getInstanceId(), taskInfo.getTaskId());
+                continue;
+            }
+            String taskInsId = taskInstanceIdResolver.apply(taskInfo.getTaskId());
             TaskMsg msg = TaskMsg.builder()//
                     .flowInstanceId(triggerInstance.getInstanceId())//
                     .version(triggerInstance.getVersion())//
@@ -147,57 +177,77 @@ public class TaskAction implements TaskResultHandler {
             if (handler != null) {
                 handler.handle(msg, null);
             }
-            taskIdToInsIdMap.put(taskInfo.getTaskId(), taskInsId);
-        }
-
-        // 处理任务实例上下游的依赖关系（单任务流程可能无连线）
-        List<TaskLink> taskInfoLink = masterStorage.getTaskStorage().getTaskInfoLink(flowIns.getFlowId());
-        if (CollectionUtil.isEmpty(taskInfoLink)) {
-            taskInfoLink = Collections.emptyList();
-        }
-
-        // 将 taskInfoLink (taskId -> taskId) 转换为 taskInsId -> taskInsId
-        List<TaskLink> taskInsLinks = taskInfoLink.stream()
-                .map(link -> new TaskLink(
-                        taskIdToInsIdMap.get(link.getId()),
-                        taskIdToInsIdMap.get(link.getStartId()),
-                        taskIdToInsIdMap.get(link.getEndId())))
-                .collect(Collectors.toList());
-
-        // 构建 节点和边都是 taskInsId 的 DAG
-        Set<String> taskInsIds = new HashSet<>(taskIdToInsIdMap.values());
-        DagResolver<String> dagResolver = new DagResolver<>(taskInsIds, taskInsLinks);
-        dagResolver.breadthFirstWalk(taskInsId -> {
             TaskInstance taskIns = new TaskInstance();
             taskIns.setInstanceId(taskInsId);
             taskIns.setFlowInstanceId(triggerInstance.getInstanceId());
-            Set<String> preNode = dagResolver.getPreNodeSet(taskInsId);
-            if (CollectionUtil.isNotEmpty(preNode)) {
-                taskIns.setLastInstanceIds(preNode);
+            Set<String> preTaskIds = dagResolver.getPreNodeSet(taskInfo.getTaskId());
+            if (CollectionUtil.isNotEmpty(preTaskIds)) {
+                taskIns.setLastInstanceIds(preTaskIds.stream()
+                        .map(taskInstanceIdResolver)
+                        .collect(Collectors.toSet()));
             }
-            Set<String> postNode = dagResolver.getPostNodeSet(taskInsId);
-            if (CollectionUtil.isNotEmpty(postNode)) {
-                taskIns.setNextInstanceIds(postNode);
+            Set<String> postTaskIds = dagResolver.getPostNodeSet(taskInfo.getTaskId());
+            if (CollectionUtil.isNotEmpty(postTaskIds)) {
+                taskIns.setNextInstanceIds(postTaskIds.stream()
+                        .map(taskInstanceIdResolver)
+                        .collect(Collectors.toSet()));
             }
             taskIns.setState(StatusEnum.INIT_SUCCESS);
             // 保存任务实例
             masterStorage.getTaskStorage().saveInstance(taskIns);
-        });
+        }
+    }
 
-        // 更新流程实例状态
-        flowIns.setState(StatusEnum.INIT_SUCCESS);
-        masterStorage.getFlowStorage().saveInstance(flowIns);
+    /**
+     * 收缩禁用任务并构建启用任务 DAG.
+     *
+     * @param taskInfos 任务定义
+     * @param taskLinks 原始任务连线
+     * @return 启用任务 DAG
+     */
+    private DagResolver<String> buildEnabledTaskDag(List<TaskInfo> taskInfos, List<TaskLink> taskLinks) {
+        Set<String> enabledTaskIds = taskInfos.stream()
+                .filter(taskInfo -> !Boolean.FALSE.equals(taskInfo.getIsAble()))
+                .map(TaskInfo::getTaskId)
+                .collect(Collectors.toSet());
+        // 保留原始邻接关系, 用于穿透连续禁用节点.
+        Map<String, Set<String>> nextTaskIds = new HashMap<>(Math.max(taskLinks.size(), 2));
+        for (TaskLink taskLink : taskLinks) {
+            if (taskLink.getStartId() != null && taskLink.getEndId() != null) {
+                nextTaskIds.computeIfAbsent(taskLink.getStartId(), key -> new HashSet<>()).add(taskLink.getEndId());
+            }
+        }
+
+        List<TaskLink> effectiveLinks = new ArrayList<>();
+        for (String enabledTaskId : enabledTaskIds) {
+            Deque<String> pendingTaskIds = new ArrayDeque<>(nextTaskIds.getOrDefault(enabledTaskId, Collections.emptySet()));
+            Set<String> visitedTaskIds = new HashSet<>();
+            visitedTaskIds.add(enabledTaskId);
+            while (!pendingTaskIds.isEmpty()) {
+                String nextTaskId = pendingTaskIds.removeFirst();
+                if (!visitedTaskIds.add(nextTaskId)) {
+                    continue;
+                }
+                if (enabledTaskIds.contains(nextTaskId)) {
+                    // 找到最近的启用下游后停止该分支, 避免跨过有效依赖.
+                    effectiveLinks.add(new TaskLink(null, enabledTaskId, nextTaskId));
+                } else {
+                    pendingTaskIds.addAll(nextTaskIds.getOrDefault(nextTaskId, Collections.emptySet()));
+                }
+            }
+        }
+        return new DagResolver<>(enabledTaskIds, effectiveLinks);
     }
 
     /**
      * 任务提交动作.
      *
      * @param triggerInstance 触发器缓存实例
+     * @param taskInstances   任务实例
      */
-    public void dispatchSubmit(TriggerInstance triggerInstance) {
+    public void dispatchSubmit(TriggerInstance triggerInstance, List<TaskInstance> taskInstances) {
         String flowInsId = triggerInstance.getInstanceId();
-        List<TaskInstance> ids = masterStorage.getTaskStorage().getTaskInsIdsByFlowInsId(flowInsId);
-        for (TaskInstance taskIns : ids) {
+        for (TaskInstance taskIns : taskInstances) {
             TaskMsg msg = TaskMsg.builder()//
                     .flowInstanceId(flowInsId)//
                     .taskInstanceId(taskIns.getInstanceId())//

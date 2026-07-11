@@ -1,5 +1,7 @@
 package com.datafusion.scheduler.master.flow;
 
+import cn.hutool.core.collection.CollectionUtil;
+import cn.hutool.core.util.StrUtil;
 import com.datafusion.common.constant.SystemConstant;
 import com.datafusion.scheduler.enums.ActionType;
 import com.datafusion.scheduler.enums.StatusEnum;
@@ -8,6 +10,8 @@ import com.datafusion.scheduler.master.actor.Actor;
 import com.datafusion.scheduler.master.actor.ActorProxy;
 import com.datafusion.scheduler.master.actor.ActorSystem;
 import com.datafusion.scheduler.master.event.GlobalEventOperator;
+import com.datafusion.scheduler.master.event.enmus.EventTypeEnum;
+import com.datafusion.scheduler.master.event.model.GlobalEvent;
 import com.datafusion.scheduler.master.flow.handler.FlowEnforceSuccessMsgHandler;
 import com.datafusion.scheduler.master.flow.handler.FlowInitMsgHandler;
 import com.datafusion.scheduler.master.flow.handler.FlowMsgHandler;
@@ -135,6 +139,12 @@ public class FlowAction implements SchedulerTrigger {
 
     @Override
     public void dispatchSubmit(TriggerInstance triggerInstance) {
+        List<TaskInstance> taskInstances = masterStorage.getTaskStorage()
+                .getTaskInsIdsByFlowInsId(triggerInstance.getInstanceId());
+        if (CollectionUtil.isEmpty(taskInstances)) {
+            completeEmptyFlow(triggerInstance.getInstanceId());
+            return;
+        }
         FlowMsg msg = FlowMsg.builder()
                 .flowInstanceId(triggerInstance.getInstanceId())
                 .actionType(ActionType.WAIT)
@@ -145,7 +155,36 @@ public class FlowAction implements SchedulerTrigger {
         // 第一次发送消息
         actor.notify(msg);
         // 创建 TaskActor 并发送消息
-        taskAction.dispatchSubmit(triggerInstance);
+        taskAction.dispatchSubmit(triggerInstance, taskInstances);
+    }
+
+    /**
+     * 完成没有有效任务实例的空流程.
+     *
+     * @param flowInstanceId 流程实例ID
+     */
+    private void completeEmptyFlow(String flowInstanceId) {
+        FlowInstance flowIns = masterStorage.getFlowStorage().getInstanceById(flowInstanceId);
+        long endTime = System.currentTimeMillis();
+        if (flowIns.getStartTime() == null || flowIns.getStartTime() <= 0) {
+            flowIns.setStartTime(endTime);
+        }
+        flowIns.setState(StatusEnum.RUN_SUCCESS);
+        flowIns.setEndTime(endTime);
+        masterStorage.getFlowStorage().saveInstance(flowIns);
+
+        if (StrUtil.isNotEmpty(flowIns.getEventId()) && flowIns.eventTime() != null && flowIns.eventSegment() != null) {
+            GlobalEvent event = new GlobalEvent();
+            event.setId(flowIns.getEventId());
+            event.setFlowInstanceId(flowIns.getInstanceId());
+            event.setType(EventTypeEnum.FLOW);
+            event.setEventTime(flowIns.eventTime());
+            event.setTimeSegment(flowIns.eventSegment());
+            eventOperator.occurredEvent(event);
+        } else {
+            log.warn("空流程实例没有设置事件相关参数, flowInstanceId={}", flowIns.getInstanceId());
+        }
+        log.info("空流程直接运行成功, flowInstanceId={}", flowIns.getInstanceId());
     }
 
     @Override

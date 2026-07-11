@@ -56,6 +56,8 @@ API 前缀：`/api/scheduler/task`
 - 修改后置 `syncFlag=false`，表示定义已变更。
 - 删除任务前必须确认任务未绑定流程；已绑定时拒绝删除。
 - `clearEventId=true` 仅用于流程编排中的事件关闭场景，不属于普通任务定义编辑入口。
+- 运行期只为 `enabled!=false` 的任务创建实例；禁用节点不执行，其上下游在实例 DAG 中直接连接。
+- 连续或分支禁用节点按原始 DAG 穿透到最近的启用节点，有效边去重且保持原有依赖汇合关系。
 
 ## 复制设计
 
@@ -86,6 +88,7 @@ Service 处理步骤：
 - `TaskStorageImpl` 将任务定义转换为 master 的 `TaskInfo`。
 - `FlowInfoServiceImpl` 查询流程 DAG 时读取绑定任务。
 - `TaskLinkService` 负责流程 DAG 依赖连线，不由任务定义域维护。
+- `TaskAction` 在创建任务实例前根据 `TaskInfo.isAble` 收缩运行期 DAG；全部任务禁用时不创建任务实例。
 - 当前用户通过 `HttpUtils.getCurrentUserName()` 写入审计字段。
 - 任务复制不触发 `TaskStorageImpl`、`TaskLinkService`、流程发布或实例运行链路。
 

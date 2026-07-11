@@ -13,7 +13,9 @@ import java.util.List;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 复杂流程（4任务 DAG: A→B→C, B→D, SERIAL_WAIT）状态机集成测试.
@@ -72,6 +74,53 @@ class ComplexFlowTest extends StateMachineTestBase {
         FlowInstance flowIns = awaitFlowState(ComplexFlowExample.FLOW_ID, StatusEnum.RUN_SUCCESS);
         log.info("流程满足监测状态[RUN_SUCCESS]: {}", flowIns.getInstanceId());
         assertEquals(StatusEnum.RUN_SUCCESS, flowIns.getState());
+    }
+
+    @Test
+    @DisplayName("禁用中间任务：A→B→(C,D) 收缩为 A→(C,D)")
+    void testDisabledMiddleTaskContractsDag() {
+        taskInfoTable.put(ComplexFlowExample.TASK_B_ID, "isAble", false);
+        masterService.start();
+        addSchedule(ComplexFlowExample.FLOW_ID);
+
+        TaskInstance taskA = awaitTaskByName(
+                ComplexFlowExample.FLOW_ID, ComplexFlowExample.TASK_A_NAME, StatusEnum.SUBMIT_SUCCESS);
+        reportTaskResult(taskA, StatusEnum.RUN_SUCCESS);
+        awaitTaskState(taskA.getInstanceId(), StatusEnum.RUN_SUCCESS);
+
+        TaskInstance taskC = awaitTaskByName(
+                ComplexFlowExample.FLOW_ID, ComplexFlowExample.TASK_C_NAME, StatusEnum.SUBMIT_SUCCESS);
+        TaskInstance taskD = awaitTaskByName(
+                ComplexFlowExample.FLOW_ID, ComplexFlowExample.TASK_D_NAME, StatusEnum.SUBMIT_SUCCESS);
+        FlowInstance flowIns = awaitFlowInstanceExists(ComplexFlowExample.FLOW_ID);
+        List<TaskInstance> taskInstances = taskStorage.getTaskInsIdsByFlowInsId(flowIns.getInstanceId());
+
+        assertEquals(3, taskInstances.size());
+        assertFalse(taskInstances.stream().anyMatch(task -> ComplexFlowExample.TASK_B_NAME.equals(task.getTaskName())));
+        assertEquals(taskA.getInstanceId(), taskC.getLastInstanceIds().iterator().next());
+        assertEquals(taskA.getInstanceId(), taskD.getLastInstanceIds().iterator().next());
+
+        reportTaskResult(taskC, StatusEnum.RUN_SUCCESS);
+        reportTaskResult(taskD, StatusEnum.RUN_SUCCESS);
+        assertEquals(StatusEnum.RUN_SUCCESS,
+                awaitFlowState(ComplexFlowExample.FLOW_ID, StatusEnum.RUN_SUCCESS).getState());
+    }
+
+    @Test
+    @DisplayName("全部任务禁用：流程直接 RUN_SUCCESS 且不创建任务实例")
+    void testAllTasksDisabledCompletesEmptyFlow() {
+        List.of(ComplexFlowExample.TASK_A_ID, ComplexFlowExample.TASK_B_ID,
+                        ComplexFlowExample.TASK_C_ID, ComplexFlowExample.TASK_D_ID)
+                .forEach(taskId -> taskInfoTable.put(taskId, "isAble", false));
+        masterService.start();
+        addSchedule(ComplexFlowExample.FLOW_ID);
+
+        FlowInstance flowIns = awaitFlowState(ComplexFlowExample.FLOW_ID, StatusEnum.RUN_SUCCESS);
+        List<TaskInstance> taskInstances = taskStorage.getTaskInsIdsByFlowInsId(flowIns.getInstanceId());
+
+        assertTrue(taskInstances == null || taskInstances.isEmpty());
+        assertTrue(flowIns.getStartTime() != null && flowIns.getStartTime() > 0);
+        assertTrue(flowIns.getEndTime() != null && flowIns.getEndTime() >= flowIns.getStartTime());
     }
 
     @Test

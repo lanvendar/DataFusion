@@ -88,6 +88,7 @@ API 前缀：`/api/scheduler/flow`
 - `FlowStorageImpl` 将流程定义转换为 master 的 `FlowInfo`。
 - `TriggerStorageImpl` 使用流程上的 `triggerId` 读取触发器定义。
 - `TaskStorageImpl` 读取流程绑定任务和依赖供 master 生成实例。
+- 流程绑定任务全部禁用时视为运行期空流程；分发阶段直接记录 `RUN_SUCCESS` 并发送流程成功事件，不创建 Actor。
 - 发布/启用/停用/取消发布必须同步 master 调度队列，数据库更新与 master 操作需要保持事务语义一致。
 
 ## 非目标
