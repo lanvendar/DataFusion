@@ -249,11 +249,11 @@ VALUES
      "namespace": "datafusion",
      "image": "jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:spark-4.0.2-scala2.13-java17-ubuntu",
      "imagePullPolicy": "IfNotPresent",
+     "serviceAccountName": "spark-driver",
      "sharedPvcName": "datafusion-shared-data",
-     "sharedMountPath": "/opt/datafusion/plugins",
      "pluginAppDir": "/opt/datafusion/plugins/spark/datafusion-plugin-spark-sql",
      "pluginJarName": "plugin-spark-sql.jar",
-     "jarMountPath": "/opt/datafusion/spark/jars",
+     "jarMountPath": "/opt/spark/work-dir/datafusion-jars",
      "jobConfigMountPath": "/opt/datafusion/spark/jobs",
      "collectLogsOnFinish": true,
      "driver": {
