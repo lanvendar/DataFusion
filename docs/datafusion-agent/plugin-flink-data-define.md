@@ -186,7 +186,6 @@ s3a://data-lake-warehouse/flink/savepoints/{jobId}
 | `source` | `Object` | 否 | 空 | Flink 作业 source 配置；与 `pluginParam.defaultTaskData.source` 深度合并 |
 | `flinkConfig` | `Object<String,String>` | 否 | 空 | 任务级 Flink 配置；与 `pluginParam.defaultTaskData.flinkConfig` 深度合并后参与 Flink 配置合并 |
 | `sink` | `Object` | 否 | 空 | Flink 作业 sink 配置；与 `pluginParam.defaultTaskData.sink` 深度合并 |
-| `bizRef` | `String` 或 `Object` | 否 | 空 | Manager 与 Agent 使用的业务引用，不写入 Flink 作业配置 |
 | `args` | `List<String>` | 否 | 空 | 单次任务覆盖作业参数 |
 | `kubernetes` | `FlinkKubernetesTaskOverride` | 否 | 空 | K8S / K8S_OPERATOR 单任务覆盖项 |
 
@@ -197,7 +196,7 @@ s3a://data-lake-warehouse/flink/savepoints/{jobId}
 - `taskData.jobJson` 为空时，使用 `deepMerge(pluginParam.defaultTaskData, taskData)` 生成 `effectiveTaskData`。
 - `effectiveTaskData.flinkConfig` 覆盖 `pluginParam.flinkConfig`；合并结果写回 `job.json` 的
   顶层 `flinkConfig`，并渲染到 `FlinkDeployment.spec.flinkConfiguration`。
-- `bizRef`、`args`、`kubernetes` 是调度或 Agent 运行元数据，不写入最终 `job.json`。
+- `args`、`kubernetes` 是 Agent 运行元数据，不写入最终 `job.json`。
 - 数组按整体替换；普通值按 `taskData` 覆盖默认值。
 
 ## 5. 运行模式枚举

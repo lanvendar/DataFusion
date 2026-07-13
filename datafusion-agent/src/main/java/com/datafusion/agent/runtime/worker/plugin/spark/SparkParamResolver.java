@@ -200,7 +200,7 @@ public class SparkParamResolver {
         ObjectNode result = OBJECT_MAPPER.createObjectNode();
         deepMerge(result, object(pluginParam, "defaultTaskData"));
         deepMerge(result, taskData);
-        result.remove(List.of("kubernetes", "bizRef"));
+        result.remove("kubernetes");
         return result;
     }
 

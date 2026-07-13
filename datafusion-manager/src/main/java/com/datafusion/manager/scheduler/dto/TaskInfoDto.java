@@ -1,5 +1,6 @@
 package com.datafusion.manager.scheduler.dto;
 
+import com.datafusion.manager.scheduler.model.BusinessSourceRoute;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -112,6 +113,12 @@ public class TaskInfoDto {
      */
     @Schema(name = "syncFlag", description = "任务同步标识")
     private Boolean syncFlag;
+
+    /**
+     * 业务来源定位信息.
+     */
+    @Schema(name = "sourceRoute", description = "业务来源定位信息")
+    private BusinessSourceRoute sourceRoute;
 
     /**
      * 创建人.

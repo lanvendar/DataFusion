@@ -36,10 +36,8 @@ class SparkParamResolverTest {
         pluginKubernetes.put("sharedPvcName", "datafusion-shared-data");
         ObjectNode defaultTaskData = pluginParam.putObject("defaultTaskData");
         defaultTaskData.put("enableSqlLogging", true);
-        defaultTaskData.put("bizRef", "default-biz-ref");
 
         ObjectNode taskData = OBJECT_MAPPER.createObjectNode();
-        taskData.put("bizRef", "bizref:v1:system=DATAFUSION:bizType=SPARK_SQL:bizKey=spark-sql-test");
         taskData.putObject("job").put("id", "spark-sql-test");
         taskData.putArray("statements").addObject().put("sql", "select 1");
         ObjectNode taskKubernetes = taskData.putObject("kubernetes");
@@ -63,7 +61,6 @@ class SparkParamResolverTest {
         assertEquals("/opt/spark/work-dir/datafusion-jars", param.getKubernetes().getJarMountPath());
         assertFalse(param.getKubernetes().isCollectLogsOnFinish());
         assertFalse(param.getEffectiveTaskData().has("kubernetes"));
-        assertFalse(param.getEffectiveTaskData().has("bizRef"));
         assertEquals("spark-sql-test", param.getEffectiveTaskData().path("job").path("id").asText());
         assertEquals("select 1", param.getEffectiveTaskData().path("statements").get(0).path("sql").asText());
         assertTrue(param.getEffectiveTaskData().path("enableSqlLogging").asBoolean());

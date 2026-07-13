@@ -109,7 +109,7 @@ class DataxParamResolverTest {
     void shouldMergeStandardJobContentAndIgnoreRegisterMetadata() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
         pluginParam.put("runMode", "LOCAL");
-        ObjectNode defaultTaskData = OBJECT_MAPPER.createObjectNode();
+        final ObjectNode defaultTaskData = OBJECT_MAPPER.createObjectNode();
         ObjectNode defaultJob = OBJECT_MAPPER.createObjectNode();
         ObjectNode setting = OBJECT_MAPPER.createObjectNode();
         ObjectNode speed = OBJECT_MAPPER.createObjectNode();
@@ -118,8 +118,7 @@ class DataxParamResolverTest {
         defaultJob.set("setting", setting);
         defaultTaskData.set("job", defaultJob);
         pluginParam.set("defaultTaskData", defaultTaskData);
-        ObjectNode taskData = OBJECT_MAPPER.createObjectNode();
-        taskData.put("bizRef", "bizref:v1:system=DATAFUSION_PLUGIN_DATAX:bizType=DATAX_K8S_JOB:bizKey=task-1");
+        final ObjectNode taskData = OBJECT_MAPPER.createObjectNode();
         ObjectNode contentItem = OBJECT_MAPPER.createObjectNode();
         contentItem.set("reader", OBJECT_MAPPER.createObjectNode().put("name", "mysqlreader"));
         contentItem.set("writer", OBJECT_MAPPER.createObjectNode().put("name", "paimonwriter"));
@@ -130,7 +129,6 @@ class DataxParamResolverTest {
 
         DataxExecutionParam param = resolver.resolve(request(pluginParam, taskData));
 
-        assertFalse(param.getEffectiveTaskData().has("bizRef"));
         assertEquals(1, param.getEffectiveTaskData().path("job").path("setting").path("speed")
                 .path("channel").asInt());
         assertEquals("mysqlreader", param.getEffectiveTaskData().path("job").path("content").get(0)

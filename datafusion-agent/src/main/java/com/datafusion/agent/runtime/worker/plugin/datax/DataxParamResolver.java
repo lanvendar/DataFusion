@@ -154,7 +154,7 @@ public class DataxParamResolver {
         JsonNode pluginParam = request.getPluginParam();
         DataxRunMode runMode = DataxRunMode.parse(text(pluginParam, FIELD_RUN_MODE));
         String date = LocalDate.now().format(DATE_FORMATTER);
-        Path runtimeDir = taskRuntimeDir(date, request);
+        final Path runtimeDir = taskRuntimeDir(date, request);
         JsonNode effectiveTaskData = effectiveTaskData(pluginParam, taskData);
         String dataxHome = text(pluginParam, "dataxHome");
         String dataxJar = text(pluginParam, "dataxJar");
@@ -358,7 +358,7 @@ public class DataxParamResolver {
         }
         ObjectNode override = taskData.deepCopy();
         override.remove(List.of("jobJson", "jobName", "jobPath", "jobFileName", "env", "jvmOptions", "dataxArgs",
-                "kubernetes", "pluginLogUri", "bizRef", "data", "options"));
+                "kubernetes", "pluginLogUri", "data", "options"));
         return override;
     }
 

@@ -38,9 +38,10 @@ CREATE TABLE scheduler_task_info (
     update_time timestamp(6) NOT NULL,
     CONSTRAINT task_info_pkey PRIMARY KEY (id)
 );
+
 ```
 
-当前 DDL 未对 `task_code` 建唯一索引，唯一性由 Service 层校验。
+`task_code` 和 `source_route` 业务身份暂由 Service 校验；数据库暂不增加唯一索引。
 
 ### 1.3 字段分层
 
@@ -72,7 +73,7 @@ CREATE TABLE scheduler_task_info (
 | `event_id` | `eventId` | `UUID` | 否 | 无 | 本任务产生的事件 ID，属于调度编排属性 |
 | `enabled` | `enabled` | `Boolean` | 是 | `true` | 是否启用调度，属于调度编排属性 |
 | `sync_flag` | `syncFlag` | `Boolean` | 是 | `false` | 任务同步标识，修改业务任务时置为 `false` |
-| `source_route` | `sourceRoute` | `String` | 否 | 无 | 原始业务跳转定位信息 |
+| `source_route` | `sourceRoute` | `String` | 否 | 无 | 原始业务定位路由 |
 | `creator` | `creator` | `String` | 是 | 当前用户 | 创建人，继承自 `BaseEntity` |
 | `updater` | `updater` | `String` | 是 | 当前用户 | 修改人，继承自 `BaseEntity` |
 | `create_time` | `createTime` | `Date` | 是 | 当前时间 | 创建时间，继承自 `BaseEntity` |
@@ -98,7 +99,7 @@ CREATE TABLE scheduler_task_info (
 | `eventId` | `event_id` | `UUID` | `@TableField("event_id")` | 事件 ID |
 | `enabled` | `enabled` | `Boolean` | `@TableField("enabled")` | 是否启用 |
 | `syncFlag` | `sync_flag` | `Boolean` | `@TableField("sync_flag")` | 同步标识 |
-| `sourceRoute` | `source_route` | `String` | `@TableField("source_route")` | 原始业务跳转定位信息 |
+| `sourceRoute` | `source_route` | `String` | `@TableField("source_route")` | 原始业务定位路由 |
 | `creator` | `creator` | `String` | 继承字段 | 创建人 |
 | `updater` | `updater` | `String` | 继承字段 | 修改人 |
 | `createTime` | `create_time` | `Date` | 继承字段 | 创建时间 |
@@ -157,6 +158,7 @@ CREATE TABLE scheduler_task_info (
 | `TaskInfoDto` | `Response` | 查询响应 | `eventId` | `UUID` | 无 | 事件 ID |
 | `TaskInfoDto` | `Response` | 查询响应 | `enabled` | `Boolean` | 无 | 是否启用 |
 | `TaskInfoDto` | `Response` | 查询响应 | `syncFlag` | `Boolean` | 无 | 同步标识 |
+| `TaskInfoDto` | `Response` | 查询响应 | `sourceRoute` | `BusinessSourceRoute` | 协议串解码 | 业务来源定位信息 |
 | `TaskInfoDto` | `Response` | 查询响应 | `creator` | `String` | 无 | 创建人 |
 | `TaskInfoDto` | `Response` | 查询响应 | `updater` | `String` | 无 | 修改人 |
 | `TaskInfoDto` | `Response` | 查询响应 | `createTime` | `Date` | 无 | 创建时间 |
@@ -179,9 +181,9 @@ CREATE TABLE scheduler_task_info (
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
 | `TaskInfoSaveDto` -> `TaskInfoEntity` | 复制任务定义属性 | `id` 使用 `UUID.nameUUIDFromBytes(taskCode)`；`taskParam/definition` JSON 字符串转 `JsonNode`；`pluginId` 由后端按 `taskType` 解析默认值；默认 `isBound=false/enabled=true/syncFlag=false` |
-| `TaskInfoCopyDto` + source `TaskInfoEntity` -> new `TaskInfoEntity` | 后端基于原任务生成新 `taskName/taskCode/id` | 复制任务定义属性 `description/taskTypeId/taskType/taskParam/definition`；`taskName/taskCode` 使用同一个毫秒级 15 位时间后缀生成，原值已以 `_` + 15 位数字结尾时替换该后缀，否则追加新后缀；去掉已有复制后缀后的原 `taskName/taskCode` 基础值超过 235 时拒绝复制；`id` 使用新 `taskCode` 生成；复制系统属性中的 `syncFlag`；`sourceRoute` 写入原 `sourceRoute`、`copy_task_id` 和 `copy_task_name`；审计字段使用当前用户和当前时间；不复制调度编排属性 `isBound/flowId/pluginId/view/depEventIds/eventId/enabled` 的原值，新任务默认 `isBound=false/flowId=null/view=null/depEventIds=null/eventId=null/enabled=true`，`pluginId` 按新任务 `taskType` 解析默认执行插件 |
+| `TaskInfoCopyDto` + source `TaskInfoEntity` -> new `TaskInfoEntity` | 后端基于原任务生成新 `taskName/taskCode/id` | 复制任务执行定义，清空业务身份并设置 `syncFlag=false/sourceRoute=null`；重置流程编排属性，`pluginId` 按 `taskType` 重新解析 |
 | `TaskInfoUpdateDto` -> existing `TaskInfoEntity` | 合并任务定义属性和流程编排属性的非空字段 | 不更新 `isBound/flowId`；`clearEventId=true` 时清空 `eventId`，否则 `eventId` 非空时更新；更新后置 `syncFlag=false`；`taskCode` 非空时重新校验唯一 |
-| `TaskInfoEntity` -> `TaskInfoDto` | 字段逐一复制 | `taskParam/definition/view` 从 `JsonNode` 转 JSON 字符串；任务定义页面只展示任务定义属性和必要系统审计字段 |
+| `TaskInfoEntity` -> `TaskInfoDto` | 字段逐一复制 | `taskParam/definition/view` 转 JSON 字符串；`sourceRoute` 解码为 `BusinessSourceRoute` |
 | `TaskInfoQueryDto` -> `LambdaQueryWrapper` | `taskName/taskCode` 使用 `ILIKE`，`taskType/flowId/enabled/isBound/syncFlag` 精确匹配 | 默认 `createTime desc` |
 | `TaskInfoEntity` -> scheduler `TaskInfo` | `TaskStorageImpl` 转换为调度框架模型 | `taskParam` 转 `ParamData.vars`；`definition` 透传为 `JsonNode`；`depEventIds` 按逗号转集合；`enabled` 转 `isAble` |
 | `TaskInstanceEntity` -> scheduler `TaskInstance` | `TaskStorageImpl` 转换任务实例模型 | `task_param` 转运行期 `ParamData.vars`；`task_data` 转渲染后的任务定义 |
@@ -191,12 +193,12 @@ CREATE TABLE scheduler_task_info (
 | 字段 | 存储类型 | Java 类型 | 转换规则 | 说明 |
 |------|----------|-----------|----------|------|
 | `taskParam` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 任务变量参数，遵循 `ParamData.vars` |
-| `definition` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 任务定义 |
+| `definition` | `json` | `JsonNode` | API 使用 JSON 字符串，Entity 使用 `JsonNode` | 纯插件执行定义，禁止顶层 `bizRef/sourceRoute` |
 | `view` | `json` | `JsonNode` | 流程编排阶段维护，任务定义页面不提交 | 前端画布视图 |
 | `depEventIds` | `varchar` | `String` | 流程编排阶段维护，当前按逗号分隔字符串保存 | `TaskStorageImpl` 转调度模型时解析为集合 |
 | `taskCode` | `varchar(255)` | `String` | Service 层唯一性校验；任务定义 API 最大 235 | 当前无数据库唯一索引；预留 20 位给复制后缀 |
-| `syncFlag` | `bool` | `Boolean` | 新增和修改任务时置 `false`；复制任务时照搬原任务值 | 表示业务任务是否已同步到调度配置 |
-| `sourceRoute` | `text` | `String` | 当前 Controller DTO 未暴露；复制任务时写入来源追踪 JSON 字符串 | 复制任务时格式为 `{"sourceRoute":"<sourceRoute>","copy_task_id":"<sourceId>","copy_task_name":"<sourceTaskName>"}`；`sourceRoute` 字段保留原业务页面路由 |
+| `syncFlag` | `bool` | `Boolean` | 新增、修改和复制任务时置 `false`；统一登记成功后置 `true` | 表示业务任务是否已同步到调度配置 |
+| `sourceRoute` | `text` | `String` | Entity 存协议串，响应 DTO 返回结构化对象 | 业务来源身份只由 `bizSystem + bizKey` 决定 |
 
 ## 7. 复用对象
 

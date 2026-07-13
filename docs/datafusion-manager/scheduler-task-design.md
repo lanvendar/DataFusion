@@ -47,8 +47,7 @@ API 前缀：`/api/scheduler/task`
 - 复制任务只复制任务定义属性和系统属性，不复制调度编排属性。
 - 副本 `taskName/taskCode` 使用同一个毫秒级 15 位时间后缀生成，后缀格式为 `yyMMddHHmmssSSS`；原值已以 `_` + 15 位数字结尾时替换该后缀，否则追加新后缀。
 - 原任务 `taskName/taskCode` 去掉已有复制后缀后的基础值超过 235 个字符时拒绝复制，避免生成值超过表字段长度。
-- 副本 `id` 基于新 `taskCode` 重新生成；`syncFlag` 照搬原任务；审计字段使用当前用户和当前时间。
-- 副本 `sourceRoute` 存储为 JSON 字符串，格式为 `{"sourceRoute":"<sourceRoute>","copy_task_id":"<sourceId>","copy_task_name":"<sourceTaskName>"}`。
+- 副本 `id` 基于新 `taskCode` 重新生成；`syncFlag=false`、`sourceRoute=null`，审计字段使用当前用户和当前时间。
 - 副本固定为未绑定状态：`isBound=false`、`flowId=null`、`view=null`、`depEventIds=null`、`eventId=null`、`enabled=true`；`pluginId` 按 `taskType` 解析默认执行插件。
 - 已绑定流程的任务允许复制，但副本保持未绑定，后续由流程编排页重新拖入流程。
 - 修改任务先查询旧实体，再合并非空字段；`taskName/taskCode` 不超过 235 个字符；任务定义页面不应提交调度编排字段。
@@ -76,7 +75,7 @@ Service 处理步骤：
 3. 校验去掉已有复制后缀后的 `taskName/taskCode` 基础值不超过 235 个字符，超出时报“任务名称过长, 无法复制”或“任务编码过长, 无法复制”；生成后校验 `taskCode` 唯一。
 4. 构造新 `TaskInfoEntity`：新 `id` 由新 `taskCode` 生成；`taskName/taskCode` 使用第 2 步生成值。
 5. 复制任务定义属性：`description/taskTypeId/taskType/taskParam/definition`。
-6. 复制系统属性中的 `syncFlag`；`sourceRoute` 写入来源追踪 JSON：`{"sourceRoute":"<sourceRoute>","copy_task_id":"<sourceId>","copy_task_name":"<sourceTaskName>"}`。其中 `sourceRoute` 保留原任务的业务页面路由，`copy_task_id/copy_task_name` 记录被复制任务。
+6. 清空业务来源身份：`syncFlag=false`、`sourceRoute=null`，避免副本占用原任务的业务身份。
 7. 审计字段写入当前用户和当前时间。
 8. 重置编排字段：`isBound=false`、`flowId=null`、`view=null`、`depEventIds=null`、`eventId=null`、`enabled=true`；`pluginId` 按新任务 `taskType` 解析默认执行插件。
 9. 保存后返回新任务 ID。

@@ -1,10 +1,10 @@
 package com.datafusion.manager.scheduler.controller;
 
 import com.datafusion.common.spring.dto.response.Result;
-import com.datafusion.manager.scheduler.dto.TaskDefinitionMarkUnsyncedDto;
 import com.datafusion.manager.scheduler.dto.TaskDefinitionMarkUnsyncedResultDto;
 import com.datafusion.manager.scheduler.dto.TaskDefinitionRegisterDto;
 import com.datafusion.manager.scheduler.dto.TaskDefinitionRegisterResultDto;
+import com.datafusion.manager.scheduler.model.BusinessSourceRoute;
 import com.datafusion.manager.scheduler.service.TaskDefinitionRegisterService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -48,13 +48,13 @@ public class TaskDefinitionRegisterController {
     /**
      * 标记任务定义未同步.
      *
-     * @param dto 标记参数
+     * @param sourceRoute 业务来源定位信息
      * @return 标记结果
      */
     @PostMapping("/mark-unsynced")
     @Operation(summary = "标记任务定义未同步")
     public Result<TaskDefinitionMarkUnsyncedResultDto> markUnsynced(
-            @RequestBody @Validated TaskDefinitionMarkUnsyncedDto dto) {
-        return Result.success(taskDefinitionRegisterService.markUnsynced(dto));
+            @RequestBody @Validated BusinessSourceRoute sourceRoute) {
+        return Result.success(taskDefinitionRegisterService.markUnsynced(sourceRoute));
     }
 }

@@ -1,9 +1,9 @@
 package com.datafusion.manager.scheduler.service;
 
-import com.datafusion.manager.scheduler.dto.TaskDefinitionMarkUnsyncedDto;
 import com.datafusion.manager.scheduler.dto.TaskDefinitionMarkUnsyncedResultDto;
 import com.datafusion.manager.scheduler.dto.TaskDefinitionRegisterDto;
 import com.datafusion.manager.scheduler.dto.TaskDefinitionRegisterResultDto;
+import com.datafusion.manager.scheduler.model.BusinessSourceRoute;
 
 /**
  * 任务定义统一登记Service.
@@ -25,8 +25,8 @@ public interface TaskDefinitionRegisterService {
     /**
      * 标记任务定义未同步.
      *
-     * @param dto 标记参数
+     * @param sourceRoute 业务来源定位信息
      * @return 标记结果
      */
-    TaskDefinitionMarkUnsyncedResultDto markUnsynced(TaskDefinitionMarkUnsyncedDto dto);
+    TaskDefinitionMarkUnsyncedResultDto markUnsynced(BusinessSourceRoute sourceRoute);
 }

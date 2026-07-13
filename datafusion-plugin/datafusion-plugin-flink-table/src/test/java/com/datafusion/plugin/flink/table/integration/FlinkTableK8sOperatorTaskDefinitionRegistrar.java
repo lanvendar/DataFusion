@@ -62,11 +62,6 @@ public final class FlinkTableK8sOperatorTaskDefinitionRegistrar {
     private static final String TASK_CODE_PREFIX = "FLINK_K8S_OPERATOR_";
 
     /**
-     * Flink K8S_OPERATOR 业务类型。
-     */
-    private static final String BIZ_TYPE = "FLINK_K8S_OPERATOR_JOB";
-
-    /**
      * Flink 插件业务系统。
      */
     private static final String BIZ_SYSTEM = "DATAFUSION_PLUGIN_FLINK";
@@ -242,8 +237,7 @@ public final class FlinkTableK8sOperatorTaskDefinitionRegistrar {
         require(body.path("data").path("taskId").asText(null) != null, "接口返回缺少任务 ID：" + response.body());
 
         LOGGER.info(() -> "Kafka JSON Flink K8S_OPERATOR 任务定义注册成功，taskCode=" + taskCode()
-                + ", taskId=" + body.path("data").path("taskId").asText()
-                + ", sourceRoute=classpath:" + jobResource);
+                + ", taskId=" + body.path("data").path("taskId").asText());
     }
 
     /**
@@ -255,7 +249,6 @@ public final class FlinkTableK8sOperatorTaskDefinitionRegistrar {
         require(taskCode().equals(payload.path("taskCode").asText()), "注册请求中的任务编码不符合预期。");
         require(taskType.equals(payload.path("taskType").asText()), "注册请求中的任务类型不符合预期。");
         require(taskTypeId.equals(payload.path("taskTypeId").asText()), "注册请求中的任务类型 ID 不符合预期。");
-        require(bizRef().equals(payload.path("definition").path("bizRef").asText()), "注册请求中的业务引用不符合预期。");
         require(!payload.path("definition").path("job").path("id").asText().isBlank(), "Flink job.id 不能为空。");
         require(!payload.path("definition").path("source").isMissingNode(), "Flink source 配置不能为空。");
         require(!payload.path("definition").path("sink").isMissingNode(), "Flink sink 配置不能为空。");
@@ -275,7 +268,10 @@ public final class FlinkTableK8sOperatorTaskDefinitionRegistrar {
         payload.put("taskType", taskType);
         payload.set("taskParam", OBJECT_MAPPER.createObjectNode());
         payload.set("definition", taskDefinition());
-        payload.put("sourceRoute", "classpath:" + jobResource);
+        ObjectNode sourceRoute = payload.putObject("sourceRoute");
+        sourceRoute.put("bizSystem", BIZ_SYSTEM);
+        sourceRoute.put("bizKey", jobId());
+        sourceRoute.put("bizVersion", jobJson.path("job").path("version").asText("1.0.0"));
         return payload;
     }
 
@@ -285,9 +281,7 @@ public final class FlinkTableK8sOperatorTaskDefinitionRegistrar {
      * @return 任务定义
      */
     private ObjectNode taskDefinition() {
-        ObjectNode definition = (ObjectNode) jobJson.deepCopy();
-        definition.put("bizRef", bizRef());
-        return definition;
+        return (ObjectNode) jobJson.deepCopy();
     }
 
     /**
@@ -337,15 +331,6 @@ public final class FlinkTableK8sOperatorTaskDefinitionRegistrar {
             return jobId;
         }
         return jobKey(jobResource);
-    }
-
-    /**
-     * 构造业务引用。
-     *
-     * @return 业务引用
-     */
-    private String bizRef() {
-        return "bizref:v1:system=" + BIZ_SYSTEM + ":bizType=" + BIZ_TYPE + ":bizKey=" + jobId();
     }
 
     /**

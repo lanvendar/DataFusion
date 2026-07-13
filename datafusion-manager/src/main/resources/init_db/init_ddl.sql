@@ -622,7 +622,7 @@ dep_event_ids varchar NULL, -- 依赖事件ID
 event_id uuid NULL, -- 事件ID
 enabled bool DEFAULT true NOT NULL, -- 是否启用
 sync_flag bool DEFAULT false NOT NULL, -- 任务同步标识:修改业务任务时更新false,提交时置为true
-source_route text NULL, -- 原始业务跳转定位信息
+source_route text NULL, -- 原始业务定位路由
 creator varchar(100) NOT NULL, -- 创建人
 updater varchar(100) NOT NULL, -- 修改人
 create_time timestamp(6) NOT NULL, -- 创建时间
@@ -648,7 +648,7 @@ COMMENT ON COLUMN scheduler_task_info.dep_event_ids IS '依赖事件ID';
 COMMENT ON COLUMN scheduler_task_info.event_id IS '事件ID';
 COMMENT ON COLUMN scheduler_task_info.enabled IS '是否启用';
 COMMENT ON COLUMN scheduler_task_info.sync_flag IS '任务同步标识:修改业务任务时更新false,提交时置为true';
-COMMENT ON COLUMN scheduler_task_info.source_route IS '原始业务跳转定位信息';
+COMMENT ON COLUMN scheduler_task_info.source_route IS '原始业务定位路由';
 COMMENT ON COLUMN scheduler_task_info.creator IS '创建人';
 COMMENT ON COLUMN scheduler_task_info.updater IS '修改人';
 COMMENT ON COLUMN scheduler_task_info.create_time IS '创建时间';

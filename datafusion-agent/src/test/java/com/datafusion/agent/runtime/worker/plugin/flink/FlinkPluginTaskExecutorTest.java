@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -46,24 +45,10 @@ class FlinkPluginTaskExecutorTest {
     }
 
     @Test
-    void shouldExcludeBizRefFromEffectiveTaskData() {
-        FakeFlinkRunner runner = new FakeFlinkRunner();
-        FlinkPluginTaskExecutor executor = executor(new InMemoryWorkerTaskExecutionStore(), runner);
-        TaskRequest request = request();
-        ((ObjectNode) request.getPluginParam()).putObject("defaultTaskData").put("bizRef", "default-biz-ref");
-        ((ObjectNode) request.getTaskData()).put("bizRef", "task-biz-ref");
-
-        TaskResult result = executor.submitTask(request);
-
-        assertEquals(StatusEnum.SUBMIT_SUCCESS, result.getTaskState());
-        assertFalse(runner.lastSubmitTaskData.has("bizRef"));
-    }
-
-    @Test
     void shouldResolveRunModeFromSnapshotWhenPluginParamMissingRunMode() {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         FakeFlinkRunner runner = new FakeFlinkRunner();
-        FlinkPluginTaskExecutor executor = executor(stateStore, runner);
+        final FlinkPluginTaskExecutor executor = executor(stateStore, runner);
         TaskRequest sourceRequest = request();
         ObjectNode pluginParam = sourceRequest.getPluginParam().deepCopy();
         pluginParam.remove(FlinkParamResolver.FIELD_RUN_MODE);

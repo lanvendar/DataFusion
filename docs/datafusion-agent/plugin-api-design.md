@@ -9,8 +9,8 @@
 `API` 是 API 抽数任务执行插件入口，第一版只支持 `LOCAL` 运行模式。agent 侧不重新实现 API 抽数逻辑，
 只负责把调度参数转换成本地 `java` 命令，并复用 `SHELL + LOCAL` 的进程启动、日志、状态文件和控制能力。
 
-首版 `taskData` 直接承载 API job JSON；`bizRef` 和 `trigger` 属于调度属性，不进入插件配置。
-agent 提交前合并 `pluginParam.defaultTaskData` 与 `taskData`，过滤调度属性后写入任务运行目录的 `api-job.json`，
+首版 `taskData` 直接承载 API job JSON；业务来源定位由 Manager 管理，不进入 Agent 请求。
+agent 提交前合并 `pluginParam.defaultTaskData` 与 `taskData`，写入任务运行目录的 `api-job.json`，
 再按内置模板 `plugins/api/templates/api-local-runtime.yml` 渲染本地命令：
 
 ```text

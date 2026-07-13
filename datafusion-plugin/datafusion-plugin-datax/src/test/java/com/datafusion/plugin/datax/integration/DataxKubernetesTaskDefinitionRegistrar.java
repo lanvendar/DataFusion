@@ -22,6 +22,7 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.logging.Logger;
 
 /**
@@ -60,11 +61,6 @@ public final class DataxKubernetesTaskDefinitionRegistrar {
      * DataX K8S 任务编码前缀。
      */
     private static final String TASK_CODE_PREFIX = "DATAX_K8S_";
-
-    /**
-     * DataX K8S 业务类型。
-     */
-    private static final String BIZ_TYPE = "DATAX_K8S_JOB";
 
     /**
      * DataX 插件业务系统。
@@ -304,8 +300,7 @@ public final class DataxKubernetesTaskDefinitionRegistrar {
         require(body.path("data").path("taskId").asText(null) != null, "接口返回缺少任务 ID：" + response.body());
 
         LOGGER.info(() -> "DataX K8S 任务定义注册成功，taskCode=" + taskCode()
-                + ", taskId=" + body.path("data").path("taskId").asText()
-                + ", sourceRoute=classpath:" + jobResource);
+                + ", taskId=" + body.path("data").path("taskId").asText());
     }
 
     /**
@@ -317,7 +312,6 @@ public final class DataxKubernetesTaskDefinitionRegistrar {
         require(taskCode().equals(payload.path("taskCode").asText()), "注册请求中的任务编码不符合预期。");
         require(taskType.equals(payload.path("taskType").asText()), "注册请求中的任务类型不符合预期。");
         require(taskTypeId.equals(payload.path("taskTypeId").asText()), "注册请求中的任务类型 ID 不符合预期。");
-        require(bizRef().equals(payload.path("definition").path("bizRef").asText()), "注册请求中的业务引用不符合预期。");
         JsonNode firstContent = payload.path("definition").path("job").path("content").get(0);
         require(firstContent != null, "DataX 任务内容不能为空。");
         require(!firstContent.path("reader").isMissingNode(), "DataX reader 配置不能为空。");
@@ -338,8 +332,13 @@ public final class DataxKubernetesTaskDefinitionRegistrar {
         payload.put("taskTypeId", taskTypeId);
         payload.put("taskType", taskType);
         payload.set("taskParam", OBJECT_MAPPER.createObjectNode());
-        payload.set("definition", taskDefinition());
-        payload.put("sourceRoute", "classpath:" + jobResource);
+        ObjectNode definition = taskDefinition();
+        payload.set("definition", definition);
+        ObjectNode sourceRoute = payload.putObject("sourceRoute");
+        sourceRoute.put("bizSystem", BIZ_SYSTEM);
+        sourceRoute.put("bizKey", jobKey);
+        sourceRoute.put("bizVersion", UUID.nameUUIDFromBytes(
+                definition.toString().getBytes(StandardCharsets.UTF_8)).toString());
         return payload;
     }
 
@@ -353,7 +352,6 @@ public final class DataxKubernetesTaskDefinitionRegistrar {
         ObjectNode definition = (ObjectNode) readJobJson().deepCopy();
         JsonNode content = definition.path("job").path("content");
         require(!content.isEmpty(), "DataX 任务内容不能为空。");
-        definition.put("bizRef", bizRef());
         return definition;
     }
 
@@ -409,15 +407,6 @@ public final class DataxKubernetesTaskDefinitionRegistrar {
             return SHYS_DATA_INTEGRATION_NAME;
         }
         return "";
-    }
-
-    /**
-     * 构造业务引用。
-     *
-     * @return 业务引用
-     */
-    private String bizRef() {
-        return "bizref:v1:system=" + BIZ_SYSTEM + ":bizType=" + BIZ_TYPE + ":bizKey=" + jobKey;
     }
 
     /**

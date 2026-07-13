@@ -39,6 +39,15 @@ public interface TaskInfoService extends IService<TaskInfoEntity> {
     List<TaskInfoEntity> listByFlowId(UUID flowId);
 
     /**
+     * 根据业务来源身份查询任务.
+     *
+     * @param encodedBizSystem 编码后的来源业务系统
+     * @param encodedBizKey    编码后的来源业务主键
+     * @return 任务信息
+     */
+    TaskInfoEntity getBySourceIdentity(String encodedBizSystem, String encodedBizKey);
+
+    /**
      * 分页查询任务.
      *
      * @param query 分页查询参数

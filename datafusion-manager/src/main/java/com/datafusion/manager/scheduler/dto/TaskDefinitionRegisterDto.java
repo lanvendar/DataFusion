@@ -1,9 +1,11 @@
 package com.datafusion.manager.scheduler.dto;
 
+import com.datafusion.manager.scheduler.model.BusinessSourceRoute;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 
@@ -65,8 +67,10 @@ public class TaskDefinitionRegisterDto {
     private JsonNode definition;
 
     /**
-     * 原业务页面路由.
+     * 业务来源定位信息.
      */
-    @Schema(name = "sourceRoute", description = "原业务页面路由")
-    private String sourceRoute;
+    @Valid
+    @NotNull(message = "业务来源定位信息不能为空")
+    @Schema(name = "sourceRoute", description = "业务来源定位信息")
+    private BusinessSourceRoute sourceRoute;
 }

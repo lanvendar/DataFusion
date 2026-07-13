@@ -16,6 +16,7 @@ import com.datafusion.manager.scheduler.dto.TaskInfoDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoQueryDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoSaveDto;
 import com.datafusion.manager.scheduler.dto.TaskInfoUpdateDto;
+import com.datafusion.manager.scheduler.model.BusinessSourceRoute;
 import com.datafusion.manager.scheduler.po.FlowInfoEntity;
 import com.datafusion.manager.scheduler.po.TaskInfoEntity;
 import com.datafusion.manager.scheduler.service.FlowInfoService;
@@ -32,9 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -99,6 +98,11 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
     @Override
     public List<TaskInfoEntity> listByFlowId(UUID flowId) {
         return baseMapper.listByFlowId(flowId);
+    }
+
+    @Override
+    public TaskInfoEntity getBySourceIdentity(String encodedBizSystem, String encodedBizKey) {
+        return baseMapper.getBySourceIdentity(encodedBizSystem, encodedBizKey);
     }
 
     @Override
@@ -194,8 +198,8 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
         entity.setDepEventIds(null);
         entity.setEventId(null);
         entity.setEnabled(true);
-        entity.setSyncFlag(source.getSyncFlag());
-        entity.setSourceRoute(buildCopySourceRoute(source));
+        entity.setSyncFlag(false);
+        entity.setSourceRoute(null);
 
         Date now = new Date();
         entity.setCreator(HttpUtils.getCurrentUserName());
@@ -329,20 +333,6 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
     }
 
     /**
-     * 构建复制来源路由.
-     *
-     * @param source 原任务
-     * @return 来源路由JSON字符串
-     */
-    private String buildCopySourceRoute(TaskInfoEntity source) {
-        Map<String, Object> sourceRoute = new LinkedHashMap<>();
-        sourceRoute.put("sourceRoute", source.getSourceRoute());
-        sourceRoute.put("copy_task_id", source.getId());
-        sourceRoute.put("copy_task_name", source.getTaskName());
-        return JacksonUtils.tryObj2Str(sourceRoute);
-    }
-
-    /**
      * 构建查询条件.
      *
      * @param query 查询参数
@@ -446,6 +436,7 @@ public class TaskInfoServiceImpl extends ServiceImpl<TaskInfoMapper, TaskInfoEnt
         dto.setEventId(entity.getEventId());
         dto.setEnabled(entity.getEnabled());
         dto.setSyncFlag(entity.getSyncFlag());
+        dto.setSourceRoute(BusinessSourceRoute.parse(entity.getSourceRoute()));
         dto.setCreator(entity.getCreator());
         dto.setUpdater(entity.getUpdater());
         dto.setCreateTime(entity.getCreateTime());

@@ -264,7 +264,6 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
         if (taskData != null && taskData.isObject()) {
             deepMerge(result, taskData);
         }
-        result.remove(List.of("trigger", "bizRef"));
         validateJob(result);
         return result;
     }

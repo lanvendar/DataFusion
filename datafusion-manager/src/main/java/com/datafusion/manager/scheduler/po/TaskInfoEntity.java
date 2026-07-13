@@ -110,7 +110,7 @@ public class TaskInfoEntity extends BaseIdEntity {
     private Boolean syncFlag;
 
     /**
-     * 原始业务跳转定位信息.
+     * 原始业务定位路由.
      */
     @TableField("source_route")
     private String sourceRoute;

@@ -56,11 +56,6 @@ public final class SparkSqlK8sOperatorTaskDefinitionRegistrar {
     private static final String TASK_CODE_PREFIX = "SPARK_K8S_OPERATOR_";
 
     /**
-     * Spark K8S_OPERATOR 业务类型.
-     */
-    private static final String BIZ_TYPE = "SPARK_K8S_OPERATOR_JOB";
-
-    /**
      * Spark 插件业务系统.
      */
     private static final String BIZ_SYSTEM = "DATAFUSION_PLUGIN_SPARK";
@@ -221,8 +216,7 @@ public final class SparkSqlK8sOperatorTaskDefinitionRegistrar {
         require(body.path("data").path("taskId").asText(null) != null, "接口返回缺少任务 ID：" + response.body());
 
         LOGGER.info(() -> "Spark K8S_OPERATOR 任务定义注册成功，taskCode=" + taskCode()
-                + ", taskId=" + body.path("data").path("taskId").asText()
-                + ", sourceRoute=classpath:" + jobResource);
+                + ", taskId=" + body.path("data").path("taskId").asText());
     }
 
     private void validatePayload(JsonNode payload) {
@@ -230,7 +224,6 @@ public final class SparkSqlK8sOperatorTaskDefinitionRegistrar {
         require(taskCode().equals(payload.path("taskCode").asText()), "注册请求中的任务编码不符合预期。");
         require(taskType.equals(payload.path("taskType").asText()), "注册请求中的任务类型不符合预期。");
         require(taskTypeId.equals(payload.path("taskTypeId").asText()), "注册请求中的任务类型 ID 不符合预期。");
-        require(bizRef().equals(definition.path("bizRef").asText()), "注册请求中的业务引用不符合预期。");
         require(!definition.path("job").path("id").asText().isBlank(), "Spark job.id 不能为空。");
         require("PAIMON".equalsIgnoreCase(definition.path("sqlTargetType").asText()),
                 "Spark sqlTargetType 仅支持 PAIMON。");
@@ -254,14 +247,15 @@ public final class SparkSqlK8sOperatorTaskDefinitionRegistrar {
         payload.put("taskType", taskType);
         payload.set("taskParam", OBJECT_MAPPER.createObjectNode());
         payload.set("definition", taskDefinition());
-        payload.put("sourceRoute", "classpath:" + jobResource);
+        ObjectNode sourceRoute = payload.putObject("sourceRoute");
+        sourceRoute.put("bizSystem", BIZ_SYSTEM);
+        sourceRoute.put("bizKey", jobId());
+        sourceRoute.put("bizVersion", jobJson.path("job").path("version").asText("1.0.0"));
         return payload;
     }
 
     private ObjectNode taskDefinition() {
-        ObjectNode definition = (ObjectNode) jobJson.deepCopy();
-        definition.put("bizRef", bizRef());
-        return definition;
+        return (ObjectNode) jobJson.deepCopy();
     }
 
     private JsonNode readJobJson() throws IOException {
@@ -284,10 +278,6 @@ public final class SparkSqlK8sOperatorTaskDefinitionRegistrar {
     private String jobId() {
         String jobId = jobJson.path("job").path("id").asText("");
         return jobId.isBlank() ? jobKey(jobResource) : jobId;
-    }
-
-    private String bizRef() {
-        return "bizref:v1:system=" + BIZ_SYSTEM + ":bizType=" + BIZ_TYPE + ":bizKey=" + jobId();
     }
 
     private URI apiUrl() {
