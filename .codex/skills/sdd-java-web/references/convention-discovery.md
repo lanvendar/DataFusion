@@ -12,6 +12,7 @@
 - [6. Work Mode](#6-work-mode)
 - [7. Project Conventions Boundary](#7-project-conventions-boundary)
 - [8. Module Document Boundary](#8-module-document-boundary)
+- [9. Lifecycle Convention Resolution](#9-lifecycle-convention-resolution)
 
 ## 1. Recommended Structure
 
@@ -102,7 +103,7 @@ Discovery rule:
 When the user asks to initialize `sdd-java-web` conventions:
 
 1. Read `AGENTS.md`, `README.md`, build files, package manifests, and existing `docs/`.
-2. Detect tech stack, module layout, API wrappers, pagination models, persistence patterns, frontend routing, build commands, and style rules.
+2. Detect tech stack, module layout, API wrappers, pagination models, persistence patterns, data-structure ownership and lifecycle patterns, frontend routing, build commands, and style rules.
 3. Create `docs/.sdd/project-index.yml`.
 4. Create `docs/.sdd/project-conventions.md`.
 5. Do not write project-specific rules back into the skill.
@@ -160,6 +161,7 @@ When the user asks to design, implement, or review a feature:
 - Module map and directory conventions.
 - API response, pagination, error, authentication, and tenant-context conventions.
 - Database, ORM, migration, and DDL conventions.
+- Data-structure ownership and lifecycle conventions across API, Controller, Service, persistence, frontend, and integration boundaries, including standard conversion points, mutation authority, and retention or invalidation rules.
 - Frontend route, menu, API client, state management, and component conventions.
 - Build, test, format, and lint commands.
 - Known runtime dependencies and environment risks.
@@ -171,3 +173,18 @@ Do not put single-feature fields, API contracts, state machines, or page behavio
 Do not generate module design documents by default. Prefer expressing module responsibilities, source roots, feature-doc roots, and verification commands through `project-index.yml` and `project-conventions.md`.
 
 If a module needs a long-lived design document, put it in the real docs tree, such as `docs/{module}/{module}-design.md`, not under `docs/.sdd/`.
+
+## 9. Lifecycle Convention Resolution
+
+Resolve ownership and lifecycle boundaries in this order:
+
+1. Use explicit feature decisions, existing feature design, and project conventions when they already define the boundary.
+2. Inspect neighboring code with the same responsibility. Prefer the dominant consistent pattern over an isolated example.
+3. When the code pattern is consistent and has no concrete design risk, follow it and record the supporting convention, path, or class in the lifecycle map. Do not ask the designer to repeat an established decision.
+4. When code contains multiple patterns, list each relevant pattern and its evidence, explain the behavioral impact, and ask the designer which boundary to use.
+5. When a consistent pattern has a concrete risk, describe the current pattern, the risk, and viable options before asking the designer. Do not rewrite the pattern without approval.
+6. When there is insufficient evidence, ask a precise boundary question rather than making a silent assumption.
+
+Concrete risks include layer leakage, unintended serialization of persistence or external models, unclear mutation ownership, retention without invalidation, request or transaction data escaping its scope, frontend state outliving its page or component, and security or privacy exposure. Personal stylistic preference is not a design risk.
+
+Unresolved lifecycle questions may remain in a clearly marked draft, but they block finalized design and implementation.

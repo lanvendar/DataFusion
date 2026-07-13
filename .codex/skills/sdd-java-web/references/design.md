@@ -1,8 +1,10 @@
 # {feature} Design
 
-> Data structures are defined in [{feature}-data-define.md](./{feature}-data-define.md). Do not repeat full field definitions here; describe how data flows, changes, validates, persists, displays, and gets operated on.
+> Data structures, owners, and lifecycle boundaries are defined in [{feature}-data-define.md](./{feature}-data-define.md). Do not repeat full definitions here; describe how data flows, crosses declared boundaries, changes, validates, persists, displays, and gets operated on.
 
 > Simple Mode: keep only sections involved in the change. Full Mode: expand this document when the feature crosses database, Java backend, frontend, and external integrations.
+
+> Do not finalize this design or begin implementation while the data definition contains unresolved lifecycle clarifications.
 
 ## Contents
 
@@ -28,10 +30,10 @@
 
 ## 2. Data Flow
 
-| Scenario | Source | Through | Target | Data structure | Notes |
-|----------|--------|---------|--------|----------------|-------|
+| Scenario | Source | Through | Target | Structure transitions | Boundary / lifecycle check | Notes |
+|----------|--------|---------|--------|-----------------------|----------------------------|-------|
 
-> Describe how data moves across page, API client, Controller, Service, Mapper/DAO, database, and external systems.
+> Describe how data moves across page, API client, Controller, Service, Mapper/DAO, database, and external systems. Show every reuse or conversion at a layer boundary, for example `OrderForm -> CreateOrderRequest -> CreateOrderCommand -> OrderPO`. Reference the lifecycle map rather than redefining it. If a flow exceeds a declared valid scope, return to the data definition and resolve the boundary before finalizing the design.
 
 ## 3. API Contract
 
