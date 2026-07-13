@@ -8,10 +8,14 @@ import com.datafusion.scheduler.model.TaskRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
+import org.yaml.snakeyaml.Yaml;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -39,6 +43,9 @@ class SparkKubernetesTemplateRendererTest {
         String yaml = renderer.render(param, OBJECT_MAPPER.writerWithDefaultPrettyPrinter()
                 .writeValueAsString(param.getEffectiveTaskData()));
 
+        List<Object> documents = new ArrayList<>();
+        new Yaml().loadAll(yaml).forEach(documents::add);
+        assertEquals(2, documents.size());
         assertTrue(yaml.contains("kind: SparkApplication"));
         assertTrue(yaml.contains("kind: ConfigMap"));
         assertTrue(yaml.contains("type: Never"));

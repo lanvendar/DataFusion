@@ -73,7 +73,7 @@ public class SparkKubernetesTemplateRenderer {
         values.put("arguments", listYaml(param.getArguments(), 4));
         values.put("sparkConf", mapYaml(param.getSparkConf(), 4));
         values.put("hadoopConf", mapYaml(param.getHadoopConf(), 4));
-        values.put("nodeSelectorBlock", mapBlock("nodeSelector", kubernetes.getNodeSelector(), 6, 8));
+        values.put("nodeSelectorBlock", mapBlock("nodeSelector", kubernetes.getNodeSelector(), 4, 6));
         values.put("sharedPvcName", quote(kubernetes.getSharedPvcName()));
         values.put("sharedMountPath", quote(kubernetes.getSharedMountPath()));
         values.put("pluginAppDir", quote(kubernetes.getPluginAppDir()));
