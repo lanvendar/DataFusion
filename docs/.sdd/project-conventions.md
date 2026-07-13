@@ -37,9 +37,11 @@ DataFusion 是 Java/Maven 多模块数据集成平台，覆盖元数据管理、
 - 多模块功能设计: `docs/{module}/{feature}-design.md`。
 - 如果功能文档直接位于 `docs/` 根目录，按单模块模式处理，此时 `project-index.yml` 可以只维护根目录。
 - 如果存在 `docs/{module}/{feature}-*.md`，按多模块模式处理，必须通过 `project-index.yml` 索引功能文档根目录、源码根目录和验证命令。
+- `project-index.yml` 的 `modules` 以 Maven reactor 和实际源码目录为准；暂时没有独立功能文档的模块也要保留索引，`feature_docs_root` 写 `无`，避免把“无文档”误判为“模块不存在”。
 - `datafusion-plugin` 下没有 `datafusion-plugin` 前缀的业务定制模块插件，功能文档放在 `docs/datafusion-plugin/{plugin-module}/`，例如 `docs/datafusion-plugin/plugin-flink-schema-paimon/`。
 - 数据结构定义是 Database、Backend、Frontend 模型的唯一事实源。
 - 设计文档只说明数据流、行为、接口、事务、集成、验证和不实现范围，不重复完整字段表。
+- 外部运行时或资源引入型插件如果不定义数据库、Java 后端模型、前端模型或任务数据结构，可以只保留 `*-design.md`；设计文档必须明确资源所有权、创建来源、生命周期、任务数据关系和不持有持久化数据的边界。例如 `docs/datafusion-plugin/datafusion-plugin-spider/spider-plugin-design.md`。
 
 ## 4. 数据库约定
 

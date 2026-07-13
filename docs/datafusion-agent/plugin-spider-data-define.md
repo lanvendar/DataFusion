@@ -32,7 +32,7 @@ DATAFUSION_WORKER_PLUGIN_TYPES=SPIDER
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `runMode` | `String` | 否 | `LOCAL` | Spider 第一版固定 `LOCAL` |
+| `runMode` | `String` | 否 | `LOCAL` | Spider 当前固定 `LOCAL` |
 | `command` | `String` | 是 | 无 | 本地可执行命令，例如 `sh` |
 | `args` | `List<String>` | 否 | 空 | 命令参数，例如 `["-c"]` |
 | `env` | `Object<String,String>` | 否 | 空 | 插件级环境变量 |

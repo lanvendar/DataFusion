@@ -1,207 +1,115 @@
 # datafusion-plugin-spider 设计
 
-## 背景与目标
+> 本文档只描述 `datafusion-plugin-spider` 外部运行时资源引入和交付边界。Agent 侧执行模型见
+> [../../datafusion-agent/plugin-spider-design.md](../../datafusion-agent/plugin-spider-design.md)。
 
-当前 SPIDER 任务依赖 `sh-web-spider` 运行时与 browser-agent，当前采用一体化镜像部署（datafusion-agent-spider）。为了降低镜像耦合、统一插件化交付方式，并保持与 `kafka-json` / `datax` 的发布方式一致，采用统一的插件化交付实现：
+## 1. 定位
 
-- SPIDER 任务执行能力继续复用 Agent 的 `Shell LOCAL` 执行链路（`PLUGIN_TYPE=SPIDER` 的轻量包装）。
-- `sh-web-spider` 运行时从镜像打包中抽离到插件资源，交由 `datafusion-plugin` 的插件发布链路管理。
-- 通过 `DATAFUSION_WORKER_PLUGIN_TYPES` 指定该 Worker 支持 `SPIDER`。
+`datafusion-plugin-spider` 负责把 `SPIDER` 运行时资源打包到插件资源目录，并提供 spider agent 镜像与部署脚本。
+任务执行不在本模块实现，当前执行链路由 `datafusion-agent` 的 `SPIDER + LOCAL` 插件承载。
 
-> 相关前提：`datafusion-agent` 已存在 `spider/local` 执行器与状态映射（`pluginType=SPIDER`，`runMode=LOCAL`），可直接被路由。
+当前代码库中的职责边界：
 
-## 现状对齐
+| 模块 | 职责 |
+|------|------|
+| `datafusion-plugin/datafusion-plugin-spider` | 保存 spider 运行包、插件构建 manifest、运行时解压脚本、docker 部署资源 |
+| `datafusion-agent` | 注册 `pluginType=SPIDER`，复用 Shell LOCAL 执行器提交和控制本地进程 |
+| Manager / Scheduler | 生成 `TaskRequest(pluginType=SPIDER, runMode=LOCAL)` 并接收 agent 状态上报 |
 
-- 可执行器
-  - [SpiderLocalPluginTaskExecutor](/Users/lanvendar/Projects/DataFusion/datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spider/local/SpiderLocalPluginTaskExecutor.java)（执行实现）
-  - [SpiderLocalRunModeStateMapping](/Users/lanvendar/Projects/DataFusion/datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spider/local/SpiderLocalRunModeStateMapping.java)（状态映射）
-- 插件模板
-  - [spider-local-plugin-config.json](/Users/lanvendar/Projects/DataFusion/datafusion-agent/src/main/resources/plugins/spider/templates/spider-local-plugin-config.json)（可直接复用）
-- `sh-web-spider` 打包产物
-  - `browser-agent-linux-amd64-runtime.tar.gz`
-  - `sh-web-spider-linux-amd64-runtime.tar.gz`
+## 2. 资源交付
 
-本实现无需新增执行算法代码，需补齐资源化交付与任务参数/环境对齐。
-
-## 方案范围（数据层面）
-
-`SPIDER` 任务使用 `runMode=LOCAL`，其 `pluginParam`/`taskData` 行为与 SHELL LOCAL 一致；任务命令示例：
-
-```bash
-cd /opt/datafusion/plugins/spider/sh-web-spider && ./run-spider.sh --site bkccpr --date-range ...
-```
-
-插件模板建议仍采用：
-
-```json
-{
-  "command": "sh",
-  "args": ["-c"],
-  "env": {},
-  "pluginLogUri": ""
-}
-```
-
-`taskData.args` 拼接到 shell 命令后执行。
-
-## 资源化实现模型
-
-### 模块建议
-
-- 在 `datafusion-plugin` 侧新增模块目录：`datafusion-plugin-spider/`（不与现有 runtime jar 冲突）。
-- 以 `pluginType: SPIDER`，`artifactMode: none` 的 manifest 进行发布。
-
-### manifest 草案
-
-`plugin-build-manifest.json` 关键字段：
-
-- `pluginType`: `SPIDER`
-- `modulePath`: `datafusion-plugin/datafusion-plugin-spider`
-- `artifactMode`: `none`
-- `runtimeResourceDir`: `src/main/resources/plugins/spider`
-- `agentPublishDir`: `datafusion-agent/src/main/resources/plugins/spider`
-- `resourceDirs`: `browser-agent`、`sh-web-spider`
-- `resourceFiles`：`src/main/resources/plugins/init-runtime-unpack.sh` -> `scripts/init-runtime-unpack.sh`
-
-当前 `sh-web-spider` 运行包为两个归档文件：
-- `browser-agent-linux-amd64-runtime.tar.gz`
-- `sh-web-spider-linux-amd64-runtime.tar.gz`
-建议统一保存在 `datafusion-plugin/datafusion-plugin-spider/src/main/resources/plugins/spider`，并发布到  
-`datafusion-agent/src/main/resources/plugins/spider`。
-
-### 目录约定
-
-推荐目录：`datafusion-plugin/datafusion-plugin-spider/src/main/resources/plugins/spider`：
+插件资源源目录为：
 
 ```text
-datafusion-agent/src/main/resources/plugins/spider/
-  README.md
-  .env
-  run-spider.sh
-  install-runtime.sh
-  app/
-  .venv/         （若打进插件仓库）
-  browser-agent/
-    browser-agent-linux-amd64-runtime.tar.gz（若采用归档方式）
-  sh-web-spider/
-    sh-web-spider-linux-amd64-runtime.tar.gz（若采用归档方式）
+datafusion-plugin/datafusion-plugin-spider/src/main/resources/plugins/spider/
 ```
 
-## 执行流水（核心）
+当前保存两个运行包：
 
-### 1) 生成并 copy 运行包（重点）
+| 资源 | 目录 | 用途 |
+|------|------|------|
+| `browser-agent-linux-amd64-runtime.tar.gz` | `browser-agent/` | browser-agent 运行时 |
+| `sh-web-spider-linux-amd64-runtime.tar.gz` | `sh-web-spider/` | sh-web-spider 运行时 |
 
-在路径：
-`datafusion-plugin/datafusion-plugin-spider/src/main/resources/docker/`
-新增脚本 `sync-spider-runtime.sh`，将 Python 工程产物拷贝到  
-`datafusion-plugin/datafusion-plugin-spider/src/main/resources/plugins/spider/`。
+`src/main/resources/docker/sync-spider-runtime.sh` 负责把外部构建产物同步到上述目录。
+`src/main/resources/plugins/init-runtime-unpack.sh` 在 spider agent 启动阶段解压 `*.tar.gz`，不解析任务参数，也不参与调度决策。
 
-- 入参：`--source`
-  - 支持重复传参或逗号分隔（`,`）
-  - 按文件名映射到目标目录
-    - `browser-agent-linux-amd64-runtime.tar.gz` -> `browser-agent`
-    - `sh-web-spider-linux-amd64-runtime.tar.gz` -> `sh-web-spider`
-  - 其他文件可通过 `key=value`/`source:target` 显式映射
+资源所有权与生命周期：
 
-脚本建议输出统一结构：
+| 数据 | 所有者 | 创建来源 | 生命周期 | 变更边界 |
+|------|--------|----------|----------|----------|
+| spider 运行包 | `datafusion-plugin-spider` | 外部 `browser-agent` / `sh-web-spider` 打包产物，经 `sync-spider-runtime.sh` 同步 | 随插件资源发布；agent 启动时解压到本地插件目录 | 只由插件构建流程替换；任务执行期不修改 |
+| `plugin-build-manifest.json` | `datafusion-plugin-spider` | 模块资源文件 | 随插件构建读取 | 定义资源同步来源和发布目标，不进入任务请求 |
+| `init-runtime-unpack.sh` | `datafusion-plugin-spider` | 模块资源文件 | spider agent 启动阶段执行 | 只解压本地归档，不访问远端，不解析调度参数 |
+| docker 部署资源 | `datafusion-plugin-spider` | 模块资源文件 | 部署 spider agent 时使用 | 负责镜像和 Kubernetes 部署形态，不参与任务状态流转 |
+
+## 3. 执行链路
 
 ```text
-datafusion-agent/src/main/resources/plugins/spider/
-  browser-agent/
-    browser-agent-linux-amd64-runtime.tar.gz
-  sh-web-spider/
-    sh-web-spider-linux-amd64-runtime.tar.gz
+Manager scheduler
+    -> TaskRequest(pluginType=SPIDER, runMode=LOCAL, pluginParam, taskData)
+    -> AgentExecutorRpcProvider
+    -> WorkerTaskService
+    -> SpiderLocalPluginTaskExecutor
+    -> ShellLocalPluginTaskExecutor
+    -> 本地 shell 进程
+    -> WorkerTaskExecutionStore
+    -> AgentTaskStateReportScheduler
+    -> ManagerTaskResultReporter
 ```
 
-这个脚本放在：
-`/Users/lanvendar/Projects/DataFusion/datafusion-plugin/datafusion-plugin-spider/src/main/resources/docker`
+`SpiderLocalPluginTaskExecutor` 只提供独立插件注册名，提交、停止、强杀、完成和销毁均委托
+`ShellLocalPluginTaskExecutor`。状态映射由 `SpiderLocalRunModeStateMapping` 委托
+`ShellLocalRunModeStateMapping`。
 
-### 2) 运行包落盘
+## 4. 配置与参数
 
-将两类运行包分别落到约定目录：
+Agent 内置模板位于：
 
-- `browser-agent`：`datafusion-agent/src/main/resources/plugins/spider/browser-agent/`
-- `sh-web-spider`：`datafusion-agent/src/main/resources/plugins/spider/sh-web-spider/`
+```text
+datafusion-agent/src/main/resources/plugins/spider/templates/spider-local-plugin-config.json
+```
 
-`build-plugin.sh` 仅做资源同步，可运行件由 `sync-spider-runtime.sh` 统一产出。
+模板固定：
 
-对应上游 Python 项目已补充 DataFusion 打包入口（在外部仓库脚本目录）用于产出一致文件名：
-- `browser-agent/scripts/package-datafusion-runtime.sh`
-- `sh-web-spider/scripts/package-datafusion-runtime.sh`
+| 字段 | 当前值 |
+|------|--------|
+| `pluginType` | `SPIDER` |
+| `runMode` | `LOCAL` |
+| `pluginParam.command` | `sh` |
+| `pluginParam.args` | `["-c"]` |
+| `pluginParam.env` | `{}` |
+| `pluginParam.pluginLogUri` | `""` |
 
-以上脚本均默认产出:
-- `browser-agent-linux-amd64-runtime.tar.gz`
-- `sh-web-spider-linux-amd64-runtime.tar.gz`
+实际命令文本由 Shell LOCAL 规则从 `pluginParam` 与 `taskData.args` 组合。Spider 运行脚本依赖的 `.env`、工作目录、
+`MCP_URL`、Kafka 等环境由运行包自身和部署环境提供，调度请求只表达一次任务要执行的命令。
 
-并支持 `--name/--output` 指定输出到同步链路可消费的路径。
+## 5. 运行边界
 
-### 3) Agent 启动时完成运行环境初始化（关键）
+- 本模块不新增 Java 执行器、Controller、Service、Mapper 或数据库表。
+- 本模块不直接写入 Manager 或 Agent 持久化数据。
+- 本模块不解析 `taskData`，也不生成 shell 命令。
+- 本模块不在任务运行期下载远端运行包。
+- `DATAFUSION_WORKER_PLUGIN_TYPES` 需要包含 `SPIDER`，否则 agent 不接收 SPIDER 任务。
+- spider agent 镜像和部署脚本只负责运行时资源就绪与 agent 启动。
 
-方案中，Spider Agent 启动时调用 SPIDER 插件目录下的“初始化解压脚本（`plugins/spider/scripts/init-runtime-unpack.sh`）”：
+与任务数据的关系：
 
-它只扫描 SPIDER 插件目录下的 `.tar.gz` 并解压到归档所在目录，不解析任务参数、不拉取远端资源，也不参与调度决策。
+| 对象 | 来源 | 使用方 | 生命周期 |
+|------|------|--------|----------|
+| `TaskRequest.pluginType=SPIDER` | Manager / Scheduler | `datafusion-agent` | 单次任务请求 |
+| `TaskRequest.pluginParam.runMode=LOCAL` | Manager 插件配置注入 | `SpiderLocalPluginTaskExecutor` / Shell LOCAL delegate | 单次任务请求和 `.snap` |
+| `TaskRequest.taskData.args` | 任务定义或实例上下文 | Shell LOCAL delegate | 单次任务请求 |
+| `.snap` / `.state` | `WorkerTaskExecutionStore` | 状态刷新、停止、强杀、完成 | 任务运行期，终态确认后按 agent 流程清理 |
 
-### 初始化解压脚本建议行为（init-runtime-unpack.sh）
+`datafusion-plugin-spider` 不持有以上任务数据，只提供本地运行时资源。
 
-核心行为（单一职责）：
+## 6. 验证
 
-- 输入参数：`--root` 或 `--source`，`--source` 支持多个路径（`,` 分隔）
-- 动作：
-  - 未指定 `--source` 时，扫描 `--root` 下所有 `*.tar.gz`；
-  - 每个归档执行 `tar -xzf` 到它所在目录；
-  - 不执行 `venv` 安装、命令注入、`.env` 拼装。
-- 返回值：
-  - 成功返回 `0`；
-  - 任一解压/目录异常返回非 `0`（启动视为环境未就绪）。
-
-`init-runtime-unpack.sh` 仅在启动阶段执行一次；运行期不做全量初始化，只保留目录和关键文件存在性检查。
-
-> 目标：把初始化固定在启动链路前置，避免任务第一次提交才触发运行文件不存在问题。
-
-## 关键风险与对齐点
-
-1. `MCP_URL` 依赖
-
-- 现有 spider runtime `.env` 常见值为 `http://localhost:8000/mcp`。
-- 若改为纯 agent 镜像/独立运行，需把 `MCP_URL` 指向实际可达服务（例如内外网可达的 browser-agent）。
-
-2. 环境变量与工作目录
-
-- `sh-web-spider` 脚本当前依赖工作目录及 `.env`。
-- 建议固定命令使用绝对路径，防止 `ProcessBuilder` 的 `workDir` 切换导致脚本查找偏差。
-
-3. 初始化时机
-
-- 推荐在 Agent 启动阶段完成运行时目录修复、压缩包解压、权限修正和可执行检查。
-- 若只带源码不带 venv，则需在首次执行前增加 `install-runtime.sh` 安装步骤；更推荐带 `.venv` 避免首次启动慢和网络抖动。
-
-4. 观察项
-
-- 任务提交日志 `pluginLogUri`、`workDirPath` 是否可定位。
-- 校验 `SPIDER` 与 `SHELL` 的状态映射一致性。
-
-## 接口与配置对齐（最小）
-
-- Worker 插件类型：`DATAFUSION_WORKER_PLUGIN_TYPES=SPIDER`
-- 任务请求示例：
-  - `pluginType=SPIDER`
-  - `runMode=LOCAL`
-  - `pluginParam.command=sh`, `pluginParam.args=["-c"]`
-  - `taskData.args` 中填充 `cd /opt/datafusion/plugins/spider/sh-web-spider && ./run-spider.sh ...`
-
-## 验收标准（非代码）
-
-1. 通过 `build-plugin.sh` 与 `sync-spider-runtime.sh` 可在 `datafusion-agent/src/main/resources/plugins/spider` 生成完整插件资源目录（含两个运行包文件）。
-2. Agent 启动时完成运行环境检查/初始化，无需手工补包。
-3. Agent 注册 `SPIDER` 插件类型后，Manager 可发起 SPIDER 任务。
-4. SPIDER 任务能在 `TaskType/Shell` 流程内返回 RUNNING/终态，且能上报 `workDirPath` 与日志。
-5. 插件化交付后的 `agent` 运行环境中，`MCP_URL` 与 `Kafka` 访问行为一致。
-
-## 交付清单（预期）
-
-- `docs/datafusion-plugin/datafusion-plugin-spider/spider-plugin-design.md`（本文档）
-- `datafusion-plugin/datafusion-plugin-spider/src/main/resources/builder/plugin-build-manifest.json`
-- `datafusion-plugin/datafusion-plugin-spider/src/main/resources/builder/plugin-build-manifest-usage.md`
-- `datafusion-plugin/datafusion-plugin-spider/src/main/resources/plugins/spider/` 运行资源与说明
-- `datafusion-plugin/datafusion-plugin-spider/src/main/resources/plugins/init-runtime-unpack.sh`
-- `datafusion-plugin/datafusion-plugin-spider/src/main/resources/docker/sync-spider-runtime.sh`（本设计要求）
+| 验证项 | 期望 |
+|--------|------|
+| 插件资源目录 | `browser-agent/` 与 `sh-web-spider/` 下存在对应 `.tar.gz` |
+| 启动初始化 | `init-runtime-unpack.sh` 能把运行包解压到归档所在目录 |
+| Agent 注册 | worker 支持 `SPIDER` 插件类型 |
+| 任务提交 | `SPIDER + LOCAL` 任务进入 Shell LOCAL 执行链路 |
+| 状态上报 | 状态与 Shell LOCAL 映射一致，返回 `workDirPath` 和插件日志入口 |

@@ -5,10 +5,10 @@
 
 ## 定位
 
-`SPIDER` 是爬虫任务执行插件入口，第一版只支持 `LOCAL` 运行模式。它用于把爬虫任务和普通 `SHELL`
+`SPIDER` 是爬虫任务执行插件入口，当前支持 `LOCAL` 运行模式。它用于把爬虫任务和普通 `SHELL`
 任务在调度层分成两个 `pluginType`，从而通过 worker 插件能力自然路由到 spider 专用节点。
 
-`SPIDER + LOCAL` 第一版不重新实现进程执行逻辑，而是用组合委托复用 `SHELL + LOCAL`：
+`SPIDER + LOCAL` 不重新实现进程执行逻辑，而是用组合委托复用 `SHELL + LOCAL`：
 
 ```text
 SpiderLocalPluginTaskExecutor(SPIDER)
@@ -78,6 +78,6 @@ worker 会被调度到。
 ## 非目标
 
 - 不新增 Spider 专用表结构。
-- 不在第一版实现 Spider 专用参数解析。
+- 不在 agent 中解析 Spider 专用业务参数。
 - 不新增独立 Spider 插件启用开关。
 - 不修改 master 的 worker 查找算法。

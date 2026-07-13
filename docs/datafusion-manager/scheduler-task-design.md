@@ -98,17 +98,17 @@ Service 处理步骤：
 - 不复制流程绑定、流程连线、实例、日志、运行结果或事件实例。
 - 不调整 `scheduler_task_info` 表结构。
 
-## 预期文件变更
+## 当前实现入口
 
-| 文件 | 变更 |
+| 文件 | 职责 |
 |------|------|
-| `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto/TaskInfoCopyDto.java` | 新增复制请求 DTO |
-| `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/controller/TaskController.java` | 新增 `POST /copy` |
-| `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/service/TaskInfoService.java` | 新增 `copyTaskInfo` 方法 |
+| `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/dto/TaskInfoCopyDto.java` | 复制请求 DTO |
+| `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/controller/TaskController.java` | 提供 `POST /copy` |
+| `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/service/TaskInfoService.java` | 定义 `copyTaskInfo` |
 | `datafusion-manager/src/main/java/com/datafusion/manager/scheduler/service/impl/TaskInfoServiceImpl.java` | 实现复制、名称编码生成、唯一性校验复用、来源追踪、审计填充 |
-| `datafusion-web/src/modules/scheduler-task/api.ts` | 新增 `copy` API client |
-| `datafusion-web/src/modules/scheduler-task/dto.ts` | 新增 `TaskCopyReq` |
-| `datafusion-web/src/modules/scheduler-task/components/list-table/columns.tsx` | 新增行级复制操作 |
+| `datafusion-web/src/modules/scheduler-task/api.ts` | 调用 `copy` API |
+| `datafusion-web/src/modules/scheduler-task/dto.ts` | 定义 `TaskCopyReq` |
+| `datafusion-web/src/modules/scheduler-task/components/list-table/columns.tsx` | 提供行级复制操作 |
 | `datafusion-web/src/modules/scheduler-task/index.tsx` | 处理复制动作、调用复制接口并刷新列表 |
 
 验证命令：

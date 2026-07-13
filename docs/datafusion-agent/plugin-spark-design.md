@@ -1,166 +1,94 @@
 # Spark 插件设计
 
 > 数据结构见 [plugin-spark-data-define.md](./plugin-spark-data-define.md)。Agent 总体设计见
-> [agent-design.md](./agent-design.md)。`plugin-spark-sql.jar` 的配置与执行逻辑见
+> [agent-design.md](./agent-design.md)。Spark SQL 作业 jar 见
 > [../datafusion-plugin/datafusion-plugin-spark-sql/spark-sql-design.md](../datafusion-plugin/datafusion-plugin-spark-sql/spark-sql-design.md)。
 
-## 1. Capability
+## 1. 定位
 
-- Capability: `datafusion-agent` 以 `SPARK + K8S_OPERATOR` 方式提交 Spark SQL 作业，通过 kubeflow `spark-operator` 2.5.0 创建 `SparkApplication`，使用官方镜像 `apache/spark:4.0.2-scala2.13-java17-ubuntu`，通过 initContainer 从共享插件目录加载 `plugin-spark-sql.jar`。
-- Module: `datafusion-agent`
-- Java backend package: `com.datafusion.agent.runtime.worker.plugin.spark`
-- Frontend path: 无
-- Route / API prefix: 复用 `/internal/scheduler/*`
-- Call chain: `TaskRequest` -> `WorkerTaskService` -> `SparkPluginTaskExecutor` -> `K8sOperatorSparkTaskRunner` -> `SparkApplication + ConfigMap` -> `AgentTaskStateReportScheduler` -> `ManagerTaskResultReporter`
+`SPARK` 插件在 agent 中提交、控制和刷新 Spark SQL 作业。当前可执行运行模式为 `K8S_OPERATOR`，通过
+Spark Operator 创建 `SparkApplication`，并在 driver / executor Pod 中加载共享插件目录里的
+`plugin-spark-sql.jar`。
 
-首版只实现 `K8S_OPERATOR`。`LOCAL` 和 `THRIFT` 保留在后续路线中，不在本次 agent 设计内实现。
+| 项 | 当前设计 |
+|----|----------|
+| 模块 | `datafusion-agent` |
+| 包 | `com.datafusion.agent.runtime.worker.plugin.spark` |
+| 插件类型 | `SPARK` |
+| 运行模式 | `K8S_OPERATOR` |
+| 调度接口 | 复用 `/internal/scheduler/*` |
+| Kubernetes 资源 | `SparkApplication`、job ConfigMap、driver / executor Pod |
 
-## 2. Data Flow
+## 2. 总体链路
 
-| Scenario | Source | Through | Target | Data structure | Notes |
-|----------|--------|---------|--------|----------------|-------|
-| 提交 Spark SQL | Manager `TaskRequest` | `SparkPluginTaskExecutor.validateTaskRequest` -> `SparkParamResolver` | `SparkExecutionParam` | `pluginParam + taskData` | `pluginParam.runMode` 必须为 `K8S_OPERATOR`，Agent 不回写 `pluginParam` |
-| 生成任务配置 | `pluginParam.defaultTaskData + taskData` | `SparkParamResolver` -> `K8sOperatorSparkTaskRunner` | 本地任务运行目录 | `spark-sql-job.json` | resolver 深度合并业务参数并排除 Agent 专用 `kubernetes`，runner 直接写入 `effectiveTaskData` |
-| 创建 SQL 配置资源 | `spark-sql-job.json` | Fabric8 client | Kubernetes ConfigMap | `{namePrefix}-job-config-{taskInstanceId}` | `namePrefix` 默认 `df-spark`；key 固定为 `spark-sql-job.json`，只挂载到 driver pod |
-| 创建 Spark 应用 | `SparkExecutionParam` | `SparkKubernetesTemplateRenderer` | Kubernetes API | `SparkApplication` | `apiVersion=sparkoperator.k8s.io/v1beta2` |
-| 加载插件 jar | 共享插件目录 | driver / executor initContainer | pod 内 `emptyDir` | `plugin-spark-sql.jar` | 单个 fat jar，包含 Paimon Spark 和 Paimon S3 |
-| 状态刷新 | `SparkApplication.status` / pod 存活事实 | `K8sOperatorRunModeStateMapping` | `WorkerTaskExecutionState` | `StatusEnum` | Client 只返回 Kubernetes 状态事实，mapping 负责转换调度状态 |
-| 终态处理 | driver pod log / CRD status | `beforeFinalReport` | `WorkerResult` | `pluginLogUri`, `sparkWebUiUri` | 只采集日志和写最终结果，资源清理由 finish 处理 |
+```text
+Manager scheduler
+    -> TaskRequest(pluginType=SPARK, runMode=K8S_OPERATOR, pluginParam, taskData)
+    -> AgentExecutorRpcProvider
+    -> WorkerTaskService
+    -> SparkPluginTaskExecutor
+    -> SparkParamResolver
+    -> K8sOperatorSparkTaskRunner
+    -> spark-sql-job.json + ConfigMap
+    -> SparkApplication
+    -> WorkerTaskExecutionStore
+    -> AgentTaskStateReportScheduler
+    -> ManagerTaskResultReporter
+```
 
-## 3. API Contract
+`SparkPluginTaskExecutor` 按 `SparkRunMode` 分派 runner。当前 `SparkRunMode` 只定义 `K8S_OPERATOR`，因此其他
+运行模式不会进入提交流程。
 
-| HTTP method | Path | Request object | Response object | Notes |
-|-------------|------|----------------|-----------------|-------|
-| `POST` | `/internal/scheduler/submitTask` | `TaskRequest` | `TaskResult` | 提交 `SparkApplication` |
-| `POST` | `/internal/scheduler/stopTask` | `TaskRequest` | `TaskResult` | patch `spec.suspend=true` |
-| `POST` | `/internal/scheduler/killTask` | `TaskRequest` | `TaskResult` | 删除 `SparkApplication` 和本次任务 ConfigMap |
-| `POST` | `/internal/scheduler/finishTask` | `TaskRequest` | `Boolean` | master 确认终态后执行资源清理 |
+## 3. 数据流
 
-## 4. File Changes
+| 场景 | 来源 | 处理 | 输出 |
+|------|------|------|------|
+| 参数解析 | `TaskRequest.pluginParam`、`TaskRequest.taskData` | `SparkParamResolver` 校验 `runMode`、合并任务数据、解析 Kubernetes 参数 | `SparkExecutionParam` |
+| 任务配置 | `pluginParam.defaultTaskData + taskData` | 深度合并；移除 agent 专用 `kubernetes` | `effectiveTaskData` |
+| 本地快照 | `effectiveTaskData` | 写入任务运行目录 | `spark-sql-job.json` |
+| Kubernetes 配置 | `spark-sql-job.json` | 创建 ConfigMap | key 固定 `spark-sql-job.json` |
+| 作业提交 | `SparkExecutionParam` | 渲染并提交 SparkApplication | `appId=applicationName` |
+| 状态刷新 | `.snap + .state`、Kubernetes 状态 | `K8sOperatorRunModeStateMapping` 映射 | `StatusEnum` 与 `WorkerResult` |
+| 终态处理 | driver pod log、SparkApplication 状态 | 终态上报前采集日志；finish 清理资源 | `pluginLogUri`、`sparkWebUiUri` |
 
-### 4.1 New Files
+## 4. 关键规则
 
-| File | Notes |
-|------|-------|
-| `docs/datafusion-agent/plugin-spark-data-define.md` | Spark agent 插件字段事实源 |
-| `docs/datafusion-agent/plugin-spark-design.md` | Spark agent 插件设计 |
-| `datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spark/SparkPluginTaskExecutor.java` | `pluginType=SPARK` 执行器 |
-| `datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spark/SparkRunMode.java` | 运行模式枚举，首版只启用 `K8S_OPERATOR` |
-| `datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spark/SparkParamResolver.java` | 参数归一化 |
-| `datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spark/SparkExecutionParam.java` | 提交参数模型 |
-| `datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spark/SparkTaskRunner.java` | runner SPI |
-| `datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spark/SparkTaskResult.java` | runner 返回结果 |
-| `datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spark/k8s/K8sOperatorSparkTaskRunner.java` | `K8S_OPERATOR` runner |
-| `datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spark/k8s/SparkKubernetesParam.java` | Kubernetes 归一化参数 |
-| `datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spark/k8s/SparkKubernetesRuntimeRef.java` | Kubernetes 运行引用 |
-| `datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spark/k8s/K8sOperatorClient.java` | Spark Operator client 端口 |
-| `datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spark/k8s/K8sOperatorFabric8Client.java` | Fabric8 + `SparkApplication` 实现 |
-| `datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spark/k8s/SparkKubernetesTemplateRenderer.java` | YAML / resource 渲染 |
-| `datafusion-agent/src/main/java/com/datafusion/agent/runtime/worker/plugin/spark/k8s/K8sOperatorRunModeStateMapping.java` | `SPARK + K8S_OPERATOR` 状态映射 |
-| `datafusion-agent/src/main/resources/plugins/spark/templates/spark-k8s-operator-plugin-config.json` | 插件配置模板 |
-| `datafusion-agent/src/main/resources/plugins/spark/templates/spark-k8s-operator-application.yml` | `SparkApplication` 模板 |
+- `pluginParam.runMode` 必须为 `K8S_OPERATOR`。
+- `sparkVersion` 固定为 `4.0.2`；默认 main class 为
+  `com.datafusion.plugin.spark.sql.SparkSqlApplication`。
+- 默认镜像为 `apache/spark:4.0.2-scala2.13-java17-ubuntu`；模板可配置内部镜像。
+- `pluginAppDir` 默认 `/opt/datafusion/plugins/spark/datafusion-plugin-spark-sql`。
+- `pluginJarName` 默认 `plugin-spark-sql.jar`，通过 initContainer 复制到
+  `/opt/spark/work-dir/datafusion-jars`。
+- `jobConfigMountPath` 默认 `/opt/datafusion/spark/jobs`，driver 通过 `--job-file` 读取 job config。
+- Kubernetes 资源名使用 `pluginParam.kubernetes.namePrefix`，默认 `df-spark`。
+- `taskData.kubernetes` 可覆盖 namespace、image、serviceAccountName、sharedPvcName、资源规格、日志采集等运行时字段。
+- 用户 label 不允许覆盖 `datafusion.*` / `datafusion.io/*` 保留前缀。
+- `.snap.runMode` 是控制和状态恢复时的运行模式事实来源。
 
-### 4.2 Modified Files
+## 5. 控制语义
 
-| File | Notes |
-|------|-------|
-| `docs/datafusion-agent/agent-data-define.md` | 后续实现时补充 Spark 插件链接 |
-| `docs/datafusion-agent/agent-design.md` | 后续实现时补充 Spark 插件链接和 `SPARK` 注册说明 |
-| `datafusion-agent/pom.xml` | 复用已有 Fabric8 依赖；如模板渲染需要额外库，应先在设计中说明 |
+| 动作 | 行为 | 返回 |
+|------|------|------|
+| `submit` | 写本地 job 快照，创建 ConfigMap 和 SparkApplication，保存 `.snap/.state` | 成功返回 `SUBMIT_SUCCESS`；失败返回 `SUBMIT_FAILURE` |
+| `stop` | patch `SparkApplication.spec.suspend=true` | 返回 `STOPPING`，由状态刷新推进终态 |
+| `kill` | 删除 SparkApplication、Pod 和 ConfigMap | 成功或资源不存在返回 `KILLED` |
+| `finish` | master 确认终态后幂等清理 SparkApplication 和 ConfigMap | 清理成功返回 `true` |
 
-### 4.3 Reused Objects
+## 6. 集成边界
 
-| Object | Path | Notes |
-|--------|------|-------|
-| `FlinkPluginTaskExecutor` pattern | `datafusion-agent/.../plugin/flink` | 复用 `pluginType + runMode runner` 结构 |
-| `K8sOperatorFlinkTaskRunner` pattern | `datafusion-agent/.../plugin/flink/k8s` | 复用 Fabric8 提交、运行引用、日志采集和 cleanup 思路 |
-| `AgentTaskStateReportScheduler` | `datafusion-agent/.../worker/reporter` | 复用周期状态刷新和终态上报 |
+- Kubernetes API 通过 Fabric8 client 访问，连接信息复用 `AgentProperties.Kubernetes`。
+- Spark Operator CRD 使用 `sparkoperator.k8s.io/v1beta2`。
+- Spark SQL 语义、Paimon 配置和 SQL 执行由 `plugin-spark-sql.jar` 负责，agent 不解析 SQL。
+- agent 不新增 HTTP API、数据库表、Mapper 或前端页面。
 
-## 5. Java Backend Design
+## 7. 验证
 
-### 5.1 Controller
-
-无新增 Controller。`AgentExecutorRpcProvider` 保持调度 RPC 适配职责。
-
-### 5.2 Service
-
-| Method | Input | Output | Notes |
-|--------|-------|--------|-------|
-| `SparkPluginTaskExecutor.validateTaskRequest` | `TaskRequest` | void | 提交前解析校验请求，不改写 `pluginParam` |
-| `SparkPluginTaskExecutor.submitTask` | `TaskRequest` | `TaskResult` | 按 `runMode` 分派到 `SparkTaskRunner`，保存 `.snap` / `.state` |
-| `K8sOperatorSparkTaskRunner.submit` | `SparkExecutionParam` | `SparkTaskResult` | 创建 ConfigMap 和 `SparkApplication` |
-| `K8sOperatorClient.queryStatus` | `SparkKubernetesRuntimeRef` | `SparkOperatorStatus` | 读取 CRD 状态和运行资源事实 |
-| `K8sOperatorRunModeStateMapping.mapState` | `WorkerTaskExecutionState` | `StatusEnum` | 结合本地状态映射 Spark Kubernetes 状态 |
-| `K8sOperatorClient.collectLogs` | `SparkKubernetesRuntimeRef` | `String` | 采集 driver pod 日志 |
-| `K8sOperatorClient.stop` | `SparkKubernetesRuntimeRef` | void | patch `spec.suspend=true` |
-| `K8sOperatorClient.kill` | `SparkKubernetesRuntimeRef` | void | 强制删除 SparkApplication、Pod 和 ConfigMap |
-| `K8sOperatorClient.cleanup` | `SparkKubernetesRuntimeRef` | boolean | 幂等删除 SparkApplication 和 ConfigMap |
-
-### 5.3 Business Rules
-
-| Scenario | Rule | Error / return |
-|----------|------|----------------|
-| 运行模式缺失 | `pluginParam.runMode` 必须存在且为 `K8S_OPERATOR` | `SUBMIT_FAILURE` |
-| 运行模式持久化 | 提交后以 `.snap.runMode` 作为运行模式事实来源 | 控制和状态恢复不依赖 `.snap.pluginParam.runMode` |
-| Spark 版本 | `sparkVersion` 固定 `4.0.2`，Scala binary 固定 `2.13` | 不匹配则提交失败 |
-| Spark 镜像 | 默认 `apache/spark:4.0.2-scala2.13-java17-ubuntu` | 任务级可覆盖，但必须由显式配置承担兼容风险 |
-| Operator 版本 | 目标集群为 kubeflow `spark-operator` 2.5.0，CRD 为 `sparkoperator.k8s.io/v1beta2` | CRD 不存在或不支持字段时提交失败 |
-| 重启策略 | `restartPolicy.type` 固定为 `Never`，DataFusion 重启通过新任务实例和新 SparkApplication 完成 | 不依赖 Operator 原地重启 |
-| 插件 jar | `plugin-spark-sql.jar` 位于共享插件目录，driver/executor initContainer 复制到 pod 内 `emptyDir` | fat jar 源路径不存在或不是文件时提交失败 |
-| SQL 配置 | SQL job 配置写入 ConfigMap，启动参数只传 `--job-file` | 不把完整 SQL 放进 SparkApplication arguments |
-| Kubernetes 资源命名 | `pluginParam.kubernetes.namePrefix` 默认 `df-spark`；SparkApplication 使用 `{namePrefix}-{taskInstanceId}`，ConfigMap 使用 `{namePrefix}-job-config-{taskInstanceId}` | `namePrefix` 只允许插件配置覆盖，`taskData.kubernetes` 不参与资源命名 |
-| 用户 labels | 不允许覆盖 `datafusion.*` / `datafusion.io/*` 保留 label | 覆盖项被拒绝 |
-| 重启提交 | `.state.appId` 存在时先清理旧 SparkApplication 和 ConfigMap | 清理失败返回 `SUBMIT_FAILURE` |
-| 停止语义 | `stop` patch `spec.suspend=true`；`SUSPENDING -> STOPPING`，`SUSPENDED -> STOP_SUCCESS` | 非停止态 `SUSPENDED` 返回 `UNKNOWN` |
-| 资源清理 | `cleanup` 幂等删除 SparkApplication 和 ConfigMap；`kill` 额外强制删除 Pod | 资源不存在视为成功 |
-| 终态清理 | 状态映射只做终态日志采集和结果写入；finish 执行资源清理 | 清理失败返回 `false` |
-| 状态查询边界 | `K8sOperatorClient` 只返回 `SparkOperatorStatus`；`K8sOperatorRunModeStateMapping` 负责转 `StatusEnum` | 返回 `UNKNOWN` 前打印精简 warn |
-
-### 5.4 Transaction Boundary
-
-- Needs transaction: 否
-- Transactional method: 无
-- Rollback condition: Kubernetes 资源创建失败时 best-effort 删除已创建 ConfigMap，返回 `SUBMIT_FAILURE`
-
-### 5.5 Mapper / DAO / SQL
-
-无
-
-## 6. Frontend Design
-
-无。首版不新增前端页面。
-
-## 7. Integration
-
-| Integration target | Method | Notes |
-|--------------------|--------|-------|
-| kubeflow spark-operator 2.5.0 | Kubernetes CRD `SparkApplication` | `apiVersion=sparkoperator.k8s.io/v1beta2` |
-| Kubernetes API | Fabric8 client | 复用 `AgentProperties.Kubernetes` |
-| Shared plugin directory | PVC root mounted at `/opt/datafusion` | 默认 `/opt/datafusion/plugins/spark/datafusion-plugin-spark-sql/plugin-spark-sql.jar` |
-| Spark application jar directory | Pod `emptyDir` | 默认 `/opt/spark/work-dir/datafusion-jars`，initContainer、Driver 和 Executor 使用同一路径 |
-| Spark official image | Pod image | 默认 `apache/spark:4.0.2-scala2.13-java17-ubuntu` |
-| plugin-spark-sql | Java main class | 默认 `com.datafusion.plugin.spark.sql.SparkSqlApplication` |
-
-## 8. Security and Context
-
-- Current user: agent 运行用户和 Kubernetes ServiceAccount。
-- Tenant / project / app context: 不新增租户字段，任务身份通过 `flowInstanceId`、`taskInstanceId`、label 和 annotation 传递。
-- Password / token handling: Kubernetes API token 由 `AgentProperties.Kubernetes` 或 Pod ServiceAccount 提供；Ceph 凭据通过 Kubernetes Secret 注入 driver 和 executor，不写入 SQL job ConfigMap。
-- Permission boundary: agent ServiceAccount 只授予目标 namespace 内 `sparkapplications`, `configmaps`, `pods`, `pods/log`, `services` 的必要权限。
-
-## 9. Out of Scope
-
-- 不实现 `LOCAL` 和 `THRIFT`。
-- 不实现 Spark jar / Python application 通用提交，只提交 `plugin-spark-sql.jar` 承载的 SQL 作业。
-- 不构建自定义 Spark 镜像。
-- 不把 `plugin-spark-sql.jar` 塞进 ConfigMap。
-- 不在 agent 侧解析 SQL 血缘、校验 SQL 语义或改写 SQL。
-- 不实现跨 agent 迁移接管；只支持基于 `.snap + .state` 的本机重启接管。
-
-## 10. Verification
-
-- Unit tests: `SparkParamResolver`、`SparkKubernetesTemplateRenderer`、状态映射、资源清理幂等。
-- Compile / build command: `mvn -DskipTests compile -pl datafusion-agent -am`
-- Frontend verification: 无
-- Style / lint: Java Checkstyle 按项目规则执行。
-- Manual check: 提交 SQL 成功、SQL 失败、stop、kill、agent 重启恢复、driver pod 日志采集、资源清理、CRD 缺失失败提示。
+| 验证项 | 期望 |
+|--------|------|
+| 参数解析 | `runMode=K8S_OPERATOR`、Spark 版本、Kubernetes 必填项校验正确 |
+| job config | `spark-sql-job.json` 内容为合并后的 `effectiveTaskData`，不包含 agent 专用 `kubernetes` |
+| SparkApplication | main class、jar 挂载、ConfigMap 挂载、driver / executor 资源渲染正确 |
+| 状态映射 | `SUBMITTED/RUNNING/COMPLETED/FAILED/SUSPENDED` 等状态映射为 DataFusion 状态 |
+| 控制动作 | stop、kill、finish 幂等 |
+| 重启恢复 | 基于 `.snap + .state` 可恢复查询和控制 |

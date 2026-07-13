@@ -3,6 +3,34 @@ version: 1
 project_conventions: docs/.sdd/project-conventions.md
 
 modules:
+  datafusion-common-data:
+    feature_docs_root: 无
+    source_roots:
+      - datafusion-common-data/src/main/java
+    verify:
+      - mvn -DskipTests compile -pl datafusion-common-data -am
+
+  datafusion-common:
+    feature_docs_root: docs/datafusion-common
+    source_roots:
+      - datafusion-common/src/main/java
+    verify:
+      - mvn -DskipTests compile -pl datafusion-common -am
+
+  datafusion-common-spring:
+    feature_docs_root: 无
+    source_roots:
+      - datafusion-common-spring/src/main/java
+    verify:
+      - mvn -DskipTests compile -pl datafusion-common-spring -am
+
+  datafusion-datasource:
+    feature_docs_root: 无
+    source_roots:
+      - datafusion-datasource/src/main/java
+    verify:
+      - mvn -DskipTests compile -pl datafusion-datasource -am
+
   datafusion-manager:
     feature_docs_root: docs/datafusion-manager
     source_roots:
@@ -13,6 +41,7 @@ modules:
 
   datafusion-web:
     feature_docs_root: docs/datafusion-manager
+    note: 前端功能文档与 manager 业务功能文档共址
     source_roots:
       - datafusion-web/src
     verify:
@@ -47,13 +76,44 @@ modules:
     verify:
       - mvn -DskipTests compile -pl datafusion-plugin -am
 
-  plugin-flink-schema-paimon:
-    feature_docs_root: docs/datafusion-plugin/plugin-flink-schema-paimon
+  datafusion-plugin-api:
+    feature_docs_root: docs/datafusion-plugin/datafusion-plugin-api
     source_roots:
-      - datafusion-plugin/plugin-flink-schema-paimon/src/main/java
-      - datafusion-plugin/plugin-flink-schema-paimon/src/main/resources
+      - datafusion-plugin/datafusion-plugin-api/src/main/java
+      - datafusion-plugin/datafusion-plugin-api/src/main/resources
     verify:
-      - mvn -DskipTests compile -pl datafusion-plugin/plugin-flink-schema-paimon -am
+      - mvn -DskipTests compile -pl datafusion-plugin/datafusion-plugin-api -am
+
+  datafusion-plugin-datax:
+    feature_docs_root: 无
+    source_roots:
+      - datafusion-plugin/datafusion-plugin-datax/src/main/java
+      - datafusion-plugin/datafusion-plugin-datax/src/main/resources
+    verify:
+      - mvn -DskipTests compile -pl datafusion-plugin/datafusion-plugin-datax -am
+
+  datafusion-plugin-flink-table:
+    feature_docs_root: docs/datafusion-plugin/datafusion-plugin-flink-table
+    source_roots:
+      - datafusion-plugin/datafusion-plugin-flink-table/src/main/java
+      - datafusion-plugin/datafusion-plugin-flink-table/src/main/resources
+    verify:
+      - mvn -DskipTests compile -pl datafusion-plugin/datafusion-plugin-flink-table -am
+
+  datafusion-plugin-spider:
+    feature_docs_root: docs/datafusion-plugin/datafusion-plugin-spider
+    source_roots:
+      - datafusion-plugin/datafusion-plugin-spider/src/main/resources
+    verify:
+      - mvn -DskipTests compile -pl datafusion-plugin/datafusion-plugin-spider -am
+
+  datafusion-plugin-spark-sql:
+    feature_docs_root: docs/datafusion-plugin/datafusion-plugin-spark-sql
+    source_roots:
+      - datafusion-plugin/datafusion-plugin-spark-sql/src/main/java
+      - datafusion-plugin/datafusion-plugin-spark-sql/src/main/resources
+    verify:
+      - mvn -DskipTests compile -pl datafusion-plugin/datafusion-plugin-spark-sql -am
 
 docs:
   feature_root: docs
@@ -61,3 +121,6 @@ docs:
   empty_marker: 无
   data_define_suffix: data-define
   design_suffix: design
+  design_only:
+    - path: docs/datafusion-plugin/datafusion-plugin-spider/spider-plugin-design.md
+      reason: 外部运行时资源引入型插件，不定义数据库、Java 后端模型、前端模型或任务数据结构

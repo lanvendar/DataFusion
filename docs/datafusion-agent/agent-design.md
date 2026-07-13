@@ -315,12 +315,13 @@ register 成功返回 Worker.id
 - worker 框架装配和 Spring Bean 插件加载。
 - 文件版任务执行状态存储。
 - `SHELL + LOCAL`、`SPIDER + LOCAL`、`API + LOCAL`、`DATAX + LOCAL`、`DATAX + K8S`。
+- `FLINK + K8S_OPERATOR`，设计见 [plugin-flink-design.md](./plugin-flink-design.md)。
+- `SPARK + K8S_OPERATOR`，设计见 [plugin-spark-design.md](./plugin-spark-design.md)。
 
 ## 当前不包含
 
 - Redis 状态存储。
 - K8S / YARN 通用提交器。
-- `FLINK` 插件实现；首版目标为 `K8S_OPERATOR`，设计见 [plugin-flink-design.md](./plugin-flink-design.md)。
 - 结果上报持久化队列。
 - 本地进程句柄跨机器恢复。
 
