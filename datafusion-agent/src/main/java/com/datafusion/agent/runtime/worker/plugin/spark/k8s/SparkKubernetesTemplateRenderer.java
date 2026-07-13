@@ -66,7 +66,7 @@ public class SparkKubernetesTemplateRenderer {
         values.put("annotations", mapYaml(annotations, 4));
         values.put("image", quote(kubernetes.getImage()));
         values.put("imagePullPolicy", quote(kubernetes.getImagePullPolicy()));
-        values.put("serviceAccountBlock", stringBlock("serviceAccount", kubernetes.getServiceAccountName(), 2));
+        values.put("serviceAccountBlock", stringBlock("serviceAccount", kubernetes.getServiceAccountName(), 4));
         values.put("sparkVersion", quote(param.getSparkVersion()));
         values.put("mainClass", quote(param.getMainClass()));
         values.put("mainApplicationFile", quote(param.getMainApplicationFile()));

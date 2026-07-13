@@ -4,7 +4,8 @@ metadata:
   name: {{configMapName}}
   namespace: {{namespace}}
   labels:
-{{labels}}data:
+{{labels}}
+data:
   {{jobFileName}}: |-
 {{jobConfigData}}
 ---
@@ -14,8 +15,10 @@ metadata:
   name: {{applicationName}}
   namespace: {{namespace}}
   labels:
-{{applicationLabels}}  annotations:
-{{annotations}}spec:
+{{applicationLabels}}
+  annotations:
+{{annotations}}
+spec:
   type: Java
   mode: cluster
   image: {{image}}
@@ -26,55 +29,77 @@ metadata:
   restartPolicy:
     type: Never
   arguments:
-{{arguments}}  sparkConf:
-{{sparkConf}}  hadoopConf:
-{{hadoopConf}}{{serviceAccountBlock}}  volumes:
-    - name: spark-sql-job
-      configMap:
-        name: {{configMapName}}
-    - name: shared-plugins
-      persistentVolumeClaim:
-        claimName: {{sharedPvcName}}
-    - name: spark-plugin
-      emptyDir: {}
+{{arguments}}
+  sparkConf:
+{{sparkConf}}
+  hadoopConf:
+{{hadoopConf}}
   driver:
+{{serviceAccountBlock}}
     cores: {{driverCores}}
     memory: {{driverMemory}}
     labels:
-{{driverLabels}}{{nodeSelectorBlock}}    volumeMounts:
-      - name: spark-sql-job
-        mountPath: {{jobConfigMountPath}}
-      - name: spark-plugin
-        mountPath: {{jarMountPath}}
-    initContainers:
-      - name: copy-spark-plugin
-        image: {{image}}
-        command:
-          - sh
-          - -c
-          - cp {{pluginAppDir}}/*.jar {{jarMountPath}}/
-        volumeMounts:
+{{driverLabels}}
+{{nodeSelectorBlock}}
+    template:
+      spec:
+        volumes:
+          - name: spark-sql-job
+            configMap:
+              name: {{configMapName}}
           - name: shared-plugins
-            mountPath: {{sharedMountPath}}
+            persistentVolumeClaim:
+              claimName: {{sharedPvcName}}
           - name: spark-plugin
-            mountPath: {{jarMountPath}}
+            emptyDir: {}
+        initContainers:
+          - name: copy-spark-plugin
+            image: {{image}}
+            command:
+              - sh
+              - -c
+              - cp {{pluginAppDir}}/*.jar {{jarMountPath}}/
+            volumeMounts:
+              - name: shared-plugins
+                mountPath: {{sharedMountPath}}
+              - name: spark-plugin
+                mountPath: {{jarMountPath}}
+        containers:
+          - name: spark-kubernetes-driver
+            volumeMounts:
+              - name: spark-sql-job
+                mountPath: {{jobConfigMountPath}}
+              - name: spark-plugin
+                mountPath: {{jarMountPath}}
   executor:
     instances: {{executorInstances}}
     cores: {{executorCores}}
     memory: {{executorMemory}}
     labels:
-{{executorLabels}}{{nodeSelectorBlock}}    volumeMounts:
-      - name: spark-plugin
-        mountPath: {{jarMountPath}}
-    initContainers:
-      - name: copy-spark-plugin
-        image: {{image}}
-        command:
-          - sh
-          - -c
-          - cp {{pluginAppDir}}/*.jar {{jarMountPath}}/
-        volumeMounts:
+{{executorLabels}}
+{{nodeSelectorBlock}}
+    template:
+      spec:
+        volumes:
           - name: shared-plugins
-            mountPath: {{sharedMountPath}}
+            persistentVolumeClaim:
+              claimName: {{sharedPvcName}}
           - name: spark-plugin
-            mountPath: {{jarMountPath}}
+            emptyDir: {}
+        initContainers:
+          - name: copy-spark-plugin
+            image: {{image}}
+            command:
+              - sh
+              - -c
+              - cp {{pluginAppDir}}/*.jar {{jarMountPath}}/
+            volumeMounts:
+              - name: shared-plugins
+                mountPath: {{sharedMountPath}}
+              - name: spark-plugin
+                mountPath: {{jarMountPath}}
+        containers:
+          - name: spark-kubernetes-executor
+            volumeMounts:
+              - name: spark-plugin
+                mountPath: {{jarMountPath}}

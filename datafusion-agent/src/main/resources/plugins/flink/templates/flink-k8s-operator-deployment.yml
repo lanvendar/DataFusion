@@ -11,7 +11,8 @@ spec:
   flinkVersion: {{operatorFlinkVersion}}
   image: {{image}}
   imagePullPolicy: {{imagePullPolicy}}
-{{serviceAccountBlock}}  flinkConfiguration:
+{{serviceAccountBlock}}
+  flinkConfiguration:
 {{flinkConfiguration}}
   podTemplate:
     metadata:
@@ -20,7 +21,8 @@ spec:
       annotations:
 {{podAnnotations}}
     spec:
-{{nodeSelectorBlock}}{{imagePullSecretsBlock}}
+{{nodeSelectorBlock}}
+{{imagePullSecretsBlock}}
       initContainers:
         - name: "datafusion-flink-usrlib"
           image: {{image}}
@@ -58,15 +60,18 @@ spec:
         - name: "datafusion-flink-usrlib"
           emptyDir: {}
   jobManager:
-{{jobManagerReplicasBlock}}    resource:
+{{jobManagerReplicasBlock}}
+    resource:
 {{jobManagerResource}}
   taskManager:
-{{taskManagerReplicasBlock}}    resource:
+{{taskManagerReplicasBlock}}
+    resource:
 {{taskManagerResource}}
   job:
     jarURI: {{jarUri}}
     entryClass: {{mainClass}}
     args:
 {{args}}
-{{jobParallelismBlock}}    upgradeMode: {{upgradeMode}}
+{{jobParallelismBlock}}
+    upgradeMode: {{upgradeMode}}
 {{jobStateBlock}}

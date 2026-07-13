@@ -26381,7 +26381,7 @@ spec:
         - start
         - "--zap-log-level=info"
         - "--zap-encoder=console"
-        - "--namespaces=spark"
+        - "--namespaces=spark,datafusion"
         - "--webhook-secret-name=spark-operator-webhook-certs"
         - "--webhook-secret-namespace=spark"
         - "--webhook-svc-name=spark-operator-webhook-svc"
@@ -26590,6 +26590,46 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
+  name: spark-operator-webhook
+  namespace: datafusion
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ''
+  resources:
+  - resourcequotas
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - sparkoperator.k8s.io
+  resources:
+  - sparkapplications
+  - sparkapplications/status
+  - sparkapplications/finalizers
+  - scheduledsparkapplications
+  - scheduledsparkapplications/status
+  - scheduledsparkapplications/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
   name: spark-driver
   namespace: datafusion
 rules:
@@ -26622,6 +26662,20 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: spark-operator-controller
+  namespace: spark
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spark-operator-webhook
+  namespace: datafusion
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: spark-operator-webhook
+subjects:
+- kind: ServiceAccount
+  name: spark-operator-webhook
   namespace: spark
 ---
 apiVersion: rbac.authorization.k8s.io/v1

@@ -20,7 +20,9 @@ metadata:
 {{annotations}}
 spec:
   backoffLimit: {{backoffLimit}}
-{{ttlSecondsAfterFinishedBlock}}{{activeDeadlineSecondsBlock}}  template:
+{{ttlSecondsAfterFinishedBlock}}
+{{activeDeadlineSecondsBlock}}
+  template:
     metadata:
       labels:
 {{podLabels}}
@@ -28,13 +30,16 @@ spec:
 {{podAnnotations}}
     spec:
       restartPolicy: Never
-{{serviceAccountNameBlock}}{{nodeSelectorBlock}}      containers:
+{{serviceAccountNameBlock}}
+{{nodeSelectorBlock}}
+      containers:
         - name: "datax"
           image: {{image}}
           imagePullPolicy: {{imagePullPolicy}}
           env:
 {{env}}
-{{resourcesBlock}}          volumeMounts:
+{{resourcesBlock}}
+          volumeMounts:
             - name: "datax-job"
               mountPath: {{jobJsonMountDir}}
               readOnly: true
