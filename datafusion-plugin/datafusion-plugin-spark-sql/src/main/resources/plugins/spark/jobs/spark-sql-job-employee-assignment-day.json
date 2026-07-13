@@ -1,0 +1,37 @@
+{
+  "job": {
+    "id": "bt_snap_employee_assignment_employee_day_d_overwrite_v1",
+    "name": "员工任职日快照",
+    "description": "基于员工、组织和职位当前维表生成员工任职日快照",
+    "version": "1.0.0"
+  },
+  "sqlTargetType": "PAIMON",
+  "catalogName": "paimon_fs_catalog",
+  "databaseName": "dwd_human_resource",
+  "useDatabase": false,
+  "enableHiveSupport": false,
+  "enableSqlLogging": true,
+  "allowSqlFailure": false,
+  "statements": [
+    {
+      "comment": "生成员工任职日快照",
+      "sql": "INSERT OVERWRITE paimon_fs_catalog.dwd_human_resource.bt_snap_employee_assignment_employee_day_d_overwrite_v1\nSELECT\n  current_date() AS snapshot_date,\n  emp.employee_sk,\n  emp.segment_code,\n  emp.segment_name,\n  emp.source_employee_id,\n  emp.employee_name,\n  emp.employment_status_code,\n  emp.employment_status_name,\n  emp.org_sk,\n  emp.source_org_id,\n  org.source_org_name,\n  emp.position_sk,\n  emp.source_position_id,\n  pos.source_position_name,\n  emp.entry_date,\n  emp.leave_date,\n  emp.src_system,\n  current_timestamp() AS etl_time,\n  '${run_id}' AS batch_id\nFROM paimon_fs_catalog.dim_human_resource.bt_dim_employee_current_d_overwrite_v1 emp\nLEFT JOIN paimon_fs_catalog.dim_human_resource.bt_dim_organization_current_d_overwrite_v1 org\n  ON emp.org_sk = org.org_sk\nLEFT JOIN paimon_fs_catalog.dim_human_resource.bt_dim_position_current_d_overwrite_v1 pos\n  ON emp.position_sk = pos.position_sk"
+    }
+  ],
+  "paimonConf": {
+    "spark.sql.extensions": "org.apache.paimon.spark.extensions.PaimonSparkSessionExtensions",
+    "spark.sql.catalog.paimon_fs_catalog": "org.apache.paimon.spark.SparkCatalog",
+    "spark.sql.catalog.paimon_fs_catalog.warehouse": "s3://data-lake-warehouse/paimon",
+    "spark.sql.catalog.paimon_fs_catalog.s3.endpoint": "http://sz-s3.indusmind.me",
+    "spark.sql.catalog.paimon_fs_catalog.s3.endpoint.region": "us-east-1",
+    "spark.sql.catalog.paimon_fs_catalog.s3.access-key": "DNFY3F8DZ102RKOAXIMJ",
+    "spark.sql.catalog.paimon_fs_catalog.s3.secret-key": "PWJhEKozJxXzIxbdpJs5lZUxuhklk43pDvFX7IVu",
+    "spark.sql.catalog.paimon_fs_catalog.s3.path.style.access": "true",
+    "spark.sql.catalog.paimon_fs_catalog.s3.connection.ssl.enabled": "false",
+    "spark.sql.catalog.paimon_fs_catalog.s3.fast.upload.buffer": "array"
+  },
+  "sparkConf": {
+    "spark.sql.shuffle.partitions": "4"
+  },
+  "hadoopConf": {}
+}

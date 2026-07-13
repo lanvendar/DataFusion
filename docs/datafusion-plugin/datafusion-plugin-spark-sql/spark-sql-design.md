@@ -86,6 +86,8 @@ Ceph AK/SK 不写入示例或日志，由 Kubernetes Secret 向 driver 和 execu
 | `src/main/resources/builder/plugin-build-manifest.json` | 插件发布清单 |
 | `src/main/resources/plugins/spark/conf/logback.xml` | 控制台日志配置 |
 | `src/main/resources/plugins/spark/jobs/spark-sql-job-example.json` | 作业示例 |
+| `src/main/resources/plugins/spark/jobs/spark-sql-job-employee-assignment-day-example.json` | 员工任职日快照作业示例 |
+| `src/test/java/com/datafusion/plugin/spark/sql/integration/SparkSqlK8sOperatorTaskDefinitionRegistrar.java` | 将内置作业 JSON 生成或注册为 Spark K8S_OPERATOR 任务定义 |
 
 ## 8. 验证
 
@@ -94,3 +96,4 @@ Ceph AK/SK 不写入示例或日志，由 Kubernetes Secret 向 driver 和 execu
 - Build: `mvn -pl datafusion-plugin/datafusion-plugin-spark-sql -am package`
 - Checkstyle: `mvn -pl datafusion-plugin/datafusion-plugin-spark-sql -am validate -Dskip.checkStyle=false`
 - K8S: driver 读取 `spark-sql-job.json`，Ceph 建表、写入、查询均成功。
+- Task register: 运行 `SparkSqlK8sOperatorTaskDefinitionRegistrar generate` 校验 Manager 注册请求。
