@@ -78,6 +78,12 @@ sink 由 `SinkWriterFactory` 创建：
 - `STARROCKS + LOAD_STREAM` 必须配置 `loadUrl`、`username`、`database`；覆盖分区时还必须配置 `jdbcUrl`。
 - `PAIMON` 必须配置 `warehouse`、`database`、`endpoint`。
 
+## 示例配置
+
+`src/main/resources/plugins/api/jobs/example-api-job.json` 提供 HTTP 数组响应写入 Paimon S3 的完整示例，
+覆盖日期参数、字段映射、UPSERT、复合主键、分区、字段类型和批量提交。运行前必须替换示例 URL、
+warehouse、endpoint 和 `CHANGE_ME` 凭据。
+
 ## 验证
 
 ```powershell

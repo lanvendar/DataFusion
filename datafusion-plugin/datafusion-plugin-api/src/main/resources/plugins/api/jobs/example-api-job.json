@@ -1,0 +1,155 @@
+{
+  "job": {
+    "id": "example_api_to_paimon",
+    "name": "API 数据同步 Paimon 示例",
+    "description": "通过 HTTP GET 获取数组数据并以 UPSERT 模式写入 Paimon 表",
+    "version": "1.0.0"
+  },
+  "runtime": {
+    "loopCount": 1,
+    "loopIntervalMs": 0
+  },
+  "httpConfig": {
+    "connectMs": 10000,
+    "readMs": 30000,
+    "writeMs": 30000,
+    "probeConnectMs": 5000,
+    "probeReadMs": 15000,
+    "maxAttempts": 1,
+    "retryIntervalMs": 1000,
+    "backoffMultiplier": 2,
+    "retryOnStatus": [
+      429,
+      500,
+      502,
+      503,
+      504
+    ],
+    "onHttpError": "FAIL",
+    "onEmptyData": "SUCCESS",
+    "onParseError": "FAIL"
+  },
+  "redis": {
+    "enabled": false
+  },
+  "steps": [
+    {
+      "id": "getExampleData",
+      "type": "HTTP",
+      "enabled": true,
+      "request": {
+        "method": "GET",
+        "url": "https://api.example.com/v1/products",
+        "headers": {
+          "Accept": "application/json"
+        },
+        "queryParams": {
+          "startDate": "#day(_biz_date_, 0D, yyyy-MM-dd)"
+        },
+        "bodyType": "NONE"
+      },
+      "pagination": {
+        "type": "NONE"
+      },
+      "response": {
+        "contentType": "JSON",
+        "successStatus": [
+          200
+        ],
+        "successExpression": "Success == `true`",
+        "messageExpression": "Message",
+        "recordMode": "ARRAY",
+        "fields": [
+          {
+            "name": "item_id",
+            "expression": "Data[].Id"
+          },
+          {
+            "name": "item_name",
+            "expression": "Data[].Name"
+          },
+          {
+            "name": "price",
+            "expression": "Data[].Price"
+          },
+          {
+            "name": "day_pt",
+            "expression": "Data[].UpdatedAt"
+          }
+        ]
+      },
+      "redisCache": {
+        "enabled": false
+      },
+      "outputVars": {}
+    }
+  ],
+  "sink": {
+    "type": "PAIMON",
+    "loadMode": "UPSERT",
+    "connectType": "S3",
+    "options": {
+      "warehouse": "s3://your-bucket/paimon",
+      "metastore": "filesystem",
+      "catalogType": "filesystem",
+      "database": "ods",
+      "endpoint": "http://s3.example.com",
+      "s3.endpoint": "http://s3.example.com",
+      "s3.access-key": "CHANGE_ME",
+      "s3.secret-key": "CHANGE_ME",
+      "s3.path.style.access": "true",
+      "s3.ssl.enabled": "false",
+      "fs.s3a.fast.upload.buffer": "array",
+      "bucket": "2",
+      "write-buffer-size": "128mb"
+    },
+    "table": {
+      "name": "example_api_data",
+      "comment": "API 数据同步示例表",
+      "createIfNotExists": true,
+      "primaryKeys": [
+        "item_id",
+        "day_pt"
+      ],
+      "partitionKeys": [
+        "day_pt"
+      ]
+    },
+    "columns": [
+      {
+        "name": "item_id",
+        "type": "VARCHAR",
+        "length": 64,
+        "nullable": false,
+        "defaultValue": "UNKNOWN",
+        "comment": "业务主键"
+      },
+      {
+        "name": "item_name",
+        "type": "VARCHAR",
+        "length": 128,
+        "nullable": true,
+        "comment": "名称"
+      },
+      {
+        "name": "price",
+        "type": "DECIMAL",
+        "precision": 18,
+        "scale": 4,
+        "nullable": true,
+        "comment": "价格"
+      },
+      {
+        "name": "day_pt",
+        "type": "DATE",
+        "nullable": false,
+        "comment": "分区日期",
+        "format": "yyyy-MM-dd HH:mm:ss->yyyy-MM-dd"
+      }
+    ],
+    "write": {
+      "batchSize": 1000,
+      "commitUser": "datafusion-api-plugin"
+    }
+  }
+}

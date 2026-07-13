@@ -84,7 +84,7 @@ Ceph AK/SK 不写入示例或日志，由 Kubernetes Secret 向 driver 和 execu
 | `src/main/java/com/datafusion/plugin/spark/sql/runtime/SparkSessionFactory.java` | Session 创建 |
 | `src/main/java/com/datafusion/plugin/spark/sql/runtime/SparkSqlRunner.java` | SQL 执行 |
 | `src/main/resources/builder/plugin-build-manifest.json` | 插件发布清单 |
-| `src/main/resources/plugins/spark/conf/logback.xml` | 控制台日志配置 |
+| `src/main/resources/plugins/spark/conf/logback.xml` | 控制台、常规滚动文件和 WARN 滚动文件日志配置 |
 | `src/main/resources/plugins/spark/jobs/spark-sql-job-example.json` | 作业示例 |
 | `src/main/resources/plugins/spark/jobs/spark-sql-job-employee-assignment-day-example.json` | 员工任职日快照作业示例 |
 | `src/test/java/com/datafusion/plugin/spark/sql/integration/SparkSqlK8sOperatorTaskDefinitionRegistrar.java` | 将内置作业 JSON 生成或注册为 Spark K8S_OPERATOR 任务定义 |
