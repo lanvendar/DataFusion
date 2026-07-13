@@ -64,14 +64,9 @@ public class SparkParamResolver {
     private static final String DEFAULT_IMAGE_PULL_POLICY = "IfNotPresent";
 
     /**
-     * 默认 SparkApplication 前缀.
+     * 默认 Kubernetes 资源名称前缀.
      */
-    private static final String DEFAULT_APPLICATION_NAME_PREFIX = "df-spark-";
-
-    /**
-     * 默认 ConfigMap 前缀.
-     */
-    private static final String DEFAULT_CONFIG_MAP_NAME_PREFIX = "df-spark-sql-job-";
+    private static final String DEFAULT_NAME_PREFIX = "df-spark";
 
     /**
      * 默认插件目录.
@@ -161,12 +156,9 @@ public class SparkParamResolver {
         JsonNode taskKubernetes = object(taskData, "kubernetes");
         String namespace = firstText(text(taskKubernetes, "namespace"), text(pluginKubernetes, "namespace"),
                 DEFAULT_NAMESPACE);
-        String applicationPrefix = firstText(text(taskKubernetes, "applicationNamePrefix"),
-                text(pluginKubernetes, "applicationNamePrefix"), DEFAULT_APPLICATION_NAME_PREFIX);
-        String configMapPrefix = firstText(text(taskKubernetes, "configMapNamePrefix"),
-                text(pluginKubernetes, "configMapNamePrefix"), DEFAULT_CONFIG_MAP_NAME_PREFIX);
-        String applicationName = SparkK8sNameGenerator.applicationName(applicationPrefix, request.getTaskInstanceId());
-        String configMapName = SparkK8sNameGenerator.configMapName(configMapPrefix, request.getTaskInstanceId());
+        String namePrefix = firstText(text(pluginKubernetes, "namePrefix"), DEFAULT_NAME_PREFIX);
+        String applicationName = SparkK8sNameGenerator.applicationName(namePrefix, request.getTaskInstanceId());
+        String configMapName = SparkK8sNameGenerator.configMapName(namePrefix, request.getTaskInstanceId());
         String webUiTemplate = firstText(text(taskKubernetes, "sparkWebUiUriTemplate"), DEFAULT_WEB_UI_TEMPLATE);
         Map<String, String> nodeSelector = new LinkedHashMap<>();
         nodeSelector.put("kubernetes.io/arch", "amd64");

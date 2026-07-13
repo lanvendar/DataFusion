@@ -182,6 +182,22 @@ appRoot        = 单包插件使用 {pluginTypeRoot}；多 app 插件使用 {plu
   agent 生成的 volume、volumeMount、initContainer、container name 等运行时关键结构。
 - 新增插件模板时，必须先确认插件设计文档中的目录约定和模板变量一致。
 
+### Kubernetes 资源命名规范
+
+Kubernetes 资源名称由 `KubernetesResourceNameUtils` 统一完成 DNS-1123 归一化、63 字符限制和稳定 hash
+截断。各插件保留自己的 NameGenerator，用于选择资源角色和序号，不重复实现名称规范。
+
+```text
+resourceName(namePrefix, taskInstanceId)
+resourceName(namePrefix, role, taskInstanceId)
+resourceName(namePrefix, role, ordinal, taskInstanceId)
+```
+
+- `pluginParam.kubernetes.namePrefix` 可以覆盖插件代码默认值，`taskData.kubernetes` 不允许覆盖该字段。
+- 主资源使用两段式名称；同任务存在资源类型冲突时追加 `role`；同角色存在多个实例时再追加 `ordinal`。
+- `role` 和 `ordinal` 由插件代码决定，不开放为任务参数。
+- 默认前缀分别为 Spark `df-spark`、Flink `df-flink`、DataX `df-datax`。
+
 ## RPC 边界
 
 manager 调用 agent：

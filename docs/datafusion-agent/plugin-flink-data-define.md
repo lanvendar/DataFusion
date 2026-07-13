@@ -220,6 +220,7 @@ s3a://data-lake-warehouse/flink/savepoints/{jobId}
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
+| `namePrefix` | `String` | 否 | `df-flink` | Kubernetes 资源名称前缀；只允许 `pluginParam.kubernetes` 配置，FlinkDeployment 名称为 `{namePrefix}-{taskInstanceId}` |
 | `namespace` | `String` | 否 | `default` | Kubernetes namespace；必须被 Flink Operator watch，并且 namespace 内存在所需 SA / 运行 Secret / PVC |
 | `image` | `String` | K8S / K8S_OPERATOR 必填 | `flink:2.2.0-scala_2.12-java17` | Flink runtime 基础镜像；业务 jar 和依赖不打入镜像；首版与 `pluginParam.flinkVersion=2.2.0`、Operator `spec.flinkVersion=v2_2` 成组使用 |
 | `imagePullPolicy` | `String` | 否 | `IfNotPresent` | 镜像拉取策略 |
@@ -251,7 +252,6 @@ s3a://data-lake-warehouse/flink/savepoints/{jobId}
 | `flinkAppDir` | `pluginParam.flinkAppDir` | Pod 内共享盘 app 目录，例如 `/opt/datafusion/plugins/flink/datafusion-plugin-flink-table` |
 | `sharedMountPath` | `pluginParam.flinkAppDir` | 如果 `flinkAppDir` 包含 `/plugins/`，挂载点为 `/plugins/` 前缀目录；否则使用 `flinkAppDir` 父目录 |
 | `usrlibPath` | 固定约定 | `/opt/flink/usrlib` |
-| `deploymentNamePrefix` | 固定约定 | `df-flink-` |
 | `jobArg` | 固定约定 | `--job <base64(job-json)>` |
 | `imagePlatform` | 固定约定 | 当前只支持 `linux/amd64`，通过 `nodeSelector` 或等价调度约束表达 |
 | `mavenProfile` / `builderScriptPath` / `agentFlinkAppDir` | 构建发布流程 | 只属于 builder，不进入运行时参数 |

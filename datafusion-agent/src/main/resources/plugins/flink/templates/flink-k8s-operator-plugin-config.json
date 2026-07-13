@@ -24,6 +24,7 @@
       "fs.s3a.aws.credentials.provider": "com.amazonaws.auth.EnvironmentVariableCredentialsProvider"
     },
     "kubernetes": {
+      "namePrefix": "df-flink",
       "namespace": "datafusion",
       "image": "jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:flink-2.2.0-scala_2.12-java17",
       "sharedPvcName": "datafusion-shared-data",

@@ -1,5 +1,7 @@
 package com.datafusion.agent.runtime.worker.plugin.datax.k8s;
 
+import com.datafusion.agent.utils.KubernetesResourceNameUtils;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
@@ -39,6 +41,11 @@ public final class DataxK8sNameGenerator {
      */
     private static final int MAX_NAME_LENGTH = 63;
 
+    /**
+     * 作业配置资源角色.
+     */
+    private static final String JOB_CONFIG_ROLE = "job-config";
+
     private DataxK8sNameGenerator() {
     }
 
@@ -50,7 +57,7 @@ public final class DataxK8sNameGenerator {
      * @return Job name
      */
     public static String jobName(String prefix, String taskInstanceId) {
-        return dnsName(prefix, taskInstanceId);
+        return KubernetesResourceNameUtils.resourceName(prefix, taskInstanceId);
     }
 
     /**
@@ -61,7 +68,7 @@ public final class DataxK8sNameGenerator {
      * @return Secret name
      */
     public static String secretName(String prefix, String taskInstanceId) {
-        return dnsName(prefix, taskInstanceId);
+        return KubernetesResourceNameUtils.resourceName(prefix, JOB_CONFIG_ROLE, taskInstanceId);
     }
 
     /**
@@ -87,17 +94,6 @@ public final class DataxK8sNameGenerator {
         }
         String hash = hash(value).substring(0, 10);
         return normalized.substring(0, MAX_NAME_LENGTH - hash.length() - 1) + "-" + hash;
-    }
-
-    private static String dnsName(String prefix, String value) {
-        String rawPrefix = prefix == null ? "" : prefix;
-        String base = normalize(rawPrefix + value);
-        if (base.length() <= MAX_NAME_LENGTH) {
-            return trimEdge(base);
-        }
-        String hash = hash(value).substring(0, 10);
-        int maxBaseLength = MAX_NAME_LENGTH - hash.length() - 1;
-        return trimEdge(base.substring(0, maxBaseLength)) + "-" + hash;
     }
 
     private static String normalize(String value) {

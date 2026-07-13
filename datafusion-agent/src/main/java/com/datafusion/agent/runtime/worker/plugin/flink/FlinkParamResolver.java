@@ -69,9 +69,9 @@ public class FlinkParamResolver {
     private static final String DEFAULT_IMAGE_PULL_POLICY = "IfNotPresent";
 
     /**
-     * Default deployment prefix.
+     * Default Kubernetes resource name prefix.
      */
-    private static final String DEFAULT_DEPLOYMENT_NAME_PREFIX = "df-flink-";
+    private static final String DEFAULT_NAME_PREFIX = "df-flink";
 
     /**
      * Default upgrade mode.
@@ -217,9 +217,8 @@ public class FlinkParamResolver {
             FlinkExecutionParam param, List<String> args) {
         JsonNode pluginKubernetes = object(pluginParam, "kubernetes");
         JsonNode taskKubernetes = object(taskData, "kubernetes");
-        String deploymentPrefix = firstText(text(taskKubernetes, "deploymentNamePrefix"),
-                text(pluginKubernetes, "deploymentNamePrefix"), DEFAULT_DEPLOYMENT_NAME_PREFIX);
-        String deploymentName = FlinkK8sNameGenerator.deploymentName(deploymentPrefix, request.getTaskInstanceId());
+        String namePrefix = firstText(text(pluginKubernetes, "namePrefix"), DEFAULT_NAME_PREFIX);
+        String deploymentName = FlinkK8sNameGenerator.deploymentName(namePrefix, request.getTaskInstanceId());
         String namespace = firstText(text(taskKubernetes, "namespace"), text(pluginKubernetes, "namespace"),
                 DEFAULT_K8S_NAMESPACE);
         String flinkAppDir = param.getFlinkAppDir();

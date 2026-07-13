@@ -43,7 +43,7 @@ class SparkKubernetesTemplateRendererTest {
         assertTrue(yaml.contains("kind: ConfigMap"));
         assertTrue(yaml.contains("type: Never"));
         assertTrue(yaml.contains("df-spark-task-1"));
-        assertTrue(yaml.contains("df-spark-sql-job-task-1"));
+        assertTrue(yaml.contains("df-spark-job-config-task-1"));
         assertTrue(yaml.contains("--job-file"));
         assertTrue(yaml.contains("/opt/datafusion/spark/jobs/spark-sql-job.json"));
         assertTrue(yaml.contains("\"spark-sql-job.json\": |-"));

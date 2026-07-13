@@ -117,14 +117,9 @@ public class DataxParamResolver {
     private static final int DEFAULT_TTL_SECONDS_AFTER_FINISHED = 86400;
 
     /**
-     * Default Kubernetes Job name prefix.
+     * Default Kubernetes resource name prefix.
      */
-    private static final String DEFAULT_JOB_NAME_PREFIX = "df-datax-";
-
-    /**
-     * Default Kubernetes Secret name prefix.
-     */
-    private static final String DEFAULT_SECRET_NAME_PREFIX = "df-datax-job-";
+    private static final String DEFAULT_NAME_PREFIX = "df-datax";
 
     /**
      * Object mapper.
@@ -203,12 +198,9 @@ public class DataxParamResolver {
     private DataxKubernetesParam resolveKubernetes(TaskRequest request, JsonNode taskData, JsonNode pluginParam) {
         JsonNode pluginKubernetes = object(pluginParam, "kubernetes");
         JsonNode taskKubernetes = object(taskData, "kubernetes");
-        String jobNamePrefix = firstText(text(taskKubernetes, "jobNamePrefix"),
-                text(pluginKubernetes, "jobNamePrefix"), DEFAULT_JOB_NAME_PREFIX);
-        String secretNamePrefix = firstText(text(taskKubernetes, "secretNamePrefix"),
-                text(pluginKubernetes, "secretNamePrefix"), DEFAULT_SECRET_NAME_PREFIX);
-        String jobName = DataxK8sNameGenerator.jobName(jobNamePrefix, request.getTaskInstanceId());
-        String secretName = DataxK8sNameGenerator.secretName(secretNamePrefix, request.getTaskInstanceId());
+        String namePrefix = firstText(text(pluginKubernetes, "namePrefix"), DEFAULT_NAME_PREFIX);
+        String jobName = DataxK8sNameGenerator.jobName(namePrefix, request.getTaskInstanceId());
+        String secretName = DataxK8sNameGenerator.secretName(namePrefix, request.getTaskInstanceId());
         String namespace = firstText(text(taskKubernetes, "namespace"), text(pluginKubernetes, "namespace"),
                 DEFAULT_K8S_NAMESPACE);
         Map<String, String> labels = mergeMap(object(pluginKubernetes, "labels"), object(taskKubernetes, "labels"));

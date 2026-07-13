@@ -21,7 +21,7 @@
 |----------|--------|---------|--------|----------------|-------|
 | 提交 Spark SQL | Manager `TaskRequest` | `SparkPluginTaskExecutor.validateTaskRequest` -> `SparkParamResolver` | `SparkExecutionParam` | `pluginParam + taskData` | `pluginParam.runMode` 必须为 `K8S_OPERATOR`，Agent 不回写 `pluginParam` |
 | 生成任务配置 | `pluginParam.defaultTaskData + taskData` | `SparkParamResolver` -> `K8sOperatorSparkTaskRunner` | 本地任务运行目录 | `spark-sql-job.json` | resolver 深度合并业务参数并排除 Agent 专用 `kubernetes`，runner 直接写入 `effectiveTaskData` |
-| 创建 SQL 配置资源 | `spark-sql-job.json` | Fabric8 client | Kubernetes ConfigMap | `df-spark-sql-job-{taskInstanceId}` | key 固定为 `spark-sql-job.json`，只挂载到 driver pod |
+| 创建 SQL 配置资源 | `spark-sql-job.json` | Fabric8 client | Kubernetes ConfigMap | `{namePrefix}-job-config-{taskInstanceId}` | `namePrefix` 默认 `df-spark`；key 固定为 `spark-sql-job.json`，只挂载到 driver pod |
 | 创建 Spark 应用 | `SparkExecutionParam` | `SparkKubernetesTemplateRenderer` | Kubernetes API | `SparkApplication` | `apiVersion=sparkoperator.k8s.io/v1beta2` |
 | 加载插件 jar | 共享插件目录 | driver / executor initContainer | pod 内 `emptyDir` | `plugin-spark-sql.jar` | 单个 fat jar，包含 Paimon Spark 和 Paimon S3 |
 | 状态刷新 | `SparkApplication.status` / pod 存活事实 | `K8sOperatorRunModeStateMapping` | `WorkerTaskExecutionState` | `StatusEnum` | Client 只返回 Kubernetes 状态事实，mapping 负责转换调度状态 |
@@ -108,6 +108,7 @@
 | 重启策略 | `restartPolicy.type` 固定为 `Never`，DataFusion 重启通过新任务实例和新 SparkApplication 完成 | 不依赖 Operator 原地重启 |
 | 插件 jar | `plugin-spark-sql.jar` 位于共享插件目录，driver/executor initContainer 复制到 pod 内 `emptyDir` | fat jar 源路径不存在或不是文件时提交失败 |
 | SQL 配置 | SQL job 配置写入 ConfigMap，启动参数只传 `--job-file` | 不把完整 SQL 放进 SparkApplication arguments |
+| Kubernetes 资源命名 | `pluginParam.kubernetes.namePrefix` 默认 `df-spark`；SparkApplication 使用 `{namePrefix}-{taskInstanceId}`，ConfigMap 使用 `{namePrefix}-job-config-{taskInstanceId}` | `namePrefix` 只允许插件配置覆盖，`taskData.kubernetes` 不参与资源命名 |
 | 用户 labels | 不允许覆盖 `datafusion.*` / `datafusion.io/*` 保留 label | 覆盖项被拒绝 |
 | 重启提交 | `.state.appId` 存在时先清理旧 SparkApplication 和 ConfigMap | 清理失败返回 `SUBMIT_FAILURE` |
 | 停止语义 | `stop` patch `spec.suspend=true`；`SUSPENDING -> STOPPING`，`SUSPENDED -> STOP_SUCCESS` | 非停止态 `SUSPENDED` 返回 `UNKNOWN` |

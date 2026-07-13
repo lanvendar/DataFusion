@@ -43,7 +43,7 @@ class FlinkKubernetesTemplateRendererTest {
 
         assertTrue(yaml.contains("kind: FlinkDeployment"));
         assertTrue(yaml.contains("- \"--job\""));
-        assertTrue(yaml.contains("http://df-flink-task-1-rest.datafusion.svc:8081"));
+        assertTrue(yaml.contains("http://custom-flink-task-1-rest.datafusion.svc:8081"));
         assertTrue(yaml.contains("s3a://data-lake-warehouse/flink/checkpoints/kafka-json-job"));
         assertTrue(yaml.contains("s3a://data-lake-warehouse/flink/savepoints/kafka-json-job"));
         assertTrue(yaml.contains("\"fs.s3a.endpoint\": \"172.26.185.200\""));
@@ -96,6 +96,7 @@ class FlinkKubernetesTemplateRendererTest {
                 "com.amazonaws.auth.EnvironmentVariableCredentialsProvider");
         pluginParam.set("flinkConfig", flinkConfig);
         ObjectNode kubernetes = OBJECT_MAPPER.createObjectNode();
+        kubernetes.put("namePrefix", "custom-flink");
         kubernetes.put("namespace", "datafusion");
         kubernetes.put("image", "flink:2.2.0-scala_2.12-java17");
         kubernetes.put("sharedPvcName", "datafusion-shared-data");

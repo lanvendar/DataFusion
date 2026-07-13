@@ -1,5 +1,7 @@
 package com.datafusion.agent.runtime.worker.plugin.spark.k8s;
 
+import com.datafusion.agent.utils.KubernetesResourceNameUtils;
+
 import java.util.Locale;
 
 /**
@@ -36,6 +38,11 @@ public final class SparkK8sNameGenerator {
      */
     private static final int DNS_LABEL_MAX_LENGTH = 63;
 
+    /**
+     * SQL 作业配置资源角色.
+     */
+    private static final String JOB_CONFIG_ROLE = "job-config";
+
     private SparkK8sNameGenerator() {
     }
 
@@ -47,7 +54,7 @@ public final class SparkK8sNameGenerator {
      * @return SparkApplication 名称
      */
     public static String applicationName(String prefix, String taskInstanceId) {
-        return dnsName(prefix, taskInstanceId);
+        return KubernetesResourceNameUtils.resourceName(prefix, taskInstanceId);
     }
 
     /**
@@ -58,7 +65,7 @@ public final class SparkK8sNameGenerator {
      * @return ConfigMap 名称
      */
     public static String configMapName(String prefix, String taskInstanceId) {
-        return dnsName(prefix, taskInstanceId);
+        return KubernetesResourceNameUtils.resourceName(prefix, JOB_CONFIG_ROLE, taskInstanceId);
     }
 
     /**
@@ -79,14 +86,6 @@ public final class SparkK8sNameGenerator {
      */
     public static String labelValue(String value) {
         String normalized = normalize(value);
-        if (normalized.length() > DNS_LABEL_MAX_LENGTH) {
-            return normalized.substring(0, DNS_LABEL_MAX_LENGTH);
-        }
-        return normalized;
-    }
-
-    private static String dnsName(String prefix, String value) {
-        String normalized = normalize((prefix == null ? "" : prefix) + value);
         if (normalized.length() > DNS_LABEL_MAX_LENGTH) {
             return normalized.substring(0, DNS_LABEL_MAX_LENGTH);
         }

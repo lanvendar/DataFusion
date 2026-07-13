@@ -127,7 +127,8 @@ K8S_OPERATOR 集群前置条件：
 
 K8S_OPERATOR 资源约定：
 
-- `FlinkDeployment` name 由 `deploymentNamePrefix + taskInstanceId` 生成，并做 DNS-1123 截断。
+- `FlinkDeployment` name 使用 `{namePrefix}-{taskInstanceId}` 生成，`pluginParam.kubernetes.namePrefix`
+  默认 `df-flink`，只允许插件配置覆盖。
 - label 必须包含 `datafusion.io/plugin-type=FLINK`、`datafusion.io/run-mode=K8S_OPERATOR`、
   `datafusion.io/task-instance-id`、`datafusion.io/flow-instance-id`。
 - `flink-job.json` 只作为 agent 本地任务运行目录快照，便于排查；Kubernetes 侧不创建 job config Secret，

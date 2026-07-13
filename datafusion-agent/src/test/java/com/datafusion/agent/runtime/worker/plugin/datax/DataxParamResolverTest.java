@@ -65,6 +65,7 @@ class DataxParamResolverTest {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
         pluginParam.put("runMode", "K8S");
         ObjectNode pluginKubernetes = OBJECT_MAPPER.createObjectNode();
+        pluginKubernetes.put("namePrefix", "custom-datax");
         pluginKubernetes.put("namespace", "plugin-ns");
         pluginKubernetes.put("image", "datafusion/datax:plugin");
         pluginKubernetes.put("collectLogsOnFinish", true);
@@ -79,6 +80,7 @@ class DataxParamResolverTest {
         taskEnv.put("TASK_ENV", "task");
         taskData.set("env", taskEnv);
         ObjectNode taskKubernetes = OBJECT_MAPPER.createObjectNode();
+        taskKubernetes.put("namePrefix", "ignored-task-datax");
         taskKubernetes.put("namespace", "task-ns");
         taskKubernetes.put("image", "datafusion/datax:task");
         taskKubernetes.put("collectLogsOnFinish", false);
@@ -93,6 +95,8 @@ class DataxParamResolverTest {
 
         assertEquals(DataxRunMode.K8S, param.getRunMode());
         assertEquals("task-ns", param.getKubernetes().getNamespace());
+        assertEquals("custom-datax-task-1", param.getKubernetes().getJobName());
+        assertEquals("custom-datax-job-config-task-1", param.getKubernetes().getSecretName());
         assertEquals("datafusion/datax:task", param.getKubernetes().getImage());
         assertFalse(param.getKubernetes().isCollectLogsOnFinish());
         assertEquals("plugin", param.getKubernetes().getEnv().get("PLUGIN_ENV"));

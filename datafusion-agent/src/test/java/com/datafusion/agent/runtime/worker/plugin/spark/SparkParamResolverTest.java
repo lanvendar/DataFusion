@@ -29,6 +29,7 @@ class SparkParamResolverTest {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
         pluginParam.put("runMode", SparkRunMode.K8S_OPERATOR.name());
         ObjectNode pluginKubernetes = pluginParam.putObject("kubernetes");
+        pluginKubernetes.put("namePrefix", "custom-spark");
         pluginKubernetes.put("namespace", "plugin-ns");
         pluginKubernetes.put("image", "apache/spark:4.0.2-scala2.13-java17-ubuntu");
         pluginKubernetes.put("sharedPvcName", "datafusion-shared-data");
@@ -38,6 +39,7 @@ class SparkParamResolverTest {
         taskData.putObject("job").put("id", "spark-sql-test");
         taskData.putArray("statements").addObject().put("sql", "select 1");
         ObjectNode taskKubernetes = taskData.putObject("kubernetes");
+        taskKubernetes.put("namePrefix", "ignored-task-spark");
         taskKubernetes.put("namespace", "task-ns");
         taskKubernetes.put("collectLogsOnFinish", false);
 
@@ -50,6 +52,8 @@ class SparkParamResolverTest {
         SparkExecutionParam param = new SparkParamResolver(new AgentProperties()).resolve(request);
 
         assertEquals("task-ns", param.getKubernetes().getNamespace());
+        assertEquals("custom-spark-task-1", param.getKubernetes().getApplicationName());
+        assertEquals("custom-spark-job-config-task-1", param.getKubernetes().getConfigMapName());
         assertFalse(param.getKubernetes().isCollectLogsOnFinish());
         assertFalse(param.getEffectiveTaskData().has("kubernetes"));
         assertEquals("spark-sql-test", param.getEffectiveTaskData().path("job").path("id").asText());
