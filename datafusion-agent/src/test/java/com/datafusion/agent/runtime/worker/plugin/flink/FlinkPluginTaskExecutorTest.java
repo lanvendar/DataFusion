@@ -7,6 +7,7 @@ import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,6 +43,20 @@ class FlinkPluginTaskExecutorTest {
 
         assertSame(pluginParam, request.getPluginParam());
         assertEquals(FlinkRunMode.K8S_OPERATOR.name(), request.getPluginParam().path(FlinkParamResolver.FIELD_RUN_MODE).asText());
+    }
+
+    @Test
+    void shouldExcludeBizRefFromEffectiveTaskData() {
+        FakeFlinkRunner runner = new FakeFlinkRunner();
+        FlinkPluginTaskExecutor executor = executor(new InMemoryWorkerTaskExecutionStore(), runner);
+        TaskRequest request = request();
+        ((ObjectNode) request.getPluginParam()).putObject("defaultTaskData").put("bizRef", "default-biz-ref");
+        ((ObjectNode) request.getTaskData()).put("bizRef", "task-biz-ref");
+
+        TaskResult result = executor.submitTask(request);
+
+        assertEquals(StatusEnum.SUBMIT_SUCCESS, result.getTaskState());
+        assertFalse(runner.lastSubmitTaskData.has("bizRef"));
     }
 
     @Test
@@ -130,6 +146,11 @@ class FlinkPluginTaskExecutorTest {
          */
         private FlinkRunMode lastFinishRunMode;
 
+        /**
+         * Last submitted task data.
+         */
+        private JsonNode lastSubmitTaskData;
+
         @Override
         public FlinkRunMode runMode() {
             return FlinkRunMode.K8S_OPERATOR;
@@ -137,6 +158,7 @@ class FlinkPluginTaskExecutorTest {
 
         @Override
         public FlinkTaskResult submit(FlinkExecutionParam param) {
+            lastSubmitTaskData = param.getEffectiveTaskData();
             return FlinkTaskResult.builder()
                     .status(StatusEnum.SUBMIT_SUCCESS)
                     .appId(param.getKubernetes().getDeploymentName())

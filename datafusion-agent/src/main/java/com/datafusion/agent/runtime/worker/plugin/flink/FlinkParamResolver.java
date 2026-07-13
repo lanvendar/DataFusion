@@ -294,7 +294,11 @@ public class FlinkParamResolver {
     private JsonNode effectiveTaskData(JsonNode pluginParam, JsonNode taskData) {
         JsonNode jobJson = jobJson(taskData);
         if (jobJson != null) {
-            return parseJobJson(jobJson);
+            JsonNode result = parseJobJson(jobJson);
+            if (result instanceof ObjectNode objectNode) {
+                objectNode.remove("bizRef");
+            }
+            return result;
         }
         JsonNode defaultTaskData = object(pluginParam, "defaultTaskData");
         ObjectNode result = defaultTaskData == null ? OBJECT_MAPPER.createObjectNode() : defaultTaskData.deepCopy();
@@ -302,6 +306,7 @@ public class FlinkParamResolver {
         if (overrideTaskData != null && overrideTaskData.isObject()) {
             deepMerge(result, overrideTaskData);
         }
+        result.remove("bizRef");
         return result;
     }
 

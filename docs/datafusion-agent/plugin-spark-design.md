@@ -20,7 +20,7 @@
 | Scenario | Source | Through | Target | Data structure | Notes |
 |----------|--------|---------|--------|----------------|-------|
 | 提交 Spark SQL | Manager `TaskRequest` | `SparkPluginTaskExecutor.validateTaskRequest` -> `SparkParamResolver` | `SparkExecutionParam` | `pluginParam + taskData` | `pluginParam.runMode` 必须为 `K8S_OPERATOR`，Agent 不回写 `pluginParam` |
-| 生成任务配置 | `pluginParam.defaultTaskData + taskData` | `SparkParamResolver` -> `K8sOperatorSparkTaskRunner` | 本地任务运行目录 | `spark-sql-job.json` | resolver 深度合并业务参数并排除 Agent 专用 `kubernetes`，runner 直接写入 `effectiveTaskData` |
+| 生成任务配置 | `pluginParam.defaultTaskData + taskData` | `SparkParamResolver` -> `K8sOperatorSparkTaskRunner` | 本地任务运行目录 | `spark-sql-job.json` | resolver 深度合并业务参数并排除 `bizRef`、`kubernetes`，runner 直接写入 `effectiveTaskData` |
 | 创建 SQL 配置资源 | `spark-sql-job.json` | Fabric8 client | Kubernetes ConfigMap | `{namePrefix}-job-config-{taskInstanceId}` | `namePrefix` 默认 `df-spark`；key 固定为 `spark-sql-job.json`，只挂载到 driver pod |
 | 创建 Spark 应用 | `SparkExecutionParam` | `SparkKubernetesTemplateRenderer` | Kubernetes API | `SparkApplication` | `apiVersion=sparkoperator.k8s.io/v1beta2` |
 | 加载插件 jar | 共享插件目录 | driver / executor initContainer | pod 内 `emptyDir` | `plugin-spark-sql.jar` | 单个 fat jar，包含 Paimon Spark 和 Paimon S3 |

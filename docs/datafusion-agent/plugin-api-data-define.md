@@ -59,7 +59,7 @@ DATAFUSION_WORKER_PLUGIN_TYPES=API
 一致，例如包含 `job`、`runtime`、`httpConfig`、`steps`、`sink` 等字段。
 agent 不从 `taskData` 读取 jar、JVM、env 等运行参数。
 
-提交前 agent 将 `deepMerge(pluginParam.defaultTaskData, taskData)` 写入：
+提交前 agent 合并 `pluginParam.defaultTaskData` 与 `taskData`，过滤调度属性 `bizRef` 和 `trigger` 后写入：
 
 ```text
 ${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/api-job.json

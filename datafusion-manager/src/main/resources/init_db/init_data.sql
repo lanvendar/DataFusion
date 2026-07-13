@@ -233,8 +233,7 @@ VALUES
      "job": {},
      "source": {},
      "flinkConfig": {},
-     "sink": {},
-     "bizRef": ""
+     "sink": {}
    }
  }'::jsonb,
  true, 0, 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,

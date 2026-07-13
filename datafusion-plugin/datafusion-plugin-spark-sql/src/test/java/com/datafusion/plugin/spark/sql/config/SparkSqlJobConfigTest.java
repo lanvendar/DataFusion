@@ -22,7 +22,7 @@ class SparkSqlJobConfigTest {
     @Test
     void shouldLoadExample() throws Exception {
         try (InputStream input = getClass().getResourceAsStream(
-                "/plugins/spark/jobs/spark-sql-job-example.json")) {
+                "/plugins/spark/jobs/example-spark-sql-job.json")) {
             SparkSqlJobConfig config = new ObjectMapper().readValue(input, SparkSqlJobConfig.class);
 
             assertDoesNotThrow(config::validate);
