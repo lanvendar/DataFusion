@@ -8,8 +8,8 @@
     "sparkVersion": "4.0.2",
     "mainClass": "com.datafusion.plugin.spark.sql.SparkSqlApplication",
     "kubernetes": {
-      "namespace": "default",
-      "image": "apache/spark:4.0.2-scala2.13-java17-ubuntu",
+      "namespace": "datafusion",
+      "image": "jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:spark-4.0.2-scala2.13-java17-ubuntu",
       "imagePullPolicy": "IfNotPresent",
       "namePrefix": "df-spark",
       "sharedPvcName": "",

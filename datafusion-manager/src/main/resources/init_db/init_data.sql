@@ -120,8 +120,7 @@ VALUES
 	     "backoffLimit": 0,
 	     "activeDeadlineSeconds": null,
 	     "ttlSecondsAfterFinished": 86400,
-	     "jobNamePrefix": "df-datax-",
-	     "secretNamePrefix": "df-datax-job-",
+	     "namePrefix": "df-datax",
 	     "logStorageUri": "",
 	     "collectLogsOnFinish": true,
          "deleteJobOnFinish": false,
@@ -197,6 +196,7 @@ VALUES
      "fs.s3a.aws.credentials.provider": "com.amazonaws.auth.EnvironmentVariableCredentialsProvider"
    },
    "kubernetes": {
+     "namePrefix": "df-flink",
      "namespace": "datafusion",
      "image": "flink:2.2.0-scala_2.12-java17",
      "sharedPvcName": "datafusion-shared-data",
@@ -238,6 +238,50 @@ VALUES
    }
  }'::jsonb,
  true, 0, 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+ '00000000-0000-0000-0000-000000000001'::uuid),
+('12b7546e-b06d-34ea-a033-ad43854bb6a2'::uuid, 'Spark K8S_OPERATOR 模板', 'SPARK', 'K8S_OPERATOR',
+ 'Spark Kubernetes Operator 执行配置模板，通过 SparkApplication 提交 Spark SQL 作业',
+ '{
+   "sparkVersion": "4.0.2",
+   "mainClass": "com.datafusion.plugin.spark.sql.SparkSqlApplication",
+   "kubernetes": {
+     "namePrefix": "df-spark",
+     "namespace": "datafusion",
+     "image": "jsessh-registry.cn-shanghai.cr.aliyuncs.com/apps/datawarehouse:spark-4.0.2-scala2.13-java17-ubuntu",
+     "imagePullPolicy": "IfNotPresent",
+     "sharedPvcName": "datafusion-shared-data",
+     "sharedMountPath": "/opt/datafusion/plugins",
+     "pluginAppDir": "/opt/datafusion/plugins/spark/datafusion-plugin-spark-sql",
+     "pluginJarName": "plugin-spark-sql.jar",
+     "jarMountPath": "/opt/datafusion/spark/jars",
+     "jobConfigMountPath": "/opt/datafusion/spark/jobs",
+     "collectLogsOnFinish": true,
+     "driver": {
+       "cores": 1,
+       "memory": "1g"
+     },
+     "executor": {
+       "instances": 1,
+       "cores": 1,
+       "memory": "1g"
+     }
+   },
+   "defaultTaskData": {
+     "job": {},
+     "sqlTargetType": "PAIMON",
+     "catalogName": "paimon",
+     "databaseName": "",
+     "useDatabase": true,
+     "enableHiveSupport": false,
+     "enableSqlLogging": true,
+     "allowSqlFailure": false,
+     "statements": [],
+     "paimonConf": {},
+     "sparkConf": {},
+     "hadoopConf": {}
+   }
+ }'::jsonb,
+ true, 0, 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
  '00000000-0000-0000-0000-000000000001'::uuid)
 ON CONFLICT (id) DO UPDATE SET
 plugin_name = EXCLUDED.plugin_name,
@@ -269,6 +313,10 @@ VALUES
  '00000000-0000-0000-0000-000000000001'::uuid),
 ('50be76ec-f595-3745-a665-758fbce78a83'::uuid, 'FLINK',
  'feef4832-711c-35ce-a0b4-59f2f5ecfcd5'::uuid, 'FLINK',
+ 'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+ '00000000-0000-0000-0000-000000000001'::uuid),
+('7547ffe7-411a-3f91-9dbb-f16abde429ea'::uuid, 'SPARK',
+ '12b7546e-b06d-34ea-a033-ad43854bb6a2'::uuid, 'SPARK',
  'system', 'system', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
  '00000000-0000-0000-0000-000000000001'::uuid)
 ON CONFLICT (id) DO UPDATE SET
