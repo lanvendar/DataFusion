@@ -136,7 +136,8 @@
 |--------------------|--------|-------|
 | kubeflow spark-operator 2.5.0 | Kubernetes CRD `SparkApplication` | `apiVersion=sparkoperator.k8s.io/v1beta2` |
 | Kubernetes API | Fabric8 client | 复用 `AgentProperties.Kubernetes` |
-| Shared plugin directory | PVC / runtime plugin root | 默认 `/opt/datafusion/plugins/spark/datafusion-plugin-spark-sql/plugin-spark-sql.jar` |
+| Shared plugin directory | PVC root mounted at `/opt/datafusion` | 默认 `/opt/datafusion/plugins/spark/datafusion-plugin-spark-sql/plugin-spark-sql.jar` |
+| Spark application jar directory | Pod `emptyDir` | 默认 `/opt/spark/work-dir/datafusion-jars`，initContainer、Driver 和 Executor 使用同一路径 |
 | Spark official image | Pod image | 默认 `apache/spark:4.0.2-scala2.13-java17-ubuntu` |
 | plugin-spark-sql | Java main class | 默认 `com.datafusion.plugin.spark.sql.SparkSqlApplication` |
 

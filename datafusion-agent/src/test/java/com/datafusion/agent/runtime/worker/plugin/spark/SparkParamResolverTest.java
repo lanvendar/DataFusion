@@ -32,6 +32,7 @@ class SparkParamResolverTest {
         pluginKubernetes.put("namePrefix", "custom-spark");
         pluginKubernetes.put("namespace", "plugin-ns");
         pluginKubernetes.put("image", "apache/spark:4.0.2-scala2.13-java17-ubuntu");
+        pluginKubernetes.put("serviceAccountName", "spark-driver");
         pluginKubernetes.put("sharedPvcName", "datafusion-shared-data");
         pluginParam.putObject("defaultTaskData").put("enableSqlLogging", true);
 
@@ -54,6 +55,9 @@ class SparkParamResolverTest {
         assertEquals("task-ns", param.getKubernetes().getNamespace());
         assertEquals("custom-spark-task-1", param.getKubernetes().getApplicationName());
         assertEquals("custom-spark-job-config-task-1", param.getKubernetes().getConfigMapName());
+        assertEquals("spark-driver", param.getKubernetes().getServiceAccountName());
+        assertEquals("/opt/datafusion", param.getKubernetes().getSharedMountPath());
+        assertEquals("/opt/spark/work-dir/datafusion-jars", param.getKubernetes().getJarMountPath());
         assertFalse(param.getKubernetes().isCollectLogsOnFinish());
         assertFalse(param.getEffectiveTaskData().has("kubernetes"));
         assertEquals("spark-sql-test", param.getEffectiveTaskData().path("job").path("id").asText());

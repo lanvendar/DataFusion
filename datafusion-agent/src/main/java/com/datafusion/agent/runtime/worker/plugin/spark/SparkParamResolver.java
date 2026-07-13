@@ -74,9 +74,9 @@ public class SparkParamResolver {
     private static final String DEFAULT_PLUGIN_APP_DIR = "/opt/datafusion/plugins/spark/datafusion-plugin-spark-sql";
 
     /**
-     * 默认共享挂载路径.
+     * 插件目录标识.
      */
-    private static final String DEFAULT_SHARED_MOUNT_PATH = "/opt/datafusion/plugins";
+    private static final String PLUGINS_PATH_SEGMENT = "/plugins/";
 
     /**
      * 默认插件 jar.
@@ -86,7 +86,7 @@ public class SparkParamResolver {
     /**
      * 默认 jar 挂载目录.
      */
-    private static final String DEFAULT_JAR_MOUNT_PATH = "/opt/datafusion/spark/jars";
+    private static final String DEFAULT_JAR_MOUNT_PATH = "/opt/spark/work-dir/datafusion-jars";
 
     /**
      * 默认 job 配置挂载目录.
@@ -160,6 +160,8 @@ public class SparkParamResolver {
         String applicationName = SparkK8sNameGenerator.applicationName(namePrefix, request.getTaskInstanceId());
         String configMapName = SparkK8sNameGenerator.configMapName(namePrefix, request.getTaskInstanceId());
         String webUiTemplate = firstText(text(taskKubernetes, "sparkWebUiUriTemplate"), DEFAULT_WEB_UI_TEMPLATE);
+        String pluginAppDir = firstText(text(taskKubernetes, "pluginAppDir"), text(pluginKubernetes, "pluginAppDir"),
+                DEFAULT_PLUGIN_APP_DIR);
         Map<String, String> nodeSelector = new LinkedHashMap<>();
         nodeSelector.put("kubernetes.io/arch", "amd64");
         nodeSelector.putAll(mergeMap(object(pluginKubernetes, "nodeSelector"), object(taskKubernetes, "nodeSelector")));
@@ -172,11 +174,9 @@ public class SparkParamResolver {
                         text(pluginKubernetes, "imagePullPolicy"), DEFAULT_IMAGE_PULL_POLICY))
                 .serviceAccountName(firstText(text(taskKubernetes, "serviceAccountName"),
                         text(pluginKubernetes, "serviceAccountName")))
-                .pluginAppDir(firstText(text(taskKubernetes, "pluginAppDir"), text(pluginKubernetes, "pluginAppDir"),
-                        DEFAULT_PLUGIN_APP_DIR))
+                .pluginAppDir(pluginAppDir)
                 .sharedPvcName(firstText(text(taskKubernetes, "sharedPvcName"), text(pluginKubernetes, "sharedPvcName")))
-                .sharedMountPath(firstText(text(taskKubernetes, "sharedMountPath"),
-                        text(pluginKubernetes, "sharedMountPath"), DEFAULT_SHARED_MOUNT_PATH))
+                .sharedMountPath(sharedMountPath(pluginAppDir))
                 .pluginJarName(firstText(text(taskKubernetes, "pluginJarName"), text(pluginKubernetes, "pluginJarName"),
                         DEFAULT_PLUGIN_JAR_NAME))
                 .jarMountPath(firstText(text(taskKubernetes, "jarMountPath"), text(pluginKubernetes, "jarMountPath"),
@@ -230,6 +230,9 @@ public class SparkParamResolver {
         if (isBlank(kubernetes.getImage())) {
             throw new IllegalArgumentException("pluginParam.kubernetes.image不能为空");
         }
+        if (isBlank(kubernetes.getServiceAccountName())) {
+            throw new IllegalArgumentException("pluginParam.kubernetes.serviceAccountName不能为空");
+        }
         if (isBlank(kubernetes.getPluginAppDir())) {
             throw new IllegalArgumentException("pluginParam.kubernetes.pluginAppDir不能为空");
         }
@@ -253,6 +256,16 @@ public class SparkParamResolver {
 
     private String renderWebUiUri(String template, String namespace, String applicationName) {
         return template.replace("{{namespace}}", namespace).replace("{{applicationName}}", applicationName);
+    }
+
+    private String sharedMountPath(String pluginAppDir) {
+        String normalized = pluginAppDir.replaceAll("/+$", "");
+        int pluginsIndex = normalized.indexOf(PLUGINS_PATH_SEGMENT);
+        if (pluginsIndex >= 0) {
+            return pluginsIndex == 0 ? "/" : normalized.substring(0, pluginsIndex);
+        }
+        Path parent = Path.of(normalized).getParent();
+        return parent == null ? "/" : parent.toString();
     }
 
     private JsonNode firstNode(JsonNode first, JsonNode second) {

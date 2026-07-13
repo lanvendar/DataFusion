@@ -55,6 +55,7 @@ class SparkKubernetesTemplateRendererTest {
         assertTrue(yaml.contains("df-spark-job-config-task-1"));
         assertTrue(yaml.contains("--job-file"));
         assertTrue(yaml.contains("/opt/datafusion/spark/jobs/spark-sql-job.json"));
+        assertTrue(yaml.contains("local:///opt/spark/work-dir/datafusion-jars/plugin-spark-sql.jar"));
         assertTrue(yaml.contains("\"spark-sql-job.json\": |-"));
         assertTrue(yaml.contains("select 1"));
         assertTrue(yaml.contains("claimName: \"datafusion-shared-data\""));
@@ -64,7 +65,7 @@ class SparkKubernetesTemplateRendererTest {
         assertFalse(spec.containsKey("volumes"));
         assertFalse(spec.containsKey("serviceAccount"));
         Map<?, ?> driver = (Map<?, ?>) spec.get("driver");
-        assertEquals("spark", driver.get("serviceAccount"));
+        assertEquals("spark-driver", driver.get("serviceAccount"));
         assertPodTemplate(driver, "spark-kubernetes-driver", 3, 2);
         assertPodTemplate((Map<?, ?>) spec.get("executor"), "spark-kubernetes-executor", 2, 1);
     }
@@ -78,7 +79,11 @@ class SparkKubernetesTemplateRendererTest {
         assertEquals(volumeCount, ((List<?>) podSpec.get("volumes")).size());
         List<?> initContainers = (List<?>) podSpec.get("initContainers");
         assertEquals(1, initContainers.size());
-        assertTrue(hasVolumeMount((Map<?, ?>) initContainers.get(0), "shared-plugins"));
+        Map<?, ?> initContainer = (Map<?, ?>) initContainers.get(0);
+        assertTrue(hasVolumeMount(initContainer, "shared-plugins"));
+        assertEquals("/opt/datafusion", volumeMount(initContainer, "shared-plugins").get("mountPath"));
+        assertEquals("/opt/spark/work-dir/datafusion-jars",
+                volumeMount(initContainer, "spark-plugin").get("mountPath"));
 
         List<?> containers = (List<?>) podSpec.get("containers");
         assertEquals(1, containers.size());
@@ -89,9 +94,16 @@ class SparkKubernetesTemplateRendererTest {
     }
 
     private boolean hasVolumeMount(Map<?, ?> container, String volumeName) {
+        return volumeMount(container, volumeName) != null;
+    }
+
+    private Map<?, ?> volumeMount(Map<?, ?> container, String volumeName) {
         List<?> volumeMounts = (List<?>) container.get("volumeMounts");
-        return volumeMounts.stream().anyMatch(
-                mount -> mount instanceof Map<?, ?> mountMap && volumeName.equals(mountMap.get("name")));
+        return volumeMounts.stream()
+                .filter(mount -> mount instanceof Map<?, ?> mountMap && volumeName.equals(mountMap.get("name")))
+                .map(Map.class::cast)
+                .findFirst()
+                .orElse(null);
     }
 
     private TaskRequest request() {
@@ -110,7 +122,7 @@ class SparkKubernetesTemplateRendererTest {
         pluginParam.put("runMode", "K8S_OPERATOR");
         ObjectNode kubernetes = OBJECT_MAPPER.createObjectNode();
         kubernetes.put("namespace", "datafusion");
-        kubernetes.put("serviceAccountName", "spark");
+        kubernetes.put("serviceAccountName", "spark-driver");
         kubernetes.put("sharedPvcName", "datafusion-shared-data");
         kubernetes.put("pluginAppDir", "/opt/datafusion/plugins/spark/datafusion-plugin-spark-sql");
         pluginParam.set("kubernetes", kubernetes);
