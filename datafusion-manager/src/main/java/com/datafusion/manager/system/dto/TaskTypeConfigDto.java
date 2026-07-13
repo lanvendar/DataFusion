@@ -36,6 +36,12 @@ public class TaskTypeConfigDto {
     private UUID defaultPluginId;
 
     /**
+     * 默认插件名称.
+     */
+    @Schema(name = "defaultPluginName", description = "默认插件名称")
+    private String defaultPluginName;
+
+    /**
      * 插件类型.
      */
     @Schema(name = "pluginType", description = "插件类型")

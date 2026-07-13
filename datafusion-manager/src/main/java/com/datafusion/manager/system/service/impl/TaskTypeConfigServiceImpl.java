@@ -1,7 +1,6 @@
 package com.datafusion.manager.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.datafusion.common.exception.CommonException;
@@ -26,7 +25,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * 系统-任务类型配置Service实现.
@@ -47,12 +45,11 @@ public class TaskTypeConfigServiceImpl extends ServiceImpl<TaskTypeConfigMapper,
 
     @Override
     public PageResponse<TaskTypeConfigDto> pageTaskTypeConfig(PageQuery<TaskTypeConfigQueryDto> query) {
-        LambdaQueryWrapper<TaskTypeConfigEntity> wrapper = buildQueryWrapper(query.getOption());
-        IPage<TaskTypeConfigEntity> page = baseMapper.selectPage(
-                new Page<>(query.getCurrent(), query.getSize()), wrapper);
+        Page<TaskTypeConfigDto> page = baseMapper.pageTaskTypeConfig(
+                new Page<>(query.getCurrent(), query.getSize()), query.getOption(), DEFAULT_TENANT_ID);
 
         PageResponse<TaskTypeConfigDto> response = new PageResponse<>();
-        response.setDataList(page.getRecords().stream().map(this::toDto).collect(Collectors.toList()));
+        response.setDataList(page.getRecords());
         response.setCurrent((int) page.getCurrent());
         response.setSize((int) page.getSize());
         response.setTotal((int) page.getTotal());
@@ -61,13 +58,16 @@ public class TaskTypeConfigServiceImpl extends ServiceImpl<TaskTypeConfigMapper,
 
     @Override
     public List<TaskTypeConfigDto> listTaskTypeConfig(TaskTypeConfigQueryDto query) {
-        LambdaQueryWrapper<TaskTypeConfigEntity> wrapper = buildQueryWrapper(query);
-        return baseMapper.selectList(wrapper).stream().map(this::toDto).collect(Collectors.toList());
+        return baseMapper.listTaskTypeConfig(query, DEFAULT_TENANT_ID);
     }
 
     @Override
     public TaskTypeConfigDto getTaskTypeConfigById(UUID id) {
-        return toDto(getTenantTaskTypeConfig(id));
+        TaskTypeConfigDto dto = baseMapper.getTaskTypeConfigById(id, DEFAULT_TENANT_ID);
+        if (dto == null) {
+            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "任务类型配置不存在");
+        }
+        return dto;
     }
 
     @Override
@@ -119,30 +119,6 @@ public class TaskTypeConfigServiceImpl extends ServiceImpl<TaskTypeConfigMapper,
             throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "无法根据任务类型解析默认执行插件: " + taskType);
         }
         return entity.getDefaultPluginId();
-    }
-
-    /**
-     * 构建查询条件.
-     *
-     * @param query 查询参数
-     * @return 查询条件
-     */
-    private LambdaQueryWrapper<TaskTypeConfigEntity> buildQueryWrapper(TaskTypeConfigQueryDto query) {
-        LambdaQueryWrapper<TaskTypeConfigEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(TaskTypeConfigEntity::getTenantId, DEFAULT_TENANT_ID);
-        if (query != null) {
-            if (StringUtils.isNotBlank(query.getTaskType())) {
-                wrapper.like(TaskTypeConfigEntity::getTaskType, normalizeTaskType(query.getTaskType()));
-            }
-            if (query.getDefaultPluginId() != null) {
-                wrapper.eq(TaskTypeConfigEntity::getDefaultPluginId, query.getDefaultPluginId());
-            }
-            if (StringUtils.isNotBlank(query.getPluginType())) {
-                wrapper.eq(TaskTypeConfigEntity::getPluginType, normalizeOptionalCode(query.getPluginType()));
-            }
-        }
-        wrapper.orderByDesc(TaskTypeConfigEntity::getCreateTime);
-        return wrapper;
     }
 
     /**
@@ -247,23 +223,4 @@ public class TaskTypeConfigServiceImpl extends ServiceImpl<TaskTypeConfigMapper,
         entity.setUpdateTime(new Date());
     }
 
-    /**
-     * Entity转Dto.
-     *
-     * @param entity 任务类型配置实体
-     * @return 任务类型配置Dto
-     */
-    private TaskTypeConfigDto toDto(TaskTypeConfigEntity entity) {
-        TaskTypeConfigDto dto = new TaskTypeConfigDto();
-        dto.setId(entity.getId());
-        dto.setTaskType(entity.getTaskType());
-        dto.setDefaultPluginId(entity.getDefaultPluginId());
-        dto.setPluginType(entity.getPluginType());
-        dto.setTenantId(entity.getTenantId());
-        dto.setCreator(entity.getCreator());
-        dto.setUpdater(entity.getUpdater());
-        dto.setCreateTime(entity.getCreateTime());
-        dto.setUpdateTime(entity.getUpdateTime());
-        return dto;
-    }
 }

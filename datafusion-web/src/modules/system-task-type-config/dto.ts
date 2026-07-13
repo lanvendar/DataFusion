@@ -8,6 +8,7 @@ export interface TaskTypeConfigItem {
   id: string;
   taskType: string;
   defaultPluginId: string;
+  defaultPluginName?: string;
   pluginType?: string;
   tenantId?: string;
   creator?: string;

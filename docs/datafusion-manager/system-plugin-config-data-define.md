@@ -214,7 +214,7 @@ COMMENT ON COLUMN system_task_type_config.tenant_id IS '租户ID';
 | `TaskTypeConfigUpdateDto` | `Request` | 修改任务类型配置 | `id` | `UUID` | `@NotNull` | 任务类型配置 ID |
 | `TaskTypeConfigUpdateDto` | `Request` | 修改任务类型配置 | `defaultPluginId` | `UUID` | `@NotNull` | 默认插件 ID |
 | `TaskTypeConfigUpdateDto` | `Request` | 修改任务类型配置 | `pluginType` | `String` | 可选 | 插件类型 |
-| `TaskTypeConfigDto` | `Response` | 查询响应 | `id`、`taskType`、`defaultPluginId`、`pluginType`、`tenantId`、`creator`、`updater`、`createTime`、`updateTime` | `UUID/String/Date` | 无 | 任务类型配置响应 |
+| `TaskTypeConfigDto` | `Response` | 查询响应 | `id`、`taskType`、`defaultPluginId`、`defaultPluginName`、`pluginType`、`tenantId`、`creator`、`updater`、`createTime`、`updateTime` | `UUID/String/Date` | 无 | `defaultPluginName` 由关联的有效插件配置返回 |
 
 ## 4. API 数据映射
 
@@ -249,8 +249,8 @@ COMMENT ON COLUMN system_task_type_config.tenant_id IS '租户ID';
 | `PluginConfigQueryDto` -> `LambdaQueryWrapper` | `pluginName` 使用 `like`，`pluginType`、`runMode`、`isTemplate`、`isDel` 使用 `eq` | 默认只查 `isDel=0` 且当前租户数据 |
 | `TaskTypeConfigSaveDto` -> `TaskTypeConfigEntity` | 复制 `taskType`、`defaultPluginId`、`pluginType` | `defaultPluginId` 必填；`taskType` trim 后转大写；`id` 使用 `UUID.nameUUIDFromBytes(taskType.getBytes(StandardCharsets.UTF_8))` 生成；`tenantId` 使用固定默认租户；审计字段由 Service 设置 |
 | `TaskTypeConfigUpdateDto` -> existing `TaskTypeConfigEntity` | 按字段合并 `defaultPluginId`、`pluginType` | `defaultPluginId` 必填；不修改 `taskType`、`tenantId`、`creator`、`createTime` |
-| `TaskTypeConfigEntity` -> `TaskTypeConfigDto` | 字段逐一复制 | 无 |
-| `TaskTypeConfigQueryDto` -> `LambdaQueryWrapper` | `taskType` 使用 `like`，`defaultPluginId`、`pluginType` 使用 `eq` | 默认只查当前租户数据 |
+| `TaskTypeConfigEntity` + `PluginConfigEntity` -> `TaskTypeConfigDto` | 任务类型配置字段直接映射，插件配置 `pluginName` 映射为 `defaultPluginName` | 通过 `defaultPluginId`、`tenantId` 关联未删除的插件配置；关联不存在时仍返回任务类型配置 |
+| `TaskTypeConfigQueryDto` -> Mapper XML | `taskType` 使用 `like`，`defaultPluginId`、`pluginType` 使用 `eq` | 默认只查当前租户数据 |
 
 ## 6. 枚举 / JSON / 特殊字段
 

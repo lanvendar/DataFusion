@@ -17,12 +17,12 @@ export function useColumns({ onAction }: UseColumnsProps): ColumnsType<TaskTypeC
       render: (value: string) => <Tag color="blue">{value || "-"}</Tag>,
     },
     {
-      title: "默认插件ID",
-      dataIndex: "defaultPluginId",
-      key: "defaultPluginId",
+      title: "默认插件",
+      dataIndex: "defaultPluginName",
+      key: "defaultPluginName",
       width: 300,
       render: (value: string) => (
-        <Typography.Text code copyable={!!value} ellipsis>
+        <Typography.Text ellipsis={{ tooltip: value }}>
           {value || "-"}
         </Typography.Text>
       ),

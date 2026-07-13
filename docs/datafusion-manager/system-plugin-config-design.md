@@ -43,7 +43,7 @@ TaskTypeConfigController -> TaskTypeConfigService -> TaskTypeConfigMapper -> sys
 | 对象 | 关键字段 | 规则 |
 |------|----------|------|
 | 插件配置 | `pluginName`、`pluginType`、`runMode`、`description`、`pluginParam`、`isTemplate` | 描述插件身份、运行模式和配置模板；接口不修改 `isTemplate` |
-| 任务类型 | `taskType`、`defaultPluginId`、`pluginType` | 维护任务类型和默认执行插件绑定；`taskType` 新增后不修改 |
+| 任务类型 | `taskType`、`defaultPluginId`、`defaultPluginName`、`pluginType` | 维护任务类型和默认执行插件绑定；`defaultPluginName` 仅用于查询展示；`taskType` 新增后不修改 |
 | 租户 | `tenantId` | 当前使用固定默认租户 |
 
 `runMode` 是 `pluginType` 的第二维，例如 `FLINK + YARN`、`FLINK + K8S` 可对应不同配置结构。
@@ -60,6 +60,7 @@ TaskTypeConfigController -> TaskTypeConfigService -> TaskTypeConfigMapper -> sys
 - 任务类型新增时，`taskType` 标准化为大写，且同租户唯一。
 - 任务类型 `id` 由标准化后的 `taskType` 稳定生成。
 - 任务类型修改只维护 `defaultPluginId` 和 `pluginType`。
+- 任务类型分页、列表和详情查询通过 `LEFT JOIN` 返回默认插件名称；插件关联失效时仍保留任务类型配置。
 - 新增任务定义时，若请求未显式传 `pluginId`，后端按 `taskType` 查询默认插件。
 
 ## 集成点

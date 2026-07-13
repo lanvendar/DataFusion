@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.datafusion.manager.system.dao.TaskTypeConfigMapper">
+
+    <resultMap id="taskTypeConfigDtoMap" type="com.datafusion.manager.system.dto.TaskTypeConfigDto">
+        <id property="id" column="id"/>
+        <result property="taskType" column="task_type"/>
+        <result property="defaultPluginId" column="default_plugin_id"/>
+        <result property="defaultPluginName" column="default_plugin_name"/>
+        <result property="pluginType" column="plugin_type"/>
+        <result property="tenantId" column="tenant_id"/>
+        <result property="creator" column="creator"/>
+        <result property="updater" column="updater"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="taskTypeConfigColumns">
+        t.id,
+        t.task_type,
+        t.default_plugin_id,
+        p.plugin_name as default_plugin_name,
+        t.plugin_type,
+        t.tenant_id,
+        t.creator,
+        t.updater,
+        t.create_time,
+        t.update_time
+    </sql>
+
+    <sql id="taskTypeConfigFrom">
+        from system_task_type_config t
+        left join system_plugin_config p
+          on p.id = t.default_plugin_id
+         and p.tenant_id = t.tenant_id
+         and p.is_del = 0
+    </sql>
+
+    <sql id="taskTypeConfigQueryCondition">
+        <if test="query != null">
+            <if test="query.taskType != null and query.taskType.trim() != ''">
+                and t.task_type like concat('%', upper(trim(#{query.taskType})), '%')
+            </if>
+            <if test="query.defaultPluginId != null">
+                and t.default_plugin_id = #{query.defaultPluginId}
+            </if>
+            <if test="query.pluginType != null and query.pluginType.trim() != ''">
+                and t.plugin_type = upper(trim(#{query.pluginType}))
+            </if>
+        </if>
+    </sql>
+
+    <select id="pageTaskTypeConfig" resultMap="taskTypeConfigDtoMap">
+        select
+        <include refid="taskTypeConfigColumns"/>
+        <include refid="taskTypeConfigFrom"/>
+        where t.tenant_id = #{tenantId}
+        <include refid="taskTypeConfigQueryCondition"/>
+        order by t.create_time desc
+    </select>
+
+    <select id="listTaskTypeConfig" resultMap="taskTypeConfigDtoMap">
+        select
+        <include refid="taskTypeConfigColumns"/>
+        <include refid="taskTypeConfigFrom"/>
+        where t.tenant_id = #{tenantId}
+        <include refid="taskTypeConfigQueryCondition"/>
+        order by t.create_time desc
+    </select>
+
+    <select id="getTaskTypeConfigById" resultMap="taskTypeConfigDtoMap">
+        select
+        <include refid="taskTypeConfigColumns"/>
+        <include refid="taskTypeConfigFrom"/>
+        where t.id = #{id}
+          and t.tenant_id = #{tenantId}
+    </select>
+
+</mapper>
