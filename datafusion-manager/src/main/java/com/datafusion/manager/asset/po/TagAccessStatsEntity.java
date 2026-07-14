@@ -7,6 +7,9 @@ import lombok.Data;
 
 /**
  * tag_access_stats 实体类.
+ *
+ * @author DataFusion
+ * @version 1.0.0
  */
 @Data
 @TableName("tag_access_stats")

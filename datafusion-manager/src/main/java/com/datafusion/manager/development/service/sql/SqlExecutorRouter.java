@@ -18,8 +18,14 @@ import java.util.Optional;
 @Component
 public class SqlExecutorRouter {
 
+    /** 可用的 SQL 执行器. */
     private final List<DevSqlExecutor> executors;
 
+    /**
+     * 构造 SQL 执行器路由.
+     *
+     * @param executors 可用的 SQL 执行器
+     */
     public SqlExecutorRouter(List<DevSqlExecutor> executors) {
         this.executors = executors;
     }

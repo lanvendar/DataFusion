@@ -139,10 +139,12 @@ public enum DataType {
          * Precision/scale is not applicable.
          */
         int NO_NO = 1;
+
         /**
          * Precision is applicable, scale is not.
          */
         int YES_NO = 2;
+
         /**
          * Precision/scale is applicable.
          */

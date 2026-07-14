@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 /**
  * tsdbreader builder.
  *
- * DataX doc: https://github.com/alibaba/DataX/blob/master/tsdbreader/doc/tsdbreader.md
+ * <p>DataX doc: https://github.com/alibaba/DataX/blob/master/tsdbreader/doc/tsdbreader.md
  * Verified-At: 2026-05-09
  * Verified-Commit: 60ea07b
  *

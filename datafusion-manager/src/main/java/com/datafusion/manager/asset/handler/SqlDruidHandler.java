@@ -59,7 +59,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class SqlDruidHandler {
 
-
     /**
      * 递归遍历解析SQL语句，收集对血缘解析有用的SQL.
      *
@@ -429,7 +428,8 @@ public class SqlDruidHandler {
             // 1. 提取 CREATE TABLE table_name AS 或 INSERT INTO table_name 部分
             // 使用[\s\r\n]替代\\s以匹配换行符
             Pattern targetPattern = Pattern.compile(
-                    "(?i)^([\\s\\r\\n]*create[\\s\\r\\n]+table[\\s\\r\\n]+[\\w.]+[\\s\\r\\n]+as|[\\s\\r\\n]*insert[\\s\\r\\n]+into[\\s\\r\\n]+[\\w.]+)[\\s\\r\\n]+",
+                    "(?i)^([\\s\\r\\n]*create[\\s\\r\\n]+table[\\s\\r\\n]+[\\w.]+[\\s\\r\\n]+as"
+                            + "|[\\s\\r\\n]*insert[\\s\\r\\n]+into[\\s\\r\\n]+[\\w.]+)[\\s\\r\\n]+",
                     Pattern.CASE_INSENSITIVE);
             Matcher targetMatcher = targetPattern.matcher(trimmedSql);
             if (!targetMatcher.find()) {

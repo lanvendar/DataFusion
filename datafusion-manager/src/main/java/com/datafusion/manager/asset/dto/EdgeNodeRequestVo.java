@@ -17,6 +17,7 @@ import java.io.Serializable;
 public class EdgeNodeRequestVo implements Serializable {
 
     private static final long serialVersionUID = -8681721174695831934L;
+
     /**
      * 节点urn.
      */

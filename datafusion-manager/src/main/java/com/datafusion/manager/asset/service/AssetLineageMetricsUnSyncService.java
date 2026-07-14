@@ -414,7 +414,7 @@ public class AssetLineageMetricsUnSyncService {
         }
         // Unicode范围中文是 \u4e00-\u9fa5
         for (char c : str.toCharArray()) {
-            if (c >= '\u4e00' && c <= '\u9fa5') {
+            if (c >= '一' && c <= '龥') {
                 return true;
             }
         }

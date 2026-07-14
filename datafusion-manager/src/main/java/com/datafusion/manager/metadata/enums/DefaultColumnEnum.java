@@ -71,7 +71,7 @@ public enum DefaultColumnEnum {
                     .setColumnType("date"));
     
     /**
-     * 前端/后端交互使用的唯一键 (e.g., "maxcompute_ds")
+     * 前端/后端交互使用的唯一键 (e.g., "maxcompute_ds").
      */
     private final String key;
     

@@ -428,7 +428,8 @@ public class AssetResourceMetricsService extends BaseResourceService<MetricInfoD
         entity.setResourceType(ResourceTypeEnum.METRIC.getResouceType());
         entity.setResourceTag(ResourceTagEnum.NODE_AND_EDGE.getResourceTagType());
         entity.setResourceSnapshot(JacksonUtils.pojo2JsonNodeOrNull(metricResourceSnapshot));
-        ResourceSnapshotBuilder.MetricResourceResultSnapshot metricResourceResultSnapshot = new ResourceSnapshotBuilder.MetricResourceResultSnapshot();
+        ResourceSnapshotBuilder.MetricResourceResultSnapshot metricResourceResultSnapshot =
+                new ResourceSnapshotBuilder.MetricResourceResultSnapshot();
         metricResourceResultSnapshot.setMetricDto(metricDto);
         entity.setResultSnapshot(JacksonUtils.pojo2JsonNodeOrNull(metricResourceResultSnapshot));
         // 指标默认直接就是导入血缘成功
@@ -446,7 +447,8 @@ public class AssetResourceMetricsService extends BaseResourceService<MetricInfoD
             String currentUser) {
         List<AssetLineageNodeEntity> nodeList = new ArrayList<>();
         ResourceSnapshotBuilder.MetricResourceSnapshot metricResourceSnapshot = ResourceSnapshotBuilder.builder(resource);
-        ResourceSnapshotBuilder.MetricResourceResultSnapshot metricResourceResultSnapshot = ResourceSnapshotBuilder.builder(resource, true);
+        final ResourceSnapshotBuilder.MetricResourceResultSnapshot metricResourceResultSnapshot =
+                ResourceSnapshotBuilder.builder(resource, true);
 
         // API节点和指标节点（始终创建）
         nodeList.add(createApiNode(metricResourceSnapshot, now, currentUser));

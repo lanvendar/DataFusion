@@ -56,7 +56,7 @@ public class DataSourceInfoDto {
     @Schema(name = "password", description = "密码")
     private String password;
     
-    /**
+    /*
      * 密码.
      *
      * @param password 将查询接口,密码直接返回********

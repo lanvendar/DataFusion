@@ -32,14 +32,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 基于现有 linkTable 的返回结构，新增 tmp_ 表递归扩展查询：
+ * 基于现有 linkTable 的返回结构，新增 tmp_ 表递归扩展查询.
  * - 每次只查询 1-hop（上游一层或下游一层）
  * - {@code isLeafNode=false}：以表 URN 为中心，扩展<strong>表级</strong>边；tmp_ 判断在表名，继续扩展时队列入队<strong>表 URN</strong>
  * - {@code isLeafNode=true}：以列 URN 为中心，扩展<strong>字段级</strong>边；tmp_ 判断在该列所属表名，继续扩展时队列入队<strong>邻接列 URN</strong>
  * - {@code isUp=true} 只扩展上游；{@code isUp=false} 只扩展下游；{@code isUp=null} 上下游都扩展（与 linkTable 一致）
  * - 扩展完成后会做<strong>压缩</strong>：去掉中间 tmp_ 节点，将 {@code 源 -> tmp* -> 目标} 合并为 {@code 源 -> 目标}，与接口「去除 tmp 表」展示一致
  *
- * 注意：该类为新增实现，不修改原有 AssetLineageEdgeService.
+ * <p>注意：该类为新增实现，不修改原有 AssetLineageEdgeService.
  *
  * @author GPT
  * @version 1.0.0 , 2026/04/16
@@ -49,11 +49,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AssetLineageFilterTmpEdgeService {
 
+    /** 血缘边数据访问对象. */
     private final AssetLineageEdgeMapper edgeMapper;
+
+    /** 血缘节点服务. */
     private final AssetLineageNodeService nodeService;
 
     /**
-     * tmp_ 递归扩展版表级血缘（V3）。
+     * tmp_ 递归扩展版表级血缘（V3）.
      *
      * @param req 查询请求（nodeUrn 必填；isLeafNode=true 时 depth 只能为 1）
      * @return V3 血缘结果
@@ -97,7 +100,7 @@ public class AssetLineageFilterTmpEdgeService {
     }
 
     /**
-     * 上下游扩展：每次只取 1-hop，仅当邻接点所在表为 tmp_ 时继续扩展。
+     * 上下游扩展：每次只取 1-hop，仅当邻接点所在表为 tmp_ 时继续扩展.
      * <ul>
      *   <li>{@code isUp == true}：只扩展上游（depth=-1）；</li>
      *   <li>{@code isUp == false}：只扩展下游（depth=1）；</li>
@@ -176,7 +179,7 @@ public class AssetLineageFilterTmpEdgeService {
     }
 
     /**
-     * 1-hop 查询：复用 edgeMapper.link(req)，通过 depth=1 限制为一层。
+     * 1-hop 查询：复用 edgeMapper.link(req)，通过 depth=1 限制为一层.
      *
      * @param centerNodeUrn 中心节点 URN（表模式为表 URN；字段模式为列 URN）
      * @param isLeafNode    是否叶子节点模式（字段/指标）
@@ -202,7 +205,7 @@ public class AssetLineageFilterTmpEdgeService {
     }
 
     /**
-     * 与 {@link AssetLineageEdgeService} 中列级 URN 约定一致：按 {@code :} 分段后段数 &gt; 5 视为列 URN（含字段段）。
+     * 与 {@link AssetLineageEdgeService} 中列级 URN 约定一致：按 {@code :} 分段后段数 &gt; 5 视为列 URN（含字段段）.
      */
     private boolean isColumnLikeUrnStructurally(String urn) {
         if (urn == null || !urn.contains(SystemConstant.COLON)) {
@@ -212,7 +215,7 @@ public class AssetLineageFilterTmpEdgeService {
     }
 
     /**
-     * 判断邻接点所在表是否为 tmp_：先归一到表级 URN（仅列 URN 去最后一段），再判断表名前缀。
+     * 判断邻接点所在表是否为 tmp_：先归一到表级 URN（仅列 URN 去最后一段），再判断表名前缀.
      */
     private boolean isTmpTableUrn(String urn) {
         if (StringUtils.isBlank(urn)) {
@@ -227,7 +230,9 @@ public class AssetLineageFilterTmpEdgeService {
     }
 
     /**
-     * 从 URN 得到表级 URN：仅当结构上是列 URN（段数 &gt; 5）时去掉最后一列段；
+     * 从 URN 得到表级 URN.
+     *
+     * <p>仅当结构上是列 URN（段数 &gt; 5）时去掉最后一列段；
      * 避免 {@code isLeafNode=true} 时误把 5 段表 URN 当成「表:列」而截断表名。
      */
     private String getTableUrn(String urn) {
@@ -267,7 +272,7 @@ public class AssetLineageFilterTmpEdgeService {
     }
 
     /**
-     * 去掉图中的 tmp_ 中间节点：对任意 tmp 节点 T，将所有 s-&gt;T 与 T-&gt;t 合并为 s-&gt;t，并删除与 T 相连的边；重复直到无端点为 tmp。
+     * 去掉图中的 tmp_ 中间节点：对任意 tmp 节点 T，将所有 s-&gt;T 与 T-&gt;t 合并为 s-&gt;t，并删除与 T 相连的边.
      * 支持 tmp 链（T1-&gt;T2-&gt;…）多次迭代消去。
      */
 
@@ -336,7 +341,7 @@ public class AssetLineageFilterTmpEdgeService {
     }
 
     /**
-     * 强制删除仍与 tmp 相连的边（折叠未识别或图中有多种 URN 形态时的兜底），避免 entityEdgeVos 里同时保留「经 tmp」与「折叠后」两套关系。
+     * 强制删除仍与 tmp 相连的边（折叠未识别或图中有多种 URN 形态时的兜底）.
      */
     private List<LineageEdgeDto> removeEdgesTouchingTmp(List<LineageEdgeDto> edges) {
         if (edges == null || edges.isEmpty()) {
@@ -363,7 +368,7 @@ public class AssetLineageFilterTmpEdgeService {
     }
 
     /**
-     * 从 V3 结果中剔除仍残留的 tmp 实体边、属性边、节点与 attributes（防止列 URN + 表级请求等组合漏网）。
+     * 从 V3 结果中剔除仍残留的 tmp 实体边、属性边、节点与 attributes.
      */
     private LineEdgeNodeVoV3 stripTmpFromLineageVo(LineEdgeNodeVoV3 vo) {
         if (vo == null) {
@@ -539,7 +544,7 @@ public class AssetLineageFilterTmpEdgeService {
     }
 
     /**
-     * 对齐 AssetLineageEdgeService.processParentChildNodeNew 实现。
+     * 对齐 AssetLineageEdgeService.processParentChildNodeNew 实现.
      */
     private void processParentChildNodeNew(String childUrn, String parentUrn, List<EdgeNodeVoV2> nodeVos, Map<String, EdgeNodeVoV2> nodeVoMap) {
         if (nodeVoMap.get(parentUrn) == null) {
@@ -570,7 +575,7 @@ public class AssetLineageFilterTmpEdgeService {
     }
 
     /**
-     * 批量获取 node 信息（最小实现：收集 source/target urn，再批量查询）。
+     * 批量获取 node 信息（最小实现：收集 source/target urn，再批量查询）.
      */
     private List<AssetLineageNodeEntity> getResourceNode(Map<Integer, List<LineageEdgeDto>> edgeMaps) {
         List<String> nodelists = new ArrayList<>();
@@ -597,7 +602,7 @@ public class AssetLineageFilterTmpEdgeService {
     }
 
     /**
-     * 无边时的兜底：表模式返回单表节点；字段模式返回父表节点并带上当前列 attribute（与 linkTable 空结果展示思路一致）。
+     * 无边时的兜底：表模式返回单表节点；字段模式返回父表节点并带上当前列 attribute.
      */
     private LineEdgeNodeVoV3 emptyV3(String centerUrn, boolean isLeafNode) {
         LineEdgeNodeVoV3 result = new LineEdgeNodeVoV3();
@@ -626,4 +631,3 @@ public class AssetLineageFilterTmpEdgeService {
         return result;
     }
 }
-

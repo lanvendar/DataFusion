@@ -131,7 +131,6 @@ public interface MetaDataService {
      */
     String syncBatchCreateTableDdl(BatchCreateTableDdlDto batchCreateTableDdlDto);
 
-
     /**
      * 执行最终的sql脚本.
      * @param runSqlDto sql执行脚本实体

@@ -119,7 +119,7 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
 
     private void initWorker() {
         Worker worker = new Worker();
-        long now = System.currentTimeMillis();
+        final long now = System.currentTimeMillis();
         AgentProperties.Worker workerProperties = properties.getWorker();
         String resolvedIp = resolveIp(workerProperties);
         String resolvedHostName = resolveHostName(workerProperties);

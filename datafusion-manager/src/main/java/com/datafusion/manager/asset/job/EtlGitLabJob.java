@@ -34,36 +34,42 @@ public class EtlGitLabJob {
     @Autowired
     private AssetResourceEtlService assetResourceEtlService;
 
+    /** OSS 文件服务. */
     @Autowired
     private AliyunOssUtils aliyunOssUtils;
 
     /**
      * 拉取gitlab的文件.
+     *
+     * @param req ETL SQL 上传下载参数
      */
     //@Scheduled(fixedRate = 1000000)
     public void etlPull(EtlSqlUpAndDownVo req) {
         log.info("git pull begin excute");
-         if (etlProcessService.getGitlabFiles()) {
-             aliyunOssUtils.uploadDirectory(null, req.getUploadLocalPath(), req.getOssfilePrefixPath());
-             log.info("git pull excute end");
-         }
+        if (etlProcessService.getGitlabFiles()) {
+            aliyunOssUtils.uploadDirectory(null, req.getUploadLocalPath(), req.getOssfilePrefixPath());
+            log.info("git pull excute end");
+        }
 
     }
 
     /**
-     * 遍历文件夹，并导入sql文件到资源表
+     * 遍历文件夹，并导入sql文件到资源表.
+     *
+     * @param req ETL SQL 上传下载参数
      */
-    public void initEtlSql(EtlSqlUpAndDownVo req){
-            aliyunOssUtils.downloadDirectoryFromOss(null, etlProcessService.getLocalRepoBaseDir(), "secp-dolphin-job-script/DAG/we/sebu1/");
-            List<Path> sqlFiles = etlProcessService.getGitlabFilesPath();
-//            if (CollectionUtil.isNotEmpty(sqlFiles)) {
-//                for (Path sqlFile : sqlFiles) {
-//                    // 解析脚本，并且生成
-//                    List<AssetLineageResourceEntity> resources = etlProcessService.gitLabFileProcess(sqlFile);
-//                    //assetResourceEtlService.distinctSaveBatch(resources);
-//                    assetResourceEtlService.distinctSaveBatchNew(resources);
-//                }
-//            }
+    public void initEtlSql(EtlSqlUpAndDownVo req) {
+        aliyunOssUtils.downloadDirectoryFromOss(null, etlProcessService.getLocalRepoBaseDir(),
+                "secp-dolphin-job-script/DAG/we/sebu1/");
+        List<Path> sqlFiles = etlProcessService.getGitlabFilesPath();
+        //            if (CollectionUtil.isNotEmpty(sqlFiles)) {
+        //                for (Path sqlFile : sqlFiles) {
+        //                    // 解析脚本，并且生成
+        //                    List<AssetLineageResourceEntity> resources = etlProcessService.gitLabFileProcess(sqlFile);
+        //                    //assetResourceEtlService.distinctSaveBatch(resources);
+        //                    assetResourceEtlService.distinctSaveBatchNew(resources);
+        //                }
+        //            }
     }
 
 }

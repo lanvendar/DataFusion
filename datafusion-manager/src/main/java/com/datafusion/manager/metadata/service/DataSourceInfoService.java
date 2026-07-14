@@ -22,7 +22,6 @@ import java.util.UUID;
  */
 public interface DataSourceInfoService extends IService<DataSourceInfoEntity> {
 
-
     /**
      * 检查并获取数据源.
      *

@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 /**
  * oraclereader builder.
  *
- * DataX doc: https://github.com/alibaba/DataX/blob/master/oraclereader/doc/oraclereader.md
+ * <p>DataX doc: https://github.com/alibaba/DataX/blob/master/oraclereader/doc/oraclereader.md
  * Verified-At: 2026-05-09
  * Verified-Commit: 60ea07b
  *
@@ -30,8 +30,6 @@ public class OracleReaderBuilder implements DataxReaderBuilder {
     public ObjectNode buildReader(DataxJobContext ctx) {
         ObjectMapper om = ctx.getObjectMapper();
         DataSourceInfo ds = ctx.getSourceDsInfo();
-        JsonNode config = ctx.getSourceConfig();
-
         ObjectNode parameter = om.createObjectNode();
         parameter.put("username", ds.getUsername());
         parameter.put("password", ds.getPassword());
@@ -42,6 +40,7 @@ public class OracleReaderBuilder implements DataxReaderBuilder {
         ObjectNode connection0 = om.createObjectNode();
         connection0.set("jdbcUrl", jdbcUrls);
 
+        JsonNode config = ctx.getSourceConfig();
         String querySql = DataxBuilderUtils.getText(config, "querySql");
         if (querySql != null) {
             ArrayNode querySqlArr = om.createArrayNode();
@@ -71,4 +70,3 @@ public class OracleReaderBuilder implements DataxReaderBuilder {
         return DataxBuilderUtils.wrapNameAndParameter("oraclereader", parameter, om);
     }
 }
-

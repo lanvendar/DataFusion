@@ -56,7 +56,7 @@ import java.util.stream.Collectors;
 import static com.datafusion.common.constant.SystemConstant.LINE_FEED;
 
 /**
- * maxcompute数据库服务
+ * maxcompute数据库服务.
  * 
  * @author xufeng
  * @version 1.0.0, 2026/2/5
@@ -87,7 +87,7 @@ public class MaxcomputeSupport extends AbstractJdbcSupport<List<MaxcomputeTableC
     protected String generateJdbcUrl(DataSourceInfo info) {
         String address = String.format("%s%s", "jdbc:odps:https://", info.getHost());
         String jdbcUrl = String.format("%s?project=%s&%s&%s", address, info.getDatabaseName(),
-            parseExtendParam(info.getExtendParam()), "settings={\"odps.namespace.schema\":\"true\"}");
+                parseExtendParam(info.getExtendParam()), "settings={\"odps.namespace.schema\":\"true\"}");
 
         if (jdbcUrl.endsWith(SystemConstant.QUESTION_MARK)) {
             jdbcUrl = jdbcUrl.substring(0, jdbcUrl.length() - 1);
@@ -124,7 +124,7 @@ public class MaxcomputeSupport extends AbstractJdbcSupport<List<MaxcomputeTableC
      */
     private String getColumnType(com.datafusion.common.type.TypeInfo typeInfo) {
         if ("ARRAY".equals(typeInfo.getFieldType()) || "MAP".equals(typeInfo.getFieldType())
-            || "STRUCT".equals(typeInfo.getFieldType())) {
+                || "STRUCT".equals(typeInfo.getFieldType())) {
             return typeInfo.getFullFieldType();
         }
         return typeInfo.getFieldType();
@@ -149,7 +149,7 @@ public class MaxcomputeSupport extends AbstractJdbcSupport<List<MaxcomputeTableC
     }
 
     /**
-     * 获取非分区字段中最大的序号 (ordinalPosition)
+     * 获取非分区字段中最大的序号 (ordinalPosition).
      */
     private Integer getMaxOrdinalPositionOfNonPartitionColumns(List<MaxcomputeTableColumn> columns) {
         if (columns == null || columns.isEmpty()) {
@@ -172,7 +172,7 @@ public class MaxcomputeSupport extends AbstractJdbcSupport<List<MaxcomputeTableC
 
         list = transformDto(list);
         Map<String, List<MaxcomputeTableColumn>> sourceTableMap =
-            list.stream().collect(Collectors.groupingBy(MaxcomputeTableColumn::getTableName));
+                list.stream().collect(Collectors.groupingBy(MaxcomputeTableColumn::getTableName));
         Map<String, TableInfo> tableMap = new HashMap<>();
         Map<String, List<TableColumnInfo>> columnMap = new HashMap<>();
         TypeInfoParser parser = TypeInfoManager.getParser(DatabaseTypeEnum.fromString(ds.getDatabaseType()));
@@ -214,7 +214,7 @@ public class MaxcomputeSupport extends AbstractJdbcSupport<List<MaxcomputeTableC
                 // 在建表等场景下,需要全字段
                 if (StrUtil.isEmpty(ptc.getFullColumnType())) {
                     TypeInfo typeInfo = parser.parse(column.getColumnType(), column.getColumnLength(),
-                        column.getColumnPrecision(), column.getScale());
+                            column.getColumnPrecision(), column.getScale());
                     column.setFullColumnType(typeInfo.getFullFieldType());
                 } else {
                     column.setFullColumnType(ptc.getFullColumnType());
@@ -311,7 +311,7 @@ public class MaxcomputeSupport extends AbstractJdbcSupport<List<MaxcomputeTableC
         // 检查用户条件是否已包含分区过滤
         Set<String> partitionColumnNames = partitionColumns.stream().map(Column::getName).collect(Collectors.toSet());
         boolean partitionConditionExists = userConditions != null && userConditions.stream().anyMatch(
-            cond -> partitionColumnNames.stream().anyMatch(pCol -> cond.toLowerCase().contains(pCol.toLowerCase())));
+                cond -> partitionColumnNames.stream().anyMatch(pCol -> cond.toLowerCase().contains(pCol.toLowerCase())));
 
         List<String> finalConditions = new ArrayList<>();
         if (userConditions != null) {
@@ -379,10 +379,10 @@ public class MaxcomputeSupport extends AbstractJdbcSupport<List<MaxcomputeTableC
             if (StrUtil.isNotBlank(table.getPartitionKeys())) {
 
                 Set<String> userPartitionNames =
-                    Arrays.stream(table.getPartitionKeys().split(SystemConstant.COMMA)).collect(Collectors.toSet());
+                        Arrays.stream(table.getPartitionKeys().split(SystemConstant.COMMA)).collect(Collectors.toSet());
                 // 从用户提供的列中分离出分区列
                 partitionColumns.addAll(tableColumns.stream()
-                    .filter(c -> userPartitionNames.contains(c.getColumnName())).collect(Collectors.toList()));
+                        .filter(c -> userPartitionNames.contains(c.getColumnName())).collect(Collectors.toList()));
                 // 剩下的就是普通列
                 normalColumns = tableColumns.stream().filter(c -> !userPartitionNames.contains(c.getColumnName()))
                     .collect(Collectors.toList());
@@ -463,7 +463,7 @@ public class MaxcomputeSupport extends AbstractJdbcSupport<List<MaxcomputeTableC
         sb.append("--").append(tableName).append("表结构修改").append(LINE_FEED);
         // 处理新增字段
         List<TableColumnInfoCompareInfo> newColumns = compareResultDto.getSourceColumns().stream()
-            .filter(col -> col.getCompareResult() == TableColumnCompareEnum.NEW).collect(Collectors.toList());
+                .filter(col -> col.getCompareResult() == TableColumnCompareEnum.NEW).collect(Collectors.toList());
         if (!newColumns.isEmpty()) {
             newColumns.sort(Comparator.comparing(TableColumnInfoCompareInfo::getColumnSerial));
             // Maxcompute的ADD COLUMNS可以批量添加，但JFinal Enjoy模板的迭代生成可能需要每个单独调用模板。
@@ -476,13 +476,13 @@ public class MaxcomputeSupport extends AbstractJdbcSupport<List<MaxcomputeTableC
                 params.put("columnType", col.getFullColumnType());
                 params.put("columnDesc", col.getColumnDesc());
                 sb.append(builder.renderSql(support().getType() + ".alterTable_addColumn", params).getSql())
-                    .append(LINE_FEED);
+                        .append(LINE_FEED);
             }
         }
 
         // 处理存在差异的字段 (修改类型或注释)
         List<TableColumnInfoCompareInfo> differentColumns = compareResultDto.getSourceColumns().stream()
-            .filter(col -> col.getCompareResult() == TableColumnCompareEnum.DIFFERENT).collect(Collectors.toList());
+                .filter(col -> col.getCompareResult() == TableColumnCompareEnum.DIFFERENT).collect(Collectors.toList());
 
         if (!differentColumns.isEmpty()) {
             for (TableColumnInfoCompareInfo col : differentColumns) {
@@ -494,7 +494,7 @@ public class MaxcomputeSupport extends AbstractJdbcSupport<List<MaxcomputeTableC
                 params.put("newColumnType", col.getFullColumnType());
                 params.put("newColumnDesc", col.getColumnDesc());
                 sb.append(builder.renderSql(support().getType() + ".alterTable_changeColumn", params).getSql())
-                    .append(LINE_FEED);
+                        .append(LINE_FEED);
             }
         }
 
@@ -523,7 +523,7 @@ public class MaxcomputeSupport extends AbstractJdbcSupport<List<MaxcomputeTableC
         ds.setDriverClass(DatabaseTypeEnum.MaxcomputeDriver.DEFAULT.getDriverClassName());
         String address = String.format("%s%s", "jdbc:odps:https://", ds.getHost());
         String jdbcUrl = String.format("%s?project=%s&%s&%s", address, ds.getDatabaseName(),
-            parseExtendParam(dsEntity.getExtendParam()), "settings={\"odps.namespace.schema\":\"true\"}");
+                parseExtendParam(dsEntity.getExtendParam()), "settings={\"odps.namespace.schema\":\"true\"}");
         if (jdbcUrl.endsWith(SystemConstant.QUESTION_MARK)) {
             ds.setJdbcUrl(jdbcUrl.substring(0, jdbcUrl.length() - 1));
         } else {

@@ -114,6 +114,7 @@ public class EtlProcessServiceImpl implements EtlProcessService {
      */
     @Value("${etl.localGitRepoBaseDir.win}")
     private  String localGitRepoBaseDirWin;
+
     /**
      * ETL 文件路径过滤规则-允许的仓库标识.
      */
@@ -122,6 +123,8 @@ public class EtlProcessServiceImpl implements EtlProcessService {
 
     /**
      * 本地的项目路径.
+     *
+     * @return 当前系统的本地项目路径
      */
     public String getLocalRepoBaseDir() {
         return System.getProperty("os.name").toLowerCase().contains("linux")
@@ -203,7 +206,6 @@ public class EtlProcessServiceImpl implements EtlProcessService {
         }
 
     }
-
 
     @Override
     public List<Path> getGitlabFilesPath() {

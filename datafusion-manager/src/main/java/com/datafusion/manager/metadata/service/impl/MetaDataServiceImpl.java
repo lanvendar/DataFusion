@@ -229,13 +229,14 @@ public class MetaDataServiceImpl implements MetaDataService {
             //如果数据源是maxcompute，把表分批执行,已处理odps返回10000行的问题
             if (DatabaseTypeEnum.MAXCOMPUTE.getTypeName().equalsIgnoreCase(ds.getDatabaseType())) {
                 for (int i = 0; i < tableNames.size(); i += MetaDataConstant.MAXCOMPUTE_META_BATCH_SIZE) {
-                    List<String> subList = tableNames.subList(i, Math.min(i +  MetaDataConstant.MAXCOMPUTE_META_BATCH_SIZE, tableNames.size()));
-                    processMetaData( subList,  ds, databaseService,  transformService);
+                    List<String> subList = tableNames.subList(i,
+                            Math.min(i + MetaDataConstant.MAXCOMPUTE_META_BATCH_SIZE, tableNames.size()));
+                    processMetaData(subList, ds, databaseService, transformService);
                     int finishTablesNum = Math.min(i + MetaDataConstant.MAXCOMPUTE_META_BATCH_SIZE, tableNames.size());
                     log.info("MaxCompute元数据同步进度：已处理[{}/{}]张表", finishTablesNum, tableNames.size());
                 }
             } else {
-                processMetaData( tableNames,  ds, databaseService,  transformService);
+                processMetaData(tableNames, ds, databaseService, transformService);
             }
         }
         return warnMsg;
@@ -1501,7 +1502,9 @@ public class MetaDataServiceImpl implements MetaDataService {
         Map<String, List<TableColumnInfo>> columnMap = Optional.ofNullable(metaData.getColumns()).orElse(Collections.emptyMap());
         List<TableInfo> tables = Optional.ofNullable(metaData.getTables()).orElse(Collections.emptyList());
 
-        if (CollectionUtils.isEmpty(tables)) return;
+        if (CollectionUtils.isEmpty(tables)) {
+            return;
+        }
 
         String currentUserName = HttpUtils.getCurrentUserName();
         Date now = new Date();
@@ -1864,7 +1867,7 @@ public class MetaDataServiceImpl implements MetaDataService {
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Boolean deleteDatasourceMetaData(List<UUID> dataSourceIds){
+    public Boolean deleteDatasourceMetaData(List<UUID> dataSourceIds) {
         if (CollectionUtils.isEmpty(dataSourceIds)) {
             log.warn("数据源ID列表为空，无需删除");
             return true;

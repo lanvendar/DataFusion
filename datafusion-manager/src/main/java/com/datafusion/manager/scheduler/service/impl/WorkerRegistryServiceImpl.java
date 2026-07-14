@@ -96,7 +96,7 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
     public UUID addWorkerRegistry(WorkerRegistrySaveDto dto) {
         validatePort(dto.getPort());
         validateActive(defaultActive(dto.getIsActive()));
-        String plugins = normalizePlugins(dto.getPlugins());
+        final String plugins = normalizePlugins(dto.getPlugins());
         checkWorkerCodeUnique(dto.getWorkerCode(), null);
         checkHostPortUnique(dto.getHost(), dto.getPort(), null);
 

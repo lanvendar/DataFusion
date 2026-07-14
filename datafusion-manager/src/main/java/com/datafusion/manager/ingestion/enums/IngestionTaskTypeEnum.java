@@ -20,7 +20,6 @@ public enum IngestionTaskTypeEnum {
      */
     OFFLINE_SYNC("SEATUNNEl", "SEATUNNEl");
 
-
     /**
      * 任务类型id.
      */

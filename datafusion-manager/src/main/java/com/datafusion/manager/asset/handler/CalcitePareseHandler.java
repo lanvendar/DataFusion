@@ -138,7 +138,8 @@ public class CalcitePareseHandler {
             throw new CommonException(ErrorCodeEnum.SERVICE_BUSINESS_ERROR_C0505, "planner获取relRoot失败,失败原因:" + e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
-            throw new CommonException(ErrorCodeEnum.SERVICE_BUSINESS_ERROR_C0505, "planner获取relRoot失败,未知异常"+e.getMessage());
+            throw new CommonException(ErrorCodeEnum.SERVICE_BUSINESS_ERROR_C0505,
+                    "planner获取relRoot失败,未知异常" + e.getMessage());
         } catch (Error e) {
             throw new CommonException(ErrorCodeEnum.SERVICE_BUSINESS_ERROR_C0505, "planner获取relRoot失败," + e.getMessage());
         }
@@ -669,6 +670,9 @@ public class CalcitePareseHandler {
     /**
      * 修复窗口函数中的列名歧义问题.
      * 优化：过滤关键字，防止注入非法的 where. 前缀.
+     *
+     * @param sql 原始 SQL
+     * @return 修复后的 SQL
      */
     public static String fixWindowFunctionColumnPrefix(String sql) {
         if (sql == null || sql.isEmpty()) {
@@ -714,7 +718,7 @@ public class CalcitePareseHandler {
         StringBuffer sb = new StringBuffer();
 
         while (matcher.find()) {
-            String prefix = matcher.group(1);
+            final String prefix = matcher.group(1);
             String columnName = matcher.group(2);
 
             // 检查列名是否已经有表前缀
@@ -804,7 +808,7 @@ public class CalcitePareseHandler {
 
         // 匹配所有类似 t1.column, t3.column 的模式
         // 但排除通配符引用如 t11.*
-        Pattern columnPattern = Pattern.compile(
+        final Pattern columnPattern = Pattern.compile(
                 "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\.([a-zA-Z_][a-zA-Z0-9_]+)",
                 Pattern.CASE_INSENSITIVE);
 
@@ -846,7 +850,7 @@ public class CalcitePareseHandler {
 
         // 匹配所有类似 t1.column, t3.column 的模式来提取表别名
         // 这是一个补充方法，可以捕获子查询中使用的别名
-        Pattern columnPattern = Pattern.compile(
+        final Pattern columnPattern = Pattern.compile(
                 "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\.[a-zA-Z_][a-zA-Z0-9_]*",
                 Pattern.CASE_INSENSITIVE);
 
@@ -1306,18 +1310,20 @@ public class CalcitePareseHandler {
         while (i >= 0 && Character.isWhitespace(sql.charAt(i))) {
             i--;
         }
-        if (i < 0)
+        if (i < 0) {
             return -1;
+        }
 
         // 如果当前是 )，找到匹配的 (
         if (sql.charAt(i) == ')') {
             int depth = 1;
             i--;
             while (i >= 0 && depth > 0) {
-                if (sql.charAt(i) == ')')
+                if (sql.charAt(i) == ')') {
                     depth++;
-                else if (sql.charAt(i) == '(')
+                } else if (sql.charAt(i) == '(') {
                     depth--;
+                }
                 i--;
             }
             // 现在 i 指向 ( 的前一个字符
@@ -1494,7 +1500,7 @@ public class CalcitePareseHandler {
     /**
      * 修复 TIMESTAMP + INTERVAL 类型不匹配问题.
      *
-     * 处理以下情况：
+     * <p>处理以下情况：
      * 1. CAST(t1.col AS TIMESTAMP) + INTERVAL '120' MINUTE
      * 2. t1.timestamp_col + INTERVAL '120' MINUTE (列引用)
      * 由于 Calcite 对 CAST 后的类型推断可能有问题，需要确保类型正确

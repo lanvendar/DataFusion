@@ -27,7 +27,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.function.BiFunction;
 
-import static com.datafusion.common.options.OptionsUtils.*;
+import static com.datafusion.common.options.OptionsUtils.canBePrefixMap;
+import static com.datafusion.common.options.OptionsUtils.containsPrefixMap;
+import static com.datafusion.common.options.OptionsUtils.convertToPropertiesPrefixKey;
+import static com.datafusion.common.options.OptionsUtils.convertToPropertiesPrefixed;
+import static com.datafusion.common.options.OptionsUtils.removePrefixMap;
 
 /**
  * Options which stores key/value pairs.

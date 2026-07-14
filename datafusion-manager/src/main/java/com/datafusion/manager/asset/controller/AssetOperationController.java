@@ -164,6 +164,7 @@ public class AssetOperationController {
     /**
      * 从gitlab拉取ETL资源.
      *
+     * @param req ETL SQL 上传下载参数
      * @return 状态码
      */
     @PostMapping("/etl/pullEtlGitLab")
@@ -174,6 +175,12 @@ public class AssetOperationController {
     }
 
 
+    /**
+     * 初始化 ETL SQL 资源.
+     *
+     * @param req ETL SQL 上传下载参数
+     * @return 初始化结果
+     */
     @PostMapping("/etl/initEtlSql")
     @Operation(summary = "【ETL资源】 初始化ETL资源")
     public Result<Boolean> initEtlSql(@RequestBody EtlSqlUpAndDownVo req) {

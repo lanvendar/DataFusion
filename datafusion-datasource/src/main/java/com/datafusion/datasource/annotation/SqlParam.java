@@ -8,10 +8,12 @@ import java.lang.annotation.Target;
 
 /**
  * 将方法参数绑定到SQL模板中的具名参数注解,用于单条sql的参数.
+ *
  * <p>
  * 此注解用于将一个Java方法的参数与SQL模板中通过 {@code #para(...)} 或 {@code #p(...)}
  * 指令引用的命名参数进行映射,它主要用于非批量的、单次执行的SQL语句.
  * </p>
+ *
  * <p>与 {@link SqlParams} 的区别:</p>
  * <ul>
  *   <li>{@code @SqlParam} 用于将**单个**方法参数映射到**单个**SQL命名参数，通常一个方法中会使用多个。</li>

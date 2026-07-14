@@ -45,6 +45,11 @@ public interface EtlProcessService {
      */
     List<Path> getGitlabFilesPath();
 
+    /**
+     * 获取本地项目路径.
+     *
+     * @return 本地项目路径
+     */
     String getLocalRepoBaseDir();
     
 }

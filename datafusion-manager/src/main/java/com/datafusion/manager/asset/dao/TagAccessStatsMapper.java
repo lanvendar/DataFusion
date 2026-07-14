@@ -8,6 +8,9 @@ import java.util.List;
 
 /**
  * TagAccessStats Mapper.
+ *
+ * @author DataFusion
+ * @version 1.0.0
  */
 @Mapper
 public interface TagAccessStatsMapper extends BaseMapper<TagAccessStatsEntity> {

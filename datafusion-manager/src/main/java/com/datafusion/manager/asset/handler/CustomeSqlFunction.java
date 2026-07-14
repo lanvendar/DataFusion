@@ -636,9 +636,15 @@ public class CustomeSqlFunction {
      */
     @SuppressWarnings({"checkstyle:MethodName", "checkstyle:MissingJavadocMethod"})
     public static Object coalesce(Object arg1, Object arg2, Object arg3, Object arg4) {
-        if (arg1 != null) return arg1;
-        if (arg2 != null) return arg2;
-        if (arg3 != null) return arg3;
+        if (arg1 != null) {
+            return arg1;
+        }
+        if (arg2 != null) {
+            return arg2;
+        }
+        if (arg3 != null) {
+            return arg3;
+        }
         return arg4;
     }
 
@@ -1421,4 +1427,3 @@ public class CustomeSqlFunction {
     }
 
 }
-

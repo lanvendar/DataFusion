@@ -7,6 +7,7 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * 任务类业务编码生成：{@code 类型前缀 + yyMMdd + 4位序号}（与数据集成任务一致规则）.
+ *
  * <p>各业务表通过 Mapper 查询当日前缀下最大 {@code code}，再调用 {@link #nextSerialCode(String, String)} 递增。
  * 类型前缀按域区分（如集成 JC、开发 KF），避免不同表共用同一前缀时序号语义混淆。</p>
  *

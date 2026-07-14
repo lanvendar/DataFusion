@@ -16,7 +16,23 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.datafusion.scheduler.enums.StatusEnum.*;
+import static com.datafusion.scheduler.enums.StatusEnum.ENFORCE_SUCCESS;
+import static com.datafusion.scheduler.enums.StatusEnum.ENFORCING_SUCCESS;
+import static com.datafusion.scheduler.enums.StatusEnum.INIT_SUCCESS;
+import static com.datafusion.scheduler.enums.StatusEnum.KILLED;
+import static com.datafusion.scheduler.enums.StatusEnum.KILLING;
+import static com.datafusion.scheduler.enums.StatusEnum.RESTARTING;
+import static com.datafusion.scheduler.enums.StatusEnum.RUN_FAILURE;
+import static com.datafusion.scheduler.enums.StatusEnum.RUN_SUCCESS;
+import static com.datafusion.scheduler.enums.StatusEnum.RUNNING;
+import static com.datafusion.scheduler.enums.StatusEnum.STOP_FAILURE;
+import static com.datafusion.scheduler.enums.StatusEnum.STOP_SUCCESS;
+import static com.datafusion.scheduler.enums.StatusEnum.STOPPING;
+import static com.datafusion.scheduler.enums.StatusEnum.SUBMIT_FAILURE;
+import static com.datafusion.scheduler.enums.StatusEnum.SUBMIT_SUCCESS;
+import static com.datafusion.scheduler.enums.StatusEnum.SUBMITTING;
+import static com.datafusion.scheduler.enums.StatusEnum.UNKNOWN;
+import static com.datafusion.scheduler.enums.StatusEnum.WAIT_DEPENDENT;
 
 /**
  * 流程 Actor.

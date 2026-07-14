@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 
 /**
  * JDBC类型处理器.
+ *
  * <p>
  * 将SQL返回的数据转换为目标Java类型.
  * TODO 为了扩展一些特殊的类型转换,例如 UUID 等

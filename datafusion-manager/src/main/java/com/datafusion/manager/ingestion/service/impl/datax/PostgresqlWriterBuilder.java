@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 /**
  * postgresqlwriter builder.
  *
- * DataX doc: https://github.com/alibaba/DataX/blob/master/postgresqlwriter/doc/postgresqlwriter.md
+ * <p>DataX doc: https://github.com/alibaba/DataX/blob/master/postgresqlwriter/doc/postgresqlwriter.md
  * Verified-At: 2026-05-09
  * Verified-Commit: 60ea07b
  *
@@ -30,14 +30,13 @@ public class PostgresqlWriterBuilder implements DataxWriterBuilder {
     public ObjectNode buildWriter(DataxJobContext ctx) {
         ObjectMapper om = ctx.getObjectMapper();
         DataSourceInfo ds = ctx.getTargetDsInfo();
-        JsonNode config = ctx.getTargetConfig();
-
         ObjectNode parameter = om.createObjectNode();
         parameter.put("username", ds.getUsername());
         parameter.put("password", ds.getPassword());
 
         ObjectNode connection0 = om.createObjectNode();
         connection0.put("jdbcUrl", ds.getJdbcUrl());
+        JsonNode config = ctx.getTargetConfig();
         connection0.set("table", DataxBuilderUtils.getTextArray(config, "table", om));
 
         ArrayNode connections = om.createArrayNode();
@@ -64,4 +63,3 @@ public class PostgresqlWriterBuilder implements DataxWriterBuilder {
         return DataxBuilderUtils.wrapNameAndParameter("postgresqlwriter", parameter, om);
     }
 }
-

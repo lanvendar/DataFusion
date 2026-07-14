@@ -38,7 +38,7 @@ public class TaskInstance {
      */
     private String instanceId;
 
-    /**
+    /*
      * 流程id.
      */
     //private String flowId;

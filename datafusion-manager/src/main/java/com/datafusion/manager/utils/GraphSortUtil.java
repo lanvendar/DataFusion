@@ -1,5 +1,7 @@
 package com.datafusion.manager.utils;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -10,22 +12,30 @@ import java.util.Map;
 import java.util.Set;
 
 /**
-    * list<map<>>进行有向排序.
-    *
-    * @author wei.bowen
-    * @version 1.0.0, 2026/4/9
-    * @since 2026/4/9
-*/
-
+ * 对 {@code List<Map<String, String>>} 进行有向排序.
+ *
+ * @author wei.bowen
+ * @version 1.0.0, 2026/4/9
+ * @since 2026/4/9
+ */
+@Slf4j
 public class GraphSortUtil {
 
     // 逻辑名提取：a.C -> C
     private static String toLog(String name) {
-        if (name == null) return null;
+        if (name == null) {
+            return null;
+        }
         int lastDot = name.lastIndexOf(".");
         return lastDot == -1 ? name : name.substring(lastDot + 1);
     }
 
+    /**
+     * 按表依赖关系排序.
+     *
+     * @param allTableResults 表依赖关系
+     * @return 排序后的表依赖关系
+     */
     public static List<Map<String, String>> sortTableResults(List<Map<String, String>> allTableResults) {
         // 2. 构建邻接表和入度统计
         Map<String, List<Map<String, String>>> adj = new LinkedHashMap<>();
@@ -70,7 +80,9 @@ public class GraphSortUtil {
     private static void dfs(String u, Map<String, List<Map<String, String>>> adj,
                             List<Map<String, String>> result, Set<Map<String, String>> visitedEdges) {
         List<Map<String, String>> edges = adj.get(u);
-        if (edges == null) return;
+        if (edges == null) {
+            return;
+        }
 
         for (Map<String, String> edge : edges) {
             if (!visitedEdges.contains(edge)) {
@@ -82,6 +94,11 @@ public class GraphSortUtil {
         }
     }
 
+    /**
+     * 运行有向排序示例.
+     *
+     * @param args 命令行参数
+     */
     public static void main(String[] args) {
         // 1. 初始化原始数据
         List<Map<String, String>> input = new ArrayList<>();
@@ -93,9 +110,9 @@ public class GraphSortUtil {
         input.add(Collections.singletonMap("k.C", "G"));
         input.add(Collections.singletonMap("D", "A")); // 构成环 A-B-C-D-A
 
-        List<Map<String, String>> result = sortTableResults( input);
+        List<Map<String, String>> result = sortTableResults(input);
 
         // 打印结果
-        System.out.println(result);
+        log.info("排序结果: {}", result);
     }
 }

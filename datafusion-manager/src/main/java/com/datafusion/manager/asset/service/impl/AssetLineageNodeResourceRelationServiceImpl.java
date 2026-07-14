@@ -26,6 +26,7 @@ public class AssetLineageNodeResourceRelationServiceImpl
      * 根据 source_urn, target_urn，resource_id 批量保存或更新边.
      *
      * @param edgeList 节点列表
+     * @return 是否保存或更新成功
      */
     public boolean batchSaveOrUpdateRelationByMultipleFields(List<AssetLineageNodeResourceRelationEntity> edgeList) {
 
@@ -43,4 +44,3 @@ public class AssetLineageNodeResourceRelationServiceImpl
     }
 
 }
-

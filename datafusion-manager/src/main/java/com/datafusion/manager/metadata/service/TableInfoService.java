@@ -41,7 +41,6 @@ public interface TableInfoService extends IService<TableInfoEntity> {
      */
     Result<PageResponse<TableInfoDto>> pageTableInfos(PageQuery<TableInfoQueryDto> query);
 
-
     /**
      * 列表查询.
      *

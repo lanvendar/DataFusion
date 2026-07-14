@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 
 /**
  * Date (java.sql.Date) 类型处理器，能够灵活处理数据库中的 TIMESTAMP, DATE, 或 TIME 类型.
+ *
  * <p>
  * 核心目标是从各种输入源中提取日期部分（年、月、日）.
  * </p>

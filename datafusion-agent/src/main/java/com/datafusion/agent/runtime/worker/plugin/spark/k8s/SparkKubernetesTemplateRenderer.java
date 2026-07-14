@@ -89,12 +89,12 @@ public class SparkKubernetesTemplateRenderer {
     }
 
     private Map<String, String> labels(SparkExecutionParam param) {
-        SparkKubernetesParam kubernetes = param.getKubernetes();
         Map<String, String> labels = new LinkedHashMap<>();
         labels.put(SparkK8sNameGenerator.PLUGIN_LABEL, PLUGIN_TYPE);
         labels.put(SparkK8sNameGenerator.RUN_MODE_LABEL, RUN_MODE);
         labels.put(SparkK8sNameGenerator.TASK_LABEL, SparkK8sNameGenerator.labelValue(param.getTaskInstanceId()));
         labels.put(SparkK8sNameGenerator.FLOW_LABEL, SparkK8sNameGenerator.labelValue(param.getFlowInstanceId()));
+        SparkKubernetesParam kubernetes = param.getKubernetes();
         safeLabels(kubernetes.getLabels()).forEach(labels::putIfAbsent);
         return labels;
     }

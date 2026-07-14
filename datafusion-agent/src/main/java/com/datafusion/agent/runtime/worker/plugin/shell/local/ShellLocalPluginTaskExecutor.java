@@ -121,7 +121,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
             String workDirPath = workDir.toString();
             log.info("SHELL LOCAL任务提交成功, taskInstanceId={}, appId={}, workDirPath={}, pluginLogUri={}",
                     request.getTaskInstanceId(), appId, workDirPath, pluginLogUri);
-            WorkerResult requestWorkerResult = request.getWorkerResult();
+            final WorkerResult requestWorkerResult = request.getWorkerResult();
             WorkerTaskExecutionState state = baseState(request, StatusEnum.RUNNING)
                     .appId(appId)
                     .workDirPath(workDirPath)
@@ -252,7 +252,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                 latestState.setExitCode(exitCode);
                 latestState.setStatus(hasLiveDescendant(process) ? StatusEnum.RUNNING
                         : exitCode == 0 ? StatusEnum.RUN_SUCCESS : StatusEnum.RUN_FAILURE);
-                latestState.setResult(resultJson(pluginType(latestState.getTaskInstanceId()),
+                latestState.setResult(resultJson(resolvePluginType(latestState.getTaskInstanceId()),
                         "LOCAL process exited, exitCode=" + exitCode,
                         pluginLogUri(null, latestState), exitCode));
                 stateStore.saveState(latestState);
@@ -291,7 +291,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                 .taskInstanceId(request.getTaskInstanceId())
                 .taskName(request.getTaskName())
                 .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
-                .pluginType(pluginType(request))
+                .pluginType(resolvePluginType(request))
                 .runMode(ShellLocalRunModeStateMapping.RUN_MODE)
                 .taskData(request.getTaskData())
                 .pluginParam(request.getPluginParam())
@@ -344,7 +344,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     private ObjectNode resultJson(TaskRequest request, String message, String pluginLogUri, Integer exitCode) {
-        return resultJson(pluginType(request), message, pluginLogUri, exitCode);
+        return resultJson(resolvePluginType(request), message, pluginLogUri, exitCode);
     }
 
     private ObjectNode resultJson(String pluginType, String message, String pluginLogUri, Integer exitCode) {
@@ -352,11 +352,11 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                 exitCode);
     }
 
-    private String pluginType(TaskRequest request) {
+    private String resolvePluginType(TaskRequest request) {
         return request == null ? PLUGIN_TYPE : firstText(request.getPluginType(), PLUGIN_TYPE);
     }
 
-    private String pluginType(String taskInstanceId) {
+    private String resolvePluginType(String taskInstanceId) {
         if (taskInstanceId == null) {
             return PLUGIN_TYPE;
         }

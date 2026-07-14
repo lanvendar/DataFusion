@@ -27,12 +27,7 @@ public class AutoSqlScanClassPathBeanScanner extends ClassPathBeanDefinitionScan
      * 构造方法.
      *
      * @param registry          {@code BeanFactory} 以 {@code BeanDefinitionRegistry} 的形式加载 bean 定义
-     * @param useDefaultFilters 是否包含
-     *                          <p>{@link org.springframework.stereotype.Component @Component}、</p>
-     *                          <p>{@link org.springframework.stereotype.Repository @Repository}、</p>
-     *                          <p>{@link org.springframework.stereotype.Service @Service}、</p>
-     *                          <p>{@link org.springframework.stereotype.Controller @Controller} </p>
-     *                          的默认过滤器
+     * @param useDefaultFilters 是否包含 Spring 默认组件过滤器
      */
     public AutoSqlScanClassPathBeanScanner(BeanDefinitionRegistry registry, boolean useDefaultFilters) {
         super(registry, useDefaultFilters);

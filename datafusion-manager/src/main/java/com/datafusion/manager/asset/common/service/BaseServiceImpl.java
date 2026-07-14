@@ -212,6 +212,7 @@ public abstract class BaseServiceImpl<M extends BaseMapper<T>, T>
      * @param batchSize         每批次处理的数量（建议 500-1000）
      * @param <U>               唯一字段类型
      * @param <D>               D 类型
+     * @return 是否保存或更新成功
      */
     @Transactional(rollbackFor = Exception.class)
     public <U, D> boolean batchSaveOrUpdateByUniqueFieldWithBatch(

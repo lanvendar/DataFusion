@@ -328,5 +328,5 @@ public class TableInfoServiceImpl extends ServiceImpl<TableInfoMapper, TableInfo
     @Override
     public Boolean deleteTablesByDataSourceId(RetrieveMetaDataDto query) {
         return baseMapper.deleteTablesByDataSourceId(query);
-    };
+    }
 }

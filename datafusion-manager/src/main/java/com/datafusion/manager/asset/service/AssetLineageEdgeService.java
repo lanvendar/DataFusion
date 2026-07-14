@@ -1461,7 +1461,7 @@ public class AssetLineageEdgeService {
      * @return 血缘关系数据
      */
     public LineEdgeNodeVoV2 linkBusinessV3(EdgeNodeRequestVo req) {
-        LineEdgeNodeVoV2 result = new LineEdgeNodeVoV2();
+        final LineEdgeNodeVoV2 result = new LineEdgeNodeVoV2();
         if (StringUtils.isBlank(req.getNodeUrn())) {
             return result;
         }
@@ -1508,10 +1508,11 @@ public class AssetLineageEdgeService {
      * 统一指标专用：双中心递归处理.
      */
     private LineEdgeNodeVoV2 handleUnifiedMetricRecursive(EdgeNodeRequestVo req) {
-        LineEdgeNodeVoV2 result = new LineEdgeNodeVoV2();
+        final LineEdgeNodeVoV2 result = new LineEdgeNodeVoV2();
         String currentUrn = req.getNodeUrn();
         // 截断获取父节点 URN: 取最后一个冒号之前的
-        String parentUrn = currentUrn.contains(":") ? currentUrn.substring(0, currentUrn.lastIndexOf(":")) : currentUrn;
+        final String parentUrn = currentUrn.contains(":")
+                ? currentUrn.substring(0, currentUrn.lastIndexOf(":")) : currentUrn;
         String[] tagDimension = currentUrn.substring(currentUrn.lastIndexOf(":") + 1).split(",");
 
         List<LineageEdgeDto> combinedEdges = new ArrayList<>();

@@ -1,5 +1,7 @@
 package com.datafusion.manager.asset.handler.sql;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
@@ -9,6 +11,7 @@ import java.time.format.DateTimeFormatter;
  * @version 1.0.0, 2026/2/27
  * @since 2026/2/27
  */
+@Slf4j
 public class SqlVariableResolver {
 
     /**
@@ -75,7 +78,7 @@ public class SqlVariableResolver {
     public static void main(String[] args) {
         String testSql = "SELECT * FROM table WHERE dt = '$[yyyy-mm-dd-1]' AND month = '$[yyyymm]' AND last_m = '$[add_months(yyyymm,-1)]';";
 
-        System.out.println("原始SQL: " + testSql);
-        System.out.println("替换后: " + replaceSqlVariables(testSql));
+        log.info("原始SQL: {}", testSql);
+        log.info("替换后: {}", replaceSqlVariables(testSql));
     }
 }

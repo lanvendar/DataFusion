@@ -14,11 +14,15 @@ import java.util.UUID;
 /**
  * 未匹配菜单记录器.
  * 如果注入此服务则持久化到数据库，否则只记录日志.
+ *
+ * @author DataFusion
+ * @version 1.0.0
  */
 @Slf4j
 @Service
 public class UnmatchedMenuRecorder {
 
+    /** 未匹配菜单数据访问对象. */
     @Autowired(required = false)
     private MenuTmpMapper menuTmpMapper;
 

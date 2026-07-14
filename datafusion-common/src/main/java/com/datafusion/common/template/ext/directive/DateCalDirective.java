@@ -15,14 +15,23 @@ import java.util.List;
 
 /**
  * #day 日期格式计算,默认返回日期格式 yyyyMMdd 对 {@link com.jfinal.template.ext.directive.DateDirective} 扩展.
+ *
  * <p>四种用法：</p>
+ *
  * <p>1：#day(createAt, '-2M', 'MD', 'yyyyMMdd') 根据 createAt，按规则计算日期</p>
+ *
  * <p>2：#day(createAt) 用默认 datePattern 配置，输出 createAt 变量中的日期值</p>
+ *
  * <p>3：#day(createAt, "yyyy-MM-dd") 用第二个参数指定的 datePattern，输出 createAt 变量中的日期值</p>
+ *
  * <p>4：#day() 用默认 datePattern 配置，输出 “当前” 日期值</p>
+ *
  * <p>注意：</p>
+ *
  * <p>1：#day 指令中的参数可以是变量，例如：#day(d, p) 中的 d 与 p 可以全都是变量</p>
+ *
  * <p>2：默认 datePattern 可通过 Engine.setDatePattern(...) 进行配置</p>
+ *
  * <p>3：jfinal 4.9.02 版新增支持 java 8 的 LocalDateTime、LocalDate、LocalTime</p>
  *
  * @author lanvendar

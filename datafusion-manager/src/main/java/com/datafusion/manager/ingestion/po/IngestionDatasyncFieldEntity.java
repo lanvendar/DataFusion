@@ -22,7 +22,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @TableName(value = "ingestion_datasync_field", autoResultMap = true)
-public class IngestionDatasyncFieldEntity extends BaseIdEntity{
+public class IngestionDatasyncFieldEntity extends BaseIdEntity {
 
     /**
      * 任务定义ID.

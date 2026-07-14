@@ -84,7 +84,7 @@ public class ThreadFactoryBuilder implements Builder<ThreadFactory> {
     }
     
     /**
-     * 线程优先级,默认值@{code Thread.NORM_PRIORITY}
+     * 线程优先级,默认值 {@code Thread.NORM_PRIORITY}.
      *
      * @param priority 线程优先级
      * @return {@link ThreadFactoryBuilder}本对象

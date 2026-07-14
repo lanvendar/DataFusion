@@ -13,6 +13,7 @@ import java.util.Optional;
 
 /**
  * 框架核心组件的Spring自动配置类.
+ *
  * <p>
  * 负责组装和配置 JFinalSqlBuilder, ConnectorFactory, 和 SqlAspect.
  * 设计为可插拔的,允许用户通过属性文件或自定义Bean来覆盖默认配置.
@@ -27,6 +28,7 @@ public class SqlDataSourceConfiguration {
     
     /**
      * 配置JFinal SQL模板引擎的默认Bean.
+     *
      * <p>
      * 用户可以定义自己的 JFinalSqlBuilder bean 来覆盖此默认实现
      * </p>
@@ -44,6 +46,7 @@ public class SqlDataSourceConfiguration {
     
     /**
      * 配置数据源连接器工厂的默认Bean.
+     *
      * <p>
      * 用户可以定义自己的 ConnectorFactory bean 来覆盖此默认实现
      * </p>
@@ -65,6 +68,7 @@ public class SqlDataSourceConfiguration {
     
     /**
      * 配置核心的SQL执行切面的默认Bean.
+     *
      * <p>
      * 用户可以定义自己的 SqlAspect bean 来覆盖此默认实现
      * </p>

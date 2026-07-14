@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 /**
  * hologresjdbcwriter builder.
  *
- * DataX doc: https://github.com/alibaba/DataX/blob/master/hologresjdbcwriter/doc/hologresjdbcwriter.md
+ * <p>DataX doc: https://github.com/alibaba/DataX/blob/master/hologresjdbcwriter/doc/hologresjdbcwriter.md
  * Verified-At: 2026-05-09
  * Verified-Commit: 60ea07b
  *

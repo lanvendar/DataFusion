@@ -34,8 +34,7 @@ public enum NodeSubTypeEnum {
      * ETL任务.
      */
     METRIC("METRIC", "指标");
-    
-    
+
     /**
      * 资源类型.
      */

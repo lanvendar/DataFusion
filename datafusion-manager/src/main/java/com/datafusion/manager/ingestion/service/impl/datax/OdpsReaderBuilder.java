@@ -13,7 +13,7 @@ import java.util.Properties;
 /**
  * odpsreader builder.
  *
- * DataX doc: https://github.com/alibaba/DataX/blob/master/odpsreader/doc/odpsreader.md
+ * <p>DataX doc: https://github.com/alibaba/DataX/blob/master/odpsreader/doc/odpsreader.md
  * Verified-At: 2026-05-09
  * Verified-Commit: 60ea07b
  *

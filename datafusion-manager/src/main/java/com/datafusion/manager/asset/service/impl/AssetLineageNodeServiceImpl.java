@@ -432,10 +432,10 @@ public class AssetLineageNodeServiceImpl extends BaseServiceImpl<AssetLineageNod
         String nodeSubType = request.getNodeSubType();
         String searchContent = request.getSearchContent();
         int searchType = request.getSearchType();
-        String dimension = request.getDimension();
-        String timeliness = request.getTimeliness();
-        String physicalLevel = request.getPhysicalLevel();
-        String metricType = request.getMetricType();
+        final String dimension = request.getDimension();
+        final String timeliness = request.getTimeliness();
+        final String physicalLevel = request.getPhysicalLevel();
+        final String metricType = request.getMetricType();
 
         LambdaQueryWrapper<AssetLineageNodeEntity> wrapper = new LambdaQueryWrapper<>();
 
@@ -456,7 +456,7 @@ public class AssetLineageNodeServiceImpl extends BaseServiceImpl<AssetLineageNod
         if (!org.springframework.util.StringUtils.isEmpty(searchContent)) {
             if (searchType == 1 && StringUtils.isNotEmpty(request.getDimension())) {
                 wrapper.likeLeft(AssetLineageNodeEntity::getNodeUrn,
-                        SystemConstant.COLON+searchContent + SystemConstant.COMMA + request.getDimension());
+                        SystemConstant.COLON + searchContent + SystemConstant.COMMA + request.getDimension());
             } else {
                 wrapper.eq(AssetLineageNodeEntity::getNodeUrn, searchContent);
             }

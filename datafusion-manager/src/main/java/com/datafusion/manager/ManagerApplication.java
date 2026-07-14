@@ -23,7 +23,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         excludeFilters = @ComponentScan.Filter(
             type = FilterType.REGEX,
             pattern = "com\\.datafusion\\.manager\\.asset2\\..*"
-    )
+        )
 )
 @MapperScan(basePackages = {
         "com.datafusion.manager.asset.dao",

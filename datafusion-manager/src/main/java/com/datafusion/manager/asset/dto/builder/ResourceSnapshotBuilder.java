@@ -156,6 +156,7 @@ public class ResourceSnapshotBuilder {
          */
         private final Class clazz;
 
+        /** 资源结果快照类型. */
         private final Class resultClazz;
 
         /**
@@ -372,7 +373,7 @@ public class ResourceSnapshotBuilder {
         private String requestType;
 
         /**
-         * 请求URL.与下面的区别是，url带了前缀 如/api/openapi/v1/users/login
+         * 请求URL.与下面的区别是，url带了前缀 如/api/openapi/v1/users/login.
          */
         private String requestUrl;
 

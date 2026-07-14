@@ -31,6 +31,9 @@ public interface MetricsTmpMapper {
     /**
      * 从临时表查询指标数据列表.
      *
+     * @param afterDate 起始日期
+     * @param metricCode 指标编码
+     * @param thirdMetricIds 第三方指标ID列表
      * @return 指标数据列表.
      */
     List<MetricInfoEntity> selectMetricTmpList(@Param("afterDate") LocalDate afterDate,

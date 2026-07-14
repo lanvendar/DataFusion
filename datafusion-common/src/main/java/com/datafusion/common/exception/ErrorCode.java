@@ -15,8 +15,7 @@ public interface ErrorCode {
      * @return String
      */
     String getCode();
-    
-    
+
     /**
      * 获取错误描述.
      *

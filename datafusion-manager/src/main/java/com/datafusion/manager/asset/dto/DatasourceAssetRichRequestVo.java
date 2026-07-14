@@ -11,7 +11,7 @@ import lombok.Data;
 @Data
 public class DatasourceAssetRichRequestVo {
 
-    /**
+    /*
      * 述求：
      * 
      * 表的DDL

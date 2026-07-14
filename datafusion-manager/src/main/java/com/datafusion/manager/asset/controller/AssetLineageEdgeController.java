@@ -33,6 +33,7 @@ public class AssetLineageEdgeController {
      */
     private final AssetLineageEdgeService edgeService;
 
+    /** 临时表过滤血缘服务. */
     private final AssetLineageFilterTmpEdgeService assetLineageFilterTmpEdgeService;
 
 

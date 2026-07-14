@@ -340,11 +340,8 @@ public class ColumnInfoServiceImpl extends ServiceImpl<ColumnInfoMapper, ColumnI
      */
 
     @Override
-    public Boolean deleteColumnsByDataSourceId(RetrieveMetaDataDto query){
+    public Boolean deleteColumnsByDataSourceId(RetrieveMetaDataDto query) {
         return baseMapper.deleteColumnsByDataSourceId(query);
     }
-
-
-
 
 }

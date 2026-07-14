@@ -23,6 +23,7 @@ public @interface SqlRepository {
     
     /**
      * 执行sql接口代理.
+     *
      * <p>自动检测到组件的情况下将其转换为 spring bean</p>
      *
      * @return String

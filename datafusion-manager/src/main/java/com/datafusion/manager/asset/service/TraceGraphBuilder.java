@@ -36,6 +36,7 @@ import java.util.Set;
 @Service
 public class TraceGraphBuilder {
 
+    /** 资源同步配置. */
     @Autowired
     private ResourceSyncConfig resourceSyncConfig;
 
@@ -164,7 +165,7 @@ public class TraceGraphBuilder {
      * @return 格式化后的端点（如 POST:/api/biz-data/user/info）
      */
     private String normalizeEndpointName(String serviceCode, SpanDto span, Map<String, SpanDto> context) {
-        String method = span.getTags().stream().filter(t -> "http.method".equalsIgnoreCase(t.getKey())).map(TagDto::getValue).findFirst()
+        final String method = span.getTags().stream().filter(t -> "http.method".equalsIgnoreCase(t.getKey())).map(TagDto::getValue).findFirst()
                 .orElse("POST");
         String url = span.getTags().stream().filter(t -> "url".equalsIgnoreCase(t.getKey())).map(TagDto::getValue).findFirst().orElse("");
         String endpoint = span.getEndpointName();
@@ -269,7 +270,8 @@ public class TraceGraphBuilder {
         if (span == null || CollectionUtil.isEmpty(span.getTags())) {
             return Collections.emptySet();
         }
-        String d = null, t = null;
+        String d = null;
+        String t = null;
         for (TagDto tag : span.getTags()) {
             if ("metric.dimension".equals(tag.getKey())) {
                 d = resourceSyncConfig.getTimeDimensionMap().get(tag.getValue());
@@ -293,6 +295,9 @@ public class TraceGraphBuilder {
     /**
      * 解析被调用方服务名称.
      * 逻辑：硬编码映射 -> K8s DNS提取 -> 原始 Peer.
+     *
+     * @param span 调用链 Span
+     * @return 服务名称
      */
     public String resolveServiceName(SpanDto span) {
         String p = span.getPeer();

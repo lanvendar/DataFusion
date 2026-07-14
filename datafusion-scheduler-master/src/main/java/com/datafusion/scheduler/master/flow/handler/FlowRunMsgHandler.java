@@ -15,7 +15,14 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.EnumSet;
 
-import static com.datafusion.scheduler.enums.StatusEnum.*;
+import static com.datafusion.scheduler.enums.StatusEnum.RUN_FAILURE;
+import static com.datafusion.scheduler.enums.StatusEnum.RUN_SUCCESS;
+import static com.datafusion.scheduler.enums.StatusEnum.RUNNING;
+import static com.datafusion.scheduler.enums.StatusEnum.STOP_SUCCESS;
+import static com.datafusion.scheduler.enums.StatusEnum.STOPPING;
+import static com.datafusion.scheduler.enums.StatusEnum.SUBMIT_SUCCESS;
+import static com.datafusion.scheduler.enums.StatusEnum.SUBMITTING;
+import static com.datafusion.scheduler.enums.StatusEnum.UNKNOWN;
 
 /**
  * 流程运行消息处理器.

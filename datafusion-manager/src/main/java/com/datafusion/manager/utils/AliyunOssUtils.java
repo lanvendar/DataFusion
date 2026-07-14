@@ -228,9 +228,13 @@ public class AliyunOssUtils {
 
     /**
      * 将 OSS 指定前缀下所有对象下载到本地目录：本地路径为 {@code localDirectoryPath} + 与 OSS 对象键一致的层级（从键首段到文件名，正斜杠映射为本地分隔符）.
+     *
      * <p>仅列举键名以规范化后的 {@code ossKeyPrefix} 开头的对象；下载时在本地保留<strong>完整对象键</strong>对应的目录结构，不再去掉前缀段
      * （例如键 {@code secp-dolphin-job-script/DAG/we/sebu1/a.txt} 落到 {@code localRoot/secp-dolphin-job-script/DAG/we/sebu1/a.txt}）。</p>
-     * <p>下载前若本地根目录已存在且<strong>非空</strong>，会先递归删除其下文件与子目录（<strong>保留 {@code .git} 目录</strong>，避免破坏本地 Git 元数据及 Windows 下 pack 文件被占用导致删除失败），再写入本次下载结果。</p>
+     *
+     * <p>下载前若本地根目录已存在且<strong>非空</strong>，会先递归删除其下文件与子目录
+     * （<strong>保留 {@code .git} 目录</strong>，避免破坏本地 Git 元数据及 Windows 下 pack 文件被占用导致删除失败），再写入本次下载结果。</p>
+     *
      * <p>本地根目录不存在时会创建；不下载键名以 {@code /} 结尾的目录占位对象；若解析后越出本地根目录则抛参错。</p>
      *
      * @param bucket              桶名，可为 null 使用默认桶
@@ -250,7 +254,7 @@ public class AliyunOssUtils {
         if (StringUtils.isBlank(prefix)) {
             throw new CommonException(ErrorCodeEnum.USER_INVALID_PARAM_A0154, "ossKeyPrefix 无效");
         }
-        String b = resolveBucket(bucket);
+        final String b = resolveBucket(bucket);
         Path localRoot;
         try {
             localRoot = Paths.get(localDirectoryPath.trim()).toAbsolutePath().normalize();
@@ -317,6 +321,7 @@ public class AliyunOssUtils {
 
     /**
      * 删除目录下全部文件与子目录，保留该目录本身.
+     *
      * <p>不删除根目录下 {@code .git} 及其子路径（避免与 Git 客户端锁定的 pack 等文件冲突）；其余内容递归删除。</p>
      *
      * @param dir 根目录
@@ -380,9 +385,9 @@ public class AliyunOssUtils {
             }
             try {
                 Thread.sleep(30L * (attempt + 1));
-            } catch (InterruptedException ie) {
+            } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
-                throw new IOException("删除被中断: " + p, ie);
+                throw new IOException("删除被中断: " + p, interrupted);
             }
         }
         if (last != null) {
@@ -613,6 +618,7 @@ public class AliyunOssUtils {
 
     /**
      * 遍历指定 OSS 逻辑路径（前缀）下所有对象，返回每个对象的完整对象键（即桶内「文件路径」，统一正斜杠）.
+     *
      * <p>前缀会经 {@link #normalizeOssKeyPrefix(String)} 规范化（去前导斜杠、非空时补尾斜杠），避免误匹配兄弟前缀；
      * 键名以 {@code /} 结尾的占位「目录对象」不会加入结果。</p>
      *

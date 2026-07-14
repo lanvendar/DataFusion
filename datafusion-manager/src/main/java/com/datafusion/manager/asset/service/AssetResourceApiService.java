@@ -353,6 +353,12 @@ public class AssetResourceApiService extends BaseResourceService<ApiResourceInfo
         return convertEdges(filteredCallEdges, snapshot);
     }
 
+    /**
+     * 获取资源的 WE 位置信息.
+     *
+     * @param resource 血缘资源
+     * @return WE 位置信息列表
+     */
     public List<ResourceSnapshotBuilder.WeLocation> getWeLocation(AssetLineageResourceEntity resource) {
         ResourceSnapshotBuilder.ApiResourceResultSnapshot resultSnapshot = ResourceSnapshotBuilder.builder(resource, true);
         if (resultSnapshot == null || resultSnapshot.getCallChain() == null) {

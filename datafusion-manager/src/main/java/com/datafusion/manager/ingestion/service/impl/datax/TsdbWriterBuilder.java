@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 /**
  * tsdbwriter builder.
  *
- * DataX doc: https://github.com/alibaba/DataX/blob/master/tsdbwriter/doc/tsdbwriter.md
+ * <p>DataX doc: https://github.com/alibaba/DataX/blob/master/tsdbwriter/doc/tsdbwriter.md
  * Verified-At: 2026-05-09
  * Verified-Commit: 60ea07b
  *

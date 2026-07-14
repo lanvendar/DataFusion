@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 /**
  * txtfilereader builder.
  *
- * DataX doc: https://github.com/alibaba/DataX/blob/master/txtfilereader/doc/txtfilereader.md
+ * <p>DataX doc: https://github.com/alibaba/DataX/blob/master/txtfilereader/doc/txtfilereader.md
  * Verified-At: 2026-05-09
  * Verified-Commit: 60ea07b
  *

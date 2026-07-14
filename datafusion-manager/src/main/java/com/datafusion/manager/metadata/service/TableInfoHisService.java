@@ -24,14 +24,12 @@ public interface TableInfoHisService extends IService<TableInfoHisIdEntity> {
      */
     boolean customSaveOrUpdateBatch(List<TableInfoEntity> tableInfoSnapshotList, String version);
 
-
     /**
      * saveOrUpdateBatch.
      * @param entityList entityList
      * @return boolean
      */
     boolean saveOrUpdateBatch(List<TableInfoHisIdEntity> entityList);
-
 
     /**
      * 根据表ID查询字段.

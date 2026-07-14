@@ -6,6 +6,9 @@ import java.util.List;
 
 /**
  * 指标访问统计数据 DTO.
+ *
+ * @author DataFusion
+ * @version 1.0.0
  */
 @Data
 public class MetricAccessStatsDto {
@@ -57,13 +60,26 @@ public class MetricAccessStatsDto {
 
     /**
      * 数仓指标 DTO.
+     *
+     * @author DataFusion
+     * @version 1.0.0
      */
     @Data
     public static class DwTagInfoDto {
+
+        /** 数仓指标ID. */
         private Long id;
+
+        /** 时间维度. */
         private String timeDimension;
+
+        /** 数仓编码. */
         private String warehouseCode;
+
+        /** API 地址. */
         private String apiUrl;
+
+        /** 指标表名. */
         private String tagTable;
     }
 }

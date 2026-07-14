@@ -11,5 +11,5 @@ import lombok.Data;
  */
 
 @Data
-public class AssetLineageNodeResourceVo extends AssetLineageNodeResourceDto{
+public class AssetLineageNodeResourceVo extends AssetLineageNodeResourceDto {
 }

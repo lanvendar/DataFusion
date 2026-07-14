@@ -180,7 +180,8 @@ public class AssetResourceMenuService extends BaseResourceService<MenuResourceIn
             List<Pair<String, String>> unmatchedCombos = new ArrayList<>();
             List<UUID> unmatchedApiResourceIds = new ArrayList<>();
 
-            for (Map.Entry<Pair<String, String>, Pair<List<AssetLineageResourceEntity>, Map<UUID, Set<MetricsTagDto>>>> entry : comboToApiResources.entrySet()) {
+            for (Map.Entry<Pair<String, String>, Pair<List<AssetLineageResourceEntity>,
+                    Map<UUID, Set<MetricsTagDto>>>> entry : comboToApiResources.entrySet()) {
                 Pair<String, String> combo = entry.getKey();
                 List<AssetLineageResourceEntity> apis = entry.getValue().getLeft();
                 Map<UUID, Set<MetricsTagDto>> comboTagMap = entry.getValue().getRight();

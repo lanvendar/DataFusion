@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 /**
  * txtfilewriter builder.
  *
- * DataX doc: https://github.com/alibaba/DataX/blob/master/txtfilewriter/doc/txtfilewriter.md
+ * <p>DataX doc: https://github.com/alibaba/DataX/blob/master/txtfilewriter/doc/txtfilewriter.md
  * Verified-At: 2026-05-09
  * Verified-Commit: 60ea07b
  *

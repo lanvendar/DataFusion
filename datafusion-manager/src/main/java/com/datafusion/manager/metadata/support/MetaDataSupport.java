@@ -41,8 +41,7 @@ public interface MetaDataSupport {
      * @return 返回一个包含数据源扩展参数的列表如果数据源没有扩展参数，则返回空列表
      */
     List<DataSourceExtendParam> getDefaultExtendParams();
-    
-    
+
     /**
      * 获取数据源默认支持的数据类型.
      * @return 返回一个包含数据源支持的数据类型.

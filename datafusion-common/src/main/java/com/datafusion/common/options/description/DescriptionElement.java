@@ -20,6 +20,9 @@ package com.datafusion.common.options.description;
 
 /**
  * Part of a {@link Description} that can be converted into String representation.
+ *
+ * @author DataFusion
+ * @version 1.0.0
  */
 interface DescriptionElement {
     /**

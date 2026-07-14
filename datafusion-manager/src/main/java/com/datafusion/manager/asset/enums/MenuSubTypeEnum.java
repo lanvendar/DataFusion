@@ -28,8 +28,12 @@ public enum MenuSubTypeEnum {
      */
     DIRECTORY((byte) 3, "目录");
 
+    /** 组件类型. */
     byte componentType;
+
+    /** 组件名称. */
     String componentName;
+
     MenuSubTypeEnum(byte componentType, String componentName) {
         this.componentType = componentType;
         this.componentName = componentName;

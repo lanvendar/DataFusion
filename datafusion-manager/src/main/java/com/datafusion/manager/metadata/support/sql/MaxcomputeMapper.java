@@ -88,6 +88,7 @@ public interface MaxcomputeMapper extends SqlMapper<MaxcomputeTableColumn> {
      */
     @SqlGet(sqlKey = "countSizeByTable")
     long countSizeByTable(@SqlDs DataSourceInfo ds, @SqlParam("tableName") String tableName);
+
     /**
      * 分页查询表数据.
      *

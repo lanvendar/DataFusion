@@ -55,6 +55,8 @@ public class WorkerManager implements WorkerListener, WorkerOperator {
 
     /**
      * 设置全部 worker 下线.
+     *
+     * @return 下线的工作节点数量
      */
     public int offlineAllWorkers() {
         if (null == storage) {

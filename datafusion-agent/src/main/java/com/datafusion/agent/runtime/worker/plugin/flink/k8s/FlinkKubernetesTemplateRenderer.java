@@ -100,12 +100,12 @@ public class FlinkKubernetesTemplateRenderer {
     }
 
     private Map<String, String> labels(FlinkExecutionParam param) {
-        FlinkKubernetesParam kubernetes = param.getKubernetes();
         Map<String, String> labels = new LinkedHashMap<>();
         labels.put(FlinkK8sNameGenerator.PLUGIN_LABEL, PLUGIN_TYPE);
         labels.put(FlinkK8sNameGenerator.RUN_MODE_LABEL, RUN_MODE);
         labels.put(FlinkK8sNameGenerator.TASK_LABEL, FlinkK8sNameGenerator.labelValue(param.getTaskInstanceId()));
         labels.put(FlinkK8sNameGenerator.FLOW_LABEL, FlinkK8sNameGenerator.labelValue(param.getFlowInstanceId()));
+        FlinkKubernetesParam kubernetes = param.getKubernetes();
         safeLabels(kubernetes.getLabels()).forEach(labels::putIfAbsent);
         return labels;
     }

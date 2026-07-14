@@ -13,7 +13,7 @@ import java.util.Properties;
 /**
  * odpswriter builder.
  *
- * DataX doc: https://github.com/alibaba/DataX/blob/master/odpswriter/doc/odpswriter.md
+ * <p>DataX doc: https://github.com/alibaba/DataX/blob/master/odpswriter/doc/odpswriter.md
  * Verified-At: 2026-05-09
  * Verified-Commit: 60ea07b
  *

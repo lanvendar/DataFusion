@@ -26,6 +26,9 @@ import static com.datafusion.common.utils.Preconditions.checkNotNull;
 
 /**
  * Helper class for splitting a string on a given delimiter with quoting logic.
+ *
+ * @author DataFusion
+ * @version 1.0.0
  */
 class StructuredOptionsSplitter {
     
