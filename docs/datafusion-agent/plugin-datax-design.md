@@ -149,6 +149,7 @@ Job 约定：
 - 终态上报前只采集日志并写入最终结果；master 确认终态后，`finishTask` 按 `AFTER_FINISH` 清理资源。
 - `AFTER_FINISH` 会主动删除 Secret；`deleteJobOnFinish=true` 时删除 Job，否则 Job/Pod 由
   `ttlSecondsAfterFinished` 兜底清理。
+- 清理 Pod 时先按任务标签查询，再按资源名称逐个删除，不依赖 Kubernetes `deletecollection` 权限。
 
 状态映射：
 

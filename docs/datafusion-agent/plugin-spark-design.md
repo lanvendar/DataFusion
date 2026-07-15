@@ -75,6 +75,8 @@ Manager scheduler
 | `kill` | 删除 SparkApplication、Pod 和 ConfigMap | 成功或资源不存在返回 `KILLED` |
 | `finish` | master 确认终态后幂等清理 SparkApplication 和 ConfigMap | 清理成功返回 `true` |
 
+清理 Pod 时先按任务标签查询，再按资源名称逐个删除，不依赖 Kubernetes `deletecollection` 权限。
+
 ## 6. 集成边界
 
 - Kubernetes API 通过 Fabric8 client 访问，连接信息复用 `AgentProperties.Kubernetes`。

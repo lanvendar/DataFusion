@@ -255,12 +255,15 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
                 applications(runtimeRef).withName(runtimeRef.getApplicationName()).delete();
             }
         }
-        if (force && !pods(runtimeRef).isEmpty()) {
-            client.pods()
-                    .inNamespace(runtimeRef.getNamespace())
-                    .withLabel(labelKey(runtimeRef.getPodLabelSelector()), labelValue(runtimeRef.getPodLabelSelector()))
-                    .withGracePeriod(0L)
-                    .delete();
+        if (force) {
+            // 按名称删除，避免标签批量删除触发 Kubernetes deletecollection 权限。
+            for (Pod pod : pods(runtimeRef)) {
+                client.pods()
+                        .inNamespace(runtimeRef.getNamespace())
+                        .withName(pod.getMetadata().getName())
+                        .withGracePeriod(0L)
+                        .delete();
+            }
         }
         if (force) {
             deleteConfigMap(runtimeRef);

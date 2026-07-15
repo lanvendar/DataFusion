@@ -374,28 +374,31 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
         if (!podList.isEmpty()) {
             log.info("清理K8S_OPERATOR Flink Pod, namespace={}, deploymentName={}, podCount={}, force={}",
                     runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), podList.size(), force);
-            if (force) {
-                client.pods()
-                        .inNamespace(runtimeRef.getNamespace())
-                        .withLabel(labelKey(runtimeRef.getPodLabelSelector()),
-                                labelValue(runtimeRef.getPodLabelSelector()))
-                        .withGracePeriod(0L)
-                        .delete();
-            } else {
-                client.pods()
-                        .inNamespace(runtimeRef.getNamespace())
-                        .withLabel(labelKey(runtimeRef.getPodLabelSelector()),
-                                labelValue(runtimeRef.getPodLabelSelector()))
-                        .delete();
+            // 按名称删除，避免标签批量删除触发 Kubernetes deletecollection 权限。
+            for (Pod pod : podList) {
+                if (force) {
+                    client.pods()
+                            .inNamespace(runtimeRef.getNamespace())
+                            .withName(pod.getMetadata().getName())
+                            .withGracePeriod(0L)
+                            .delete();
+                } else {
+                    client.pods()
+                            .inNamespace(runtimeRef.getNamespace())
+                            .withName(pod.getMetadata().getName())
+                            .delete();
+                }
             }
         }
         if (!serviceList.isEmpty()) {
             log.info("清理K8S_OPERATOR Flink Service, namespace={}, deploymentName={}, serviceCount={}, force={}",
                     runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), serviceList.size(), force);
-            client.services()
-                    .inNamespace(runtimeRef.getNamespace())
-                    .withLabel(labelKey(runtimeRef.getPodLabelSelector()), labelValue(runtimeRef.getPodLabelSelector()))
-                    .delete();
+            for (Service service : serviceList) {
+                client.services()
+                        .inNamespace(runtimeRef.getNamespace())
+                        .withName(service.getMetadata().getName())
+                        .delete();
+            }
         }
     }
 

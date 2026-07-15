@@ -88,6 +88,7 @@ Manager scheduler
 | `finish` | master 确认终态后按配置清理 `FlinkDeployment` | 返回清理结果 |
 
 `kill` 和 `finish` 的清理逻辑必须幂等。状态刷新只查询状态和采集终态日志，不触发 stop、kill 或重新提交。
+清理 Pod 和 Service 时先按任务标签查询，再按资源名称逐个删除，不依赖 Kubernetes `deletecollection` 权限。
 
 ## 6. 状态映射
 

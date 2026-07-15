@@ -264,6 +264,33 @@
           "file.format": "parquet"
         },
         "columnsMapping": "data"
+      },
+      {
+        "enabled": true,
+        "table": {
+          "database": "dw_dev",
+          "name": "ods_spider_icis_product_price",
+          "comment": "ICIS产品报价行情报价数据",
+          "createIfNotExists": true,
+          "includeKafkaMetadataFields": false,
+          "partitionKeys": [
+            "day_pt"
+          ],
+          "primaryKeys": {
+            "mode": "FIELDS",
+            "defaultValue": [
+              "quote_id",
+              "price_date"
+            ]
+          }
+        },
+        "loadMode": "UPSERT",
+        "options": {
+          "bucket": "1",
+          "write-buffer-size": "128mb",
+          "file.format": "parquet"
+        },
+        "columnsMapping": "data"
       }],
     "writer": {
       "batchSize": 1000,

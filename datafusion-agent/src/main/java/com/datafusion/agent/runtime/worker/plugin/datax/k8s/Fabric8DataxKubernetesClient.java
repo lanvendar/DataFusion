@@ -241,14 +241,18 @@ public class Fabric8DataxKubernetesClient implements DataxKubernetesClient {
     }
 
     private void deletePods(DataxKubernetesRuntimeRef runtimeRef) {
-        if (pods(runtimeRef).isEmpty()) {
+        List<Pod> podList = pods(runtimeRef);
+        if (podList.isEmpty()) {
             return;
         }
-        client.pods()
-                .inNamespace(runtimeRef.getNamespace())
-                .withLabel(DataxK8sNameGenerator.TASK_LABEL, labelValueFromSelector(runtimeRef.getPodLabelSelector()))
-                .withGracePeriod(0L)
-                .delete();
+        // 按名称删除，避免标签批量删除触发 Kubernetes deletecollection 权限。
+        for (Pod pod : podList) {
+            client.pods()
+                    .inNamespace(runtimeRef.getNamespace())
+                    .withName(pod.getMetadata().getName())
+                    .withGracePeriod(0L)
+                    .delete();
+        }
     }
 
     private void deleteSecret(DataxKubernetesRuntimeRef runtimeRef) {
