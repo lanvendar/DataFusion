@@ -8,9 +8,10 @@ RUN npm ci
 COPY . .
 
 ARG VITE_API_TARGET=http://datafusion-manager:8080
+ARG VITE_MODE=prod
 ENV VITE_API_TARGET=${VITE_API_TARGET}
 
-RUN npm run build
+RUN npm run build:${VITE_MODE}
 
 FROM jsessh-registry.cn-shanghai.cr.aliyuncs.com/base-images/nginx:1.28.3
 

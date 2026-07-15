@@ -5,8 +5,15 @@
   "description": "DataFusion web console built with open-source frontend libraries.",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build",
+    "dev": "npm run dev:local",
+    "dev:local": "vite --host 0.0.0.0 --mode development",
+    "dev:dev": "vite --host 0.0.0.0 --mode dev",
+    "dev:test": "vite --host 0.0.0.0 --mode test",
+    "dev:prod": "vite --host 0.0.0.0 --mode production",
+    "build": "npm run build:prod",
+    "build:dev": "tsc --noEmit && vite build --mode dev",
+    "build:test": "tsc --noEmit && vite build --mode test",
+    "build:prod": "tsc --noEmit && vite build --mode production",
     "preview": "vite preview --host 0.0.0.0",
     "lint": "eslint .",
     "test": "vitest run"

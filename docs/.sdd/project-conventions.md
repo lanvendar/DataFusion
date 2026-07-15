@@ -38,6 +38,7 @@ DataFusion 是 Java/Maven 多模块数据集成平台，覆盖元数据管理、
 - 如果功能文档直接位于 `docs/` 根目录，按单模块模式处理，此时 `project-index.yml` 可以只维护根目录。
 - 如果存在 `docs/{module}/{feature}-*.md`，按多模块模式处理，必须通过 `project-index.yml` 索引功能文档根目录、源码根目录和验证命令。
 - `project-index.yml` 的 `modules` 以 Maven reactor 和实际源码目录为准；暂时没有独立功能文档的模块也要保留索引，`feature_docs_root` 写 `无`，避免把“无文档”误判为“模块不存在”。
+- 根目录 `README.md` 的“项目开发规范”必须保留项目结构、内部模块依赖、包结构和命名规范；模块或依赖变化时按 Maven POM 与实际包目录更新，不得以简化文档为由删除。
 - `datafusion-plugin` 下没有 `datafusion-plugin` 前缀的业务定制模块插件，功能文档放在 `docs/datafusion-plugin/{plugin-module}/`，例如 `docs/datafusion-plugin/plugin-flink-schema-paimon/`。
 - 数据结构定义是 Database、Backend、Frontend 模型的唯一事实源。
 - 设计文档只说明数据流、行为、接口、事务、集成、验证和不实现范围，不重复完整字段表。
@@ -98,7 +99,13 @@ DataFusion 是 Java/Maven 多模块数据集成平台，覆盖元数据管理、
 
 ## 9. 运行时依赖和风险
 
-`datafusion-manager` 没有本地完整 `application.*`，运行配置预期来自外部。外部配置通常包括：
+运行环境分为两级：
+
+- 本地级使用 `local` profile。Manager 和 Agent 默认关闭 Nacos；前端应用环境名为 `local`，映射到 Vite `development` mode，并通过开发代理访问本地 Manager。
+- 生产级使用 Nacos，按 `dev`、`test`、`prod` profile 隔离。Manager 和 Agent 的 `bootstrap-{env}.yml` 默认读取 `{spring.application.name}-{env}` dataId，namespace、group、地址和认证信息由环境变量提供。
+- 前端不连接 Nacos；按 Vite 官方规则，`.env` 只保存所有 mode 共享的默认值，环境文件为 `.env.development`、`.env.dev`、`.env.test`、`.env.production`，`.env.local` 和 `.env.*.local` 只作不提交的个人覆盖。业务环境 `local/dev/test/prod` 分别映射到 Vite `development/dev/test/production` mode。生产容器通过 Nginx 将同源 `/api` 转发到 Manager。
+
+`datafusion-manager` 的完整生产配置不保存在仓库，`dev/test/prod` 运行配置预期来自 Nacos。外部配置通常包括：
 
 - `spring.datasource.*`
 - `datafusion.datasource.*`

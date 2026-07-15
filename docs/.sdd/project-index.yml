@@ -43,7 +43,7 @@ modules:
     feature_docs_root: docs/datafusion-manager
     note: 前端功能文档与 manager 业务功能文档共址
     source_roots:
-      - datafusion-web/src
+      - datafusion-web
     verify:
       - npm run build
       - npm run lint
@@ -66,6 +66,7 @@ modules:
     feature_docs_root: docs/datafusion-agent
     source_roots:
       - datafusion-agent/src/main/java
+      - datafusion-agent/src/main/resources
     verify:
       - mvn -DskipTests compile -pl datafusion-agent -am
 
@@ -87,7 +88,6 @@ modules:
   datafusion-plugin-datax:
     feature_docs_root: 无
     source_roots:
-      - datafusion-plugin/datafusion-plugin-datax/src/main/java
       - datafusion-plugin/datafusion-plugin-datax/src/main/resources
     verify:
       - mvn -DskipTests compile -pl datafusion-plugin/datafusion-plugin-datax -am

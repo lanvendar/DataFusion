@@ -4,13 +4,15 @@ import path from "node:path";
 
 export default defineConfig(({ mode }) => {
   const rawEnv = loadEnv(mode, process.cwd(), "");
+  const appEnv = rawEnv.VITE_APP_ENV || mode;
   const apiTarget = rawEnv.VITE_API_TARGET || "http://localhost:8080";
 
   return {
     plugins: [react()],
     define: {
       __APP_ENV__: JSON.stringify({
-        DEV: mode === "development",
+        APP_ENV: appEnv,
+        DEV: appEnv === "local" || mode === "development",
         MODE: mode,
         API_TARGET: apiTarget,
       }),

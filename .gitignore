@@ -38,6 +38,11 @@ coverage/
 .env
 .env.*
 !.env.example
+!datafusion-web/.env
+!datafusion-web/.env.development
+!datafusion-web/.env.dev
+!datafusion-web/.env.test
+!datafusion-web/.env.production
 
 # IntelliJ IDEA
 .idea/

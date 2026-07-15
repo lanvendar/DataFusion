@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DataFusion 模块依赖关系</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #fff; }
+    svg { display: block; width: 1800px; height: 960px; }
+    text { font-family: "Comic Sans MS", "Kaiti SC", "STKaiti", cursive; letter-spacing: 0; fill: #161616; }
+    .group { fill: none; stroke: #202020; stroke-width: 2; stroke-dasharray: 2 9; stroke-linecap: round; }
+    .group-title { font-size: 23px; font-weight: 700; }
+    .node rect { stroke: #202020; stroke-width: 1.6; }
+    .node .echo { fill: none; stroke: #606060; stroke-width: .8; transform: translate(2px, 2px); }
+    .blue > rect:first-child { fill: #eaf3fb; }
+    .orange > rect:first-child { fill: #fff2d7; }
+    .green > rect:first-child { fill: #e8f5ee; }
+    .red > rect:first-child { fill: #fbe9e7; }
+    .gray > rect:first-child { fill: #f0f1f3; }
+    .name { font-size: 18px; font-weight: 700; text-anchor: middle; }
+    .role, .deps { font-size: 13px; text-anchor: middle; fill: #3f3f3f; }
+    .edge { fill: none; stroke: #454545; stroke-width: 1.7; marker-end: url(#arrow); }
+    .runtime { stroke: #a64a38; marker-end: url(#runtime-arrow); }
+    .edge-label { font-size: 14px; fill: #5a5a5a; }
+    .runtime-label { fill: #a64a38; }
+    .note { font-size: 14px; fill: #505050; }
+  </style>
+</head>
+<body>
+<svg viewBox="0 0 1800 960" role="img" aria-labelledby="title desc">
+  <title id="title">DataFusion 模块依赖关系</title>
+  <desc id="desc">箭头由使用方指向被依赖模块，灰色表示 Maven 直接依赖，红色表示运行时 HTTP 调用。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M1 1L9 5 1 9" fill="none" stroke="#454545" stroke-width="1.5"/>
+    </marker>
+    <marker id="runtime-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M1 1L9 5 1 9" fill="none" stroke="#a64a38" stroke-width="1.5"/>
+    </marker>
+  </defs>
+
+  <rect width="1800" height="960" fill="#fff"/>
+  <text x="35" y="50" font-size="30" font-weight="700">DataFusion module map</text>
+  <text x="35" y="78" class="note">使用方 → 被依赖模块</text>
+  <path class="edge" d="M1375 48h52"/><text x="1440" y="53" class="note">Maven 直接依赖</text>
+  <path class="edge runtime" d="M1585 48h52"/><text x="1650" y="53" class="note">运行时调用</text>
+
+  <rect class="group" x="25" y="110" width="350" height="760"/>
+  <text class="group-title" x="145" y="142">runtime apps</text>
+  <rect class="group" x="420" y="110" width="440" height="760"/>
+  <text class="group-title" x="535" y="142">framework &amp; connectors</text>
+  <rect class="group" x="905" y="110" width="410" height="760"/>
+  <text class="group-title" x="1050" y="142">plugins</text>
+  <rect class="group" x="1360" y="110" width="415" height="760"/>
+  <text class="group-title" x="1490" y="142">foundation</text>
+
+  <g class="node blue" transform="rotate(-.7 200 245)">
+    <rect x="60" y="195" width="280" height="100"/><rect class="echo" x="60" y="195" width="280" height="100"/>
+    <text class="name" x="200" y="230">datafusion-web</text><text class="role" x="200" y="257">React 管理端前端</text><text class="deps" x="200" y="279">runtime: /api → manager</text>
+  </g>
+  <g class="node blue" transform="rotate(.5 200 455)">
+    <rect x="60" y="390" width="280" height="130"/><rect class="echo" x="60" y="390" width="280" height="130"/>
+    <text class="name" x="200" y="426">datafusion-manager</text><text class="role" x="200" y="454">管理后端与调度运行时</text><text class="deps" x="200" y="481">datasource · common-spring</text><text class="deps" x="200" y="502">scheduler-master · agent</text>
+  </g>
+  <g class="node blue" transform="rotate(-.5 200 730)">
+    <rect x="60" y="665" width="280" height="130"/><rect class="echo" x="60" y="665" width="280" height="130"/>
+    <text class="name" x="200" y="701">datafusion-agent</text><text class="role" x="200" y="729">Worker 运行时与任务执行</text><text class="deps" x="200" y="757">scheduler-worker</text><text class="deps" x="200" y="778">common-spring</text>
+  </g>
+
+  <g class="node orange" transform="rotate(.5 640 232)">
+    <rect x="465" y="185" width="350" height="95"/><rect class="echo" x="465" y="185" width="350" height="95"/>
+    <text class="name" x="640" y="220">datafusion-common-spring</text><text class="role" x="640" y="247">Spring / Web 公共能力</text><text class="deps" x="640" y="268">dep: common</text>
+  </g>
+  <g class="node orange" transform="rotate(-.4 640 377)">
+    <rect x="465" y="330" width="350" height="95"/><rect class="echo" x="465" y="330" width="350" height="95"/>
+    <text class="name" x="640" y="365">datafusion-datasource</text><text class="role" x="640" y="392">数据源、连接器与 SQL 执行</text><text class="deps" x="640" y="413">dep: common</text>
+  </g>
+  <g class="node orange" transform="rotate(.4 640 540)">
+    <rect x="465" y="485" width="350" height="110"/><rect class="echo" x="465" y="485" width="350" height="110"/>
+    <text class="name" x="640" y="522">datafusion-scheduler-master</text><text class="role" x="640" y="550">调度 Master 核心框架</text><text class="deps" x="640" y="577">deps: common · common-data</text>
+  </g>
+  <g class="node orange" transform="rotate(-.5 640 730)">
+    <rect x="465" y="665" width="350" height="130"/><rect class="echo" x="465" y="665" width="350" height="130"/>
+    <text class="name" x="640" y="701">datafusion-scheduler-worker</text><text class="role" x="640" y="729">Worker 契约与执行框架</text><text class="deps" x="640" y="757">common · common-data</text><text class="deps" x="640" y="778">plugin-api</text>
+  </g>
+
+  <text x="950" y="177" class="note">datafusion-plugin: Maven 聚合父模块</text>
+  <g class="node red" transform="rotate(-.6 1110 295)">
+    <rect x="950" y="240" width="320" height="110"/><rect class="echo" x="950" y="240" width="320" height="110"/>
+    <text class="name" x="1110" y="278">datafusion-plugin-api</text><text class="role" x="1110" y="306">API 抽数与插件契约</text><text class="deps" x="1110" y="333">dep: common</text>
+  </g>
+  <g class="node green" transform="rotate(.5 1110 485)">
+    <rect x="950" y="430" width="320" height="110"/><rect class="echo" x="950" y="430" width="320" height="110"/>
+    <text class="name" x="1110" y="468">datafusion-plugin-flink-table</text><text class="role" x="1110" y="496">Flink Table 到 Paimon</text><text class="deps" x="1110" y="523">dep: common</text>
+  </g>
+  <g class="node gray" transform="rotate(-.4 1110 715)">
+    <rect x="950" y="640" width="320" height="150"/><rect class="echo" x="950" y="640" width="320" height="150"/>
+    <text class="name" x="1110" y="676">独立插件模块</text><text class="role" x="1110" y="702">无直接 reactor 模块依赖</text><text class="deps" x="1110" y="731">datax · spider</text><text class="deps" x="1110" y="755">spark-sql</text>
+  </g>
+
+  <g class="node green" transform="rotate(.5 1567 387)">
+    <rect x="1405" y="325" width="325" height="125"/><rect class="echo" x="1405" y="325" width="325" height="125"/>
+    <text class="name" x="1567" y="363">datafusion-common</text><text class="role" x="1567" y="392">工具、类型系统与通用异常</text><text class="deps" x="1567" y="420">dep: common-data</text>
+  </g>
+  <g class="node gray" transform="rotate(-.5 1567 692)">
+    <rect x="1405" y="630" width="325" height="125"/><rect class="echo" x="1405" y="630" width="325" height="125"/>
+    <text class="name" x="1567" y="668">datafusion-common-data</text><text class="role" x="1567" y="697">共享 DTO、枚举与领域模型</text><text class="deps" x="1567" y="725">无内部依赖</text>
+  </g>
+
+  <path class="edge runtime" d="M200 295C200 330 200 355 200 390"/><text class="edge-label runtime-label" x="212" y="347">/api</text>
+  <path class="edge runtime" d="M105 665C105 610 105 555 150 520"/><text class="edge-label runtime-label" x="115" y="592">注册 · 心跳 · 拉取 · 上报</text>
+  <path class="edge" d="M295 520C295 570 295 615 295 665"/>
+
+  <path class="edge" d="M340 414C405 414 402 233 465 233"/>
+  <path class="edge" d="M340 438C402 438 410 377 465 377"/>
+  <path class="edge" d="M340 470C402 470 410 540 465 540"/>
+  <path class="edge" d="M340 710C415 710 400 250 465 250"/>
+  <path class="edge" d="M340 740H465"/>
+
+  <path class="edge" d="M815 218C1010 155 1300 165 1405 355"/>
+  <path class="edge" d="M815 377C1010 370 1210 370 1405 375"/>
+  <path class="edge" d="M815 525C860 470 850 390 930 390C1100 390 1260 390 1405 395"/>
+  <path class="edge" d="M815 560C1000 555 1210 550 1405 670"/>
+  <path class="edge" d="M815 700C850 700 855 825 920 825C1050 825 1180 825 1290 825C1320 700 1340 520 1405 415"/>
+  <path class="edge" d="M815 760C850 760 850 842 920 842C1100 842 1230 842 1325 842C1340 790 1360 730 1405 700"/>
+  <path class="edge" d="M815 680C875 680 885 295 950 295"/>
+  <path class="edge" d="M1270 295C1330 295 1340 340 1405 340"/>
+  <path class="edge" d="M1270 485C1330 485 1340 430 1405 430"/>
+  <path class="edge" d="M1567 450C1567 515 1567 565 1567 630"/>
+
+  <text x="35" y="914" class="note">依据当前 Maven POM 与运行时调用代码整理。资源型插件不绘制不存在的 Java 编译依赖。</text>
+</svg>
+</body>
+</html>

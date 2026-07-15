@@ -24,16 +24,35 @@
 
 ```bash
 npm install
-npm run dev
-npm run build
+npm run dev:local
+npm run dev:dev
+npm run dev:test
+npm run dev:prod
+npm run build:dev
+npm run build:test
+npm run build:prod
 npm run preview
 ```
 
-使用 `.env.local` 将开发代理指向后端服务：
+## 环境配置
+
+| 环境 | Vite mode | 基线文件 | 用途 |
+| --- | --- | --- | --- |
+| 本地级 | `development` | `.env.development` | 本地开发，不依赖 Nacos |
+| 生产级 / 开发 | `dev` | `.env.dev` | 连接 dev Nacos 环境的 Manager |
+| 生产级 / 测试 | `test` | `.env.test` | 连接 test Nacos 环境的 Manager |
+| 生产级 / 生产 | `production` | `.env.production` | 连接 prod Nacos 环境的 Manager |
+
+`.env` 在所有 mode 下加载，只保存公共默认值，不代表 local 环境。`VITE_API_TARGET` 只控制 Vite 开发服务器的 `/api` 代理目标。前端生产包请求同源 `/api`，容器中的 Manager 地址由 `nginx.conf` 配置。环境专属或个人地址写入被 Git 忽略的 `.env.local` 或 `.env.<mode>.local`，例如：
 
 ```bash
-VITE_API_TARGET=http://localhost:8080
+# .env.dev.local
+VITE_API_TARGET=https://datafusion-dev.example.com
 ```
+
+`npm run dev` 等同于 `npm run dev:local`，`npm run build` 等同于 `npm run build:prod`；部署 dev/test 时使用对应的 `build:dev`、`build:test`。
+
+项目业务环境与 Vite mode 的映射为：`local -> development`、`dev -> dev`、`test -> test`、`prod -> production`。
 
 ## 业务模块
 

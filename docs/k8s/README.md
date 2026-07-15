@@ -49,6 +49,7 @@
    - `nacos-auth-secret.identity-value`
 
 5. 确认 Manager 的完整运行配置来源：
+   - `dev` 环境默认从 Nacos 读取 `datafusion-manager-dev` 和 `datafusion-agent-dev`。
    - `test` 环境默认从 Nacos 读取 `datafusion-manager-test` 和 `datafusion-agent-test`。
    - `prod` 环境默认从 Nacos 读取 `datafusion-manager-prod` 和 `datafusion-agent-prod`。
    - Manager 预期从 Nacos 获取 `spring.datasource.*`、`datafusion.datasource.*`、OSS、资源同步等配置。
