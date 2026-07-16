@@ -75,11 +75,18 @@ public class K8sOperatorFlinkTaskRunner implements FlinkTaskRunner {
 
     @Override
     public FlinkTaskResult stop(FlinkExecutionParam param, WorkerTaskExecutionState state) {
-        FlinkKubernetesRuntimeRef runtimeRef = runtimeRef(param, state);
-        log.info("K8S_OPERATOR Flink任务请求停止, taskInstanceId={}, namespace={}, deploymentName={}",
-                param.getTaskInstanceId(), runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
-        operatorClient.stop(runtimeRef);
-        return result(param, state, StatusEnum.STOPPING, "K8S_OPERATOR Flink stop requested", null);
+        try {
+            FlinkKubernetesRuntimeRef runtimeRef = runtimeRef(param, state);
+            log.info("K8S_OPERATOR Flink任务请求停止, taskInstanceId={}, namespace={}, deploymentName={}",
+                    param.getTaskInstanceId(), runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
+            operatorClient.stop(runtimeRef);
+            return result(param, state, StatusEnum.STOPPING, "K8S_OPERATOR Flink stop requested", null);
+        } catch (RuntimeException e) {
+            log.warn("K8S_OPERATOR Flink任务停止失败, taskInstanceId={}, appId={}",
+                    param.getTaskInstanceId(), state == null ? null : state.getAppId(), e);
+            return result(param, state, StatusEnum.STOP_FAILURE,
+                    "K8S_OPERATOR Flink stop failed: " + e.getMessage(), null);
+        }
     }
 
     @Override

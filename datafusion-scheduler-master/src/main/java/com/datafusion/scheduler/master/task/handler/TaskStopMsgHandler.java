@@ -62,10 +62,15 @@ public class TaskStopMsgHandler extends AbstractTaskMsgHandler {
             return;
         }
         //更新成[STOPPING]后统一由TaskRunMsgHandle处理
-        StatusEnum acceptState = msg.getTaskResult().getTaskState();
-        handleStopResult(taskIns, acceptState, context);
+        handleStopResult(taskIns, msg.getTaskResult(), context);
     }
 
+    /**
+     * 处理不携带 worker 结果的自动停止指令，包括 Master 重启恢复和流程停止广播.
+     *
+     * @param taskIns 任务实例
+     * @param context Actor 上下文
+     */
     private void handleRecoveryStop(TaskInstance taskIns, ActorSysContext context) {
         StatusEnum state = taskIns.getState();
         if (state == StatusEnum.INIT_SUCCESS || state == StatusEnum.INIT_FAILURE || state == StatusEnum.WAIT_DEPENDENT) {
@@ -82,7 +87,7 @@ public class TaskStopMsgHandler extends AbstractTaskMsgHandler {
             }
             TaskResult taskResult = super.masterTaskOperator.stopTask(taskIns);
             if (taskResult != null && taskResult.getTaskState() != null) {
-                handleStopResult(taskIns, taskResult.getTaskState(), context);
+                handleStopResult(taskIns, taskResult, context);
             }
         } catch (Exception e) {
             taskIns.setState(StatusEnum.STOP_FAILURE);
@@ -91,9 +96,11 @@ public class TaskStopMsgHandler extends AbstractTaskMsgHandler {
         }
     }
 
-    private void handleStopResult(TaskInstance taskIns, StatusEnum acceptState, ActorSysContext context) {
+    private void handleStopResult(TaskInstance taskIns, TaskResult taskResult, ActorSysContext context) {
+        StatusEnum acceptState = taskResult.getTaskState();
         if (acceptState == StatusEnum.STOP_SUCCESS || acceptState == StatusEnum.STOP_FAILURE) {
             taskIns.setState(acceptState);
+            taskIns.setTaskResult(taskResult);
             super.saveTaskInstance(taskIns);
         }
         log.warn("[{}] - 任务停止结果: {}", taskIns.getInstanceId(), acceptState);
@@ -145,7 +152,7 @@ public class TaskStopMsgHandler extends AbstractTaskMsgHandler {
                 super.notifyFlowActor(flowMsg, context);
                 TaskResult taskResult = super.masterTaskOperator.stopTask(taskIns);
                 if (taskResult != null && taskResult.getTaskState() != null) {
-                    handleStopResult(taskIns, taskResult.getTaskState(), context);
+                    handleStopResult(taskIns, taskResult, context);
                 }
             } catch (Exception e) {
                 taskIns.setState(StatusEnum.STOP_FAILURE);

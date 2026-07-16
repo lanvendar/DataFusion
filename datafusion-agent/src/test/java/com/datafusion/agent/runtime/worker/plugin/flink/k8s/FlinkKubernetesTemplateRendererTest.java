@@ -56,7 +56,9 @@ class FlinkKubernetesTemplateRendererTest {
         assertTrue(yaml.contains("\"cpu\": 2.0"));
         assertTrue(yaml.contains("\"state.backend\": \"hashmap\""));
         assertTrue(yaml.contains("parallelism: 2"));
+        assertTrue(yaml.contains("upgradeMode: \"savepoint\""));
         assertTrue(yaml.contains("state: \"running\""));
+        assertFalse(yaml.contains("state: \"suspended\""));
         assertFalse(yaml.contains("kind: Secret"));
         assertFalse(yaml.contains("datafusion-flink-job"));
         assertFalse(yaml.contains("flink-job.json"));
@@ -101,7 +103,7 @@ class FlinkKubernetesTemplateRendererTest {
         kubernetes.put("image", "flink:2.2.0-scala_2.12-java17");
         kubernetes.put("sharedPvcName", "datafusion-shared-data");
         kubernetes.put("serviceAccountName", "flink-runner");
-        kubernetes.put("jobState", "running");
+        kubernetes.put("upgradeMode", "stateless");
         ObjectNode env = OBJECT_MAPPER.createObjectNode();
         env.put("HADOOP_CONF_DIR", "/opt/flink/conf");
         kubernetes.set("env", env);
@@ -136,6 +138,10 @@ class FlinkKubernetesTemplateRendererTest {
         ObjectNode sink = OBJECT_MAPPER.createObjectNode();
         sink.set("options", options);
         taskData.set("sink", sink);
+        ObjectNode kubernetes = OBJECT_MAPPER.createObjectNode();
+        kubernetes.put("upgradeMode", "savepoint");
+        kubernetes.put("jobState", "suspended");
+        taskData.set("kubernetes", kubernetes);
         return taskData;
     }
 

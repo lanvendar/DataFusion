@@ -64,11 +64,6 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
     private static final String STATE_PROPERTY = "state";
 
     /**
-     * Flink Operator suspended state.
-     */
-    private static final String OPERATOR_SUSPENDED_STATE = "SUSPENDED";
-
-    /**
      * Object mapper.
      */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -132,7 +127,7 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
         }
         Map<String, Object> spec = objectMap(deployment.getAdditionalProperties(), SPEC_PROPERTY);
         Map<String, Object> job = objectMap(spec, JOB_PROPERTY);
-        job.put(STATE_PROPERTY, OPERATOR_SUSPENDED_STATE);
+        job.put(STATE_PROPERTY, FlinkOperatorStatus.State.SUSPENDED.getValue());
         spec.put(JOB_PROPERTY, job);
         deployment.setAdditionalProperty(SPEC_PROPERTY, spec);
         deployments(runtimeRef).withName(runtimeRef.getDeploymentName()).replace(deployment);

@@ -63,6 +63,7 @@ Manager scheduler
 - 作业参数通过 `--job <base64(job-json)>` 传给业务 main class。
 - `appId` 保存 `FlinkDeployment.metadata.name`。
 - `.snap.runMode` 是状态刷新和控制恢复时的运行模式事实来源。
+- `upgradeMode` 由插件或任务 Kubernetes 参数配置；`jobState` 不接受外部配置，由提交和停止动作决定。
 
 ## 4. 参数与合并规则
 
@@ -82,8 +83,8 @@ Manager scheduler
 
 | 动作 | 行为 | 返回 |
 |------|------|------|
-| `submit` | 校验共享盘依赖目录和主 jar，创建或更新 `FlinkDeployment`，写 `.snap/.state` | 成功返回 `SUBMIT_SUCCESS`；失败返回 `SUBMIT_FAILURE` |
-| `stop` | 发起温和停止，更新 `FlinkDeployment.spec.job.state` | 返回 `STOPPING`，由状态刷新推进终态 |
+| `submit` | 将 job state 设为 `running`，校验共享盘依赖目录和主 jar，创建或更新 `FlinkDeployment`，写 `.snap/.state` | 成功返回 `SUBMIT_SUCCESS`；失败返回 `SUBMIT_FAILURE` |
+| `stop` | 发起温和停止，将 `FlinkDeployment.spec.job.state` 更新为小写 `suspended` | 返回 `STOPPING`，由状态刷新推进终态 |
 | `kill` | 强制清理 FlinkDeployment、Pod、Service 等运行资源 | 成功或资源不存在返回 `KILLED` |
 | `finish` | master 确认终态后按配置清理 `FlinkDeployment` | 返回清理结果 |
 

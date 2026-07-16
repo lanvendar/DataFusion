@@ -31,7 +31,7 @@ Agent 不回写 Manager 的 `pluginParam` 或 `taskData`。
 |------|------|----------|------|
 | `FlinkRunMode` | `LOCAL`, `STANDALONE`, `YARN`, `K8S`, `K8S_OPERATOR` | 请求解析后固定 | 当前已注册 runner 为 `K8S_OPERATOR` |
 | `FlinkExecutionParam` | `runMode`, `flowInstanceId`, `taskInstanceId`, `jobJson`, `effectiveTaskData`, `workDir`, `flinkConfig`, `flinkAppDir`, `launchMode`, `flinkAppJar`, `classpath`, `mainClass`, `flinkVersion`, `libDir`, `args`, `kubernetes` | 单次任务 | runner 的归一化输入 |
-| `FlinkKubernetesParam` | `namespace`, `deploymentName`, `image`, `imagePullPolicy`, `serviceAccountName`, `sharedPvcName`, `sharedMountPath`, `flinkAppDir`, `flinkAppJar`, `jarUri`, `mainClass`, `flinkVersion`, `libDir`, `jobParallelism`, `upgradeMode`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish`, `labels`, `annotations`, `env`, `envFrom`, `jobManager`, `taskManager`, `nodeSelector` | 单次任务 | 渲染 `FlinkDeployment` |
+| `FlinkKubernetesParam` | `namespace`, `deploymentName`, `image`, `imagePullPolicy`, `serviceAccountName`, `sharedPvcName`, `sharedMountPath`, `flinkAppDir`, `flinkAppJar`, `jarUri`, `mainClass`, `flinkVersion`, `libDir`, `jobParallelism`, `upgradeMode`, `jobState`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish`, `labels`, `annotations`, `env`, `envFrom`, `jobManager`, `taskManager`, `nodeSelector` | 单次任务 | `upgradeMode` 来自配置；`jobState` 由 Agent 动作生成，用于渲染 `FlinkDeployment` |
 | `FlinkKubernetesRuntimeRef` | `namespace`, `deploymentName`, `podLabelSelector`, `logStorageUri`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish` | 状态查询 / 控制动作 | 从 `.snap + .state` 重建 |
 | `FlinkOperatorStatus` | `state`, `deploymentExists`, `podExists`, `serviceExists` | 单次状态查询 | Kubernetes / Operator 事实 |
 | `FlinkTaskResult` | `status`, `appId`, `workDirPath`, `result`, `kubernetesRuntimeRef` | 单次 runner 返回 | 转换为 `TaskResult.workerResult` |
@@ -99,6 +99,9 @@ Agent 不回写 Manager 的 `pluginParam` 或 `taskData`。
 | `deleteDeploymentOnFinish` | `Boolean` | `false` | finish 时是否删除 FlinkDeployment |
 | `upgradeMode` | `String` | `stateless` | `FlinkDeployment.spec.job.upgradeMode` |
 | `podTemplate` | `Object` | 空 | 受限覆盖项 |
+
+`upgradeMode` 可由插件配置或任务级 Kubernetes 参数覆盖。`jobState` 不是外部参数：提交和重启固定为
+`running`，停止固定为 `suspended`。
 
 派生字段：
 

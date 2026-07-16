@@ -46,6 +46,8 @@ worker 结果通过 `TaskResultHandler.asyncHandle` 回到 master。当前状态
 | `KILLED` | `KILL` |
 | `ENFORCE_SUCCESS` | `ENFORCE_SUCCESS` |
 
+停止进入 `STOP_SUCCESS` 或 `STOP_FAILURE` 时，任务实例保存完整 `TaskResult`，保留 worker 返回的错误信息和运行上下文。
+
 `WorkerManager` 实现 `WorkerListener` 和 `WorkerOperator`。启动时调用 `offlineAllWorkers()`，注册和心跳后 worker 才重新参与调度。`lookupWorker(pluginType)` 当前从在线且支持该插件的 worker 中随机选择。
 
 ## 提交模式

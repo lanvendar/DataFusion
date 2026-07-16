@@ -42,67 +42,85 @@ public class FlinkOperatorStatus {
         /**
          * Operator 尚未返回状态.
          */
-        NONE,
+        NONE("none"),
 
         /**
          * 已创建.
          */
-        CREATED,
+        CREATED("created"),
 
         /**
          * 初始化中.
          */
-        INITIALIZING,
+        INITIALIZING("initializing"),
 
         /**
          * 调谐中.
          */
-        RECONCILING,
+        RECONCILING("reconciling"),
 
         /**
          * 运行中.
          */
-        RUNNING,
+        RUNNING("running"),
 
         /**
          * 重启中.
          */
-        RESTARTING,
+        RESTARTING("restarting"),
 
         /**
          * 失败处理中.
          */
-        FAILING,
+        FAILING("failing"),
 
         /**
          * 失败.
          */
-        FAILED,
+        FAILED("failed"),
 
         /**
          * 已完成.
          */
-        FINISHED,
+        FINISHED("finished"),
 
         /**
          * 取消中.
          */
-        CANCELLING,
+        CANCELLING("cancelling"),
 
         /**
          * 已取消.
          */
-        CANCELED,
+        CANCELED("canceled"),
 
         /**
          * 已挂起.
          */
-        SUSPENDED,
+        SUSPENDED("suspended"),
 
         /**
          * 未识别状态.
          */
-        UNKNOWN;
+        UNKNOWN("unknown");
+
+        /**
+         * Operator 原始状态值.
+         */
+        private final String value;
+
+        State(String value) {
+            this.value = value;
+        }
+
+        /**
+         * 获取 Operator 原始状态值.
+         *
+         * @return 原始状态值
+         */
+        public String getValue() {
+            return value;
+        }
 
         /**
          * 解析 Operator 原始状态.

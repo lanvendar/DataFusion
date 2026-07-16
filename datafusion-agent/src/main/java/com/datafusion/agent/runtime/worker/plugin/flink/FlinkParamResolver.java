@@ -4,6 +4,7 @@ import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.flink.k8s.FlinkK8sNameGenerator;
 import com.datafusion.agent.runtime.worker.plugin.flink.k8s.FlinkKubernetesParam;
 import com.datafusion.agent.runtime.worker.plugin.flink.k8s.FlinkKubernetesTemplateConstants;
+import com.datafusion.agent.runtime.worker.plugin.flink.k8s.FlinkOperatorStatus;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -270,7 +271,7 @@ public class FlinkParamResolver {
                 .jarUri(jarUri)
                 .args(args)
                 .jobParallelism(jobParallelism)
-                .jobState(firstText(text(taskKubernetes, "jobState"), text(pluginKubernetes, "jobState")))
+                .jobState(FlinkOperatorStatus.State.RUNNING.getValue())
                 .build();
     }
 

@@ -6,6 +6,7 @@ import com.datafusion.agent.runtime.worker.plugin.flink.FlinkExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.flink.FlinkParamResolver;
 import com.datafusion.agent.runtime.worker.plugin.flink.FlinkPluginTaskExecutor;
 import com.datafusion.agent.runtime.worker.plugin.flink.FlinkRunMode;
+import com.datafusion.agent.runtime.worker.plugin.flink.FlinkTaskResult;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
@@ -15,6 +16,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * K8S_OPERATOR Flink 状态映射测试.
@@ -29,6 +31,12 @@ class K8sOperatorRunModeStateMappingTest {
      * JSON 处理器.
      */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    @Test
+    void shouldExposeLowerCaseOperatorState() {
+        assertEquals("running", FlinkOperatorStatus.State.RUNNING.getValue());
+        assertEquals("suspended", FlinkOperatorStatus.State.SUSPENDED.getValue());
+    }
 
     @Test
     void shouldMapOperatorStateByLocalStage() {
@@ -49,6 +57,19 @@ class K8sOperatorRunModeStateMappingTest {
 
         client.status = status(FlinkOperatorStatus.State.NONE, false, true, false);
         assertEquals(StatusEnum.UNKNOWN, mapping.mapState(state(StatusEnum.RUNNING)));
+    }
+
+    @Test
+    void shouldReturnStopFailureWithOperatorError() {
+        FakeOperatorClient client = new FakeOperatorClient();
+        client.stopFailure = new IllegalArgumentException("invalid desired state");
+        FlinkExecutionParam param = new FlinkParamResolver(new AgentProperties()).resolve(request());
+
+        FlinkTaskResult result = new K8sOperatorFlinkTaskRunner(client).stop(param, state(StatusEnum.RUNNING));
+
+        assertEquals(StatusEnum.STOP_FAILURE, result.getStatus());
+        assertEquals("df-flink-task-1", result.getAppId());
+        assertTrue(result.getResult().path("message").asText().contains("invalid desired state"));
     }
 
     private K8sOperatorRunModeStateMapping mapping(FakeOperatorClient client) {
@@ -128,6 +149,11 @@ class K8sOperatorRunModeStateMappingTest {
          */
         private FlinkOperatorStatus status;
 
+        /**
+         * 停止异常.
+         */
+        private RuntimeException stopFailure;
+
         @Override
         public FlinkKubernetesRuntimeRef submit(FlinkExecutionParam param) {
             return null;
@@ -135,7 +161,9 @@ class K8sOperatorRunModeStateMappingTest {
 
         @Override
         public void stop(FlinkKubernetesRuntimeRef runtimeRef) {
-
+            if (stopFailure != null) {
+                throw stopFailure;
+            }
         }
 
         @Override
