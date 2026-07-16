@@ -44,6 +44,11 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
     public static final String PLUGIN_TYPE = "API";
 
     /**
+     * 运行模式.
+     */
+    public static final String RUN_MODE = "LOCAL";
+
+    /**
      * 日期格式.
      */
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
@@ -142,7 +147,7 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
 
     @Override
     public String runMode() {
-        return ApiLocalRunModeStateMapping.RUN_MODE;
+        return RUN_MODE;
     }
 
     @Override
@@ -190,7 +195,7 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
         shellRequest.setTaskState(request.getTaskState());
         shellRequest.setTaskData(shellTaskData);
         shellRequest.setPluginType(PLUGIN_TYPE);
-        shellRequest.setRunMode(ApiLocalRunModeStateMapping.RUN_MODE);
+        shellRequest.setRunMode(RUN_MODE);
         shellRequest.setPluginParam(shellPluginParam);
         shellRequest.setSubmitMode(request.getSubmitMode());
         shellRequest.setWorkerResult(copyWorkerResult(request.getWorkerResult()));

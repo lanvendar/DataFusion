@@ -19,11 +19,6 @@ import java.util.Optional;
 @Slf4j
 public class ShellLocalRunModeStateMapping implements PluginRunModeStateMapping {
 
-    /**
-     * 运行模式.
-     */
-    public static final String RUN_MODE = "LOCAL";
-
     @Override
     public String pluginType() {
         return ShellLocalPluginTaskExecutor.PLUGIN_TYPE;
@@ -31,7 +26,7 @@ public class ShellLocalRunModeStateMapping implements PluginRunModeStateMapping 
 
     @Override
     public String runMode() {
-        return RUN_MODE;
+        return ShellLocalPluginTaskExecutor.RUN_MODE;
     }
 
     @Override

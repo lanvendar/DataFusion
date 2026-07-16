@@ -2,6 +2,7 @@ package com.datafusion.agent.runtime.worker.plugin.datax.k8s;
 
 import com.datafusion.agent.runtime.worker.plugin.template.TemplateSpecRenderer;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
+import com.datafusion.agent.runtime.worker.plugin.datax.DataxRunMode;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;
 
@@ -24,11 +25,6 @@ public class DataxKubernetesTemplateRenderer {
      * Plugin type value.
      */
     private static final String PLUGIN_TYPE = "DATAX";
-
-    /**
-     * Run mode value.
-     */
-    private static final String RUN_MODE = "K8S";
 
     /**
      * Template renderer.
@@ -85,7 +81,7 @@ public class DataxKubernetesTemplateRenderer {
     private Map<String, String> labels(DataxExecutionParam param) {
         Map<String, String> labels = new LinkedHashMap<>();
         labels.put(DataxK8sNameGenerator.PLUGIN_LABEL, PLUGIN_TYPE);
-        labels.put(DataxK8sNameGenerator.RUN_MODE_LABEL, RUN_MODE);
+        labels.put(DataxK8sNameGenerator.RUN_MODE_LABEL, DataxRunMode.K8S.name());
         labels.put(DataxK8sNameGenerator.TASK_LABEL,
                 labelValueFromSelector(param.getKubernetes().getPodLabelSelector()));
         labels.put(DataxK8sNameGenerator.FLOW_LABEL, DataxK8sNameGenerator.labelValue(param.getFlowInstanceId()));

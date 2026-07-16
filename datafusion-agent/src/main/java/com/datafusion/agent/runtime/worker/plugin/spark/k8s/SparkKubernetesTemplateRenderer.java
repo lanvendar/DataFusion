@@ -1,6 +1,7 @@
 package com.datafusion.agent.runtime.worker.plugin.spark.k8s;
 
 import com.datafusion.agent.runtime.worker.plugin.spark.SparkExecutionParam;
+import com.datafusion.agent.runtime.worker.plugin.spark.SparkRunMode;
 import com.datafusion.agent.runtime.worker.plugin.template.TemplateSpecRenderer;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;
@@ -23,11 +24,6 @@ public class SparkKubernetesTemplateRenderer {
      * 插件类型.
      */
     private static final String PLUGIN_TYPE = "SPARK";
-
-    /**
-     * 运行模式.
-     */
-    private static final String RUN_MODE = "K8S_OPERATOR";
 
     /**
      * 模板渲染器.
@@ -91,7 +87,7 @@ public class SparkKubernetesTemplateRenderer {
     private Map<String, String> labels(SparkExecutionParam param) {
         Map<String, String> labels = new LinkedHashMap<>();
         labels.put(SparkK8sNameGenerator.PLUGIN_LABEL, PLUGIN_TYPE);
-        labels.put(SparkK8sNameGenerator.RUN_MODE_LABEL, RUN_MODE);
+        labels.put(SparkK8sNameGenerator.RUN_MODE_LABEL, SparkRunMode.K8S_OPERATOR.name());
         labels.put(SparkK8sNameGenerator.TASK_LABEL, SparkK8sNameGenerator.labelValue(param.getTaskInstanceId()));
         labels.put(SparkK8sNameGenerator.FLOW_LABEL, SparkK8sNameGenerator.labelValue(param.getFlowInstanceId()));
         SparkKubernetesParam kubernetes = param.getKubernetes();

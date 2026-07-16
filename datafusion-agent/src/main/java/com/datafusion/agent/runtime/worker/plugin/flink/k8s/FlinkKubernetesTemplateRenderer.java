@@ -1,6 +1,7 @@
 package com.datafusion.agent.runtime.worker.plugin.flink.k8s;
 
 import com.datafusion.agent.runtime.worker.plugin.flink.FlinkExecutionParam;
+import com.datafusion.agent.runtime.worker.plugin.flink.FlinkRunMode;
 import com.datafusion.agent.runtime.worker.plugin.template.TemplateSpecRenderer;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;
@@ -26,11 +27,6 @@ public class FlinkKubernetesTemplateRenderer {
      * Plugin type value.
      */
     private static final String PLUGIN_TYPE = "FLINK";
-
-    /**
-     * Run mode value.
-     */
-    private static final String RUN_MODE = "K8S_OPERATOR";
 
     /**
      * CPU resource key.
@@ -102,7 +98,7 @@ public class FlinkKubernetesTemplateRenderer {
     private Map<String, String> labels(FlinkExecutionParam param) {
         Map<String, String> labels = new LinkedHashMap<>();
         labels.put(FlinkK8sNameGenerator.PLUGIN_LABEL, PLUGIN_TYPE);
-        labels.put(FlinkK8sNameGenerator.RUN_MODE_LABEL, RUN_MODE);
+        labels.put(FlinkK8sNameGenerator.RUN_MODE_LABEL, FlinkRunMode.K8S_OPERATOR.name());
         labels.put(FlinkK8sNameGenerator.TASK_LABEL, FlinkK8sNameGenerator.labelValue(param.getTaskInstanceId()));
         labels.put(FlinkK8sNameGenerator.FLOW_LABEL, FlinkK8sNameGenerator.labelValue(param.getFlowInstanceId()));
         FlinkKubernetesParam kubernetes = param.getKubernetes();

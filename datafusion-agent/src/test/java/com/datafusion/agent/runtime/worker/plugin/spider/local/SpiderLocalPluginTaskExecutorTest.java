@@ -48,7 +48,7 @@ class SpiderLocalPluginTaskExecutorTest {
         assertEquals(StatusEnum.RUNNING, result.getTaskState());
         assertEquals(SpiderLocalPluginTaskExecutor.PLUGIN_TYPE,
                 stateStore.readSnapshot("task-1").orElseThrow().getPluginType());
-        assertEquals(SpiderLocalRunModeStateMapping.RUN_MODE,
+        assertEquals(SpiderLocalPluginTaskExecutor.RUN_MODE,
                 stateStore.readSnapshot("task-1").orElseThrow().getRunMode());
         assertEquals(SpiderLocalPluginTaskExecutor.PLUGIN_TYPE,
                 stateStore.readState("task-1").orElseThrow().getResult().get("pluginType").asText());
@@ -59,7 +59,7 @@ class SpiderLocalPluginTaskExecutorTest {
         SpiderLocalRunModeStateMapping mapping = new SpiderLocalRunModeStateMapping(new ShellLocalRunModeStateMapping());
 
         assertEquals(SpiderLocalPluginTaskExecutor.PLUGIN_TYPE, mapping.pluginType());
-        assertEquals(ShellLocalRunModeStateMapping.RUN_MODE, mapping.runMode());
+        assertEquals(SpiderLocalPluginTaskExecutor.RUN_MODE, mapping.runMode());
     }
 
     private SpiderLocalPluginTaskExecutor spiderExecutor(InMemoryWorkerTaskExecutionStore stateStore) {

@@ -20,11 +20,6 @@ import org.springframework.stereotype.Component;
 public class SpiderLocalRunModeStateMapping implements PluginRunModeStateMapping {
 
     /**
-     * 运行模式.
-     */
-    public static final String RUN_MODE = ShellLocalRunModeStateMapping.RUN_MODE;
-
-    /**
      * Shell LOCAL 状态映射.
      */
     private final ShellLocalRunModeStateMapping delegate;
@@ -45,7 +40,7 @@ public class SpiderLocalRunModeStateMapping implements PluginRunModeStateMapping
 
     @Override
     public String runMode() {
-        return RUN_MODE;
+        return SpiderLocalPluginTaskExecutor.RUN_MODE;
     }
 
     @Override

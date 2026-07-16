@@ -48,6 +48,11 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
     public static final String PLUGIN_TYPE = "SHELL";
 
     /**
+     * 运行模式.
+     */
+    public static final String RUN_MODE = "LOCAL";
+
+    /**
      * 日期格式.
      */
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
@@ -100,7 +105,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
 
     @Override
     public String runMode() {
-        return ShellLocalRunModeStateMapping.RUN_MODE;
+        return RUN_MODE;
     }
 
     @Override
@@ -297,7 +302,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                 .taskName(request.getTaskName())
                 .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
                 .pluginType(resolvePluginType(request))
-                .runMode(ShellLocalRunModeStateMapping.RUN_MODE)
+                .runMode(RUN_MODE)
                 .taskData(request.getTaskData())
                 .pluginParam(request.getPluginParam())
                 .build();
@@ -354,7 +359,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     private ObjectNode resultJson(String pluginType, String message, String pluginLogUri, Integer exitCode) {
-        return PluginResultJson.build(message, pluginType, ShellLocalRunModeStateMapping.RUN_MODE, pluginLogUri,
+        return PluginResultJson.build(message, pluginType, RUN_MODE, pluginLogUri,
                 exitCode);
     }
 

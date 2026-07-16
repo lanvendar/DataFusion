@@ -181,7 +181,7 @@ class ShellLocalPluginTaskExecutorTest {
                 .taskInstanceId(request.getTaskInstanceId())
                 .taskName(request.getTaskName())
                 .pluginType(request.getPluginType())
-                .runMode(ShellLocalRunModeStateMapping.RUN_MODE)
+                .runMode(ShellLocalPluginTaskExecutor.RUN_MODE)
                 .taskData(request.getTaskData())
                 .pluginParam(request.getPluginParam())
                 .build();

@@ -25,6 +25,11 @@ public class SpiderLocalPluginTaskExecutor implements PluginTaskExecutor {
     public static final String PLUGIN_TYPE = "SPIDER";
 
     /**
+     * 运行模式.
+     */
+    public static final String RUN_MODE = "LOCAL";
+
+    /**
      * Shell LOCAL 执行器.
      */
     private final ShellLocalPluginTaskExecutor delegate;
@@ -45,7 +50,7 @@ public class SpiderLocalPluginTaskExecutor implements PluginTaskExecutor {
 
     @Override
     public String runMode() {
-        return SpiderLocalRunModeStateMapping.RUN_MODE;
+        return RUN_MODE;
     }
 
     @Override
