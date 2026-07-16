@@ -39,9 +39,9 @@ DATAFUSION_WORKER_PLUGIN_TYPES=SHELL
 
 ```text
 TaskRequest(pluginType=SPIDER, runMode=LOCAL, taskData, pluginParam)
-    -> WorkerTaskOperatorRouter.route("SPIDER")
+    -> WorkerTaskOperatorRouter.route("SPIDER", "LOCAL")
     -> SpiderLocalPluginTaskExecutor
-    -> ShellLocalPluginTaskExecutor.prepareTask / submitTask
+    -> ShellLocalPluginTaskExecutor.validateTaskRequest / submitTask
     -> 写 WorkerTaskExecutionSnap(pluginType=SPIDER, runMode=LOCAL)
     -> 写 WorkerTaskExecutionState(status=RUNNING, appId=pid, workDirPath=任务运行目录)
     -> watcher 等待退出码并更新 RUN_SUCCESS / RUN_FAILURE

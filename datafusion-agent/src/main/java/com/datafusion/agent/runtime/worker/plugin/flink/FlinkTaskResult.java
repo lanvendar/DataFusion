@@ -1,6 +1,5 @@
 package com.datafusion.agent.runtime.worker.plugin.flink;
 
-import com.datafusion.agent.runtime.worker.plugin.flink.k8s.FlinkKubernetesRuntimeRef;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Builder;
@@ -37,8 +36,4 @@ public class FlinkTaskResult {
      */
     private JsonNode result;
 
-    /**
-     * Kubernetes runtime reference.
-     */
-    private FlinkKubernetesRuntimeRef kubernetesRuntimeRef;
 }

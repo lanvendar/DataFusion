@@ -24,6 +24,11 @@ public class PluginData {
     private String pluginName;
 
     /**
+     * 运行模式.
+     */
+    private String runMode;
+
+    /**
      * 组件参数.
      */
     private JsonNode pluginParam;

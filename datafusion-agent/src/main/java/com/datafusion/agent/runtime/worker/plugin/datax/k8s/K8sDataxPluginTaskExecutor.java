@@ -2,9 +2,10 @@ package com.datafusion.agent.runtime.worker.plugin.datax.k8s;
 
 import com.datafusion.agent.runtime.worker.plugin.PluginResultJson;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
+import com.datafusion.agent.runtime.worker.plugin.datax.DataxParamResolver;
+import com.datafusion.agent.runtime.worker.plugin.datax.DataxPluginTaskExecutor;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxRunMode;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxTaskResult;
-import com.datafusion.agent.runtime.worker.plugin.datax.DataxTaskRunner;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
@@ -13,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * K8S DataX 任务运行器.
+ * K8S DataX 插件任务执行器.
  *
  * @author datafusion
  * @version 1.0.0, 2026/6/8
@@ -21,7 +22,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Slf4j
-public class K8sDataxTaskRunner implements DataxTaskRunner {
+public class K8sDataxPluginTaskExecutor extends DataxPluginTaskExecutor {
 
     /**
      * Kubernetes 客户端.
@@ -29,29 +30,26 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
     private final DataxKubernetesClient kubernetesClient;
 
     /**
-     * 状态存储.
-     */
-    private final WorkerTaskExecutionStore stateStore;
-
-    /**
      * 构造函数.
      *
+     * @param paramResolver 参数解析器
      * @param kubernetesClient Kubernetes 客户端
-     * @param stateStore       状态存储
+     * @param stateStore 状态存储
      */
-    public K8sDataxTaskRunner(DataxKubernetesClient kubernetesClient, WorkerTaskExecutionStore stateStore) {
+    public K8sDataxPluginTaskExecutor(DataxParamResolver paramResolver, DataxKubernetesClient kubernetesClient,
+            WorkerTaskExecutionStore stateStore) {
+        super(paramResolver, stateStore);
         this.kubernetesClient = kubernetesClient;
-        this.stateStore = stateStore;
     }
 
     @Override
-    public DataxRunMode runMode() {
-        return DataxRunMode.K8S;
+    public String runMode() {
+        return DataxRunMode.K8S.name();
     }
 
     @Override
-    public DataxTaskResult submit(DataxExecutionParam param) {
-        WorkerTaskExecutionState oldState = stateStore.readState(param.getTaskInstanceId()).orElse(null);
+    protected DataxTaskResult submit(DataxExecutionParam param) {
+        WorkerTaskExecutionState oldState = stateStore().readState(param.getTaskInstanceId()).orElse(null);
         if (oldState != null && !isBlank(oldState.getAppId())) {
             try {
                 if (!kubernetesClient.cleanup(runtimeRef(param, oldState), DataxKubernetesCleanupMode.BEFORE_SUBMIT)) {
@@ -69,7 +67,6 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
                     .appId(runtimeRef.getJobName())
                     .workDirPath(param.getWorkDir().toString())
                     .result(resultJson("K8S DataX job submitted", pluginLogUri(runtimeRef)))
-                    .kubernetesRuntimeRef(runtimeRef)
                     .build();
         } catch (Exception e) {
             return DataxTaskResult.builder()
@@ -80,14 +77,14 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
     }
 
     @Override
-    public DataxTaskResult stop(DataxExecutionParam param, WorkerTaskExecutionState state) {
+    protected DataxTaskResult stop(DataxExecutionParam param, WorkerTaskExecutionState state) {
         DataxKubernetesRuntimeRef runtimeRef = runtimeRef(param, state);
         kubernetesClient.stop(runtimeRef, false);
         return result(state, StatusEnum.STOPPING, "K8S DataX stop requested", null);
     }
 
     @Override
-    public DataxTaskResult kill(DataxExecutionParam param, WorkerTaskExecutionState state) {
+    protected DataxTaskResult kill(DataxExecutionParam param, WorkerTaskExecutionState state) {
         if (state == null || isBlank(state.getAppId())) {
             return result(state, StatusEnum.KILLED, "K8S DataX runtime ref not found, nothing to kill", null);
         }
@@ -103,7 +100,7 @@ public class K8sDataxTaskRunner implements DataxTaskRunner {
     }
 
     @Override
-    public boolean finish(DataxExecutionParam param, WorkerTaskExecutionState state) {
+    protected boolean finish(DataxExecutionParam param, WorkerTaskExecutionState state) {
         if (state == null || isBlank(state.getAppId())) {
             return true;
         }

@@ -11,8 +11,6 @@ import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -31,11 +29,6 @@ import java.nio.file.Path;
 @Slf4j
 @Component
 public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping {
-
-    /**
-     * JSON 处理器.
-     */
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
      * Operator 客户端.
@@ -78,18 +71,34 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
 
     @Override
     public StatusEnum mapState(WorkerTaskExecutionState state) {
-        if (state == null || state.getAppId() == null) {
-            log.warn("FLINK_K8S_OPERATOR 状态为空或appId不存在, taskState={}", state);
+        if (state == null) {
+            log.warn("FLINK_K8S_OPERATOR 任务状态为空");
+            return StatusEnum.UNKNOWN;
+        }
+        StatusEnum taskState = state.getStatus();
+        if (taskState != null && taskState.isFinalState()) {
+            return taskState;
+        }
+        if (state.getAppId() == null) {
+            log.warn("FLINK_K8S_OPERATOR appId不存在, taskInstanceId={}, taskState={}",
+                    state.getTaskInstanceId(), taskState);
+            return StatusEnum.UNKNOWN;
+        }
+        if (taskState == null || !(taskState.isSubmitting() || taskState == StatusEnum.RUNNING
+                || taskState == StatusEnum.STOPPING || taskState == StatusEnum.KILLING)) {
+            log.warn("FLINK_K8S_OPERATOR 任务状态不支持映射, taskInstanceId={}, appId={}, taskState={}",
+                    state.getTaskInstanceId(), state.getAppId(), taskState);
             return StatusEnum.UNKNOWN;
         }
         WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(state.getTaskInstanceId()).orElse(null);
         if (snapshot == null) {
-            log.warn("FLINK_K8S_OPERATOR  执行快照snap不存在, taskInstanceId={}, appId={}, localState={}",
+            log.warn("FLINK_K8S_OPERATOR 执行快照不存在, taskInstanceId={}, appId={}, taskState={}",
                     state.getTaskInstanceId(), state.getAppId(), state.getStatus());
             return StatusEnum.UNKNOWN;
         }
         FlinkExecutionParam param = paramResolver.resolve(taskRequest(snapshot));
-        return mapOperatorStatus(operatorClient.queryStatus(runtimeRef(param, state)), state);
+        FlinkOperatorStatus operatorStatus = operatorClient.queryStatus(runtimeRef(param, state));
+        return mapOperatorStatus(operatorStatus, state);
     }
 
     @Override
@@ -127,86 +136,58 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
                 .build();
     }
 
+    /**
+     * 映射 Operator 状态.
+     *
+     * @param operatorStatus Operator 状态快照
+     * @param state          任务执行状态
+     * @return DataFusion 任务状态
+     */
     private StatusEnum mapOperatorStatus(FlinkOperatorStatus operatorStatus, WorkerTaskExecutionState state) {
-        StatusEnum localState = state.getStatus();
-        if (localState != null && localState.isFinalState()) {
-            return localState;
-        }
+        StatusEnum taskState = state.getStatus();
         if (operatorStatus == null || operatorStatus.getState() == null) {
-            log.warn("FLINK_K8S_OPERATOR Operator状态为空, taskInstanceId={}, appId={}, localState={}",
-                    state.getTaskInstanceId(), state.getAppId(), localState);
+            log.warn("FLINK_K8S_OPERATOR Operator状态为空, taskInstanceId={}, appId={}, taskState={}",
+                    state.getTaskInstanceId(), state.getAppId(), taskState);
             return StatusEnum.UNKNOWN;
         }
-        if (localState == StatusEnum.KILLING) {
-            return operatorStatus.isDeploymentExists() || operatorStatus.isPodExists() || operatorStatus.isServiceExists()
-                    ? StatusEnum.KILLING : StatusEnum.KILLED;
-        }
-        if (localState == StatusEnum.STOPPING && !operatorStatus.isDeploymentExists() && !operatorStatus.isPodExists()) {
-            return StatusEnum.STOP_SUCCESS;
-        }
-        if (!operatorStatus.isDeploymentExists()) {
+        if (taskState != StatusEnum.STOPPING && taskState != StatusEnum.KILLING
+                && !operatorStatus.isDeploymentExists()) {
             log.warn("FLINK_K8S_OPERATOR FlinkDeployment不存在, taskInstanceId={}, appId={},"
-                            + " localState={}, operatorState={}, podExists={}, serviceExists={}",
-                    state.getTaskInstanceId(), state.getAppId(), localState, operatorStatus.getState(),
+                            + " taskState={}, operatorState={}, podExists={}, serviceExists={}",
+                    state.getTaskInstanceId(), state.getAppId(), taskState, operatorStatus.getState(),
                     operatorStatus.isPodExists(), operatorStatus.isServiceExists());
             return StatusEnum.UNKNOWN;
         }
-        if (localState != null && localState.isSubmitting()) {
-            return mapSubmittingState(operatorStatus.getState(), state);
-        }
-        if (localState == StatusEnum.RUNNING) {
-            return mapRunningState(operatorStatus.getState(), state);
-        }
-        if (localState == StatusEnum.STOPPING) {
-            return mapStoppingState(operatorStatus.getState(), !operatorStatus.isPodExists(), state);
-        }
-        log.warn("FLINK_K8S_OPERATOR 本地状态不支持映射, taskInstanceId={}, appId={},"
-                        + " localState={}, operatorState={}",
-                state.getTaskInstanceId(), state.getAppId(), localState, operatorStatus.getState());
-        return StatusEnum.UNKNOWN;
-    }
-
-    /**
-     * 映射提交阶段 Operator 状态.
-     *
-     * @param operatorState Operator 状态
-     * @param state         任务执行状态
-     * @return DataFusion 任务状态
-     */
-    private StatusEnum mapSubmittingState(FlinkOperatorStatus.State operatorState, WorkerTaskExecutionState state) {
-        return switch (operatorState) {
-            case NONE, CREATED, INITIALIZING, RECONCILING -> StatusEnum.SUBMIT_SUCCESS;
-            case RUNNING, RESTARTING, FAILING -> StatusEnum.RUNNING;
-            case FINISHED -> StatusEnum.RUN_SUCCESS;
-            case FAILED -> StatusEnum.RUN_FAILURE;
-            case CANCELLING, SUSPENDED -> StatusEnum.STOPPING;
-            case CANCELED -> StatusEnum.STOP_FAILURE;
-            case UNKNOWN -> {
-                log.warn("FLINK_K8S_OPERATOR 提交阶段Operator状态未知, taskInstanceId={}, appId={},"
-                                + " localState={}, operatorState={}",
-                        state.getTaskInstanceId(), state.getAppId(), state.getStatus(), operatorState);
+        return switch (taskState) {
+            case SUBMITTING, SUBMIT_SUCCESS, RUNNING -> mapExecutionState(operatorStatus.getState(), state);
+            case STOPPING -> mapStoppingState(operatorStatus, state);
+            case KILLING -> operatorStatus.isDeploymentExists() || operatorStatus.isPodExists()
+                    || operatorStatus.isServiceExists() ? StatusEnum.KILLING : StatusEnum.KILLED;
+            default -> {
+                log.warn("FLINK_K8S_OPERATOR 任务状态不支持映射, taskInstanceId={}, appId={},"
+                                + " taskState={}, operatorState={}",
+                        state.getTaskInstanceId(), state.getAppId(), taskState, operatorStatus.getState());
                 yield StatusEnum.UNKNOWN;
             }
         };
     }
 
     /**
-     * 映射运行阶段 Operator 状态.
+     * 映射正常执行状态.
      *
      * @param operatorState Operator 状态
      * @param state         任务执行状态
      * @return DataFusion 任务状态
      */
-    private StatusEnum mapRunningState(FlinkOperatorStatus.State operatorState, WorkerTaskExecutionState state) {
+    private StatusEnum mapExecutionState(FlinkOperatorStatus.State operatorState, WorkerTaskExecutionState state) {
         return switch (operatorState) {
-            case NONE, RUNNING, CREATED, INITIALIZING, RECONCILING, RESTARTING, FAILING -> StatusEnum.RUNNING;
+            case NONE, CREATED, INITIALIZING, RECONCILING -> state.getStatus();
+            case RUNNING, RESTARTING, FAILING, CANCELLING -> StatusEnum.RUNNING;
             case FINISHED -> StatusEnum.RUN_SUCCESS;
-            case FAILED -> StatusEnum.RUN_FAILURE;
-            case CANCELLING -> StatusEnum.STOPPING;
-            case CANCELED, SUSPENDED -> StatusEnum.STOP_FAILURE;
+            case FAILED, CANCELED, SUSPENDED -> StatusEnum.RUN_FAILURE;
             case UNKNOWN -> {
-                log.warn("FLINK_K8S_OPERATOR 运行阶段Operator状态未知, taskInstanceId={}, appId={},"
-                                + " localState={}, operatorState={}",
+                log.warn("FLINK_K8S_OPERATOR Operator状态未知, taskInstanceId={}, appId={},"
+                                + " taskState={}, operatorState={}",
                         state.getTaskInstanceId(), state.getAppId(), state.getStatus(), operatorState);
                 yield StatusEnum.UNKNOWN;
             }
@@ -216,27 +197,21 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
     /**
      * 映射停止阶段 Operator 状态.
      *
-     * @param operatorState     Operator 状态
-     * @param runtimePodsAbsent 运行 Pod 是否已不存在
-     * @param state             任务执行状态
+     * @param operatorStatus Operator 状态快照
+     * @param state          任务执行状态
      * @return DataFusion 任务状态
      */
-    private StatusEnum mapStoppingState(FlinkOperatorStatus.State operatorState, boolean runtimePodsAbsent,
-            WorkerTaskExecutionState state) {
+    private StatusEnum mapStoppingState(FlinkOperatorStatus operatorStatus, WorkerTaskExecutionState state) {
+        FlinkOperatorStatus.State operatorState = operatorStatus.getState();
         return switch (operatorState) {
-            case NONE -> runtimePodsAbsent ? StatusEnum.STOP_SUCCESS : StatusEnum.STOPPING;
-            case FINISHED -> StatusEnum.RUN_SUCCESS;
-            case FAILED -> StatusEnum.RUN_FAILURE;
-            case CANCELED -> StatusEnum.STOP_SUCCESS;
-            case SUSPENDED, CANCELLING, RECONCILING, RUNNING, RESTARTING, CREATED, INITIALIZING, FAILING ->
-                    runtimePodsAbsent ? StatusEnum.STOP_SUCCESS : StatusEnum.STOPPING;
+            case FINISHED, CANCELED, SUSPENDED -> StatusEnum.STOP_SUCCESS;
+            case FAILED -> StatusEnum.STOP_FAILURE;
             case UNKNOWN -> {
-                log.warn("FLINK_K8S_OPERATOR 停止阶段Operator状态未知, taskInstanceId={}, appId={},"
-                                + " localState={}, operatorState={}, runtimePodsAbsent={}",
-                        state.getTaskInstanceId(), state.getAppId(), state.getStatus(), operatorState,
-                        runtimePodsAbsent);
+                log.warn("FLINK_K8S_OPERATOR 停止状态未知, taskInstanceId={}, appId={}, podExists={}",
+                        state.getTaskInstanceId(), state.getAppId(), operatorStatus.isPodExists());
                 yield StatusEnum.UNKNOWN;
             }
+            default -> operatorStatus.isPodExists() ? StatusEnum.STOPPING : StatusEnum.STOP_SUCCESS;
         };
     }
 
@@ -273,18 +248,10 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
         request.setTaskInstanceId(snapshot.getTaskInstanceId());
         request.setTaskName(snapshot.getTaskName());
         request.setPluginType(snapshot.getPluginType());
+        request.setRunMode(snapshot.getRunMode());
         request.setTaskData(snapshot.getTaskData());
-        request.setPluginParam(resolvedPluginParam(snapshot));
+        request.setPluginParam(snapshot.getPluginParam());
         return request;
-    }
-
-    private JsonNode resolvedPluginParam(WorkerTaskExecutionSnap snapshot) {
-        ObjectNode pluginParam = snapshot.getPluginParam() != null && snapshot.getPluginParam().isObject()
-                ? (ObjectNode) snapshot.getPluginParam().deepCopy() : OBJECT_MAPPER.createObjectNode();
-        if (!pluginParam.hasNonNull(FlinkParamResolver.FIELD_RUN_MODE) && snapshot.getRunMode() != null) {
-            pluginParam.put(FlinkParamResolver.FIELD_RUN_MODE, snapshot.getRunMode());
-        }
-        return pluginParam;
     }
 
     private String pluginLogUri(FlinkKubernetesRuntimeRef runtimeRef) {

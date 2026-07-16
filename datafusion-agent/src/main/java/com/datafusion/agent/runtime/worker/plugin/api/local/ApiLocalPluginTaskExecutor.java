@@ -141,6 +141,11 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
+    public String runMode() {
+        return ApiLocalRunModeStateMapping.RUN_MODE;
+    }
+
+    @Override
     public void validateTaskRequest(TaskRequest request) {
         effectiveJob(request);
         delegate.validateTaskRequest(shellRequest(request));
@@ -185,6 +190,7 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
         shellRequest.setTaskState(request.getTaskState());
         shellRequest.setTaskData(shellTaskData);
         shellRequest.setPluginType(PLUGIN_TYPE);
+        shellRequest.setRunMode(ApiLocalRunModeStateMapping.RUN_MODE);
         shellRequest.setPluginParam(shellPluginParam);
         shellRequest.setSubmitMode(request.getSubmitMode());
         shellRequest.setWorkerResult(copyWorkerResult(request.getWorkerResult()));

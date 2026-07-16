@@ -6,9 +6,9 @@ import com.datafusion.agent.runtime.worker.plugin.flink.FlinkExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.flink.FlinkParamResolver;
 import com.datafusion.agent.runtime.worker.plugin.flink.FlinkPluginTaskExecutor;
 import com.datafusion.agent.runtime.worker.plugin.flink.FlinkRunMode;
-import com.datafusion.agent.runtime.worker.plugin.flink.FlinkTaskResult;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,18 +39,42 @@ class K8sOperatorRunModeStateMappingTest {
     }
 
     @Test
-    void shouldMapOperatorStateByLocalStage() {
+    void shouldMapOperatorStateByTaskState() {
         FakeOperatorClient client = new FakeOperatorClient();
         K8sOperatorRunModeStateMapping mapping = mapping(client);
 
         client.status = status(FlinkOperatorStatus.State.RECONCILING, true, true, true);
         assertEquals(StatusEnum.SUBMIT_SUCCESS, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
+        assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.RUNNING)));
 
         client.status = status(FlinkOperatorStatus.State.FAILING, true, true, true);
         assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.RUNNING)));
 
+        client.status = status(FlinkOperatorStatus.State.FINISHED, true, false, true);
+        assertEquals(StatusEnum.RUN_SUCCESS, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
+        assertEquals(StatusEnum.RUN_SUCCESS, mapping.mapState(state(StatusEnum.RUNNING)));
+
+        client.status = status(FlinkOperatorStatus.State.FAILED, true, false, true);
+        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
+        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.RUNNING)));
+
+        client.status = status(FlinkOperatorStatus.State.CANCELLING, true, true, true);
+        assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
+        assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.RUNNING)));
+
         client.status = status(FlinkOperatorStatus.State.CANCELED, true, true, true);
+        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
+        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.RUNNING)));
         assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(state(StatusEnum.STOPPING)));
+
+        client.status = status(FlinkOperatorStatus.State.FINISHED, true, true, true);
+        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(state(StatusEnum.STOPPING)));
+
+        client.status = status(FlinkOperatorStatus.State.SUSPENDED, true, true, true);
+        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(state(StatusEnum.STOPPING)));
+
+        client.status = status(FlinkOperatorStatus.State.FAILED, true, false, true);
+        assertEquals(StatusEnum.STOP_FAILURE, mapping.mapState(state(StatusEnum.STOPPING)));
 
         client.status = status(FlinkOperatorStatus.State.NONE, false, false, false);
         assertEquals(StatusEnum.KILLED, mapping.mapState(state(StatusEnum.KILLING)));
@@ -63,13 +87,16 @@ class K8sOperatorRunModeStateMappingTest {
     void shouldReturnStopFailureWithOperatorError() {
         FakeOperatorClient client = new FakeOperatorClient();
         client.stopFailure = new IllegalArgumentException("invalid desired state");
-        FlinkExecutionParam param = new FlinkParamResolver(new AgentProperties()).resolve(request());
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        stateStore.saveState(state(StatusEnum.RUNNING));
+        FlinkPluginTaskExecutor executor = new FlinkPluginTaskExecutor(
+                new FlinkParamResolver(new AgentProperties()), stateStore, client);
 
-        FlinkTaskResult result = new K8sOperatorFlinkTaskRunner(client).stop(param, state(StatusEnum.RUNNING));
+        TaskResult result = executor.stopTask(request());
 
-        assertEquals(StatusEnum.STOP_FAILURE, result.getStatus());
-        assertEquals("df-flink-task-1", result.getAppId());
-        assertTrue(result.getResult().path("message").asText().contains("invalid desired state"));
+        assertEquals(StatusEnum.STOP_FAILURE, result.getTaskState());
+        assertEquals("df-flink-task-1", result.getWorkerResult().getAppId());
+        assertTrue(result.getWorkerResult().getMessage().contains("invalid desired state"));
     }
 
     private K8sOperatorRunModeStateMapping mapping(FakeOperatorClient client) {
@@ -111,6 +138,7 @@ class K8sOperatorRunModeStateMappingTest {
         request.setTaskInstanceId("task-1");
         request.setTaskName("Flink");
         request.setPluginType(FlinkPluginTaskExecutor.PLUGIN_TYPE);
+        request.setRunMode(FlinkRunMode.K8S_OPERATOR.name());
         request.setPluginParam(pluginParam());
         request.setTaskData(taskData());
         return request;
@@ -118,7 +146,6 @@ class K8sOperatorRunModeStateMappingTest {
 
     private ObjectNode pluginParam() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.put(FlinkParamResolver.FIELD_RUN_MODE, FlinkRunMode.K8S_OPERATOR.name());
         pluginParam.put("flinkAppDir", "/opt/datafusion/plugins/flink/datafusion-plugin-flink-table");
         pluginParam.put("launchMode", "JAR");
         pluginParam.put("flinkAppJar", "datafusion-plugin-flink-table-1.0.0-executable.jar");

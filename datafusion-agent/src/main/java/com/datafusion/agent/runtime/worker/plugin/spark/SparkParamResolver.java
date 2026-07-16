@@ -31,8 +31,6 @@ public class SparkParamResolver {
     /**
      * 运行模式字段.
      */
-    public static final String FIELD_RUN_MODE = "runMode";
-
     /**
      * 日期格式.
      */
@@ -129,7 +127,7 @@ public class SparkParamResolver {
         }
         JsonNode pluginParam = request.getPluginParam();
         JsonNode taskData = request.getTaskData();
-        SparkRunMode runMode = SparkRunMode.parse(text(pluginParam, FIELD_RUN_MODE));
+        SparkRunMode runMode = SparkRunMode.parse(request.getRunMode());
         JsonNode effectiveTaskData = effectiveTaskData(pluginParam, taskData);
         SparkExecutionParam param = SparkExecutionParam.builder()
                 .runMode(runMode)

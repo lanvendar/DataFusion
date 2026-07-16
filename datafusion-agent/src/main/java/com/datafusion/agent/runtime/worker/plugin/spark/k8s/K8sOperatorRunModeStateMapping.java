@@ -11,8 +11,6 @@ import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -31,11 +29,6 @@ import java.nio.file.Path;
 @Slf4j
 @Component("sparkK8sOperatorRunModeStateMapping")
 public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping {
-
-    /**
-     * JSON 处理器.
-     */
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
      * Operator 客户端.
@@ -237,18 +230,10 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
         request.setTaskInstanceId(snapshot.getTaskInstanceId());
         request.setTaskName(snapshot.getTaskName());
         request.setPluginType(snapshot.getPluginType());
+        request.setRunMode(snapshot.getRunMode());
         request.setTaskData(snapshot.getTaskData());
-        request.setPluginParam(resolvedPluginParam(snapshot));
+        request.setPluginParam(snapshot.getPluginParam());
         return request;
-    }
-
-    private JsonNode resolvedPluginParam(WorkerTaskExecutionSnap snapshot) {
-        ObjectNode pluginParam = snapshot.getPluginParam() != null && snapshot.getPluginParam().isObject()
-                ? (ObjectNode) snapshot.getPluginParam().deepCopy() : OBJECT_MAPPER.createObjectNode();
-        if (!pluginParam.hasNonNull(SparkParamResolver.FIELD_RUN_MODE) && snapshot.getRunMode() != null) {
-            pluginParam.put(SparkParamResolver.FIELD_RUN_MODE, snapshot.getRunMode());
-        }
-        return pluginParam;
     }
 
     private String pluginLogUri(SparkKubernetesRuntimeRef runtimeRef) {

@@ -204,11 +204,11 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
     }
 
     private List<String> resolvePluginTypes(AgentProperties.Worker workerProperties) {
-        List<String> loadedPluginTypes = new ArrayList<>(router.executors().keySet());
+        List<String> loadedPluginTypes = new ArrayList<>(router.pluginTypes());
         if (!isNotBlank(workerProperties.getPluginTypes())) {
             return loadedPluginTypes;
         }
-        Set<String> loadedPluginTypeSet = router.executors().keySet();
+        Set<String> loadedPluginTypeSet = router.pluginTypes();
         List<String> configuredPluginTypes = parsePluginTypes(workerProperties.getPluginTypes());
         List<String> pluginTypes = configuredPluginTypes.stream()
                 .filter(loadedPluginTypeSet::contains)

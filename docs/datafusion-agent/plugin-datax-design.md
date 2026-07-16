@@ -19,18 +19,19 @@ POST /internal/scheduler/killTask
 POST /internal/scheduler/finishTask
 ```
 
-参数只来自 `TaskRequest.pluginParam` 和 `TaskRequest.taskData`。`application.yml` 不定义 `datafusion.agent.datax.*`。
+运行模式来自 `TaskRequest.runMode`，执行参数来自 `TaskRequest.pluginParam` 和 `TaskRequest.taskData`。
+`application.yml` 不定义 `datafusion.agent.datax.*`。
 
 ## 总体链路
 
 ```text
 Manager scheduler
-    -> TaskRequest(pluginType=DATAX, taskData, pluginParam)
+    -> TaskRequest(pluginType=DATAX, runMode, taskData, pluginParam)
     -> AgentExecutorRpcProvider
     -> WorkerTaskService
-    -> DataxPluginTaskExecutor
+    -> WorkerTaskOperatorRouter(DATAX + runMode)
+    -> LocalDataxPluginTaskExecutor / K8sDataxPluginTaskExecutor
     -> DataxExecutionParam
-    -> DataxTaskRunner(LOCAL or K8S)
     -> DataxTaskResult
     -> YAML template
     -> ExecutionSpec
@@ -39,9 +40,8 @@ Manager scheduler
     -> ManagerTaskResultReporter
 ```
 
-`WorkerTaskOperatorRouter` 是 `pluginType -> PluginTaskExecutor` 的一对一映射，因此 DataX 使用一个
-`DataxPluginTaskExecutor` 注册 `pluginType=DATAX`。执行器负责 `TaskRequest` 与 `TaskResult` 适配，并把请求归一化为
-`DataxExecutionParam`；runner 只处理 DataX 执行参数，返回 `DataxTaskResult`。
+`LocalDataxPluginTaskExecutor` 与 `K8sDataxPluginTaskExecutor` 分别注册 `DATAX + LOCAL` 和
+`DATAX + K8S`，共同继承只负责请求适配、快照、状态持久化和结果组装的 `DataxPluginTaskExecutor`。
 
 状态映射按 `pluginType + runMode` 注册：
 
@@ -52,7 +52,7 @@ Manager scheduler
 
 核心规则：
 
-- `pluginParam.runMode` 必填，且只能由 manager 插件配置注入。
+- `TaskRequest.runMode` 必填，只能为 `LOCAL` 或 `K8S`。
 - Agent 不改写 `pluginParam`；提交后的运行模式事实来源是 `.snap.runMode`。
 - LOCAL 模式下，`pluginParam.jobFile` 非空时复制该文件为本次任务的 `job.json`。
 - LOCAL 模式下，`pluginParam.jobFile` 为空时，使用 `taskData.jobJson` 或 `deepMerge(pluginParam.defaultTaskData, taskData)` 生成 `job.json`。
@@ -66,8 +66,8 @@ Manager scheduler
 
 ```json
 {
+  "runMode": "K8S",
   "pluginParam": {
-    "runMode": "K8S",
     "logLevel": "INFO",
     "kubernetes": {
       "namespace": "datafusion",

@@ -90,6 +90,9 @@ public class WorkerTaskService implements WorkerTaskOperator {
         if (isBlank(request.getPluginType())) {
             throw new IllegalArgumentException("pluginType不能为空");
         }
+        if (isBlank(request.getRunMode())) {
+            throw new IllegalArgumentException("runMode不能为空");
+        }
         RunningTaskContext existingContext = contextStore.get(request.getTaskInstanceId());
         if (existingContext != null && existingContext.isSubmitted()) {
             return duplicateSubmitResult(existingContext);
@@ -100,9 +103,10 @@ public class WorkerTaskService implements WorkerTaskOperator {
                 return duplicateSubmitResult(context);
             }
 
-            PluginTaskExecutor executor = router.route(request.getPluginType());
+            PluginTaskExecutor executor = router.route(request.getPluginType(), request.getRunMode());
             if (executor == null) {
-                TaskResult result = failureResult(request, StatusEnum.SUBMIT_FAILURE, "未匹配到插件执行器: " + request.getPluginType());
+                TaskResult result = failureResult(request, StatusEnum.SUBMIT_FAILURE,
+                        "未匹配到插件执行器: " + request.getPluginType() + "/" + request.getRunMode());
                 updateContext(context, result);
                 return result;
             }
@@ -149,7 +153,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
             return responseFromContext(context);
         }
         TaskRequest resolvedRequest = context == null ? request : context.fillRequest(request);
-        PluginTaskExecutor executor = router.route(resolvedRequest.getPluginType());
+        PluginTaskExecutor executor = router.route(resolvedRequest.getPluginType(), resolvedRequest.getRunMode());
         if (executor == null) {
             return failureResult(resolvedRequest, StatusEnum.STOP_FAILURE, "未匹配到插件执行器: " + resolvedRequest.getPluginType());
         }
@@ -169,7 +173,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
             return responseFromContext(context);
         }
         TaskRequest resolvedRequest = context == null ? request : context.fillRequest(request);
-        PluginTaskExecutor executor = router.route(resolvedRequest.getPluginType());
+        PluginTaskExecutor executor = router.route(resolvedRequest.getPluginType(), resolvedRequest.getRunMode());
         if (executor == null) {
             return failureResult(resolvedRequest, StatusEnum.KILLED, "未匹配到插件执行器: " + resolvedRequest.getPluginType());
         }
@@ -186,7 +190,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
         validateTaskInstanceId(request);
         RunningTaskContext context = contextStore.get(request.getTaskInstanceId());
         TaskRequest resolvedRequest = context == null ? request : context.fillRequest(request);
-        PluginTaskExecutor executor = router.route(resolvedRequest.getPluginType());
+        PluginTaskExecutor executor = router.route(resolvedRequest.getPluginType(), resolvedRequest.getRunMode());
         if (executor == null) {
             deleteExecution(resolvedRequest.getTaskInstanceId());
             return true;
@@ -252,6 +256,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
         snapshotRequest.setTaskName(request.getTaskName());
         snapshotRequest.setTaskData(request.getTaskData());
         snapshotRequest.setPluginType(request.getPluginType());
+        snapshotRequest.setRunMode(request.getRunMode());
         snapshotRequest.setPluginParam(request.getPluginParam());
         snapshotRequest.setSubmitMode(request.getSubmitMode());
         WorkerResult workerResult = request.getWorkerResult();

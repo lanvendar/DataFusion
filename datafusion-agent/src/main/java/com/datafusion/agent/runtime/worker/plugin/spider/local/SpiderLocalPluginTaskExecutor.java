@@ -44,6 +44,11 @@ public class SpiderLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
+    public String runMode() {
+        return SpiderLocalRunModeStateMapping.RUN_MODE;
+    }
+
+    @Override
     public void validateTaskRequest(TaskRequest request) {
         delegate.validateTaskRequest(request);
     }

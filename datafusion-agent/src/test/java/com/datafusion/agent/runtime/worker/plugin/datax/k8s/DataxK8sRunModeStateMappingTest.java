@@ -88,7 +88,6 @@ class DataxK8sRunModeStateMappingTest {
 
     private TaskRequest request() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.put("runMode", "K8S");
         ObjectNode kubernetes = OBJECT_MAPPER.createObjectNode();
         kubernetes.put("namespace", "df");
         kubernetes.put("image", "datafusion/datax:latest");
@@ -101,6 +100,7 @@ class DataxK8sRunModeStateMappingTest {
         request.setTaskInstanceId("task-1");
         request.setTaskName("DataX");
         request.setPluginType(DataxPluginTaskExecutor.PLUGIN_TYPE);
+        request.setRunMode("K8S");
         request.setPluginParam(pluginParam);
         request.setTaskData(taskData);
         return request;

@@ -135,6 +135,12 @@ public class AgentTaskStateReportScheduler {
     private void refreshState(WorkerTaskExecutionState state) {
         WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(state.getTaskInstanceId()).orElse(null);
         PluginRunModeStateMapping mapping = stateMapping(snapshot);
+        if (mapping == null) {
+            log.warn("未匹配到插件运行模式状态映射, taskInstanceId={}, pluginType={}, runMode={}",
+                    state.getTaskInstanceId(), pluginType(snapshot), runMode(snapshot));
+            return;
+        }
+
         if (state.getStatus() != null && state.getStatus().isFinalState()) {
             log.info("任务已是终态, 准备上报最终状态, taskInstanceId={}, status={}, pluginType={}, runMode={}",
                     state.getTaskInstanceId(), state.getStatus(), pluginType(snapshot), runMode(snapshot));
@@ -149,12 +155,16 @@ public class AgentTaskStateReportScheduler {
                     state.getTaskInstanceId(), state.getStatus(), state.getAppId(), state.getWorkDirPath());
             return;
         }
-        if (mapping == null) {
-            log.warn("未匹配到插件运行模式状态映射, taskInstanceId={}, pluginType={}, runMode={}",
-                    state.getTaskInstanceId(), pluginType(snapshot), runMode(snapshot));
+
+        StatusEnum queriedStatus = state.getStatus();
+        StatusEnum mappedStatus = mapping.mapState(state);
+        WorkerTaskExecutionState latestState = stateStore.readState(state.getTaskInstanceId()).orElse(state);
+        if (latestState.getStatus() != queriedStatus) {
+            log.info("任务状态已变化, 丢弃本次刷新结果, taskInstanceId={}, queriedStatus={}, latestStatus={}",
+                    state.getTaskInstanceId(), queriedStatus, latestState.getStatus());
             return;
         }
-        StatusEnum mappedStatus = mapping.mapState(state);
+        state = latestState;
         StatusEnum nextStatus = normalizeUnknown(state, mappedStatus);
         if (nextStatus == null) {
             log.info("插件状态映射结果为空, 暂不上报状态, taskInstanceId={}, currentStatus={}, pluginType={}, runMode={}",

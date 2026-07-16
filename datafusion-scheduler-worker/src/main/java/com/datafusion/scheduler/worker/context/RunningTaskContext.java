@@ -50,6 +50,7 @@ public class RunningTaskContext {
         WorkerResult workerResult = request.getWorkerResult();
         context.setWorkerId(workerResult == null ? null : workerResult.getWorkerId());
         context.setPluginType(request.getPluginType());
+        context.setRunMode(request.getRunMode());
         context.setAppId(workerResult == null ? null : workerResult.getAppId());
         context.setTaskState(request.getTaskState());
         context.setSubmitMode(request.getSubmitMode());
@@ -111,6 +112,9 @@ public class RunningTaskContext {
         if (request.getPluginType() != null) {
             this.setPluginType(request.getPluginType());
         }
+        if (request.getRunMode() != null) {
+            this.setRunMode(request.getRunMode());
+        }
         if (request.getTaskState() != null) {
             this.setTaskState(request.getTaskState());
         }
@@ -147,6 +151,9 @@ public class RunningTaskContext {
         }
         if (request.getPluginType() != null) {
             this.setPluginType(request.getPluginType());
+        }
+        if (request.getRunMode() != null) {
+            this.setRunMode(request.getRunMode());
         }
         if (request.getSubmitMode() != null) {
             this.setSubmitMode(request.getSubmitMode());
@@ -258,6 +265,9 @@ public class RunningTaskContext {
         }
         if (request.getPluginType() == null) {
             request.setPluginType(getPluginType());
+        }
+        if (request.getRunMode() == null) {
+            request.setRunMode(getRunMode());
         }
         if (request.getTaskData() == null) {
             request.setTaskData(getTaskData());

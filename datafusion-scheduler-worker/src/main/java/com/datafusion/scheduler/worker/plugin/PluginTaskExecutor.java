@@ -20,6 +20,13 @@ public interface PluginTaskExecutor {
     String pluginType();
 
     /**
+     * 获取运行模式.
+     *
+     * @return 运行模式
+     */
+    String runMode();
+
+    /**
      * 校验任务请求参数.
      *
      * @param request 任务请求

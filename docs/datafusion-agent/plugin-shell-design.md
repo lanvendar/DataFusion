@@ -18,8 +18,9 @@ POST /internal/scheduler/finishTask
 ## 提交流程
 
 ```text
-TaskRequest(pluginType=SHELL, taskData, pluginParam)
-    -> ShellLocalPluginTaskExecutor.prepareTask
+TaskRequest(pluginType=SHELL, runMode=LOCAL, taskData, pluginParam)
+    -> WorkerTaskOperatorRouter.route("SHELL", "LOCAL")
+    -> ShellLocalPluginTaskExecutor.validateTaskRequest
     -> 渲染 plugins/shell/templates/shell-local-runtime.yml 得到 LocalShellProcess
     -> 创建 ${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
     -> ProcessBuilder 启动本地进程

@@ -4,9 +4,10 @@ import com.datafusion.agent.runtime.worker.InMemoryWorkerTaskExecutionStore;
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxParamResolver;
-import com.datafusion.agent.runtime.worker.plugin.datax.DataxTaskResult;
+import com.datafusion.agent.runtime.worker.plugin.datax.DataxRunMode;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -20,13 +21,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for {@link K8sDataxTaskRunner}.
+ * Tests for {@link K8sDataxPluginTaskExecutor}.
  *
  * @author datafusion
  * @version 1.0.0, 2026/6/8
  * @since 1.0.0
  */
-class K8sDataxTaskRunnerTest {
+class K8sDataxPluginTaskExecutorTest {
 
     /**
      * Object mapper.
@@ -39,22 +40,23 @@ class K8sDataxTaskRunnerTest {
     @Test
     void shouldReturnStoppingBeforeKubernetesJobActuallyExits() {
         FakeKubernetesClient client = new FakeKubernetesClient();
-        K8sDataxTaskRunner runner = runner(client);
+        InMemoryWorkerTaskExecutionStore stateStore = stateStore(StatusEnum.RUNNING);
+        K8sDataxPluginTaskExecutor executor = executor(client, stateStore);
 
-        DataxTaskResult result = runner.stop(param(), state(StatusEnum.RUNNING));
+        TaskResult result = executor.stopTask(request());
 
-        assertEquals(StatusEnum.STOPPING, result.getStatus());
+        assertEquals(StatusEnum.STOPPING, result.getTaskState());
         assertEquals(false, client.forcibly);
     }
 
     @Test
     void shouldReturnKilledWhenKubernetesKillDeletesJob() {
         FakeKubernetesClient client = new FakeKubernetesClient();
-        K8sDataxTaskRunner runner = runner(client);
+        K8sDataxPluginTaskExecutor executor = executor(client, stateStore(StatusEnum.UNKNOWN));
 
-        DataxTaskResult result = runner.kill(param(), state(StatusEnum.UNKNOWN));
+        TaskResult result = executor.killTask(request());
 
-        assertEquals(StatusEnum.KILLED, result.getStatus());
+        assertEquals(StatusEnum.KILLED, result.getTaskState());
         assertEquals(true, client.forcibly);
         assertEquals("df-datax-task-1", client.lastRuntimeRef.getJobName());
     }
@@ -63,22 +65,24 @@ class K8sDataxTaskRunnerTest {
     void shouldReturnUnknownWhenKubernetesKillFails() {
         FakeKubernetesClient client = new FakeKubernetesClient();
         client.stopException = new IllegalStateException("delete failed");
-        K8sDataxTaskRunner runner = runner(client);
+        K8sDataxPluginTaskExecutor executor = executor(client, stateStore(StatusEnum.UNKNOWN));
 
-        DataxTaskResult result = runner.kill(param(), state(StatusEnum.UNKNOWN));
+        TaskResult result = executor.killTask(request());
 
-        assertEquals(StatusEnum.UNKNOWN, result.getStatus());
-        assertEquals("K8S DataX kill failed: delete failed", result.getResult().path("message").asText());
+        assertEquals(StatusEnum.UNKNOWN, result.getTaskState());
+        assertEquals("K8S DataX kill failed: delete failed", result.getWorkerResult().getMessage());
     }
 
     @Test
     void shouldReturnKilledWhenKubernetesRuntimeRefIsMissingOnKill() {
         FakeKubernetesClient client = new FakeKubernetesClient();
-        K8sDataxTaskRunner runner = runner(client);
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        stateStore.saveState(stateWithoutAppId(StatusEnum.UNKNOWN));
+        K8sDataxPluginTaskExecutor executor = executor(client, stateStore);
 
-        DataxTaskResult result = runner.kill(param(), stateWithoutAppId(StatusEnum.UNKNOWN));
+        TaskResult result = executor.killTask(request());
 
-        assertEquals(StatusEnum.KILLED, result.getStatus());
+        assertEquals(StatusEnum.KILLED, result.getTaskState());
         assertNull(client.forcibly);
     }
 
@@ -87,11 +91,11 @@ class K8sDataxTaskRunnerTest {
         FakeKubernetesClient client = new FakeKubernetesClient();
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         stateStore.saveState(state(StatusEnum.RUN_FAILURE));
-        K8sDataxTaskRunner runner = runner(client, stateStore);
+        K8sDataxPluginTaskExecutor executor = executor(client, stateStore);
 
-        DataxTaskResult result = runner.submit(param());
+        TaskResult result = executor.submitTask(request());
 
-        assertEquals(StatusEnum.RUNNING, result.getStatus());
+        assertEquals(StatusEnum.RUNNING, result.getTaskState());
         assertEquals(1, client.cleanupCount);
         assertEquals(DataxKubernetesCleanupMode.BEFORE_SUBMIT, client.lastCleanupMode);
         assertEquals(1, client.submitCount);
@@ -104,24 +108,24 @@ class K8sDataxTaskRunnerTest {
         client.cleanupResult = false;
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         stateStore.saveState(state(StatusEnum.RUN_FAILURE));
-        K8sDataxTaskRunner runner = runner(client, stateStore);
+        K8sDataxPluginTaskExecutor executor = executor(client, stateStore);
 
-        DataxTaskResult result = runner.submit(param());
+        TaskResult result = executor.submitTask(request());
 
-        assertEquals(StatusEnum.SUBMIT_FAILURE, result.getStatus());
+        assertEquals(StatusEnum.SUBMIT_FAILURE, result.getTaskState());
         assertEquals(1, client.cleanupCount);
         assertEquals(DataxKubernetesCleanupMode.BEFORE_SUBMIT, client.lastCleanupMode);
         assertEquals(0, client.submitCount);
         assertEquals("df-datax-task-1", client.lastRuntimeRef.getJobName());
-        assertTrue(result.getResult().path("message").asText().contains("cleanup before submit unfinished"));
+        assertTrue(result.getWorkerResult().getMessage().contains("cleanup before submit unfinished"));
     }
 
     @Test
     void shouldCleanupKubernetesRuntimeOnFinish() {
         FakeKubernetesClient client = new FakeKubernetesClient();
-        K8sDataxTaskRunner runner = runner(client);
+        K8sDataxPluginTaskExecutor executor = executor(client, stateStore(StatusEnum.RUN_SUCCESS));
 
-        boolean result = runner.finish(param(), state(StatusEnum.RUN_SUCCESS));
+        boolean result = executor.finishTask(request());
 
         assertTrue(result);
         assertEquals(1, client.cleanupCount);
@@ -136,12 +140,9 @@ class K8sDataxTaskRunnerTest {
         return properties;
     }
 
-    private K8sDataxTaskRunner runner(FakeKubernetesClient client) {
-        return runner(client, new InMemoryWorkerTaskExecutionStore());
-    }
-
-    private K8sDataxTaskRunner runner(FakeKubernetesClient client, InMemoryWorkerTaskExecutionStore stateStore) {
-        return new K8sDataxTaskRunner(client, stateStore);
+    private K8sDataxPluginTaskExecutor executor(FakeKubernetesClient client,
+            InMemoryWorkerTaskExecutionStore stateStore) {
+        return new K8sDataxPluginTaskExecutor(new DataxParamResolver(properties()), client, stateStore);
     }
 
     private TaskRequest request() {
@@ -150,7 +151,6 @@ class K8sDataxTaskRunnerTest {
 
     private TaskRequest request(boolean collectLogsOnFinish) {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.put("runMode", "K8S");
         ObjectNode pluginKubernetes = OBJECT_MAPPER.createObjectNode();
         pluginKubernetes.put("namespace", "df");
         pluginKubernetes.put("image", "datafusion/datax:latest");
@@ -162,13 +162,17 @@ class K8sDataxTaskRunnerTest {
         request.setFlowInstanceId("flow-1");
         request.setTaskInstanceId("task-1");
         request.setTaskName("DataX");
+        request.setPluginType("DATAX");
+        request.setRunMode(DataxRunMode.K8S.name());
         request.setPluginParam(pluginParam);
         request.setTaskData(taskData);
         return request;
     }
 
-    private DataxExecutionParam param() {
-        return new DataxParamResolver(properties()).resolve(request());
+    private InMemoryWorkerTaskExecutionStore stateStore(StatusEnum status) {
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        stateStore.saveState(state(status));
+        return stateStore;
     }
 
     private WorkerTaskExecutionState state(StatusEnum status) {

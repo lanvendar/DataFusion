@@ -1,6 +1,5 @@
 package com.datafusion.agent.runtime.worker.plugin.datax;
 
-import com.datafusion.agent.runtime.worker.plugin.datax.k8s.DataxKubernetesRuntimeRef;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Builder;
@@ -37,8 +36,4 @@ public class DataxTaskResult {
      */
     private JsonNode result;
 
-    /**
-     * Kubernetes runtime reference.
-     */
-    private DataxKubernetesRuntimeRef kubernetesRuntimeRef;
 }

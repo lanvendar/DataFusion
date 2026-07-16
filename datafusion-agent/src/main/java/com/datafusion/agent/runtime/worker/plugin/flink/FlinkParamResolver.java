@@ -32,8 +32,6 @@ public class FlinkParamResolver {
     /**
      * Run mode field name.
      */
-    public static final String FIELD_RUN_MODE = "runMode";
-
     /**
      * Date formatter.
      */
@@ -185,7 +183,7 @@ public class FlinkParamResolver {
         }
         JsonNode taskData = request.getTaskData();
         JsonNode pluginParam = request.getPluginParam();
-        FlinkRunMode runMode = FlinkRunMode.parse(text(pluginParam, FIELD_RUN_MODE));
+        FlinkRunMode runMode = FlinkRunMode.parse(request.getRunMode());
         Path runtimeDir = taskRuntimeDir(LocalDate.now().format(DATE_FORMATTER), request);
         JsonNode effectiveTaskData = effectiveTaskData(pluginParam, taskData);
         Map<String, String> flinkConfig = effectiveFlinkConfig(request, pluginParam, effectiveTaskData);

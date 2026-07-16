@@ -6,9 +6,10 @@ import com.datafusion.agent.runtime.worker.plugin.template.TemplateSpecRenderer;
 import com.datafusion.agent.runtime.worker.plugin.template.TemplateYamlFragments;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxJobFileService;
+import com.datafusion.agent.runtime.worker.plugin.datax.DataxParamResolver;
+import com.datafusion.agent.runtime.worker.plugin.datax.DataxPluginTaskExecutor;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxRunMode;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxTaskResult;
-import com.datafusion.agent.runtime.worker.plugin.datax.DataxTaskRunner;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
@@ -25,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
- * LOCAL DataX task runner.
+ * LOCAL DataX 插件任务执行器.
  *
  * @author datafusion
  * @version 1.0.0, 2026/6/8
@@ -33,17 +34,12 @@ import java.util.concurrent.Executor;
  */
 @Slf4j
 @Component
-public class LocalDataxTaskRunner implements DataxTaskRunner {
+public class LocalDataxPluginTaskExecutor extends DataxPluginTaskExecutor {
 
     /**
      * Job file service.
      */
     private final DataxJobFileService jobFileService;
-
-    /**
-     * State store.
-     */
-    private final WorkerTaskExecutionStore stateStore;
 
     /**
      * Local template path.
@@ -63,26 +59,28 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
     /**
      * Constructor.
      *
+     * @param paramResolver 参数解析器
      * @param jobFileService job file service
-     * @param stateStore      state store
+     * @param stateStore state store
      * @param templateRenderer template renderer
      * @param watcherExecutor watcher executor
      */
-    public LocalDataxTaskRunner(DataxJobFileService jobFileService, WorkerTaskExecutionStore stateStore,
-            TemplateSpecRenderer templateRenderer, @Qualifier("agentTaskPool") Executor watcherExecutor) {
+    public LocalDataxPluginTaskExecutor(DataxParamResolver paramResolver, DataxJobFileService jobFileService,
+            WorkerTaskExecutionStore stateStore, TemplateSpecRenderer templateRenderer,
+            @Qualifier("agentTaskPool") Executor watcherExecutor) {
+        super(paramResolver, stateStore);
         this.jobFileService = jobFileService;
-        this.stateStore = stateStore;
         this.templateRenderer = templateRenderer;
         this.watcherExecutor = watcherExecutor;
     }
 
     @Override
-    public DataxRunMode runMode() {
-        return DataxRunMode.LOCAL;
+    public String runMode() {
+        return DataxRunMode.LOCAL.name();
     }
 
     @Override
-    public DataxTaskResult submit(DataxExecutionParam param) {
+    protected DataxTaskResult submit(DataxExecutionParam param) {
         try {
             Path jobFile = jobFileService.resolveJobFile(param);
             Files.createDirectories(param.getWorkDir());
@@ -109,12 +107,12 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
     }
 
     @Override
-    public DataxTaskResult stop(DataxExecutionParam param, WorkerTaskExecutionState state) {
+    protected DataxTaskResult stop(DataxExecutionParam param, WorkerTaskExecutionState state) {
         return stopProcess(state, false);
     }
 
     @Override
-    public DataxTaskResult kill(DataxExecutionParam param, WorkerTaskExecutionState state) {
+    protected DataxTaskResult kill(DataxExecutionParam param, WorkerTaskExecutionState state) {
         return stopProcess(state, true);
     }
 
@@ -164,7 +162,7 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
         CompletableFuture.runAsync(() -> {
             try {
                 int exitCode = process.waitFor();
-                WorkerTaskExecutionState state = stateStore.readState(taskInstanceId).orElse(null);
+                WorkerTaskExecutionState state = stateStore().readState(taskInstanceId).orElse(null);
                 if (state == null || state.getStatus() != null && state.getStatus().isFinalState()) {
                     return;
                 }
@@ -172,7 +170,7 @@ public class LocalDataxTaskRunner implements DataxTaskRunner {
                 state.setStatus(exitCode == 0 ? StatusEnum.RUN_SUCCESS : StatusEnum.RUN_FAILURE);
                 state.setResult(resultJson("LOCAL DataX process exited, exitCode=" + exitCode, pluginLogUri(state),
                         exitCode));
-                stateStore.saveState(state);
+                stateStore().saveState(state);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.warn("LOCAL DataX watcher interrupted, taskInstanceId={}", taskInstanceId, e);

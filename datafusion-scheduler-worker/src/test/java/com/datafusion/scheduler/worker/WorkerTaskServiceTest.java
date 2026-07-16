@@ -16,6 +16,7 @@ import java.util.concurrent.Executor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
  * Tests for {@link WorkerTaskService}.
@@ -25,6 +26,17 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  * @since 1.0.0
  */
 class WorkerTaskServiceTest {
+
+    @Test
+    void shouldRouteSamePluginTypeByRunMode() {
+        SuccessPluginTaskExecutor local = new SuccessPluginTaskExecutor("LOCAL");
+        SuccessPluginTaskExecutor k8s = new SuccessPluginTaskExecutor("K8S");
+        WorkerTaskOperatorRouter router = new WorkerTaskOperatorRouter(List.of(local, k8s));
+
+        assertSame(local, router.route("TEST", "LOCAL"));
+        assertSame(k8s, router.route("TEST", "K8S"));
+        assertEquals(List.of("TEST"), new ArrayList<>(router.pluginTypes()));
+    }
 
     @Test
     void shouldRemoveContextWhenFinishContextMissing() {
@@ -161,6 +173,7 @@ class WorkerTaskServiceTest {
         request.setTaskInstanceId("task-1");
         request.setTaskName("task-name");
         request.setPluginType("TEST");
+        request.setRunMode("LOCAL");
         return request;
     }
 
@@ -233,6 +246,19 @@ class WorkerTaskServiceTest {
     private static class SuccessPluginTaskExecutor implements PluginTaskExecutor {
 
         /**
+         * Run mode.
+         */
+        private final String runMode;
+
+        SuccessPluginTaskExecutor() {
+            this("LOCAL");
+        }
+
+        SuccessPluginTaskExecutor(String runMode) {
+            this.runMode = runMode;
+        }
+
+        /**
          * Submit count.
          */
         private int submitCount;
@@ -250,6 +276,11 @@ class WorkerTaskServiceTest {
         @Override
         public String pluginType() {
             return "TEST";
+        }
+
+        @Override
+        public String runMode() {
+            return runMode;
         }
 
         @Override

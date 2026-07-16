@@ -18,6 +18,7 @@
 | `TaskRequest` | Request | master/manager 请求 worker 操作任务 | `taskState` | `StatusEnum` | 可选 | master 当前任务状态 |
 | `TaskRequest` | Request | master/manager 请求 worker 操作任务 | `taskData` | `JsonNode` | 可选 | 渲染后的任务执行数据，插件自行解释 |
 | `TaskRequest` | Request | master/manager 请求 worker 操作任务 | `pluginType` | `String` | `submitTask` 必填 | 插件路由键 |
+| `TaskRequest` | Request | master/manager 请求 worker 操作任务 | `runMode` | `String` | `submitTask` 必填 | 运行模式路由键 |
 | `TaskRequest` | Request | master/manager 请求 worker 操作任务 | `pluginParam` | `JsonNode` | 可选 | 插件配置参数，插件自行解释 |
 | `TaskRequest` | Request | master/manager 请求 worker 操作任务 | `submitMode` | `SubmitModeEnum` | 可选，默认 `SYNC` | 提交模式 |
 | `TaskRequest` | Request | 状态同步或控制请求上下文补齐 | `workerResult` | `WorkerResult` | 可选 | worker、外部任务和运行目录信息 |
@@ -91,7 +92,7 @@
 
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
-| `TaskInstance` -> `TaskRequest` | manager/master 侧运行时转换 | `pluginData.pluginType/pluginParam` 映射为 `pluginType/pluginParam` |
+| `TaskInstance` -> `TaskRequest` | manager/master 侧运行时转换 | `pluginData.pluginType/runMode/pluginParam` 映射为同名字段 |
 | `TaskRequest` -> `RunningTaskContext` | worker 接收请求后创建或复用上下文 | 幂等键为 `taskInstanceId`；worker 信息来自 `request.workerResult` |
 | `PluginTaskExecutor.validateTaskRequest` -> `TaskRequest` | 插件在提交前校验任务请求 | 校验失败返回 `SUBMIT_FAILURE` |
 | `PluginTaskExecutor.submitTask` -> `TaskResult` | 插件返回执行结果 | worker 补齐任务身份、`submitMode` 和 `workerResult.workerId` |
@@ -110,7 +111,7 @@
 | `taskState` / `status` | `TaskResult` / `WorkerTaskExecutionState` | `StatusEnum` | 使用 common-data 调度状态 | 插件私有状态必须映射后再上报 |
 | `taskData` | `TaskRequest` / `WorkerTaskExecutionSnap` | `JsonNode` | worker 不解析结构 | 插件自行解释 |
 | `pluginParam` | `TaskRequest` / `WorkerTaskExecutionSnap` | `JsonNode` | worker 不解析结构 | 插件自行解释 |
-| `runMode` | `WorkerTaskExecutionSnap` | `String` | 插件自行解释 | 状态映射按 `pluginType + runMode` 路由 |
+| `runMode` | `TaskRequest` / `WorkerTaskExecutionSnap` | `String` | 请求必填并保存到快照 | 执行器和状态映射均按 `pluginType + runMode` 路由 |
 | `appId` | `WorkerResult` / `WorkerTaskExecutionState` | `String` | 插件写入 | 终端任务 ID |
 | `workDirPath` | `WorkerResult` / `WorkerTaskExecutionState` | `String` | agent/plugin 写入 | agent 任务运行目录 |
 | `result` | `WorkerTaskExecutionState` | `JsonNode` | agent/plugin 写入 | 不写密码、完整 job JSON、大体积日志正文或本地退出码 |

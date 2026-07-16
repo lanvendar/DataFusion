@@ -40,7 +40,7 @@ com.datafusion.scheduler.worker.reporter
 
 - `WorkerTaskOperator`：worker 侧任务控制入口，定义 `submitTask`、`stopTask`、`killTask`、`finishTask`。
 - `WorkerTaskService`：默认实现，负责参数校验、插件路由、提交语义、上下文幂等和结果上报。
-- `PluginTaskExecutor`：插件执行器，负责某一 `pluginType` 的 validate、submit、stop、kill、finish/destroy。
+- `PluginTaskExecutor`：插件执行器，负责某一 `pluginType + runMode` 的 validate、submit、stop、kill、finish/destroy。
 - `PluginRunModeStateMapping`：插件状态映射器，按 `pluginType + runMode` 把终端状态映射为 `StatusEnum`。
 - `RunningTaskContext`：进程内运行上下文，直接组合 `WorkerTaskExecutionSnap` 和
   `WorkerTaskExecutionState`，不重复声明二者已有属性，也不内嵌完整 `TaskRequest` / `TaskResult`。
@@ -54,7 +54,7 @@ com.datafusion.scheduler.worker.reporter
 ```text
 TaskRequest
     -> WorkerTaskService
-    -> WorkerTaskOperatorRouter.route(pluginType)
+    -> WorkerTaskOperatorRouter.route(pluginType, runMode)
     -> PluginTaskExecutor.validateTaskRequest
     -> PluginTaskExecutor.submitTask / stopTask / killTask / finishTask
     -> RunningTaskContext 更新
@@ -90,6 +90,8 @@ WorkerTaskExecutionStore.listListeningStates
 - `SPARK + YARN`：Yarn application 状态。
 
 因此状态映射必须按 `pluginType + runMode` 路由。同一组合如果存在多种状态源，应由该插件自己的 `PluginRunModeStateMapping` 在插件参数或运行态中选择来源。
+
+执行器路由遵循同一组合唯一原则。同一插件存在多种运行模式时，每种模式注册独立执行器并共享轻量公共实现；只有一种运行模式时直接实现 `PluginTaskExecutor`。
 
 ## 7. 幂等与恢复边界
 

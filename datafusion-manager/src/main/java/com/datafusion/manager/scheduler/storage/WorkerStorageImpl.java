@@ -299,6 +299,7 @@ public class WorkerStorageImpl implements WorkerStorage {
         request.setTaskData(entity.getTaskData());
         request.setWorkerResult(workerResult(entity));
         request.setPluginType(pluginData == null ? null : pluginData.getPluginType());
+        request.setRunMode(pluginData == null ? null : pluginData.getRunMode());
         request.setPluginParam(pluginData == null ? null : pluginData.getPluginParam());
         return request;
     }

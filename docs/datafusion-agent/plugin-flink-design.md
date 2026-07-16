@@ -6,8 +6,7 @@
 ## 1. 定位
 
 `FLINK` 插件在 agent 中统一承接 Flink 作业提交、停止、强杀、状态映射和日志入口上报。
-当前代码定义 `LOCAL`、`STANDALONE`、`YARN`、`K8S`、`K8S_OPERATOR` 五个运行模式枚举，已注册的可执行 runner
-为 `K8S_OPERATOR`。
+当前执行器注册为 `FLINK + K8S_OPERATOR`。
 
 | 项 | 当前设计 |
 |----|----------|
@@ -27,7 +26,6 @@ Manager scheduler
     -> WorkerTaskService
     -> FlinkPluginTaskExecutor
     -> FlinkParamResolver
-    -> FlinkTaskRunner(K8S_OPERATOR)
     -> flink-job.json
     -> FlinkDeployment
     -> WorkerTaskExecutionStore
@@ -35,8 +33,7 @@ Manager scheduler
     -> ManagerTaskResultReporter
 ```
 
-`FlinkPluginTaskExecutor` 按 `FlinkRunMode` 分派 runner。`K8S_OPERATOR` 以外的枚举值可被解析，但当前没有
-对应 runner，提交时返回未匹配运行器错误。
+`WorkerTaskOperatorRouter` 按 `FLINK + K8S_OPERATOR` 直接选择 `FlinkPluginTaskExecutor`。
 
 ## 3. K8S_OPERATOR 提交流程
 
@@ -53,7 +50,7 @@ Manager scheduler
 
 核心规则：
 
-- `pluginParam.runMode` 来自 Manager 插件配置注入。
+- `TaskRequest.runMode` 来自 Manager 插件配置，固定为 `K8S_OPERATOR`。
 - `pluginParam.flinkVersion` 固定为 `2.2.0`，Operator `spec.flinkVersion` 渲染为 `v2_2`。
 - 默认镜像为 `flink:2.2.0-scala_2.12-java17`；模板可配置内部镜像。
 - `launchMode` 默认为 `JAR`，主 jar 由 `pluginParam.flinkAppJar` 指定。
@@ -93,17 +90,18 @@ Manager scheduler
 
 ## 6. 状态映射
 
-`K8sOperatorClient` 只返回 Kubernetes / Operator 状态事实；`K8sOperatorRunModeStateMapping` 结合本地阶段映射
+`K8sOperatorClient` 只返回 Kubernetes / Operator 状态事实；`K8sOperatorRunModeStateMapping` 结合任务状态映射
 为 DataFusion `StatusEnum`。
 
-| 本地阶段 | Operator 状态 | DataFusion 状态 |
+| 任务状态 | Operator 状态 | DataFusion 状态 |
 |----------|---------------|-----------------|
-| 提交中 / 已提交 | `CREATED`, `INITIALIZING`, `RECONCILING` | `SUBMIT_SUCCESS` |
-| 提交中 / 运行中 | `RUNNING`, `RESTARTING` | `RUNNING` |
-| 任意非终态 | `FINISHED` | `RUN_SUCCESS` |
-| 任意非终态 | `FAILED` | `RUN_FAILURE` |
-| `STOPPING` | `RUNNING`, `SUSPENDED`, `CANCELLING`, `RECONCILING` | `STOPPING` |
-| `STOPPING` | `CANCELED` 或运行 Pod 不存在 | `STOP_SUCCESS` |
+| 正常执行 | `NONE`, `CREATED`, `INITIALIZING`, `RECONCILING` | 保持当前状态 |
+| 正常执行 | `RUNNING`, `RESTARTING`, `FAILING`, `CANCELLING` | `RUNNING` |
+| 正常执行 | `FINISHED` | `RUN_SUCCESS` |
+| 正常执行 | `FAILED`, `CANCELED`, `SUSPENDED` | `RUN_FAILURE` |
+| `STOPPING` | `FINISHED`, `CANCELED`, `SUSPENDED` 或运行 Pod 不存在 | `STOP_SUCCESS` |
+| `STOPPING` | `FAILED` | `STOP_FAILURE` |
+| `STOPPING` | 其他状态且运行 Pod 存在 | `STOPPING` |
 | `KILLING` | 运行资源不存在 | `KILLED` |
 | 非终态 | 状态缺失或无法识别 | `UNKNOWN` |
 

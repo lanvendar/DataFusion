@@ -14,14 +14,15 @@ Manager 侧继续复用 `scheduler_task_info.definition`、`scheduler_task_insta
 
 | 数据 | 创建来源 | 所有者 | 修改者 | 生命周期 | 退出 / 转换 |
 |------|----------|--------|--------|----------|-------------|
+| `TaskRequest.runMode` | Manager 插件配置 | Manager | Manager | 单次调度请求；agent 保存到 `.snap` | 与 `pluginType=FLINK` 共同路由执行器 |
 | `TaskRequest.pluginParam` | Manager 插件配置 | Manager | Manager | 单次调度请求；agent 保存到 `.snap` | `FlinkParamResolver` 解析为 `FlinkExecutionParam` |
 | `TaskRequest.taskData` | Manager 任务定义与实例上下文 | Manager | Manager | 单次调度请求；agent 保存到 `.snap` | 与 `defaultTaskData` 合并为 `effectiveTaskData` |
 | `effectiveTaskData` | Agent 参数解析 | Agent | Agent | 单次任务运行期 | 写入本地 `flink-job.json` |
 | `flinkConfig` | Agent 参数解析 | Agent | Agent | 单次任务运行期 | 写回 `effectiveTaskData.flinkConfig` 并渲染到 `FlinkDeployment` |
-| `FlinkExecutionParam` | Agent 参数解析 | Agent | Agent | 单次 submit / control / status 操作内存对象 | runner 消费后转为 `.snap/.state` 与 Kubernetes 资源 |
+| `FlinkExecutionParam` | Agent 参数解析 | Agent | Agent | 单次 submit / control / status 操作内存对象 | 执行器消费后转为 `.snap/.state` 与 Kubernetes 资源 |
 | `FlinkKubernetesRuntimeRef` | `.snap + .state` 重建 | Agent | Agent | 单次状态查询或控制动作 | 用于查询、停止、强杀、清理 Kubernetes 资源 |
 | `.snap` | `FlinkPluginTaskExecutor.submitTask` | Agent | Agent | 任务运行期 | agent finish / destroy 流程清理 |
-| `.state` | runner 与状态映射 | Agent | Agent | 任务运行期 | 终态上报后由 agent 流程清理 |
+| `.state` | 执行器与状态映射 | Agent | Agent | 任务运行期 | 终态上报后由 agent 流程清理 |
 
 Agent 不回写 Manager 的 `pluginParam` 或 `taskData`。
 
@@ -29,18 +30,17 @@ Agent 不回写 Manager 的 `pluginParam` 或 `taskData`。
 
 | 对象 | 字段 | 生命周期 | 说明 |
 |------|------|----------|------|
-| `FlinkRunMode` | `LOCAL`, `STANDALONE`, `YARN`, `K8S`, `K8S_OPERATOR` | 请求解析后固定 | 当前已注册 runner 为 `K8S_OPERATOR` |
-| `FlinkExecutionParam` | `runMode`, `flowInstanceId`, `taskInstanceId`, `jobJson`, `effectiveTaskData`, `workDir`, `flinkConfig`, `flinkAppDir`, `launchMode`, `flinkAppJar`, `classpath`, `mainClass`, `flinkVersion`, `libDir`, `args`, `kubernetes` | 单次任务 | runner 的归一化输入 |
+| `FlinkRunMode` | `LOCAL`, `STANDALONE`, `YARN`, `K8S`, `K8S_OPERATOR` | 请求解析后固定 | 当前执行器使用 `K8S_OPERATOR` |
+| `FlinkExecutionParam` | `runMode`, `flowInstanceId`, `taskInstanceId`, `jobJson`, `effectiveTaskData`, `workDir`, `flinkConfig`, `flinkAppDir`, `launchMode`, `flinkAppJar`, `classpath`, `mainClass`, `flinkVersion`, `libDir`, `args`, `kubernetes` | 单次任务 | 执行器的归一化输入 |
 | `FlinkKubernetesParam` | `namespace`, `deploymentName`, `image`, `imagePullPolicy`, `serviceAccountName`, `sharedPvcName`, `sharedMountPath`, `flinkAppDir`, `flinkAppJar`, `jarUri`, `mainClass`, `flinkVersion`, `libDir`, `jobParallelism`, `upgradeMode`, `jobState`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish`, `labels`, `annotations`, `env`, `envFrom`, `jobManager`, `taskManager`, `nodeSelector` | 单次任务 | `upgradeMode` 来自配置；`jobState` 由 Agent 动作生成，用于渲染 `FlinkDeployment` |
 | `FlinkKubernetesRuntimeRef` | `namespace`, `deploymentName`, `podLabelSelector`, `logStorageUri`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish` | 状态查询 / 控制动作 | 从 `.snap + .state` 重建 |
 | `FlinkOperatorStatus` | `state`, `deploymentExists`, `podExists`, `serviceExists` | 单次状态查询 | Kubernetes / Operator 事实 |
-| `FlinkTaskResult` | `status`, `appId`, `workDirPath`, `result`, `kubernetesRuntimeRef` | 单次 runner 返回 | 转换为 `TaskResult.workerResult` |
+| `FlinkTaskResult` | `status`, `appId`, `workDirPath`, `result` | 单次动作 | 转换为 `TaskResult.workerResult` |
 
 ## 4. `pluginParam`
 
 | 字段 | 类型 | 默认值 | 必填 | 说明 |
 |------|------|--------|------|------|
-| `runMode` | `String` | 无 | 是 | 当前可执行值为 `K8S_OPERATOR` |
 | `flinkAppDir` | `String` | 无 | 是 | Pod 内共享盘 app 目录 |
 | `launchMode` | `String` | `JAR` | 否 | 当前执行路径按 JAR 模式渲染 |
 | `flinkAppJar` | `String` | 无 | 是 | app 主 jar 文件名 |
@@ -130,9 +130,9 @@ plugins/flink/{appDirName}/{libDir}/
 |------|----------|-----------|------|
 | `pluginType` | `WorkerTaskExecutionSnap` | `FLINK` | 插件路由键 |
 | `runMode` | `WorkerTaskExecutionSnap` | `LOCAL`, `STANDALONE`, `YARN`, `K8S`, `K8S_OPERATOR` | 状态映射和控制恢复键 |
-| `appId` | `WorkerTaskExecutionState` | `FlinkDeployment` name | runner 提交后写入 |
+| `appId` | `WorkerTaskExecutionState` | `FlinkDeployment` name | 执行器提交后写入 |
 | `workDirPath` | `WorkerTaskExecutionState` | 本地任务运行目录 | 保存 job 快照和日志 |
-| `status` | `WorkerTaskExecutionState` | `StatusEnum` | 由 runner 和状态映射写入 |
+| `status` | `WorkerTaskExecutionState` | `StatusEnum` | 由执行器和状态映射写入 |
 | `result` | `WorkerTaskExecutionState` | JSON | 可包含 `pluginLogUri`, `flinkWebUiUri`, `flinkJobId`, `savepointLocation` |
 
 ## 10. 前端数据模型

@@ -73,6 +73,7 @@ class FlinkKubernetesTemplateRendererTest {
         request.setTaskInstanceId("task-1");
         request.setTaskName("Flink");
         request.setPluginType("FLINK");
+        request.setRunMode("K8S_OPERATOR");
         request.setPluginParam(pluginParam());
         request.setTaskData(taskData());
         return request;
@@ -80,7 +81,6 @@ class FlinkKubernetesTemplateRendererTest {
 
     private ObjectNode pluginParam() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.put("runMode", "K8S_OPERATOR");
         pluginParam.put("flinkAppDir", "/opt/datafusion/plugins/flink/datafusion-plugin-flink-table");
         pluginParam.put("launchMode", "JAR");
         pluginParam.put("flinkAppJar", "datafusion-plugin-flink-table-1.0.0-executable.jar");

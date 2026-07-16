@@ -45,6 +45,8 @@ agent 对 manager 暴露：
 | `POST /internal/scheduler/killTask` | `TaskRequest` | `TaskResult` | 强制停止任务 |
 | `POST /internal/scheduler/finishTask` | `TaskRequest` | `TaskResult` | 任务终态后的本地清理入口 |
 
+`TaskRequest.pluginType` 与 `TaskRequest.runMode` 是执行器路由键；`pluginParam` 只承载插件配置。
+
 agent 调用 manager：
 
 | RPC | 请求对象 | 说明 |

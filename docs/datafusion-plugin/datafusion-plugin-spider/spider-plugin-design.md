@@ -98,7 +98,7 @@ datafusion-agent/src/main/resources/plugins/spider/templates/spider-local-plugin
 | 对象 | 来源 | 使用方 | 生命周期 |
 |------|------|--------|----------|
 | `TaskRequest.pluginType=SPIDER` | Manager / Scheduler | `datafusion-agent` | 单次任务请求 |
-| `TaskRequest.pluginParam.runMode=LOCAL` | Manager 插件配置注入 | `SpiderLocalPluginTaskExecutor` / Shell LOCAL delegate | 单次任务请求和 `.snap` |
+| `TaskRequest.runMode=LOCAL` | Manager 插件配置 | `SpiderLocalPluginTaskExecutor` / Shell LOCAL delegate | 单次任务请求和 `.snap` |
 | `TaskRequest.taskData.args` | 任务定义或实例上下文 | Shell LOCAL delegate | 单次任务请求 |
 | `.snap` / `.state` | `WorkerTaskExecutionStore` | 状态刷新、停止、强杀、完成 | 任务运行期，终态确认后按 agent 流程清理 |
 

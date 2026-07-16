@@ -8,152 +8,157 @@ import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.springframework.stereotype.Component;
-
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
 
 /**
- * DataX plugin task executor.
+ * DataX 插件任务执行器公共实现.
  *
  * @author datafusion
  * @version 1.0.0, 2026/6/8
  * @since 1.0.0
  */
-@Component
-public class DataxPluginTaskExecutor implements PluginTaskExecutor {
+public abstract class DataxPluginTaskExecutor implements PluginTaskExecutor {
 
     /**
-     * Plugin type.
+     * 插件类型.
      */
     public static final String PLUGIN_TYPE = "DATAX";
 
     /**
-     * Object mapper.
-     */
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-    /**
-     * Parameter resolver.
+     * 参数解析器.
      */
     private final DataxParamResolver paramResolver;
 
     /**
-     * State store.
+     * 状态存储.
      */
     private final WorkerTaskExecutionStore stateStore;
 
     /**
-     * Runner map.
-     */
-    private final Map<DataxRunMode, DataxTaskRunner> runnerMap = new EnumMap<>(DataxRunMode.class);
-
-    /**
-     * Constructor.
+     * 构造函数.
      *
-     * @param paramResolver parameter resolver
-     * @param stateStore    state store
-     * @param runners       runners
+     * @param paramResolver 参数解析器
+     * @param stateStore 状态存储
      */
-    public DataxPluginTaskExecutor(DataxParamResolver paramResolver, WorkerTaskExecutionStore stateStore,
-            List<DataxTaskRunner> runners) {
+    protected DataxPluginTaskExecutor(DataxParamResolver paramResolver, WorkerTaskExecutionStore stateStore) {
         this.paramResolver = paramResolver;
         this.stateStore = stateStore;
-        if (runners != null) {
-            runners.forEach(runner -> runnerMap.put(runner.runMode(), runner));
-        }
     }
 
     @Override
-    public String pluginType() {
+    public final String pluginType() {
         return PLUGIN_TYPE;
     }
 
     @Override
-    public void validateTaskRequest(TaskRequest request) {
+    public final void validateTaskRequest(TaskRequest request) {
         paramResolver.resolve(request);
     }
 
     @Override
-    public TaskResult submitTask(TaskRequest request) {
+    public final TaskResult submitTask(TaskRequest request) {
         DataxExecutionParam param = paramResolver.resolve(request);
-        DataxTaskRunner runner = runner(param.getRunMode());
-        DataxTaskResult submitResult = runner.submit(param);
-        stateStore.saveSnapshot(snapshot(request, param));
-        WorkerResult requestWorkerResult = request.getWorkerResult();
-        WorkerTaskExecutionState state = WorkerTaskExecutionState.builder()
+        DataxTaskResult result = submit(param);
+        stateStore.saveSnapshot(snapshot(request));
+        WorkerResult workerResult = request.getWorkerResult();
+        stateStore.saveState(WorkerTaskExecutionState.builder()
                 .taskInstanceId(request.getTaskInstanceId())
-                .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
-                .appId(submitResult.getAppId())
-                .workDirPath(submitResult.getWorkDirPath())
-                .status(submitResult.getStatus())
-                .result(submitResult.getResult())
-                .build();
-        stateStore.saveState(state);
-        return taskResult(request, submitResult);
+                .workerId(workerResult == null ? null : workerResult.getWorkerId())
+                .appId(result.getAppId())
+                .workDirPath(result.getWorkDirPath())
+                .status(result.getStatus())
+                .result(result.getResult())
+                .build());
+        return taskResult(request, result);
     }
 
     @Override
-    public TaskResult stopTask(TaskRequest request) {
+    public final TaskResult stopTask(TaskRequest request) {
         WorkerTaskExecutionState state = currentState(request);
-        TaskRequest resolvedRequest = resolveRequest(request, state);
-        DataxExecutionParam param = paramResolver.resolve(resolvedRequest);
-        DataxTaskResult result = runner(param.getRunMode()).stop(param, state);
+        TaskRequest resolvedRequest = resolveRequest(request);
+        DataxTaskResult result = stop(paramResolver.resolve(resolvedRequest), state);
         recordControlResult(resolvedRequest, state, result);
         return taskResult(resolvedRequest, result);
     }
 
     @Override
-    public TaskResult killTask(TaskRequest request) {
+    public final TaskResult killTask(TaskRequest request) {
         WorkerTaskExecutionState state = currentState(request);
-        TaskRequest resolvedRequest = resolveRequest(request, state);
-        DataxExecutionParam param = paramResolver.resolve(resolvedRequest);
-        DataxTaskResult result = runner(param.getRunMode()).kill(param, state);
+        TaskRequest resolvedRequest = resolveRequest(request);
+        DataxTaskResult result = kill(paramResolver.resolve(resolvedRequest), state);
         recordControlResult(resolvedRequest, state, result);
         return taskResult(resolvedRequest, result);
     }
 
     @Override
-    public boolean finishTask(TaskRequest request) {
+    public final boolean finishTask(TaskRequest request) {
         WorkerTaskExecutionState state = currentState(request);
-        TaskRequest resolvedRequest = resolveRequest(request, state);
-        if (resolvedRequest.getPluginParam() == null) {
-            return true;
-        }
-        DataxExecutionParam param = paramResolver.resolve(resolvedRequest);
-        return runner(param.getRunMode()).finish(param, state);
+        TaskRequest resolvedRequest = resolveRequest(request);
+        return resolvedRequest.getPluginParam() == null
+                || finish(paramResolver.resolve(resolvedRequest), state);
     }
 
-    private DataxTaskRunner runner(DataxRunMode runMode) {
-        DataxTaskRunner runner = runnerMap.get(runMode);
-        if (runner == null) {
-            throw new IllegalArgumentException("未匹配到DataX运行器: " + runMode);
-        }
-        return runner;
+    /**
+     * 提交当前运行模式任务.
+     *
+     * @param param 执行参数
+     * @return 执行结果
+     */
+    protected abstract DataxTaskResult submit(DataxExecutionParam param);
+
+    /**
+     * 停止当前运行模式任务.
+     *
+     * @param param 执行参数
+     * @param state 当前状态
+     * @return 执行结果
+     */
+    protected abstract DataxTaskResult stop(DataxExecutionParam param, WorkerTaskExecutionState state);
+
+    /**
+     * 强杀当前运行模式任务.
+     *
+     * @param param 执行参数
+     * @param state 当前状态
+     * @return 执行结果
+     */
+    protected abstract DataxTaskResult kill(DataxExecutionParam param, WorkerTaskExecutionState state);
+
+    /**
+     * 清理当前运行模式任务.
+     *
+     * @param param 执行参数
+     * @param state 当前状态
+     * @return 是否清理完成
+     */
+    protected boolean finish(DataxExecutionParam param, WorkerTaskExecutionState state) {
+        return true;
+    }
+
+    /**
+     * 获取状态存储.
+     *
+     * @return 状态存储
+     */
+    protected final WorkerTaskExecutionStore stateStore() {
+        return stateStore;
     }
 
     private WorkerTaskExecutionState currentState(TaskRequest request) {
-        WorkerResult requestWorkerResult = request.getWorkerResult();
+        WorkerResult workerResult = request.getWorkerResult();
         return stateStore.readState(request.getTaskInstanceId())
                 .orElseGet(() -> WorkerTaskExecutionState.builder()
                         .taskInstanceId(request.getTaskInstanceId())
-                        .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
-                        .appId(requestWorkerResult == null ? null : requestWorkerResult.getAppId())
+                        .workerId(workerResult == null ? null : workerResult.getWorkerId())
+                        .appId(workerResult == null ? null : workerResult.getAppId())
                         .status(request.getTaskState())
                         .build());
     }
 
-    private TaskRequest resolveRequest(TaskRequest request, WorkerTaskExecutionState state) {
+    private TaskRequest resolveRequest(TaskRequest request) {
         if (request.getPluginParam() != null && request.getTaskData() != null) {
             return request;
         }
         WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(request.getTaskInstanceId()).orElse(null);
-        if (snapshot == null && state != null) {
-            snapshot = stateStore.readSnapshot(state.getTaskInstanceId()).orElse(null);
-        }
         if (snapshot == null) {
             return request;
         }
@@ -162,90 +167,63 @@ public class DataxPluginTaskExecutor implements PluginTaskExecutor {
         resolvedRequest.setTaskInstanceId(firstText(request.getTaskInstanceId(), snapshot.getTaskInstanceId()));
         resolvedRequest.setTaskName(firstText(request.getTaskName(), snapshot.getTaskName()));
         resolvedRequest.setPluginType(firstText(request.getPluginType(), snapshot.getPluginType()));
+        resolvedRequest.setRunMode(firstText(request.getRunMode(), snapshot.getRunMode()));
         resolvedRequest.setWorkerResult(request.getWorkerResult());
         resolvedRequest.setTaskState(request.getTaskState());
         resolvedRequest.setSubmitMode(request.getSubmitMode());
         resolvedRequest.setTaskData(request.getTaskData() == null ? snapshot.getTaskData() : request.getTaskData());
-        resolvedRequest.setPluginParam(resolvedPluginParam(request, snapshot));
+        resolvedRequest.setPluginParam(request.getPluginParam() == null
+                ? snapshot.getPluginParam() : request.getPluginParam());
         return resolvedRequest;
     }
 
     private void recordControlResult(TaskRequest request, WorkerTaskExecutionState state, DataxTaskResult result) {
-        WorkerTaskExecutionState next = state == null ? currentState(request) : state;
-        WorkerResult requestWorkerResult = request.getWorkerResult();
-        next.setStatus(result.getStatus());
-        next.setWorkerId(firstText(next.getWorkerId(), requestWorkerResult == null ? null : requestWorkerResult.getWorkerId()));
-        next.setAppId(result.getAppId() == null ? next.getAppId() : result.getAppId());
-        next.setWorkDirPath(result.getWorkDirPath() == null ? next.getWorkDirPath() : result.getWorkDirPath());
-        next.setResult(result.getResult());
-        stateStore.saveState(next);
+        WorkerResult workerResult = request.getWorkerResult();
+        state.setStatus(result.getStatus());
+        state.setWorkerId(firstText(state.getWorkerId(), workerResult == null ? null : workerResult.getWorkerId()));
+        state.setAppId(firstText(result.getAppId(), state.getAppId()));
+        state.setWorkDirPath(firstText(result.getWorkDirPath(), state.getWorkDirPath()));
+        state.setResult(result.getResult());
+        stateStore.saveState(state);
     }
 
-    private TaskResult taskResult(TaskRequest request, DataxTaskResult result) {
-        WorkerResult requestWorkerResult = request.getWorkerResult();
-        return TaskResult.builder()
-                .taskInstanceId(request.getTaskInstanceId())
-                .flowInstanceId(request.getFlowInstanceId())
-                .taskName(request.getTaskName())
-                .taskState(result.getStatus())
-                .workerResult(workerResult(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId(),
-                        result.getAppId(), result.getWorkDirPath(), result.getResult()))
-                .build();
-    }
-
-    private WorkerResult workerResult(String workerId, String appId, String workDirPath, JsonNode result) {
-        return WorkerResult.builder()
-                .workerId(workerId)
-                .appId(appId)
-                .workDirPath(workDirPath)
-                .message(resultText(result, "message"))
-                .pluginLogUri(resultText(result, "pluginLogUri"))
-                .build();
-    }
-
-    private String resultText(JsonNode result, String fieldName) {
-        if (result == null || !result.hasNonNull(fieldName)) {
-            return null;
-        }
-        return result.get(fieldName).asText();
-    }
-
-    private WorkerTaskExecutionSnap snapshot(TaskRequest request, DataxExecutionParam param) {
-        WorkerResult requestWorkerResult = request.getWorkerResult();
+    private WorkerTaskExecutionSnap snapshot(TaskRequest request) {
+        WorkerResult workerResult = request.getWorkerResult();
         return WorkerTaskExecutionSnap.builder()
                 .flowInstanceId(request.getFlowInstanceId())
                 .taskName(request.getTaskName())
-                .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
+                .workerId(workerResult == null ? null : workerResult.getWorkerId())
                 .pluginType(PLUGIN_TYPE)
-                .runMode(param.getRunMode().name())
+                .runMode(runMode())
                 .taskInstanceId(request.getTaskInstanceId())
                 .taskData(request.getTaskData())
                 .pluginParam(request.getPluginParam())
                 .build();
     }
 
-    private JsonNode resolvedPluginParam(TaskRequest request, WorkerTaskExecutionSnap snapshot) {
-        if (request.getPluginParam() != null) {
-            return request.getPluginParam();
-        }
-        ObjectNode pluginParam = snapshot.getPluginParam() != null && snapshot.getPluginParam().isObject()
-                ? (ObjectNode) snapshot.getPluginParam().deepCopy() : OBJECT_MAPPER.createObjectNode();
-        if (!pluginParam.hasNonNull(DataxParamResolver.FIELD_RUN_MODE) && snapshot.getRunMode() != null) {
-            pluginParam.put(DataxParamResolver.FIELD_RUN_MODE, snapshot.getRunMode());
-        }
-        return pluginParam;
+    private TaskResult taskResult(TaskRequest request, DataxTaskResult result) {
+        WorkerResult requestWorkerResult = request.getWorkerResult();
+        JsonNode resultJson = result.getResult();
+        return TaskResult.builder()
+                .taskInstanceId(request.getTaskInstanceId())
+                .flowInstanceId(request.getFlowInstanceId())
+                .taskName(request.getTaskName())
+                .taskState(result.getStatus())
+                .workerResult(WorkerResult.builder()
+                        .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
+                        .appId(result.getAppId())
+                        .workDirPath(result.getWorkDirPath())
+                        .message(resultText(resultJson, "message"))
+                        .pluginLogUri(resultText(resultJson, "pluginLogUri"))
+                        .build())
+                .build();
     }
 
-    private String firstText(String... values) {
-        if (values == null) {
-            return null;
-        }
-        for (String value : values) {
-            if (value != null && !value.trim().isEmpty()) {
-                return value;
-            }
-        }
-        return null;
+    private String resultText(JsonNode result, String fieldName) {
+        return result != null && result.hasNonNull(fieldName) ? result.get(fieldName).asText() : null;
     }
 
+    private String firstText(String first, String second) {
+        return first == null || first.trim().isEmpty() ? second : first;
+    }
 }

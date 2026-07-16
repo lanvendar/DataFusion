@@ -329,6 +329,7 @@ public class HttpMasterTaskOperator implements MasterTaskOperator {
 
         PluginData pluginData = taskIns.getPluginData();
         request.setPluginType(pluginData.getPluginType());
+        request.setRunMode(pluginData.getRunMode());
         request.setPluginParam(pluginData.getPluginParam());
         request.setTaskState(taskIns.getState());
 

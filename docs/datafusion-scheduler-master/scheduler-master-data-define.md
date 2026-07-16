@@ -42,9 +42,9 @@
 |----|------|------|
 | `ParamData` | `vars` | 变量映射，key 为变量编码 |
 | `Variable` | `name` / `type` / `value` | 变量值对象 |
-| `PluginData` | `pluginType` / `pluginName` / `pluginParam` | 插件配置 |
+| `PluginData` | `pluginType` / `pluginName` / `runMode` / `pluginParam` | 插件配置 |
 | `TaskRequest` | `flowInstanceId` / `taskInstanceId` / `taskName` / `taskState` / `taskData` | 下发 worker 的任务数据 |
-| `TaskRequest` | `pluginType` / `pluginParam` / `submitMode` / `workerResult` | 插件、提交模式和 worker 上下文 |
+| `TaskRequest` | `pluginType` / `runMode` / `pluginParam` / `submitMode` / `workerResult` | 插件路由、提交模式和 worker 上下文 |
 | `TaskResult` | `taskInstanceId` / `flowInstanceId` / `taskName` / `taskState` / `submitMode` / `workerResult` | worker 返回结果 |
 | `Worker` | `id` / `workerCode` / `ip` / `port` / `pluginTypes` / `status` / `hostName` / `registerTime` / `lastHeartbeatTime` / `workerLogDir` / `updateTime` | worker 注册信息 |
 | `WorkerResult` | `outputVars` / `workerId` / `appId` / `workDirPath` / `message` / `pluginLogUri` | worker 执行上下文和输出 |

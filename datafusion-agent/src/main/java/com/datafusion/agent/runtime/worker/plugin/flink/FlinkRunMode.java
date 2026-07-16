@@ -42,7 +42,7 @@ public enum FlinkRunMode {
      */
     public static FlinkRunMode parse(String value) {
         if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("pluginParam.runMode不能为空");
+            throw new IllegalArgumentException("runMode不能为空");
         }
         return FlinkRunMode.valueOf(value.trim().toUpperCase());
     }

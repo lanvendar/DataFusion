@@ -2,7 +2,6 @@ package com.datafusion.agent.runtime.worker.plugin.datax;
 
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.InMemoryWorkerTaskExecutionStore;
-import com.datafusion.agent.runtime.worker.plugin.datax.k8s.DataxKubernetesRuntimeRef;
 import com.datafusion.common.utils.JacksonUtils;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
@@ -12,8 +11,6 @@ import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,8 +32,7 @@ class DataxPluginTaskExecutorTest {
     @Test
     void shouldPersistSnapshotAndStateFromSubmitResult() {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        DataxPluginTaskExecutor executor = new DataxPluginTaskExecutor(new DataxParamResolver(new AgentProperties()),
-                stateStore, List.of(new FakeK8sRunner()));
+        DataxPluginTaskExecutor executor = new FakeK8sExecutor(stateStore);
 
         TaskResult result = executor.submitTask(request());
 
@@ -46,7 +42,7 @@ class DataxPluginTaskExecutorTest {
         assertEquals("flow-1", snap.getFlowInstanceId());
         assertEquals(DataxPluginTaskExecutor.PLUGIN_TYPE, snap.getPluginType());
         assertEquals(DataxRunMode.K8S.name(), snap.getRunMode());
-        assertEquals("K8S", snap.getPluginParam().path("runMode").asText());
+        assertEquals(DataxRunMode.K8S.name(), executor.runMode());
         assertEquals(result.getWorkerResult().getAppId(), state.getAppId());
         assertEquals(result.getWorkerResult().getWorkDirPath(), state.getWorkDirPath());
         assertTrue(snap.getPluginParam().path("kubernetes").path("collectLogsOnFinish").asBoolean());
@@ -55,12 +51,9 @@ class DataxPluginTaskExecutorTest {
     @Test
     void shouldResolveRunModeFromSnapshotWhenPluginParamMissingRunMode() {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        FakeK8sRunner runner = new FakeK8sRunner();
-        DataxPluginTaskExecutor executor = new DataxPluginTaskExecutor(new DataxParamResolver(new AgentProperties()),
-                stateStore, List.of(runner));
+        FakeK8sExecutor executor = new FakeK8sExecutor(stateStore);
         TaskRequest sourceRequest = request();
         ObjectNode pluginParam = sourceRequest.getPluginParam().deepCopy();
-        pluginParam.remove(DataxParamResolver.FIELD_RUN_MODE);
         stateStore.saveSnapshot(WorkerTaskExecutionSnap.builder()
                 .flowInstanceId(sourceRequest.getFlowInstanceId())
                 .taskInstanceId(sourceRequest.getTaskInstanceId())
@@ -81,12 +74,11 @@ class DataxPluginTaskExecutorTest {
         TaskResult result = executor.stopTask(controlRequest);
 
         assertEquals(StatusEnum.STOPPING, result.getTaskState());
-        assertEquals(DataxRunMode.K8S, runner.lastStopRunMode);
+        assertEquals(DataxRunMode.K8S, executor.lastStopRunMode);
     }
 
     private TaskRequest request() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.put("runMode", "K8S");
         ObjectNode pluginKubernetes = OBJECT_MAPPER.createObjectNode();
         pluginKubernetes.put("namespace", "df");
         pluginKubernetes.put("image", "datafusion/datax:latest");
@@ -99,55 +91,49 @@ class DataxPluginTaskExecutorTest {
         request.setTaskInstanceId("task-1");
         request.setTaskName("DataX");
         request.setPluginType(DataxPluginTaskExecutor.PLUGIN_TYPE);
+        request.setRunMode(DataxRunMode.K8S.name());
         request.setPluginParam(pluginParam);
         request.setTaskData(taskData);
         return request;
     }
 
     /**
-     * Fake K8S runner.
+     * Fake K8S executor.
      */
-    private static class FakeK8sRunner implements DataxTaskRunner {
+    private static class FakeK8sExecutor extends DataxPluginTaskExecutor {
 
         /**
          * Last stop run mode.
          */
         private DataxRunMode lastStopRunMode;
 
-        @Override
-        public DataxRunMode runMode() {
-            return DataxRunMode.K8S;
+        FakeK8sExecutor(InMemoryWorkerTaskExecutionStore stateStore) {
+            super(new DataxParamResolver(new AgentProperties()), stateStore);
         }
 
         @Override
-        public DataxTaskResult submit(DataxExecutionParam param) {
-            DataxKubernetesRuntimeRef runtimeRef = DataxKubernetesRuntimeRef.builder()
-                    .namespace(param.getKubernetes().getNamespace())
-                    .jobName(param.getKubernetes().getJobName())
-                    .secretName(param.getKubernetes().getSecretName())
-                    .podLabelSelector(param.getKubernetes().getPodLabelSelector())
-                    .containerName(param.getKubernetes().getContainerName())
-                    .logStorageUri(param.getKubernetes().getLogStorageUri())
-                    .collectLogsOnFinish(param.getKubernetes().isCollectLogsOnFinish())
-                    .deleteJobOnFinish(param.getKubernetes().isDeleteJobOnFinish())
-                    .build();
+        public String runMode() {
+            return DataxRunMode.K8S.name();
+        }
+
+        @Override
+        protected DataxTaskResult submit(DataxExecutionParam param) {
             return DataxTaskResult.builder()
                     .status(StatusEnum.RUNNING)
-                    .appId(runtimeRef.getJobName())
+                    .appId(param.getKubernetes().getJobName())
                     .workDirPath(param.getWorkDir().toString())
-                    .kubernetesRuntimeRef(runtimeRef)
                     .result(JacksonUtils.createObjectNode().put("message", "submitted"))
                     .build();
         }
 
         @Override
-        public DataxTaskResult stop(DataxExecutionParam param, WorkerTaskExecutionState state) {
+        protected DataxTaskResult stop(DataxExecutionParam param, WorkerTaskExecutionState state) {
             lastStopRunMode = param.getRunMode();
             return DataxTaskResult.builder().status(StatusEnum.STOPPING).build();
         }
 
         @Override
-        public DataxTaskResult kill(DataxExecutionParam param, WorkerTaskExecutionState state) {
+        protected DataxTaskResult kill(DataxExecutionParam param, WorkerTaskExecutionState state) {
             return DataxTaskResult.builder().status(StatusEnum.KILLING).build();
         }
 

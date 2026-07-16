@@ -22,7 +22,7 @@ public enum SparkRunMode {
      */
     public static SparkRunMode parse(String value) {
         if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("pluginParam.runMode不能为空");
+            throw new IllegalArgumentException("runMode不能为空");
         }
         for (SparkRunMode runMode : values()) {
             if (runMode.name().equalsIgnoreCase(value.trim())) {

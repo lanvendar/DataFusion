@@ -27,7 +27,6 @@ class SparkParamResolverTest {
     @Test
     void shouldResolveKubernetesOverrideAndExcludeItFromEffectiveTaskData() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.put("runMode", SparkRunMode.K8S_OPERATOR.name());
         ObjectNode pluginKubernetes = pluginParam.putObject("kubernetes");
         pluginKubernetes.put("namePrefix", "custom-spark");
         pluginKubernetes.put("namespace", "plugin-ns");
@@ -48,6 +47,7 @@ class SparkParamResolverTest {
         TaskRequest request = new TaskRequest();
         request.setFlowInstanceId("flow-1");
         request.setTaskInstanceId("task-1");
+        request.setRunMode(SparkRunMode.K8S_OPERATOR.name());
         request.setPluginParam(pluginParam);
         request.setTaskData(taskData);
 

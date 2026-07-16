@@ -143,6 +143,25 @@ class AgentTaskStateReportSchedulerTest {
         scheduler.shutdownNow();
     }
 
+    @Test
+    void shouldDiscardMappedStateWhenTaskStateChanged() throws Exception {
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        stateStore.saveSnapshot(snapshot());
+        WorkerTaskExecutionState runningState = state(StatusEnum.RUNNING);
+        runningState.setAppId("app-1");
+        stateStore.saveState(runningState);
+        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        AgentTaskStateReportScheduler reportScheduler = new AgentTaskStateReportScheduler(stateStore, reporter,
+                scheduler, List.of(new StateChangingMapping(stateStore)), 1000L, 1);
+
+        refreshStates(reportScheduler);
+
+        assertEquals(0, reporter.reportCount);
+        assertEquals(StatusEnum.STOPPING, stateStore.readState("task-1").orElseThrow().getStatus());
+        scheduler.shutdownNow();
+    }
+
     private void refreshStates(AgentTaskStateReportScheduler scheduler) throws Exception {
         Method method = AgentTaskStateReportScheduler.class.getDeclaredMethod("refreshStates");
         method.setAccessible(true);
@@ -210,6 +229,45 @@ class AgentTaskStateReportSchedulerTest {
         @Override
         public StatusEnum mapState(WorkerTaskExecutionState state) {
             return StatusEnum.UNKNOWN;
+        }
+    }
+
+    /**
+     * Mapping that simulates a concurrent stop request.
+     */
+    private static class StateChangingMapping implements PluginRunModeStateMapping {
+
+        /**
+         * Task execution store.
+         */
+        private final InMemoryWorkerTaskExecutionStore stateStore;
+
+        StateChangingMapping(InMemoryWorkerTaskExecutionStore stateStore) {
+            this.stateStore = stateStore;
+        }
+
+        @Override
+        public String pluginType() {
+            return "SHELL";
+        }
+
+        @Override
+        public String runMode() {
+            return "LOCAL";
+        }
+
+        @Override
+        public StatusEnum mapState(WorkerTaskExecutionState state) {
+            stateStore.saveState(state(StatusEnum.STOPPING));
+            return StatusEnum.RUN_SUCCESS;
+        }
+
+        private WorkerTaskExecutionState state(StatusEnum status) {
+            return WorkerTaskExecutionState.builder()
+                    .taskInstanceId("task-1")
+                    .appId("app-1")
+                    .status(status)
+                    .build();
         }
     }
 }

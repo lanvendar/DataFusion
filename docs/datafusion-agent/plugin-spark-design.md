@@ -28,7 +28,6 @@ Manager scheduler
     -> WorkerTaskService
     -> SparkPluginTaskExecutor
     -> SparkParamResolver
-    -> K8sOperatorSparkTaskRunner
     -> spark-sql-job.json + ConfigMap
     -> SparkApplication
     -> WorkerTaskExecutionStore
@@ -36,14 +35,13 @@ Manager scheduler
     -> ManagerTaskResultReporter
 ```
 
-`SparkPluginTaskExecutor` 按 `SparkRunMode` 分派 runner。当前 `SparkRunMode` 只定义 `K8S_OPERATOR`，因此其他
-运行模式不会进入提交流程。
+`WorkerTaskOperatorRouter` 按 `SPARK + K8S_OPERATOR` 直接选择 `SparkPluginTaskExecutor`。
 
 ## 3. 数据流
 
 | 场景 | 来源 | 处理 | 输出 |
 |------|------|------|------|
-| 参数解析 | `TaskRequest.pluginParam`、`TaskRequest.taskData` | `SparkParamResolver` 校验 `runMode`、合并任务数据、解析 Kubernetes 参数 | `SparkExecutionParam` |
+| 参数解析 | `TaskRequest.runMode`、`pluginParam`、`taskData` | `SparkParamResolver` 校验运行模式、合并任务数据、解析 Kubernetes 参数 | `SparkExecutionParam` |
 | 任务配置 | `pluginParam.defaultTaskData + taskData` | 深度合并；移除 agent 专用 `kubernetes` | `effectiveTaskData` |
 | 本地快照 | `effectiveTaskData` | 写入任务运行目录 | `spark-sql-job.json` |
 | Kubernetes 配置 | `spark-sql-job.json` | 创建 ConfigMap | key 固定 `spark-sql-job.json` |
@@ -53,7 +51,7 @@ Manager scheduler
 
 ## 4. 关键规则
 
-- `pluginParam.runMode` 必须为 `K8S_OPERATOR`。
+- `TaskRequest.runMode` 必须为 `K8S_OPERATOR`。
 - `sparkVersion` 固定为 `4.0.2`；默认 main class 为
   `com.datafusion.plugin.spark.sql.SparkSqlApplication`。
 - 默认镜像为 `apache/spark:4.0.2-scala2.13-java17-ubuntu`；模板可配置内部镜像。

@@ -26,20 +26,19 @@ class DataxParamResolverTest {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Test
-    void shouldRequirePluginParamRunMode() {
+    void shouldRequireRunMode() {
         DataxParamResolver resolver = new DataxParamResolver(new AgentProperties());
         TaskRequest request = request(OBJECT_MAPPER.createObjectNode());
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> resolver.resolve(request));
 
-        assertEquals("pluginParam.runMode不能为空", exception.getMessage());
+        assertEquals("runMode不能为空", exception.getMessage());
     }
 
     @Test
     void shouldResolveLocalRunModeFromPluginParam() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.put("runMode", "LOCAL");
         pluginParam.put("dataxHome", "/opt/plugins/datax");
         pluginParam.put("dataxJar", "/opt/plugins/datax/lib/datax-bundle-0.0.1.jar");
         pluginParam.put("logConfigFile", "/opt/plugins/datax/conf/logback.xml");
@@ -47,7 +46,7 @@ class DataxParamResolverTest {
         pluginParam.put("logLevel", "WARN");
         DataxParamResolver resolver = new DataxParamResolver(new AgentProperties());
 
-        DataxExecutionParam param = resolver.resolve(request(pluginParam));
+        DataxExecutionParam param = resolver.resolve(request(DataxRunMode.LOCAL, pluginParam));
 
         assertEquals(DataxRunMode.LOCAL, param.getRunMode());
         assertEquals("/opt/plugins/datax", param.getDataxHome());
@@ -63,7 +62,6 @@ class DataxParamResolverTest {
     @Test
     void shouldResolveKubernetesTaskOverrideFromTaskData() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.put("runMode", "K8S");
         ObjectNode pluginKubernetes = OBJECT_MAPPER.createObjectNode();
         pluginKubernetes.put("namePrefix", "custom-datax");
         pluginKubernetes.put("namespace", "plugin-ns");
@@ -91,7 +89,7 @@ class DataxParamResolverTest {
         taskData.set("kubernetes", taskKubernetes);
         DataxParamResolver resolver = new DataxParamResolver(new AgentProperties());
 
-        DataxExecutionParam param = resolver.resolve(request(pluginParam, taskData));
+        DataxExecutionParam param = resolver.resolve(request(DataxRunMode.K8S, pluginParam, taskData));
 
         assertEquals(DataxRunMode.K8S, param.getRunMode());
         assertEquals("task-ns", param.getKubernetes().getNamespace());
@@ -108,7 +106,6 @@ class DataxParamResolverTest {
     @Test
     void shouldMergeStandardJobContentAndIgnoreRegisterMetadata() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.put("runMode", "LOCAL");
         final ObjectNode defaultTaskData = OBJECT_MAPPER.createObjectNode();
         ObjectNode defaultJob = OBJECT_MAPPER.createObjectNode();
         ObjectNode setting = OBJECT_MAPPER.createObjectNode();
@@ -127,7 +124,7 @@ class DataxParamResolverTest {
         taskData.set("job", taskJob);
         DataxParamResolver resolver = new DataxParamResolver(new AgentProperties());
 
-        DataxExecutionParam param = resolver.resolve(request(pluginParam, taskData));
+        DataxExecutionParam param = resolver.resolve(request(DataxRunMode.LOCAL, pluginParam, taskData));
 
         assertEquals(1, param.getEffectiveTaskData().path("job").path("setting").path("speed")
                 .path("channel").asInt());
@@ -140,11 +137,11 @@ class DataxParamResolverTest {
     @Test
     void shouldRequireJobSource() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.put("runMode", "LOCAL");
         DataxParamResolver resolver = new DataxParamResolver(new AgentProperties());
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> resolver.resolve(request(pluginParam, OBJECT_MAPPER.createObjectNode())));
+                () -> resolver.resolve(request(DataxRunMode.LOCAL, pluginParam,
+                        OBJECT_MAPPER.createObjectNode())));
 
         assertEquals("pluginParam.jobFile、pluginParam.defaultTaskData、taskData.jobJson、taskData至少配置一个",
                 exception.getMessage());
@@ -153,12 +150,11 @@ class DataxParamResolverTest {
     @Test
     void shouldRequireKubernetesImage() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.put("runMode", "K8S");
         pluginParam.set("kubernetes", OBJECT_MAPPER.createObjectNode());
         DataxParamResolver resolver = new DataxParamResolver(new AgentProperties());
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> resolver.resolve(request(pluginParam)));
+                () -> resolver.resolve(request(DataxRunMode.K8S, pluginParam)));
 
         assertEquals("pluginParam.kubernetes.image或taskData.kubernetes.image不能为空", exception.getMessage());
     }
@@ -166,15 +162,22 @@ class DataxParamResolverTest {
     private TaskRequest request(ObjectNode pluginParam) {
         ObjectNode taskData = OBJECT_MAPPER.createObjectNode();
         taskData.set("jobJson", OBJECT_MAPPER.createObjectNode());
-        return request(pluginParam, taskData);
+        return request(null, pluginParam, taskData);
     }
 
-    private TaskRequest request(ObjectNode pluginParam, ObjectNode taskData) {
+    private TaskRequest request(DataxRunMode runMode, ObjectNode pluginParam) {
+        ObjectNode taskData = OBJECT_MAPPER.createObjectNode();
+        taskData.set("jobJson", OBJECT_MAPPER.createObjectNode());
+        return request(runMode, pluginParam, taskData);
+    }
+
+    private TaskRequest request(DataxRunMode runMode, ObjectNode pluginParam, ObjectNode taskData) {
         TaskRequest request = new TaskRequest();
         request.setFlowInstanceId("flow-1");
         request.setTaskInstanceId("task-1");
         request.setTaskName("DataX");
         request.setPluginType(DataxPluginTaskExecutor.PLUGIN_TYPE);
+        request.setRunMode(runMode == null ? null : runMode.name());
         request.setPluginParam(pluginParam);
         request.setTaskData(taskData);
         return request;

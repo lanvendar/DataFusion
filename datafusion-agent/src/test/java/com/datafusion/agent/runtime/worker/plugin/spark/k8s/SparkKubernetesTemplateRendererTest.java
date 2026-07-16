@@ -112,6 +112,7 @@ class SparkKubernetesTemplateRendererTest {
         request.setTaskInstanceId("task-1");
         request.setTaskName("Spark");
         request.setPluginType("SPARK");
+        request.setRunMode("K8S_OPERATOR");
         request.setPluginParam(pluginParam());
         request.setTaskData(taskData());
         return request;
@@ -119,7 +120,6 @@ class SparkKubernetesTemplateRendererTest {
 
     private ObjectNode pluginParam() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.put("runMode", "K8S_OPERATOR");
         ObjectNode kubernetes = OBJECT_MAPPER.createObjectNode();
         kubernetes.put("namespace", "datafusion");
         kubernetes.put("serviceAccountName", "spark-driver");

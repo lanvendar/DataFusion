@@ -2,17 +2,17 @@ package com.datafusion.agent.runtime.worker.plugin.flink;
 
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.InMemoryWorkerTaskExecutionStore;
+import com.datafusion.agent.runtime.worker.plugin.flink.k8s.FlinkKubernetesRuntimeRef;
+import com.datafusion.agent.runtime.worker.plugin.flink.k8s.FlinkOperatorStatus;
+import com.datafusion.agent.runtime.worker.plugin.flink.k8s.K8sOperatorClient;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -34,24 +34,23 @@ class FlinkPluginTaskExecutorTest {
 
     @Test
     void shouldValidateWithoutRewritingPluginParam() {
-        FlinkPluginTaskExecutor executor = executor(new InMemoryWorkerTaskExecutionStore(), new FakeFlinkRunner());
+        FlinkPluginTaskExecutor executor = executor(new InMemoryWorkerTaskExecutionStore(), new FakeOperatorClient());
         TaskRequest request = request();
         ObjectNode pluginParam = (ObjectNode) request.getPluginParam();
 
         executor.validateTaskRequest(request);
 
         assertSame(pluginParam, request.getPluginParam());
-        assertEquals(FlinkRunMode.K8S_OPERATOR.name(), request.getPluginParam().path(FlinkParamResolver.FIELD_RUN_MODE).asText());
+        assertEquals(FlinkRunMode.K8S_OPERATOR.name(), request.getRunMode());
     }
 
     @Test
     void shouldResolveRunModeFromSnapshotWhenPluginParamMissingRunMode() {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        FakeFlinkRunner runner = new FakeFlinkRunner();
-        final FlinkPluginTaskExecutor executor = executor(stateStore, runner);
+        FakeOperatorClient client = new FakeOperatorClient();
+        final FlinkPluginTaskExecutor executor = executor(stateStore, client);
         TaskRequest sourceRequest = request();
         ObjectNode pluginParam = sourceRequest.getPluginParam().deepCopy();
-        pluginParam.remove(FlinkParamResolver.FIELD_RUN_MODE);
         stateStore.saveSnapshot(WorkerTaskExecutionSnap.builder()
                 .flowInstanceId(sourceRequest.getFlowInstanceId())
                 .taskInstanceId(sourceRequest.getTaskInstanceId())
@@ -73,13 +72,13 @@ class FlinkPluginTaskExecutorTest {
         boolean finished = executor.finishTask(controlRequest);
 
         assertEquals(StatusEnum.STOPPING, stopResult.getTaskState());
-        assertEquals(FlinkRunMode.K8S_OPERATOR, runner.lastStopRunMode);
+        assertEquals("df-flink-task-1", client.stoppedRuntimeRef.getDeploymentName());
         assertTrue(finished);
-        assertEquals(FlinkRunMode.K8S_OPERATOR, runner.lastFinishRunMode);
+        assertEquals("df-flink-task-1", client.cleanedRuntimeRef.getDeploymentName());
     }
 
-    private FlinkPluginTaskExecutor executor(InMemoryWorkerTaskExecutionStore stateStore, FakeFlinkRunner runner) {
-        return new FlinkPluginTaskExecutor(new FlinkParamResolver(new AgentProperties()), stateStore, List.of(runner));
+    private FlinkPluginTaskExecutor executor(InMemoryWorkerTaskExecutionStore stateStore, K8sOperatorClient client) {
+        return new FlinkPluginTaskExecutor(new FlinkParamResolver(new AgentProperties()), stateStore, client);
     }
 
     private TaskRequest request() {
@@ -88,6 +87,7 @@ class FlinkPluginTaskExecutorTest {
         request.setTaskInstanceId("task-1");
         request.setTaskName("Flink");
         request.setPluginType(FlinkPluginTaskExecutor.PLUGIN_TYPE);
+        request.setRunMode(FlinkRunMode.K8S_OPERATOR.name());
         request.setPluginParam(pluginParam());
         request.setTaskData(taskData());
         return request;
@@ -95,7 +95,6 @@ class FlinkPluginTaskExecutorTest {
 
     private ObjectNode pluginParam() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.put(FlinkParamResolver.FIELD_RUN_MODE, FlinkRunMode.K8S_OPERATOR.name());
         pluginParam.put("flinkAppDir", "/opt/datafusion/plugins/flink/datafusion-plugin-flink-table");
         pluginParam.put("launchMode", "JAR");
         pluginParam.put("flinkAppJar", "datafusion-plugin-flink-table-1.0.0-executable.jar");
@@ -117,54 +116,50 @@ class FlinkPluginTaskExecutorTest {
     }
 
     /**
-     * Fake Flink runner.
+     * 测试用 Operator 客户端.
      */
-    private static class FakeFlinkRunner implements FlinkTaskRunner {
+    private static class FakeOperatorClient implements K8sOperatorClient {
 
         /**
-         * Last stop run mode.
+         * 已停止运行引用.
          */
-        private FlinkRunMode lastStopRunMode;
+        private FlinkKubernetesRuntimeRef stoppedRuntimeRef;
 
         /**
-         * Last finish run mode.
+         * 已清理运行引用.
          */
-        private FlinkRunMode lastFinishRunMode;
-
-        /**
-         * Last submitted task data.
-         */
-        private JsonNode lastSubmitTaskData;
+        private FlinkKubernetesRuntimeRef cleanedRuntimeRef;
 
         @Override
-        public FlinkRunMode runMode() {
-            return FlinkRunMode.K8S_OPERATOR;
-        }
-
-        @Override
-        public FlinkTaskResult submit(FlinkExecutionParam param) {
-            lastSubmitTaskData = param.getEffectiveTaskData();
-            return FlinkTaskResult.builder()
-                    .status(StatusEnum.SUBMIT_SUCCESS)
-                    .appId(param.getKubernetes().getDeploymentName())
-                    .workDirPath(param.getWorkDir().toString())
+        public FlinkKubernetesRuntimeRef submit(FlinkExecutionParam param) {
+            return FlinkKubernetesRuntimeRef.builder()
+                    .namespace(param.getKubernetes().getNamespace())
+                    .deploymentName(param.getKubernetes().getDeploymentName())
                     .build();
         }
 
         @Override
-        public FlinkTaskResult stop(FlinkExecutionParam param, WorkerTaskExecutionState state) {
-            lastStopRunMode = param.getRunMode();
-            return FlinkTaskResult.builder().status(StatusEnum.STOPPING).build();
+        public void stop(FlinkKubernetesRuntimeRef runtimeRef) {
+            stoppedRuntimeRef = runtimeRef;
         }
 
         @Override
-        public FlinkTaskResult kill(FlinkExecutionParam param, WorkerTaskExecutionState state) {
-            return FlinkTaskResult.builder().status(StatusEnum.KILLING).build();
+        public void kill(FlinkKubernetesRuntimeRef runtimeRef) {
         }
 
         @Override
-        public boolean finish(FlinkExecutionParam param, WorkerTaskExecutionState state) {
-            lastFinishRunMode = param.getRunMode();
+        public FlinkOperatorStatus queryStatus(FlinkKubernetesRuntimeRef runtimeRef) {
+            return null;
+        }
+
+        @Override
+        public String collectLogs(FlinkKubernetesRuntimeRef runtimeRef) {
+            return "";
+        }
+
+        @Override
+        public boolean cleanup(FlinkKubernetesRuntimeRef runtimeRef) {
+            cleanedRuntimeRef = runtimeRef;
             return true;
         }
     }

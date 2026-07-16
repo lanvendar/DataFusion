@@ -84,6 +84,11 @@ class AgentLifecycleTest {
         }
 
         @Override
+        public String runMode() {
+            return "LOCAL";
+        }
+
+        @Override
         public TaskResult submitTask(TaskRequest request) {
             return taskResult(request, StatusEnum.SUBMIT_SUCCESS);
         }

@@ -99,6 +99,11 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
+    public String runMode() {
+        return ShellLocalRunModeStateMapping.RUN_MODE;
+    }
+
+    @Override
     public void validateTaskRequest(TaskRequest request) {
         localProcessSpec(request);
     }
@@ -316,6 +321,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
         resolvedRequest.setTaskInstanceId(firstText(request.getTaskInstanceId(), snapshot.getTaskInstanceId()));
         resolvedRequest.setTaskName(firstText(request.getTaskName(), snapshot.getTaskName()));
         resolvedRequest.setPluginType(firstText(request.getPluginType(), snapshot.getPluginType()));
+        resolvedRequest.setRunMode(firstText(request.getRunMode(), snapshot.getRunMode()));
         resolvedRequest.setWorkerResult(WorkerResult.builder()
                 .workerId(firstText(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId(),
                         snapshot.getWorkerId()))

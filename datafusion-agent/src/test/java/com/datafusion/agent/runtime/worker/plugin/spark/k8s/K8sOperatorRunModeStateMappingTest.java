@@ -64,6 +64,7 @@ class K8sOperatorRunModeStateMappingTest {
         request.setTaskInstanceId("task-1");
         request.setTaskName("Spark");
         request.setPluginType(SparkPluginTaskExecutor.PLUGIN_TYPE);
+        request.setRunMode(SparkRunMode.K8S_OPERATOR.name());
         request.setPluginParam(pluginParam());
         request.setTaskData(OBJECT_MAPPER.createObjectNode());
         return request;
@@ -71,8 +72,9 @@ class K8sOperatorRunModeStateMappingTest {
 
     private ObjectNode pluginParam() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        pluginParam.put("runMode", SparkRunMode.K8S_OPERATOR.name());
         ObjectNode kubernetes = OBJECT_MAPPER.createObjectNode();
+        kubernetes.put("namespace", "datafusion");
+        kubernetes.put("serviceAccountName", "spark-driver");
         kubernetes.put("sharedPvcName", "datafusion-shared-data");
         kubernetes.put("pluginAppDir", "/opt/datafusion/plugins/spark/datafusion-plugin-spark-sql");
         pluginParam.set("kubernetes", kubernetes);

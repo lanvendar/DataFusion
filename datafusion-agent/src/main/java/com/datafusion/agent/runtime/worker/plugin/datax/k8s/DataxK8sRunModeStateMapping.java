@@ -197,6 +197,7 @@ public class DataxK8sRunModeStateMapping implements PluginRunModeStateMapping {
         request.setTaskInstanceId(snapshot.getTaskInstanceId());
         request.setTaskName(snapshot.getTaskName());
         request.setPluginType(snapshot.getPluginType());
+        request.setRunMode(snapshot.getRunMode());
         request.setTaskData(snapshot.getTaskData());
         request.setPluginParam(snapshot.getPluginParam());
         return request;
