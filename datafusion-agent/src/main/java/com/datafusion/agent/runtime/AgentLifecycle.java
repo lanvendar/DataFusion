@@ -2,7 +2,7 @@ package com.datafusion.agent.runtime;
 
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.rpc.ManagerClient;
-import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateReportScheduler;
+import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateListenerRegistry;
 import com.datafusion.common.constant.SystemConstant;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.Worker;
@@ -65,7 +65,7 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
     /**
      * 任务状态上报计划.
      */
-    private final AgentTaskStateReportScheduler taskStateReportScheduler;
+    private final AgentTaskStateListenerRegistry taskStateListenerRegistry;
 
     /**
      * worker 本地配置存储.
@@ -85,25 +85,24 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
      * @param runtimeState  agent 运行状态
      * @param router        插件路由
      * @param heartbeatScheduler 心跳调度器
-     * @param taskStateReportScheduler 任务状态上报计划
+     * @param taskStateListenerRegistry 任务状态监听注册器
      * @param workerConfigStore worker 本地配置存储
      */
     public AgentLifecycle(AgentProperties properties, ManagerClient managerClient, AgentRuntimeState runtimeState,
             WorkerTaskOperatorRouter router, @Qualifier("agentHeartbeatScheduler") ScheduledExecutorService heartbeatScheduler,
-            AgentTaskStateReportScheduler taskStateReportScheduler, AgentWorkerConfigStore workerConfigStore) {
+            AgentTaskStateListenerRegistry taskStateListenerRegistry, AgentWorkerConfigStore workerConfigStore) {
         this.properties = properties;
         this.managerClient = managerClient;
         this.runtimeState = runtimeState;
         this.router = router;
         this.heartbeatScheduler = heartbeatScheduler;
-        this.taskStateReportScheduler = taskStateReportScheduler;
+        this.taskStateListenerRegistry = taskStateListenerRegistry;
         this.workerConfigStore = workerConfigStore;
     }
 
     @Override
     public void run(ApplicationArguments args) {
         initWorker();
-        taskStateReportScheduler.start();
         long interval = Math.max(properties.getManager().getHeartbeatIntervalMs(), 1000L);
         heartbeatScheduler.scheduleWithFixedDelay(this::registerOrHeartbeat, 0L, interval, TimeUnit.MILLISECONDS);
     }
@@ -302,7 +301,7 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         if (tasks.isEmpty()) {
             return false;
         }
-        taskStateReportScheduler.restoreTasks(tasks.get());
+        taskStateListenerRegistry.restoreTasks(tasks.get());
         return true;
     }
 }

@@ -31,7 +31,7 @@ Manager scheduler
     -> spark-sql-job.json + ConfigMap
     -> SparkApplication
     -> WorkerTaskExecutionStore
-    -> AgentTaskStateReportScheduler
+    -> AgentTaskStateListenerRegistry
     -> ManagerTaskResultReporter
 ```
 

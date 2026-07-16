@@ -34,7 +34,7 @@ Agent 不回写 Manager 的 `pluginParam` 或 `taskData`。
 | `FlinkExecutionParam` | `runMode`, `flowInstanceId`, `taskInstanceId`, `jobJson`, `effectiveTaskData`, `workDir`, `flinkConfig`, `flinkAppDir`, `launchMode`, `flinkAppJar`, `classpath`, `mainClass`, `flinkVersion`, `libDir`, `args`, `kubernetes` | 单次任务 | 执行器的归一化输入 |
 | `FlinkKubernetesParam` | `namespace`, `deploymentName`, `image`, `imagePullPolicy`, `serviceAccountName`, `sharedPvcName`, `sharedMountPath`, `flinkAppDir`, `flinkAppJar`, `jarUri`, `mainClass`, `flinkVersion`, `libDir`, `jobParallelism`, `upgradeMode`, `jobState`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish`, `labels`, `annotations`, `env`, `envFrom`, `jobManager`, `taskManager`, `nodeSelector` | 单次任务 | `upgradeMode` 来自配置；`jobState` 由 Agent 动作生成，用于渲染 `FlinkDeployment` |
 | `FlinkKubernetesRuntimeRef` | `namespace`, `deploymentName`, `podLabelSelector`, `logStorageUri`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish` | 状态查询 / 控制动作 | 从 `.snap + .state` 重建 |
-| `FlinkOperatorStatus` | `state`, `deploymentExists`, `podExists`, `serviceExists` | 单次状态查询 | Kubernetes / Operator 事实 |
+| `FlinkOperatorStatus` | `state`, `desiredState`, `jobManagerState`, `deploymentExists`, `generation`, `observedGeneration` | 单次状态查询 | FlinkDeployment spec/status 事实；不保存 DataFusion 控制指令 |
 | `FlinkTaskResult` | `status`, `appId`, `workDirPath`, `result` | 单次动作 | 转换为 `TaskResult.workerResult` |
 
 ## 4. `pluginParam`
@@ -132,7 +132,7 @@ plugins/flink/{appDirName}/{libDir}/
 | `runMode` | `WorkerTaskExecutionSnap` | `LOCAL`, `STANDALONE`, `YARN`, `K8S`, `K8S_OPERATOR` | 状态映射和控制恢复键 |
 | `appId` | `WorkerTaskExecutionState` | `FlinkDeployment` name | 执行器提交后写入 |
 | `workDirPath` | `WorkerTaskExecutionState` | 本地任务运行目录 | 保存 job 快照和日志 |
-| `status` | `WorkerTaskExecutionState` | `StatusEnum` | 由执行器和状态映射写入 |
+| `status` | `WorkerTaskExecutionState` | `StatusEnum` | 由执行器和状态映射写入；`STOPPING`、`KILLING` 同时表达当前控制意图 |
 | `result` | `WorkerTaskExecutionState` | JSON | 可包含 `pluginLogUri`, `flinkWebUiUri`, `flinkJobId`, `savepointLocation` |
 
 ## 10. 前端数据模型

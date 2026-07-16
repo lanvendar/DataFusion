@@ -328,6 +328,6 @@ LOCAL 示例：
 | `TaskRequest` / `TaskResult` | `datafusion-common-data` | Agent 与 Manager 的任务控制报文 |
 | `PluginTaskExecutor` / `PluginRunModeStateMapping` | `datafusion-scheduler-worker` | DataX 执行器与状态映射 SPI |
 | `WorkerTaskExecutionState` / `WorkerTaskExecutionStore` | `datafusion-scheduler-worker` | Agent 本地状态记录 |
-| `AgentTaskStateReportScheduler` | `datafusion-agent` | 周期刷新并上报 DataX 状态 |
+| `AgentTaskStateListenerRegistry` | `datafusion-agent` | 按任务注册周期监听并在状态变化后上报 DataX 状态 |
 | `DataxJsonService` / `DataxJsonVo` | `datafusion-manager` | 生成标准 DataX job JSON |
 | `datafusion-plugin-datax` resources | `datafusion-plugin` | LOCAL 模式 DataX bundle、job 示例和 K8S 镜像构建输入 |

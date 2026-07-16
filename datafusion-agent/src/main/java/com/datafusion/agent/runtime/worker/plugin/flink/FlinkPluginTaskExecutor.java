@@ -274,7 +274,7 @@ public class FlinkPluginTaskExecutor implements PluginTaskExecutor {
             log.info("K8S_OPERATOR Flink任务请求强杀, taskInstanceId={}, namespace={}, deploymentName={}",
                     param.getTaskInstanceId(), runtimeRef.getNamespace(), runtimeRef.getDeploymentName());
             operatorClient.kill(runtimeRef);
-            return controlResult(param, state, StatusEnum.KILLED, "K8S_OPERATOR Flink kill completed");
+            return controlResult(param, state, StatusEnum.KILLING, "K8S_OPERATOR Flink kill requested");
         } catch (RuntimeException e) {
             log.warn("K8S_OPERATOR Flink任务强杀失败, taskInstanceId={}, appId={}",
                     param.getTaskInstanceId(), state.getAppId(), e);

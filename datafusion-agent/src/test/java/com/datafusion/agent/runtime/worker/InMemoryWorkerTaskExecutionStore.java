@@ -7,12 +7,11 @@ import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.worker.context.RunningTaskContext;
 import com.datafusion.scheduler.worker.context.WorkerTaskContextStorage;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 /**
  * In-memory worker task execution state store for tests.
@@ -34,99 +33,108 @@ public class InMemoryWorkerTaskExecutionStore implements WorkerTaskExecutionStor
     private final Map<String, WorkerTaskExecutionSnap> snapshots = new ConcurrentHashMap<>();
 
     /**
-     * Listening task IDs.
-     */
-    private final Map<String, Boolean> listeningRecords = new ConcurrentHashMap<>();
-
-    /**
      * Context records.
      */
     private final Map<String, RunningTaskContext> contexts = new ConcurrentHashMap<>();
 
+    /**
+     * Task locks.
+     */
+    private final Map<String, ReentrantLock> taskLocks = new ConcurrentHashMap<>();
+
     @Override
     public void saveSnapshot(WorkerTaskExecutionSnap snapshot) {
-        snapshots.put(snapshot.getTaskInstanceId(), snapshot);
+        withTaskLock(snapshot.getTaskInstanceId(), () -> snapshots.put(snapshot.getTaskInstanceId(), snapshot));
     }
 
     @Override
     public Optional<WorkerTaskExecutionSnap> readSnapshot(String taskInstanceId) {
-        return Optional.ofNullable(snapshots.get(taskInstanceId));
+        return withTaskLock(taskInstanceId, () -> Optional.ofNullable(snapshots.get(taskInstanceId)));
     }
 
     @Override
     public void saveState(WorkerTaskExecutionState state) {
-        records.put(state.getTaskInstanceId(), state);
-        listeningRecords.put(state.getTaskInstanceId(), Boolean.TRUE);
-        contexts.compute(state.getTaskInstanceId(), (taskInstanceId, context) -> {
-            RunningTaskContext current = context == null ? new RunningTaskContext() : context;
-            current.setTaskInstanceId(taskInstanceId);
-            current.setWorkerId(state.getWorkerId());
-            current.setAppId(state.getAppId());
-            current.setWorkDirPath(state.getWorkDirPath());
-            current.setTaskState(state.getStatus());
-            current.setResult(state.getResult());
-            return current;
+        withTaskLock(state.getTaskInstanceId(), () -> {
+            WorkerTaskExecutionState oldState = records.get(state.getTaskInstanceId());
+            state.setRevision(oldState == null ? 1L : oldState.getRevision() + 1L);
+            records.put(state.getTaskInstanceId(), state);
+            contexts.compute(state.getTaskInstanceId(), (taskInstanceId, context) -> {
+                RunningTaskContext current = context == null ? new RunningTaskContext() : context;
+                current.setTaskInstanceId(taskInstanceId);
+                current.setWorkerId(state.getWorkerId());
+                current.setAppId(state.getAppId());
+                current.setWorkDirPath(state.getWorkDirPath());
+                current.setTaskState(state.getStatus());
+                current.setResult(state.getResult());
+                return current;
+            });
+            return null;
         });
     }
 
     @Override
     public Optional<WorkerTaskExecutionState> readState(String taskInstanceId) {
-        return Optional.ofNullable(records.get(taskInstanceId));
+        return withTaskLock(taskInstanceId, () -> Optional.ofNullable(records.get(taskInstanceId)));
     }
 
     @Override
     public RunningTaskContext get(String taskInstanceId) {
-        return contexts.get(taskInstanceId);
+        return withTaskLock(taskInstanceId, () -> contexts.get(taskInstanceId));
     }
 
     @Override
     public RunningTaskContext getOrCreate(TaskRequest request) {
-        return contexts.computeIfAbsent(request.getTaskInstanceId(),
-                taskInstanceId -> RunningTaskContext.fromRequest(request));
+        return withTaskLock(request.getTaskInstanceId(), () -> contexts.computeIfAbsent(request.getTaskInstanceId(),
+                taskInstanceId -> RunningTaskContext.fromRequest(request)));
     }
 
     @Override
     public void save(RunningTaskContext context) {
-        readState(context.getTaskInstanceId()).ifPresent(existing -> {
-            if (context.getAppId() == null) {
-                context.setAppId(existing.getAppId());
-            }
-            if (context.getWorkerId() == null) {
-                context.setWorkerId(existing.getWorkerId());
-            }
-            if (context.getWorkDirPath() == null) {
-                context.setWorkDirPath(existing.getWorkDirPath());
-            }
+        withTaskLock(context.getTaskInstanceId(), () -> {
+            readState(context.getTaskInstanceId()).ifPresent(existing -> {
+                if (context.getAppId() == null) {
+                    context.setAppId(existing.getAppId());
+                }
+                if (context.getWorkerId() == null) {
+                    context.setWorkerId(existing.getWorkerId());
+                }
+                if (context.getWorkDirPath() == null) {
+                    context.setWorkDirPath(existing.getWorkDirPath());
+                }
+            });
+            contexts.put(context.getTaskInstanceId(), context);
+            saveSnapshot(context.getSnapshot());
+            saveState(context.getExecutionState());
+            return null;
         });
-        contexts.put(context.getTaskInstanceId(), context);
-        saveSnapshot(context.getSnapshot());
-        saveState(context.getExecutionState());
-    }
-
-    @Override
-    public List<WorkerTaskExecutionState> listListeningStates() {
-        return listeningRecords.keySet()
-                .stream()
-                .map(records::get)
-                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     @Override
     public void deleteExecution(String taskInstanceId) {
-        records.remove(taskInstanceId);
-        snapshots.remove(taskInstanceId);
-        listeningRecords.remove(taskInstanceId);
-        contexts.remove(taskInstanceId);
-    }
-
-    @Override
-    public void stopListening(String taskInstanceId) {
-        removeContext(taskInstanceId);
+        withTaskLock(taskInstanceId, () -> {
+            records.remove(taskInstanceId);
+            snapshots.remove(taskInstanceId);
+            contexts.remove(taskInstanceId);
+            return null;
+        });
     }
 
     @Override
     public void removeContext(String taskInstanceId) {
-        listeningRecords.remove(taskInstanceId);
-        contexts.remove(taskInstanceId);
+        withTaskLock(taskInstanceId, () -> contexts.remove(taskInstanceId));
+    }
+
+    @Override
+    public <T> T withTaskLock(String taskInstanceId, Supplier<T> action) {
+        if (taskInstanceId == null) {
+            return action.get();
+        }
+        ReentrantLock lock = taskLocks.computeIfAbsent(taskInstanceId, key -> new ReentrantLock());
+        lock.lock();
+        try {
+            return action.get();
+        } finally {
+            lock.unlock();
+        }
     }
 }

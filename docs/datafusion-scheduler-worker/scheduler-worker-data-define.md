@@ -66,6 +66,7 @@
 | `WorkerTaskExecutionState` | 可持久化运行态 envelope | `appId` | `String` | 提交后写入 | 终端任务 ID |
 | `WorkerTaskExecutionState` | 可持久化运行态 envelope | `workDirPath` | `String` | 提交后写入 | agent 任务运行目录 |
 | `WorkerTaskExecutionState` | 可持久化运行态 envelope | `status` | `StatusEnum` | 状态刷新时更新 | 最近任务状态 |
+| `WorkerTaskExecutionState` | 可持久化运行态 envelope | `revision` | `long` | 每次运行态写入递增 | 单 Agent 内判断第三方查询期间是否发生新的本地写入 |
 | `WorkerTaskExecutionState` | 可持久化运行态 envelope | `exitCode` | `Integer` | 本地进程终态后写入 | 本地诊断字段，不进入 `WorkerResult` |
 | `WorkerTaskExecutionState` | 可持久化运行态 envelope | `updateTime` | `Long` | 状态刷新时更新 | 状态更新时间 |
 | `WorkerTaskExecutionState` | 可持久化运行态 envelope | `result` | `JsonNode` | 插件写入 | 轻量执行摘要，上报时映射到 `WorkerResult.message/pluginLogUri` |
@@ -83,6 +84,7 @@
 | `WorkerOperator` | Port | `active(workerId)` | 手工置为有效 | 不修改运行态状态 |
 | `WorkerOperator` | Port | `inactive(workerId)` | 手工置为无效 | 不修改运行态状态 |
 | `WorkerOperator` | Port | `delete(workerId)` | 删除 worker 注册记录 | manager 侧实现 |
+| `WorkerTaskExecutionStore` | Port | `withTaskLock(taskInstanceId, action)` | 同一任务串行、不同任务并行 | 运行时实现进程内任务锁，锁不进入持久化模型 |
 
 ## 3. API 数据映射
 
@@ -97,10 +99,10 @@
 | `PluginTaskExecutor.validateTaskRequest` -> `TaskRequest` | 插件在提交前校验任务请求 | 校验失败返回 `SUBMIT_FAILURE` |
 | `PluginTaskExecutor.submitTask` -> `TaskResult` | 插件返回执行结果 | worker 补齐任务身份、`submitMode` 和 `workerResult.workerId` |
 | `RunningTaskContext` -> `TaskResult` | 重复请求返回最近结果或当前状态 | 已有终态直接返回终态；无状态时 `ASYNC` 返回 `SUBMITTING`，`SYNC` 返回 `RUNNING` |
-| `TaskResult` -> `TaskResultReporter.report` | worker 异步上报 manager/master | 上报实现位于 `datafusion-agent` |
+| `WorkerTaskExecutionState` -> `TaskResultReporter.report` | 运行时任务监听器观察到本地状态或映射状态变化后上报 manager/master | 上报实现位于 `datafusion-agent`；`WorkerTaskService` 不直接上报 |
 | `RunningTaskContext` -> `WorkerTaskExecutionSnap` | agent 侧运行时转换 | 保存提交快照和恢复上下文 |
 | `RunningTaskContext` -> `WorkerTaskExecutionState` | agent 侧运行时转换 | 保存持续刷新的运行态 |
-| `WorkerTaskExecutionSnap + WorkerTaskExecutionState` -> `PluginRunModeStateMapping` | 状态刷新计划按 `snap.pluginType + snap.runMode` 路由 | 状态映射器读取运行态，必要上下文从提交快照恢复 |
+| `WorkerTaskExecutionSnap + WorkerTaskExecutionState` -> `PluginRunModeStateMapping` | 任务级监听器按 `snap.pluginType + snap.runMode` 路由 | 状态映射器读取运行态，必要上下文从提交快照恢复；查询结果在任务锁内按 `status + revision` 二次校验后提交 |
 | `WorkerListener.getTaskInsByWorkerId` -> agent 状态恢复 | agent 注册成功后按 workerId 获取未完成任务清单 | agent 只恢复清单内任务 |
 
 ## 5. 状态 / 枚举模型

@@ -55,11 +55,6 @@ public class AgentProperties {
     private ThreadPoolConfig taskPool = new ThreadPoolConfig(8, 16, 512, 60);
 
     /**
-     * 结果上报线程池配置.
-     */
-    private ThreadPoolConfig reportPool = new ThreadPoolConfig(2, 4, 512, 60);
-
-    /**
      * worker 配置.
      */
     @Data
@@ -141,6 +136,16 @@ public class AgentProperties {
          * 心跳间隔，单位毫秒.
          */
         private long heartbeatIntervalMs = 15000L;
+
+        /**
+         * 连接超时，单位毫秒.
+         */
+        private long connectTimeoutMs = 5000L;
+
+        /**
+         * 读取超时，单位毫秒.
+         */
+        private long readTimeoutMs = 10000L;
     }
 
     /**
@@ -175,6 +180,21 @@ public class AgentProperties {
          * 推进 UNKNOWN 的连续查询失败阈值.
          */
         private int unknownThreshold = 3;
+
+        /**
+         * 任务监听线程数.
+         */
+        private int listenerPoolSize = 2;
+
+        /**
+         * 终态监听保留时间，单位毫秒.
+         */
+        private long listenerRetentionMs = 86400000L;
+
+        /**
+         * 终态监听最大保留数量.
+         */
+        private int listenerRetentionNum = 512;
     }
 
     /**

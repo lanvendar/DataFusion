@@ -214,6 +214,7 @@ public class RunningTaskContext {
         if (source.getStatus() != null) {
             setTaskState(source.getStatus());
         }
+        executionState().setRevision(source.getRevision());
         if (getResult() == null) {
             setResult(source.getResult());
         }

@@ -2,6 +2,7 @@ package com.datafusion.agent.rpc;
 
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.AgentRuntimeState;
+import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateListenerRegistry;
 import com.datafusion.common.exception.ErrorCodeEnum;
 import com.datafusion.common.spring.dto.response.Result;
 import com.datafusion.scheduler.model.TaskRequest;
@@ -9,13 +10,14 @@ import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.Worker;
 import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.WorkerTaskOperator;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 
 /**
  * Agent 内部调度 RPC Provider.
@@ -45,17 +47,32 @@ public class AgentExecutorRpcProvider {
     private final AgentProperties properties;
 
     /**
+     * 任务执行状态存储.
+     */
+    private final WorkerTaskExecutionStore stateStore;
+
+    /**
+     * 任务状态监听注册器.
+     */
+    private final AgentTaskStateListenerRegistry listenerRegistry;
+
+    /**
      * 构造函数.
      *
      * @param workerTaskOperator worker 任务操作入口
      * @param runtimeState       agent 运行状态
      * @param properties         agent 配置
+     * @param stateStore         任务执行状态存储
+     * @param listenerRegistry   任务状态监听注册器
      */
     public AgentExecutorRpcProvider(WorkerTaskOperator workerTaskOperator, AgentRuntimeState runtimeState,
-            AgentProperties properties) {
+            AgentProperties properties, WorkerTaskExecutionStore stateStore,
+            AgentTaskStateListenerRegistry listenerRegistry) {
         this.workerTaskOperator = workerTaskOperator;
         this.runtimeState = runtimeState;
         this.properties = properties;
+        this.stateStore = stateStore;
+        this.listenerRegistry = listenerRegistry;
     }
 
     /**
@@ -67,7 +84,11 @@ public class AgentExecutorRpcProvider {
     @PostMapping("/submitTask")
     public Result<TaskResult> submitTask(@RequestBody TaskRequest request) {
         TaskRequest filledRequest = fillWorkerId(request);
-        return execute("submitTask", filledRequest, () -> workerTaskOperator.submitTask(filledRequest));
+        return execute("submitTask", filledRequest, () -> {
+            TaskResult result = workerTaskOperator.submitTask(filledRequest);
+            listenerRegistry.register(filledRequest.getTaskInstanceId());
+            return result;
+        });
     }
 
     /**
@@ -79,7 +100,11 @@ public class AgentExecutorRpcProvider {
     @PostMapping("/stopTask")
     public Result<TaskResult> stopTask(@RequestBody TaskRequest request) {
         TaskRequest filledRequest = fillWorkerId(request);
-        return execute("stopTask", filledRequest, () -> workerTaskOperator.stopTask(filledRequest));
+        return execute("stopTask", filledRequest, () -> {
+            TaskResult result = workerTaskOperator.stopTask(filledRequest);
+            listenerRegistry.register(filledRequest.getTaskInstanceId());
+            return result;
+        });
     }
 
     /**
@@ -91,7 +116,11 @@ public class AgentExecutorRpcProvider {
     @PostMapping("/killTask")
     public Result<TaskResult> killTask(@RequestBody TaskRequest request) {
         TaskRequest filledRequest = fillWorkerId(request);
-        return execute("killTask", filledRequest, () -> workerTaskOperator.killTask(filledRequest));
+        return execute("killTask", filledRequest, () -> {
+            TaskResult result = workerTaskOperator.killTask(filledRequest);
+            listenerRegistry.register(filledRequest.getTaskInstanceId());
+            return result;
+        });
     }
 
     /**
@@ -103,40 +132,53 @@ public class AgentExecutorRpcProvider {
     @PostMapping("/finishTask")
     public Result<Boolean> finishTask(@RequestBody TaskRequest request) {
         TaskRequest filledRequest = fillWorkerId(request);
-        return execute("finishTask", filledRequest, () -> workerTaskOperator.finishTask(filledRequest));
+        return execute("finishTask", filledRequest, () -> {
+            boolean finished = workerTaskOperator.finishTask(filledRequest);
+            listenerRegistry.unregister(filledRequest.getTaskInstanceId());
+            return finished;
+        });
     }
 
-    private <T> Result<T> execute(String operation, TaskRequest request, Callable<T> action) {
+    private <T> Result<T> execute(String operation, TaskRequest request, Supplier<T> action) {
         long startTime = System.currentTimeMillis();
+        String taskInstanceId = request == null ? null : request.getTaskInstanceId();
+        WorkerResult requestWorkerResult = request == null ? null : request.getWorkerResult();
         log.info("agent收到调度请求, operation={}, taskInstanceId={}, flowInstanceId={}, pluginType={},"
                         + " taskState={}, submitMode={}, workerId={}, appId={}, workDirPath={}",
-                operation, taskInstanceId(request), flowInstanceId(request), pluginType(request), taskState(request),
-                submitMode(request), workerId(request), appId(request), workDirPath(request));
+                operation, taskInstanceId, request == null ? null : request.getFlowInstanceId(),
+                request == null ? null : request.getPluginType(), request == null ? null : request.getTaskState(),
+                request == null ? null : request.getSubmitMode(),
+                requestWorkerResult == null ? null : requestWorkerResult.getWorkerId(),
+                requestWorkerResult == null ? null : requestWorkerResult.getAppId(),
+                requestWorkerResult == null ? null : requestWorkerResult.getWorkDirPath());
         if (!isReady()) {
             log.warn("agent拒绝调度请求, operation={}, taskInstanceId={}, runtimeReady={},"
                             + " acceptTasksBeforeRegistered={}",
-                    operation, taskInstanceId(request), runtimeState.isReady(),
+                    operation, taskInstanceId, runtimeState.isReady(),
                     properties.getWorker().isAcceptTasksBeforeRegistered());
             return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, "agent未注册到manager,暂不可调度");
         }
         try {
             log.info("agent开始执行调度请求, operation={}, taskInstanceId={}",
-                    operation, taskInstanceId(request));
-            T result = action.call();
+                    operation, taskInstanceId);
+            T result = stateStore.withTaskLock(taskInstanceId, action);
             long costMs = System.currentTimeMillis() - startTime;
             if (result instanceof TaskResult taskResult) {
+                WorkerResult resultWorker = taskResult.getWorkerResult();
                 log.info("agent完成调度请求, operation={}, taskInstanceId={}, taskState={}, submitMode={},"
                                 + " workerId={}, appId={}, workDirPath={}, costMs={}",
-                        operation, taskInstanceId(request), resultTaskState(taskResult), resultSubmitMode(taskResult),
-                        resultWorkerId(taskResult), resultAppId(taskResult), resultWorkDirPath(taskResult), costMs);
+                        operation, taskInstanceId, taskResult.getTaskState(), taskResult.getSubmitMode(),
+                        resultWorker == null ? null : resultWorker.getWorkerId(),
+                        resultWorker == null ? null : resultWorker.getAppId(),
+                        resultWorker == null ? null : resultWorker.getWorkDirPath(), costMs);
             } else {
                 log.info("agent完成调度请求, operation={}, taskInstanceId={}, result={}, costMs={}",
-                        operation, taskInstanceId(request), result, costMs);
+                        operation, taskInstanceId, result, costMs);
             }
             return Result.success(result);
         } catch (Exception e) {
             log.warn("agent任务控制请求执行失败, operation={}, taskInstanceId={}",
-                    operation, taskInstanceId(request), e);
+                    operation, taskInstanceId, e);
             return Result.failed(ErrorCodeEnum.SERVICE_ERROR_C0300, e.getMessage());
         }
     }
@@ -162,69 +204,4 @@ public class AgentExecutorRpcProvider {
         return request;
     }
 
-    private String taskInstanceId(TaskRequest request) {
-        return request == null ? null : request.getTaskInstanceId();
-    }
-
-    private String flowInstanceId(TaskRequest request) {
-        return request == null ? null : request.getFlowInstanceId();
-    }
-
-    private String pluginType(TaskRequest request) {
-        return request == null ? null : request.getPluginType();
-    }
-
-    private Object taskState(TaskRequest request) {
-        return request == null ? null : request.getTaskState();
-    }
-
-    private Object submitMode(TaskRequest request) {
-        return request == null ? null : request.getSubmitMode();
-    }
-
-    private String workerId(TaskRequest request) {
-        WorkerResult workerResult = requestWorkerResult(request);
-        return workerResult == null ? null : workerResult.getWorkerId();
-    }
-
-    private String appId(TaskRequest request) {
-        WorkerResult workerResult = requestWorkerResult(request);
-        return workerResult == null ? null : workerResult.getAppId();
-    }
-
-    private String workDirPath(TaskRequest request) {
-        WorkerResult workerResult = requestWorkerResult(request);
-        return workerResult == null ? null : workerResult.getWorkDirPath();
-    }
-
-    private WorkerResult requestWorkerResult(TaskRequest request) {
-        return request == null ? null : request.getWorkerResult();
-    }
-
-    private Object resultTaskState(TaskResult result) {
-        return result == null ? null : result.getTaskState();
-    }
-
-    private Object resultSubmitMode(TaskResult result) {
-        return result == null ? null : result.getSubmitMode();
-    }
-
-    private String resultWorkerId(TaskResult result) {
-        WorkerResult workerResult = resultWorkerResult(result);
-        return workerResult == null ? null : workerResult.getWorkerId();
-    }
-
-    private String resultAppId(TaskResult result) {
-        WorkerResult workerResult = resultWorkerResult(result);
-        return workerResult == null ? null : workerResult.getAppId();
-    }
-
-    private String resultWorkDirPath(TaskResult result) {
-        WorkerResult workerResult = resultWorkerResult(result);
-        return workerResult == null ? null : workerResult.getWorkDirPath();
-    }
-
-    private WorkerResult resultWorkerResult(TaskResult result) {
-        return result == null ? null : result.getWorkerResult();
-    }
 }

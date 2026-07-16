@@ -31,6 +31,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class WorkerTaskExecutionContextTest {
 
+    /**
+     * Temporary directory.
+     */
     @TempDir
     private Path tempDir;
 
@@ -43,7 +46,7 @@ class WorkerTaskExecutionContextTest {
         store.saveState(state(StatusEnum.RUN_SUCCESS));
 
         Path executionDir = executionDir();
-        Path logFile = executionDir.resolve("state.log");
+        final Path logFile = executionDir.resolve("state.log");
         Path jobFile = executionDir.resolve("job.json");
         Path apiJobFile = executionDir.resolve("api-job.json");
         Path nestedJsonFile = executionDir.resolve("nested").resolve("result.json");
@@ -51,14 +54,15 @@ class WorkerTaskExecutionContextTest {
         Files.writeString(apiJobFile, "{}");
         Files.createDirectories(nestedJsonFile.getParent());
         Files.writeString(nestedJsonFile, "{}");
-        assertEquals(1, store.listListeningStates().size());
+        assertNotNull(store.get("task-1"));
+        assertEquals(3L, store.readState("task-1").orElseThrow().getRevision());
         assertEquals(2, Files.readAllLines(logFile).size());
 
         WorkerTaskExecutionContext reloadedStore = new WorkerTaskExecutionContext(properties());
-        assertEquals(0, reloadedStore.listListeningStates().size());
+        assertNull(reloadedStore.get("task-1"));
 
         reloadedStore.restoreListeningTasks(List.of(restoreRequest()));
-        assertEquals(1, reloadedStore.listListeningStates().size());
+        assertNotNull(reloadedStore.get("task-1"));
         assertEquals(StatusEnum.RUN_SUCCESS, reloadedStore.readState("task-1").orElseThrow().getStatus());
 
         reloadedStore.deleteExecution("task-1");
@@ -69,7 +73,7 @@ class WorkerTaskExecutionContextTest {
         assertTrue(Files.exists(nestedJsonFile));
         assertFalse(Files.exists(executionDir.resolve("task-1.state")));
         assertFalse(Files.exists(executionDir.resolve("task-1.snap")));
-        assertEquals(0, reloadedStore.listListeningStates().size());
+        assertNull(reloadedStore.get("task-1"));
     }
 
     @Test
@@ -104,20 +108,6 @@ class WorkerTaskExecutionContextTest {
     }
 
     @Test
-    void shouldStopListeningWithoutDeletingRuntimeFiles() {
-        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
-        store.saveSnapshot(snapshot());
-        store.saveState(state(StatusEnum.RUN_FAILURE));
-
-        store.stopListening("task-1");
-
-        Path executionDir = executionDir();
-        assertEquals(0, store.listListeningStates().size());
-        assertTrue(Files.exists(executionDir.resolve("task-1.state")));
-        assertTrue(Files.exists(executionDir.resolve("task-1.snap")));
-    }
-
-    @Test
     void shouldRemoveContextWithoutDeletingRuntimeFiles() {
         WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
         store.saveSnapshot(snapshot());
@@ -126,23 +116,22 @@ class WorkerTaskExecutionContextTest {
         store.removeContext("task-1");
 
         Path executionDir = executionDir();
-        assertEquals(0, store.listListeningStates().size());
+        assertNull(store.get("task-1"));
         assertTrue(Files.exists(executionDir.resolve("task-1.state")));
         assertTrue(Files.exists(executionDir.resolve("task-1.snap")));
     }
 
     @Test
-    void shouldNotRestoreListeningContextWhenReadingStoppedRuntimeFiles() {
+    void shouldNotRestoreContextWhenReadingRemovedRuntimeFiles() {
         WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
         store.saveSnapshot(snapshot());
         store.saveState(state(StatusEnum.RUN_FAILURE));
-        store.stopListening("task-1");
+        store.removeContext("task-1");
 
         assertEquals(StatusEnum.RUN_FAILURE, store.readState("task-1").orElseThrow().getStatus());
         assertTrue(store.readSnapshot("task-1").isPresent());
 
         assertNull(store.get("task-1"));
-        assertEquals(0, store.listListeningStates().size());
     }
 
     @Test
@@ -153,7 +142,6 @@ class WorkerTaskExecutionContextTest {
 
         assertFalse(Files.exists(executionDir().resolve("task-1.state")));
         assertFalse(Files.exists(executionDir().resolve("task-1.snap")));
-        assertEquals(0, store.listListeningStates().size());
         assertNotNull(store.get("task-1"));
     }
 

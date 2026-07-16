@@ -43,44 +43,87 @@ class K8sOperatorRunModeStateMappingTest {
         FakeOperatorClient client = new FakeOperatorClient();
         K8sOperatorRunModeStateMapping mapping = mapping(client);
 
-        client.status = status(FlinkOperatorStatus.State.RECONCILING, true, true, true);
+        client.status = status(FlinkOperatorStatus.State.RECONCILING);
         assertEquals(StatusEnum.SUBMIT_SUCCESS, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
         assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.RUNNING)));
 
-        client.status = status(FlinkOperatorStatus.State.FAILING, true, true, true);
+        client.status = status(FlinkOperatorStatus.State.FAILING);
         assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.RUNNING)));
 
-        client.status = status(FlinkOperatorStatus.State.FINISHED, true, false, true);
+        client.status = status(FlinkOperatorStatus.State.FINISHED);
         assertEquals(StatusEnum.RUN_SUCCESS, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
         assertEquals(StatusEnum.RUN_SUCCESS, mapping.mapState(state(StatusEnum.RUNNING)));
 
-        client.status = status(FlinkOperatorStatus.State.FAILED, true, false, true);
+        client.status = status(FlinkOperatorStatus.State.FAILED);
         assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
         assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.RUNNING)));
 
-        client.status = status(FlinkOperatorStatus.State.CANCELLING, true, true, true);
+        client.status = status(FlinkOperatorStatus.State.CANCELLING);
         assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
         assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.RUNNING)));
 
-        client.status = status(FlinkOperatorStatus.State.CANCELED, true, true, true);
+        client.status = status(FlinkOperatorStatus.State.CANCELED);
         assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
         assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.RUNNING)));
+
+        client.status = stoppedStatus(FlinkOperatorStatus.State.CANCELED, 1L, 1L);
         assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(state(StatusEnum.STOPPING)));
 
-        client.status = status(FlinkOperatorStatus.State.FINISHED, true, true, true);
+        client.status = stoppedStatus(FlinkOperatorStatus.State.FINISHED, 1L, 1L);
         assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(state(StatusEnum.STOPPING)));
 
-        client.status = status(FlinkOperatorStatus.State.SUSPENDED, true, true, true);
+        client.status = stoppedStatus(FlinkOperatorStatus.State.SUSPENDED, 1L, 1L);
         assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(state(StatusEnum.STOPPING)));
 
-        client.status = status(FlinkOperatorStatus.State.FAILED, true, false, true);
+        client.status = stoppedStatus(FlinkOperatorStatus.State.FAILED, 1L, 1L);
         assertEquals(StatusEnum.STOP_FAILURE, mapping.mapState(state(StatusEnum.STOPPING)));
 
-        client.status = status(FlinkOperatorStatus.State.NONE, false, false, false);
+        client.status = missingStatus();
+        client.runtimePodsExist = false;
         assertEquals(StatusEnum.KILLED, mapping.mapState(state(StatusEnum.KILLING)));
 
-        client.status = status(FlinkOperatorStatus.State.NONE, false, true, false);
+        client.runtimePodsExist = true;
+        assertEquals(StatusEnum.KILLING, mapping.mapState(state(StatusEnum.KILLING)));
         assertEquals(StatusEnum.UNKNOWN, mapping.mapState(state(StatusEnum.RUNNING)));
+    }
+
+    @Test
+    void shouldWaitForCurrentGenerationAndUseJobManagerErrorAsFallback() {
+        FakeOperatorClient client = new FakeOperatorClient();
+        K8sOperatorRunModeStateMapping mapping = mapping(client);
+
+        client.status = stoppedStatus(FlinkOperatorStatus.State.SUSPENDED, 2L, 1L);
+        assertEquals(StatusEnum.STOPPING, mapping.mapState(state(StatusEnum.STOPPING)));
+
+        client.status = status(FlinkOperatorStatus.State.FINISHED, FlinkOperatorStatus.State.RUNNING,
+                FlinkOperatorStatus.JobManagerState.READY, true, 2L, 1L);
+        assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.RUNNING)));
+
+        client.status = status(FlinkOperatorStatus.State.RECONCILING, FlinkOperatorStatus.State.RUNNING,
+                FlinkOperatorStatus.JobManagerState.ERROR, true, 2L, 2L);
+        assertEquals(StatusEnum.SUBMIT_FAILURE, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
+        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.RUNNING)));
+
+        client.status = status(FlinkOperatorStatus.State.UNKNOWN, FlinkOperatorStatus.State.RUNNING,
+                FlinkOperatorStatus.JobManagerState.ERROR, true, 2L, 2L);
+        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.RUNNING)));
+
+        client.status = status(FlinkOperatorStatus.State.UNKNOWN, FlinkOperatorStatus.State.SUSPENDED,
+                FlinkOperatorStatus.JobManagerState.ERROR, true, 2L, 2L);
+        assertEquals(StatusEnum.STOP_FAILURE, mapping.mapState(state(StatusEnum.STOPPING)));
+    }
+
+    @Test
+    void shouldUseRuntimePodsOnlyWhenOperatorResourceIsMissing() {
+        FakeOperatorClient client = new FakeOperatorClient();
+        K8sOperatorRunModeStateMapping mapping = mapping(client);
+        client.status = missingStatus();
+
+        client.runtimePodsExist = true;
+        assertEquals(StatusEnum.STOPPING, mapping.mapState(state(StatusEnum.STOPPING)));
+
+        client.runtimePodsExist = false;
+        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(state(StatusEnum.STOPPING)));
     }
 
     @Test
@@ -122,14 +165,33 @@ class K8sOperatorRunModeStateMappingTest {
                 .build();
     }
 
-    private FlinkOperatorStatus status(FlinkOperatorStatus.State state, boolean deploymentExists,
-            boolean podExists, boolean serviceExists) {
+    private FlinkOperatorStatus status(FlinkOperatorStatus.State state) {
+        return status(state, FlinkOperatorStatus.State.RUNNING, FlinkOperatorStatus.JobManagerState.READY,
+                true, 1L, 1L);
+    }
+
+    private FlinkOperatorStatus status(FlinkOperatorStatus.State state, FlinkOperatorStatus.State desiredState,
+            FlinkOperatorStatus.JobManagerState jobManagerState, boolean deploymentExists, Long generation,
+            Long observedGeneration) {
         return FlinkOperatorStatus.builder()
                 .state(state)
+                .desiredState(desiredState)
+                .jobManagerState(jobManagerState)
                 .deploymentExists(deploymentExists)
-                .podExists(podExists)
-                .serviceExists(serviceExists)
+                .generation(generation)
+                .observedGeneration(observedGeneration)
                 .build();
+    }
+
+    private FlinkOperatorStatus stoppedStatus(FlinkOperatorStatus.State state, Long generation,
+            Long observedGeneration) {
+        return status(state, FlinkOperatorStatus.State.SUSPENDED, FlinkOperatorStatus.JobManagerState.READY,
+                true, generation, observedGeneration);
+    }
+
+    private FlinkOperatorStatus missingStatus() {
+        return status(FlinkOperatorStatus.State.NONE, FlinkOperatorStatus.State.NONE,
+                FlinkOperatorStatus.JobManagerState.NONE, false, null, null);
     }
 
     private TaskRequest request() {
@@ -181,6 +243,11 @@ class K8sOperatorRunModeStateMappingTest {
          */
         private RuntimeException stopFailure;
 
+        /**
+         * 是否存在运行 Pod.
+         */
+        private boolean runtimePodsExist;
+
         @Override
         public FlinkKubernetesRuntimeRef submit(FlinkExecutionParam param) {
             return null;
@@ -201,6 +268,11 @@ class K8sOperatorRunModeStateMappingTest {
         @Override
         public FlinkOperatorStatus queryStatus(FlinkKubernetesRuntimeRef runtimeRef) {
             return status;
+        }
+
+        @Override
+        public boolean runtimePodsExist(FlinkKubernetesRuntimeRef runtimeRef) {
+            return runtimePodsExist;
         }
 
         @Override

@@ -42,6 +42,14 @@ public interface K8sOperatorClient {
     FlinkOperatorStatus queryStatus(FlinkKubernetesRuntimeRef runtimeRef);
 
     /**
+     * 查询 JobManager 或 TaskManager Pod 是否存在.
+     *
+     * @param runtimeRef 运行引用
+     * @return true 表示仍有运行 Pod
+     */
+    boolean runtimePodsExist(FlinkKubernetesRuntimeRef runtimeRef);
+
+    /**
      * 采集日志.
      *
      * @param runtimeRef 运行引用

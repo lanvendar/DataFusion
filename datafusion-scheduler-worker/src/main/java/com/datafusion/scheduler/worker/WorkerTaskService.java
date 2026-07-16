@@ -11,8 +11,6 @@ import com.datafusion.scheduler.worker.context.WorkerTaskContextStorage;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import com.datafusion.scheduler.worker.plugin.WorkerTaskOperatorRouter;
-import com.datafusion.scheduler.worker.reporter.NoopTaskResultReporter;
-import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -38,11 +36,6 @@ public class WorkerTaskService implements WorkerTaskOperator {
     private final WorkerTaskContextStorage contextStore;
 
     /**
-     * 任务结果上报接口.
-     */
-    private final TaskResultReporter resultReporter;
-
-    /**
      * 异步执行器.
      */
     private final Executor asyncExecutor;
@@ -58,8 +51,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
      * @param router 插件路由器
      */
     public WorkerTaskService(WorkerTaskOperatorRouter router) {
-        this(router, new CachedWorkerTaskContextStorage(), new NoopTaskResultReporter(), createDefaultAsyncExecutor(),
-                SubmitModeEnum.SYNC);
+        this(router, new CachedWorkerTaskContextStorage(), createDefaultAsyncExecutor(), SubmitModeEnum.SYNC);
     }
 
     /**
@@ -67,18 +59,16 @@ public class WorkerTaskService implements WorkerTaskOperator {
      *
      * @param router            插件路由器
      * @param contextStore      运行中任务上下文存储
-     * @param resultReporter    任务结果上报接口
      * @param asyncExecutor     异步执行器
      * @param defaultSubmitMode 默认提交模式
      */
     public WorkerTaskService(WorkerTaskOperatorRouter router, WorkerTaskContextStorage contextStore,
-            TaskResultReporter resultReporter, Executor asyncExecutor, SubmitModeEnum defaultSubmitMode) {
+            Executor asyncExecutor, SubmitModeEnum defaultSubmitMode) {
         if (router == null) {
             throw new IllegalArgumentException("router不能为空");
         }
         this.router = router;
         this.contextStore = contextStore == null ? new CachedWorkerTaskContextStorage() : contextStore;
-        this.resultReporter = resultReporter == null ? new NoopTaskResultReporter() : resultReporter;
         this.asyncExecutor = asyncExecutor == null ? Runnable::run : asyncExecutor;
         this.defaultSubmitMode = defaultSubmitMode == null ? SubmitModeEnum.SYNC : defaultSubmitMode;
     }
@@ -123,12 +113,7 @@ public class WorkerTaskService implements WorkerTaskOperator {
                 TaskResult accepted = baseResult(request, StatusEnum.SUBMITTING, null);
                 updateContext(context, accepted);
                 try {
-                    asyncExecutor.execute(() -> {
-                        TaskResult result = safeExecuteSubmit(executor, request);
-                        TaskResult submitResult = normalizeSubmitResult(request, result);
-                        updateContext(context, submitResult);
-                        resultReporter.report(submitResult);
-                    });
+                    asyncExecutor.execute(() -> executeAsyncSubmit(context, executor, request));
                 } catch (RuntimeException e) {
                     TaskResult result = failureResult(request, StatusEnum.SUBMIT_FAILURE, e.getMessage());
                     updateContext(context, result);
@@ -149,7 +134,8 @@ public class WorkerTaskService implements WorkerTaskOperator {
         normalizeRequest(request);
         validateTaskInstanceId(request);
         RunningTaskContext context = contextStore.get(request.getTaskInstanceId());
-        if (context != null && isFinalState(context.getTaskState())) {
+        if (context != null && (isFinalState(context.getTaskState())
+                || context.getTaskState() == StatusEnum.STOPPING || context.getTaskState() == StatusEnum.KILLING)) {
             return responseFromContext(context);
         }
         TaskRequest resolvedRequest = context == null ? request : context.fillRequest(request);
@@ -159,7 +145,6 @@ public class WorkerTaskService implements WorkerTaskOperator {
         }
         TaskResult result = safeExecuteStop(executor, resolvedRequest);
         updateContext(context, result);
-        resultReporter.report(result);
         removeFinalContext(context, executor, resolvedRequest, result);
         return result;
     }
@@ -169,7 +154,8 @@ public class WorkerTaskService implements WorkerTaskOperator {
         normalizeRequest(request);
         validateTaskInstanceId(request);
         RunningTaskContext context = contextStore.get(request.getTaskInstanceId());
-        if (context != null && shouldReturnFinalContextForKill(context.getTaskState())) {
+        if (context != null && (shouldReturnFinalContextForKill(context.getTaskState())
+                || context.getTaskState() == StatusEnum.KILLING)) {
             return responseFromContext(context);
         }
         TaskRequest resolvedRequest = context == null ? request : context.fillRequest(request);
@@ -179,7 +165,6 @@ public class WorkerTaskService implements WorkerTaskOperator {
         }
         TaskResult result = safeExecuteKill(executor, resolvedRequest);
         updateContext(context, result);
-        resultReporter.report(result);
         removeFinalContext(context, executor, resolvedRequest, result);
         return result;
     }
@@ -215,6 +200,27 @@ public class WorkerTaskService implements WorkerTaskOperator {
             return fillResult(request, result, StatusEnum.SUBMIT_SUCCESS);
         } catch (RuntimeException e) {
             return failureResult(request, StatusEnum.SUBMIT_FAILURE, e.getMessage());
+        }
+    }
+
+    private void executeAsyncSubmit(RunningTaskContext context, PluginTaskExecutor executor, TaskRequest request) {
+        Runnable submit = () -> {
+            if (context.getTaskState() != StatusEnum.SUBMITTING) {
+                return;
+            }
+            TaskResult result = safeExecuteSubmit(executor, request);
+            TaskResult submitResult = normalizeSubmitResult(request, result);
+            updateContext(context, submitResult);
+        };
+        if (contextStore instanceof WorkerTaskExecutionStore executionStore) {
+            executionStore.withTaskLock(context.getTaskInstanceId(), () -> {
+                submit.run();
+                return null;
+            });
+            return;
+        }
+        synchronized (context) {
+            submit.run();
         }
     }
 
@@ -304,10 +310,48 @@ public class WorkerTaskService implements WorkerTaskOperator {
     }
 
     private void updateContext(RunningTaskContext context, TaskResult result) {
-        if (context != null) {
-            context.updateResult(result);
-            contextStore.save(context);
+        if (context == null) {
+            return;
         }
+        Runnable update = () -> {
+            StatusEnum currentStatus = context.getTaskState();
+            StatusEnum nextStatus = result == null ? null : result.getTaskState();
+            boolean statusAccepted = canUpdateStatus(currentStatus, nextStatus);
+            context.updateResult(result);
+            if (!statusAccepted) {
+                context.setTaskState(currentStatus);
+            }
+            contextStore.save(context);
+        };
+        if (contextStore instanceof WorkerTaskExecutionStore executionStore) {
+            executionStore.withTaskLock(context.getTaskInstanceId(), () -> {
+                update.run();
+                return null;
+            });
+            return;
+        }
+        synchronized (context) {
+            update.run();
+        }
+    }
+
+    private boolean canUpdateStatus(StatusEnum currentStatus, StatusEnum nextStatus) {
+        if (currentStatus == null || nextStatus == null || currentStatus == nextStatus) {
+            return true;
+        }
+        if (currentStatus == StatusEnum.UNKNOWN) {
+            return nextStatus == StatusEnum.KILLED;
+        }
+        if (currentStatus.isFinalState()) {
+            return false;
+        }
+        return switch (currentStatus) {
+            case STOPPING -> nextStatus == StatusEnum.STOP_SUCCESS || nextStatus == StatusEnum.STOP_FAILURE
+                    || nextStatus == StatusEnum.KILLING || nextStatus == StatusEnum.KILLED
+                    || nextStatus == StatusEnum.UNKNOWN;
+            case KILLING -> nextStatus == StatusEnum.KILLED || nextStatus == StatusEnum.UNKNOWN;
+            default -> true;
+        };
     }
 
     private void validateTaskInstanceId(TaskRequest request) {

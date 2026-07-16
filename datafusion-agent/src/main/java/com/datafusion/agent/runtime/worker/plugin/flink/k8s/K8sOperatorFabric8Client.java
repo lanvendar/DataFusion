@@ -49,6 +49,21 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
     private static final List<String> JOB_STATUS_PATH = List.of("status", "jobStatus", "state");
 
     /**
+     * Desired job state path.
+     */
+    private static final List<String> DESIRED_JOB_STATE_PATH = List.of("spec", "job", "state");
+
+    /**
+     * JobManager deployment status path.
+     */
+    private static final List<String> JOB_MANAGER_STATUS_PATH = List.of("status", "jobManagerDeploymentStatus");
+
+    /**
+     * Observed generation path.
+     */
+    private static final List<String> OBSERVED_GENERATION_PATH = List.of("status", "observedGeneration");
+
+    /**
      * FlinkDeployment spec property.
      */
     private static final String SPEC_PROPERTY = "spec";
@@ -143,24 +158,34 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
     @Override
     public FlinkOperatorStatus queryStatus(FlinkKubernetesRuntimeRef runtimeRef) {
         GenericKubernetesResource deployment = deployment(runtimeRef);
-        List<Pod> podList = pods(runtimeRef);
-        List<Service> serviceList = services(runtimeRef);
-        String state = deployment == null ? null : stringAt(deployment, JOB_STATUS_PATH);
+        String state = valueAt(deployment, JOB_STATUS_PATH);
+        String desiredState = valueAt(deployment, DESIRED_JOB_STATE_PATH);
+        String jobManagerState = valueAt(deployment, JOB_MANAGER_STATUS_PATH);
         FlinkOperatorStatus.State operatorState = FlinkOperatorStatus.State.from(state);
         if (operatorState == FlinkOperatorStatus.State.UNKNOWN) {
             log.warn("K8S_OPERATOR FlinkDeployment返回未知状态, namespace={}, deploymentName={}, operatorState={}",
                     runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), state);
         }
         log.debug("查询K8S_OPERATOR FlinkDeployment状态, namespace={}, deploymentName={}, operatorState={}, "
-                        + "deploymentExists={}, podExists={}, serviceExists={}",
-                runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), state, deployment != null,
-                !podList.isEmpty(), !serviceList.isEmpty());
+                        + "desiredState={}, jobManagerState={}, generation={}, observedGeneration={}",
+                runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), state, desiredState, jobManagerState,
+                generation(deployment), longAt(deployment, OBSERVED_GENERATION_PATH));
         return FlinkOperatorStatus.builder()
                 .state(operatorState)
+                .desiredState(FlinkOperatorStatus.State.from(desiredState))
+                .jobManagerState(FlinkOperatorStatus.JobManagerState.from(jobManagerState))
                 .deploymentExists(deployment != null)
-                .podExists(!podList.isEmpty())
-                .serviceExists(!serviceList.isEmpty())
+                .generation(generation(deployment))
+                .observedGeneration(longAt(deployment, OBSERVED_GENERATION_PATH))
                 .build();
+    }
+
+    @Override
+    public boolean runtimePodsExist(FlinkKubernetesRuntimeRef runtimeRef) {
+        List<Pod> podList = pods(runtimeRef);
+        log.debug("查询K8S_OPERATOR Flink运行Pod, namespace={}, deploymentName={}, podCount={}",
+                runtimeRef.getNamespace(), runtimeRef.getDeploymentName(), podList.size());
+        return !podList.isEmpty();
     }
 
     @Override
@@ -426,9 +451,42 @@ public class K8sOperatorFabric8Client implements K8sOperatorClient {
      * @param path     nested property path
      * @return string value, or null if absent
      */
-    private String stringAt(GenericKubernetesResource resource, List<String> path) {
+    private String valueAt(GenericKubernetesResource resource, List<String> path) {
+        if (resource == null) {
+            return null;
+        }
         Object value = resource.get(path.toArray());
         return value == null ? null : String.valueOf(value);
+    }
+
+    /**
+     * Read long value by Kubernetes resource path.
+     *
+     * @param resource Kubernetes resource
+     * @param path     nested property path
+     * @return long value, or null if absent
+     */
+    private Long longAt(GenericKubernetesResource resource, List<String> path) {
+        String value = valueAt(resource, path);
+        if (isBlank(value)) {
+            return null;
+        }
+        try {
+            return Long.valueOf(value);
+        } catch (NumberFormatException e) {
+            log.warn("K8S_OPERATOR FlinkDeployment字段不是有效整数, path={}, value={}", path, value);
+            return null;
+        }
+    }
+
+    /**
+     * Read FlinkDeployment generation.
+     *
+     * @param resource Kubernetes resource
+     * @return generation, or null if absent
+     */
+    private Long generation(GenericKubernetesResource resource) {
+        return resource == null || resource.getMetadata() == null ? null : resource.getMetadata().getGeneration();
     }
 
     /**

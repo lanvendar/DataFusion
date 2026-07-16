@@ -54,7 +54,7 @@ Manager scheduler
     -> ShellLocalPluginTaskExecutor
     -> 本地 shell 进程
     -> WorkerTaskExecutionStore
-    -> AgentTaskStateReportScheduler
+    -> AgentTaskStateListenerRegistry
     -> ManagerTaskResultReporter
 ```
 

@@ -20,19 +20,87 @@ public class FlinkOperatorStatus {
     private State state;
 
     /**
+     * Operator 期望作业状态.
+     */
+    private State desiredState;
+
+    /**
+     * JobManager 部署状态.
+     */
+    private JobManagerState jobManagerState;
+
+    /**
      * FlinkDeployment 是否存在.
      */
     private boolean deploymentExists;
 
     /**
-     * 运行 Pod 是否存在.
+     * FlinkDeployment spec generation.
      */
-    private boolean podExists;
+    private Long generation;
 
     /**
-     * 运行 Service 是否存在.
+     * Operator 已观察的 generation.
      */
-    private boolean serviceExists;
+    private Long observedGeneration;
+
+    /**
+     * JobManager 部署状态.
+     */
+    public enum JobManagerState {
+
+        /**
+         * Operator 尚未返回状态.
+         */
+        NONE,
+
+        /**
+         * JobManager 已就绪.
+         */
+        READY,
+
+        /**
+         * JobManager 已部署但尚未就绪.
+         */
+        DEPLOYED_NOT_READY,
+
+        /**
+         * JobManager 部署中.
+         */
+        DEPLOYING,
+
+        /**
+         * JobManager 不存在.
+         */
+        MISSING,
+
+        /**
+         * JobManager 部署错误.
+         */
+        ERROR,
+
+        /**
+         * 未识别状态.
+         */
+        UNKNOWN;
+
+        /**
+         * 解析 Operator JobManager 状态.
+         *
+         * @param value 原始状态
+         * @return JobManager 状态
+         */
+        public static JobManagerState from(String value) {
+            if (value == null || value.trim().isEmpty()) {
+                return NONE;
+            }
+            try {
+                return JobManagerState.valueOf(value.trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return UNKNOWN;
+            }
+        }
+    }
 
     /**
      * Flink Operator 作业状态.

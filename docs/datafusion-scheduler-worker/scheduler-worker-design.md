@@ -33,13 +33,12 @@ com.datafusion.scheduler.worker.state
 
 com.datafusion.scheduler.worker.reporter
     TaskResultReporter
-    NoopTaskResultReporter
 ```
 
 ## 3. 核心职责
 
 - `WorkerTaskOperator`：worker 侧任务控制入口，定义 `submitTask`、`stopTask`、`killTask`、`finishTask`。
-- `WorkerTaskService`：默认实现，负责参数校验、插件路由、提交语义、上下文幂等和结果上报。
+- `WorkerTaskService`：默认实现，负责参数校验、插件路由、提交语义、上下文幂等和本地运行态提交；不直接上报 Manager。
 - `PluginTaskExecutor`：插件执行器，负责某一 `pluginType + runMode` 的 validate、submit、stop、kill、finish/destroy。
 - `PluginRunModeStateMapping`：插件状态映射器，按 `pluginType + runMode` 把终端状态映射为 `StatusEnum`。
 - `RunningTaskContext`：进程内运行上下文，直接组合 `WorkerTaskExecutionSnap` 和
@@ -58,26 +57,31 @@ TaskRequest
     -> PluginTaskExecutor.validateTaskRequest
     -> PluginTaskExecutor.submitTask / stopTask / killTask / finishTask
     -> RunningTaskContext 更新
-    -> TaskResultReporter.report
 ```
 
 状态刷新由运行时应用发起，但使用 worker SPI：
 
 ```text
-WorkerTaskExecutionStore.listListeningStates
-    -> 按 taskInstanceId 读取 WorkerTaskExecutionSnap
+运行时按 taskInstanceId 注册任务监听
+    -> 读取 WorkerTaskExecutionSnap / WorkerTaskExecutionState
     -> 按 snap.pluginType + snap.runMode 找 PluginRunModeStateMapping
     -> mapState(state) 得到 StatusEnum
-    -> WorkerTaskExecutionStore.saveState
+    -> WorkerTaskExecutionStore.withTaskLock 二次读取并校验 status + revision
+    -> 状态变化后 WorkerTaskExecutionStore.saveState
     -> TaskResultReporter.report
 ```
+
+worker SPI 不定义统一扫描策略。运行时负责监听注册、调度线程和终态保留；
+`WorkerTaskExecutionStore.withTaskLock` 只提供同一任务读写原子边界，锁不持久化。
+`WorkerTaskExecutionState.revision` 随每次 `.state` 写入递增，用于识别查询期间发生的同状态写入，不替代任务锁。
 
 ## 5. 提交语义
 
 `SubmitModeEnum` 只表达提交确认方式，不表达任务本体同步运行。
 
 - `SYNC`：worker 在当前请求线程调用插件 `submitTask`；提交成功响应统一归一为 `SUBMIT_SUCCESS`，提交失败返回 `SUBMIT_FAILURE`。
-- `ASYNC`：worker 接收请求后返回 `SUBMITTING`，后台执行插件提交并上报 `SUBMIT_SUCCESS` 或 `SUBMIT_FAILURE`。
+- `ASYNC`：worker 接收请求后返回 `SUBMITTING`，后台执行插件提交并写入 `SUBMIT_SUCCESS` 或
+  `SUBMIT_FAILURE`；运行时任务监听器观察到本地状态变化后统一上报。
 
 提交响应不等待任务执行完成，也不把最终成功/失败作为同步提交响应返回。插件观测到的 `RUNNING`、`RUN_SUCCESS`、`RUN_FAILURE` 等运行状态通过 `TaskResultReporter` 异步上报。
 
@@ -91,7 +95,9 @@ WorkerTaskExecutionStore.listListeningStates
 
 因此状态映射必须按 `pluginType + runMode` 路由。同一组合如果存在多种状态源，应由该插件自己的 `PluginRunModeStateMapping` 在插件参数或运行态中选择来源。
 
-执行器路由遵循同一组合唯一原则。同一插件存在多种运行模式时，每种模式注册独立执行器并共享轻量公共实现；只有一种运行模式时直接实现 `PluginTaskExecutor`。
+执行器和状态映射路由键统一按去除首尾空白、转大写后的 `pluginType + runMode` 比较，并遵循同一组合唯一原则；
+重复组合在启动装配时直接失败。同一插件存在多种运行模式时，每种模式注册独立执行器并共享轻量公共实现；
+只有一种运行模式时直接实现 `PluginTaskExecutor`。
 
 ## 7. 幂等与恢复边界
 

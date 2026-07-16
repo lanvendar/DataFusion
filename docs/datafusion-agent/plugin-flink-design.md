@@ -29,7 +29,7 @@ Manager scheduler
     -> flink-job.json
     -> FlinkDeployment
     -> WorkerTaskExecutionStore
-    -> AgentTaskStateReportScheduler
+    -> AgentTaskStateListenerRegistry
     -> ManagerTaskResultReporter
 ```
 
@@ -82,26 +82,37 @@ Manager scheduler
 |------|------|------|
 | `submit` | 将 job state 设为 `running`，校验共享盘依赖目录和主 jar，创建或更新 `FlinkDeployment`，写 `.snap/.state` | 成功返回 `SUBMIT_SUCCESS`；失败返回 `SUBMIT_FAILURE` |
 | `stop` | 发起温和停止，将 `FlinkDeployment.spec.job.state` 更新为小写 `suspended` | 返回 `STOPPING`，由状态刷新推进终态 |
-| `kill` | 强制清理 FlinkDeployment、Pod、Service 等运行资源 | 成功或资源不存在返回 `KILLED` |
+| `kill` | 强制清理 FlinkDeployment、Pod、Service 等运行资源 | 删除请求成功返回 `KILLING`，由状态刷新确认资源消失后推进 `KILLED` |
 | `finish` | master 确认终态后按配置清理 `FlinkDeployment` | 返回清理结果 |
 
 `kill` 和 `finish` 的清理逻辑必须幂等。状态刷新只查询状态和采集终态日志，不触发 stop、kill 或重新提交。
 清理 Pod 和 Service 时先按任务标签查询，再按资源名称逐个删除，不依赖 Kubernetes `deletecollection` 权限。
+`kill` 发出删除请求后保持 `KILLING`，直到状态刷新确认 FlinkDeployment 和运行 Pod 都已不存在；Service 残留只影响清理结果，不阻塞任务终态。
 
 ## 6. 状态映射
 
 `K8sOperatorClient` 只返回 Kubernetes / Operator 状态事实；`K8sOperatorRunModeStateMapping` 结合任务状态映射
-为 DataFusion `StatusEnum`。
+为 DataFusion `StatusEnum`。状态查询优先读取单个 FlinkDeployment 的 `spec.job.state`、
+`status.jobStatus.state`、`status.jobManagerDeploymentStatus`、`metadata.generation` 和
+`status.observedGeneration`。Operator 状态足够时不查询 Pod 或 Service；仅在 `KILLING` 或停止阶段 CR 已不存在时查询运行 Pod 是否残留。
+
+`.state.status` 是 DataFusion 控制意图的事实来源，`STOPPING` 和 `KILLING` 不重复写入 Operator 状态快照。
+当 `metadata.generation` 已推进但 `status.observedGeneration` 尚未追平时，Operator 状态仍属于旧版本，保持当前中间态。
 
 | 任务状态 | Operator 状态 | DataFusion 状态 |
 |----------|---------------|-----------------|
-| 正常执行 | `NONE`, `CREATED`, `INITIALIZING`, `RECONCILING` | 保持当前状态 |
+| 正常执行 | 当前 generation 尚未被 Operator 观察 | 保持当前状态 |
+| 正常执行 | `NONE`, `CREATED`, `INITIALIZING`, `RECONCILING` 且 JobManager 非 `ERROR` | 保持当前状态 |
+| 提交阶段 | JobManager `ERROR` | `SUBMIT_FAILURE` |
+| 运行阶段 | JobManager `ERROR` | `RUN_FAILURE` |
 | 正常执行 | `RUNNING`, `RESTARTING`, `FAILING`, `CANCELLING` | `RUNNING` |
 | 正常执行 | `FINISHED` | `RUN_SUCCESS` |
 | 正常执行 | `FAILED`, `CANCELED`, `SUSPENDED` | `RUN_FAILURE` |
-| `STOPPING` | `FINISHED`, `CANCELED`, `SUSPENDED` 或运行 Pod 不存在 | `STOP_SUCCESS` |
+| `STOPPING` | 期望状态不是 `suspended`，或当前 generation 尚未被 Operator 观察 | `STOPPING` |
+| `STOPPING` | 当前 generation 已观察，且为 `FINISHED`, `CANCELED`, `SUSPENDED` | `STOP_SUCCESS` |
 | `STOPPING` | `FAILED` | `STOP_FAILURE` |
-| `STOPPING` | 其他状态且运行 Pod 存在 | `STOPPING` |
+| `STOPPING` | JobManager `ERROR` | `STOP_FAILURE` |
+| `STOPPING` | 其他状态 | `STOPPING` |
 | `KILLING` | 运行资源不存在 | `KILLED` |
 | 非终态 | 状态缺失或无法识别 | `UNKNOWN` |
 

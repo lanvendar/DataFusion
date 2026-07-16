@@ -26,13 +26,26 @@
 | `AgentProperties.Manager` | `baseUrl` | `String` | 空 | manager HTTP 地址 |
 | `AgentProperties.Manager` | `enabled` | `boolean` | `true` | 是否启用 manager 注册心跳 |
 | `AgentProperties.Manager` | `heartbeatIntervalMs` | `long` | `15000` | 心跳间隔 |
+| `AgentProperties.Manager` | `connectTimeoutMs` | `long` | `5000` | Agent 调用 Manager 的 HTTP 连接超时 |
+| `AgentProperties.Manager` | `readTimeoutMs` | `long` | `10000` | Agent 调用 Manager 的 HTTP 读取超时，避免监听线程长期阻塞 |
 | `AgentProperties.Storage` | `logsDir` | `String` | `logs` | agent 自身日志目录名，不作为插件任务运行目录 |
 | `AgentProperties.Storage` | `taskRuntimeDir` | `String` | `/opt/datafusion/task-runtime` | 任务运行态绝对根目录，不与 `${modules}` 拼接 |
 | `AgentProperties.StateRefresh` | `intervalMs` | `long` | `15000` | 状态刷新间隔 |
 | `AgentProperties.StateRefresh` | `unknownThreshold` | `int` | `3` | 连续 UNKNOWN 后推进状态的阈值 |
+| `AgentProperties.StateRefresh` | `listenerPoolSize` | `int` | `2` | 任务级状态监听调度线程数 |
+| `AgentProperties.StateRefresh` | `listenerRetentionMs` | `long` | `86400000` | 终态成功上报后监听注册项的最长保留时间，对应 `LISTENER_RETENTION_MS` |
+| `AgentProperties.StateRefresh` | `listenerRetentionNum` | `int` | `512` | 最多保留的终态监听注册项数量，对应 `LISTENER_RETENTION_NUM` |
 | `AgentProperties.Kubernetes` | `apiServer`, `token`, `tokenFile`, `caCertFile` | `String` | service account 文件 | Kubernetes client 连接配置 |
 | `AgentProperties` | `taskPool` | `ThreadPoolConfig` | `8/16/512/60` | 任务 RPC 控制、插件提交、进程 watcher |
-| `AgentProperties` | `reportPool` | `ThreadPoolConfig` | `2/4/512/60` | 任务结果上报线程池 |
+
+### 2.1 进程内监听和锁模型
+
+| 对象 | 字段 | 生命周期 | 说明 |
+|------|------|----------|------|
+| `TaskStateListener` | `taskInstanceId`, `future`, `observedStatus`, `reportPending`, `terminalSince` | 任务注册监听到 `finishTask` 或终态保留策略淘汰 | `observedStatus` 只用于识别注册后发生的本地状态变化；不使用 `listenerToken`；注册项不写入 `.state` |
+| `WorkerTaskExecutionContext.taskLocks` | `taskInstanceId -> ReentrantLock` | Agent 进程内任务读写期间 | 串行化同一任务的 submit/stop/kill/finish、状态提交和上报；不同任务互不阻塞；锁本身不写入 `.state` |
+
+监听注册项和任务锁都由 Agent 进程拥有。一个任务只属于一个 Agent，不处理多个 Agent 同时写同一任务 `.state` 的场景。
 
 ## 3. RPC 映射
 
@@ -106,6 +119,7 @@ ${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
   "appId": "{appId}",
   "workDirPath": "{workDirPath}",
   "status": "{StatusEnum.name}",
+  "revision": 1,
   "exitCode": null,
   "updateTime": 1780000000000,
   "result": {
@@ -130,6 +144,9 @@ time:1780000001000|workerId:{workerId}|appId:123|status:RUN_SUCCESS|exitCode:0
 - `appId` 统一表示终端任务 ID。
 - `.snap` 只保存提交快照和插件配置参数，不保存运行时观测字段。
 - `.state` 只保存通用运行态，不回写 `taskData` / `pluginParam`。
+- `.state.revision` 是任务运行态版本号，首次写入为 `1`，每次在任务锁内成功写入 `.state` 前递增；状态监听用
+  `status + revision` 判断第三方查询期间是否发生过新的本地写入。
+- `.state` 不保存锁、监听器、`listenerToken` 或单独的控制代次；任务锁和监听注册项只存在于 Agent 内存。
 - `workDirPath` 统一表示任务运行目录，manager 只通过该目录读取标准任务日志。
 - `stdout.log`、`stderr.log`、`state.log` 是 agent 标准任务日志，文件名由 `TaskRuntimeFiles` 统一定义。
 - `TaskResult.workerResult.workDirPath` 表示任务运行目录；manager 查询任务日志时只使用该目录。
@@ -137,6 +154,7 @@ time:1780000001000|workerId:{workerId}|appId:123|status:RUN_SUCCESS|exitCode:0
 - `TaskResult.workerResult` 不返回 agent 自身服务日志入口；worker 服务日志目录由 `Worker.workerLogDir` 在注册时上报。
 - `saveState` 更新 `.state` 时同步比较旧 `.state`，当 `status`、`appId` 或 `exitCode` 变化时追加 `state.log`。
 - `finishTask` 确认终态后删除 `.state` / `.snap`，保留 `stdout.log` / `stderr.log` / `state.log`。
+- 监听注册项被终态保留策略淘汰时只取消内存监听，不删除 `.state` / `.snap`；后续 UI 强制成功仍可通过 `finishTask` 清理本地文件。
 
 ## 5. WorkerResult 结构
 

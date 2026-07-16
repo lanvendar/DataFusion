@@ -36,7 +36,7 @@ Manager scheduler
     -> YAML template
     -> ExecutionSpec
     -> WorkerTaskExecutionStore
-    -> AgentTaskStateReportScheduler
+    -> AgentTaskStateListenerRegistry
     -> ManagerTaskResultReporter
 ```
 

@@ -97,8 +97,9 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
             return StatusEnum.UNKNOWN;
         }
         FlinkExecutionParam param = paramResolver.resolve(taskRequest(snapshot));
-        FlinkOperatorStatus operatorStatus = operatorClient.queryStatus(runtimeRef(param, state));
-        return mapOperatorStatus(operatorStatus, state);
+        FlinkKubernetesRuntimeRef runtimeRef = runtimeRef(param, state);
+        FlinkOperatorStatus operatorStatus = operatorClient.queryStatus(runtimeRef);
+        return mapOperatorStatus(operatorStatus, state, runtimeRef);
     }
 
     @Override
@@ -141,9 +142,11 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
      *
      * @param operatorStatus Operator 状态快照
      * @param state          任务执行状态
+     * @param runtimeRef     Kubernetes 运行引用
      * @return DataFusion 任务状态
      */
-    private StatusEnum mapOperatorStatus(FlinkOperatorStatus operatorStatus, WorkerTaskExecutionState state) {
+    private StatusEnum mapOperatorStatus(FlinkOperatorStatus operatorStatus, WorkerTaskExecutionState state,
+            FlinkKubernetesRuntimeRef runtimeRef) {
         StatusEnum taskState = state.getStatus();
         if (operatorStatus == null || operatorStatus.getState() == null) {
             log.warn("FLINK_K8S_OPERATOR Operator状态为空, taskInstanceId={}, appId={}, taskState={}",
@@ -153,16 +156,14 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
         if (taskState != StatusEnum.STOPPING && taskState != StatusEnum.KILLING
                 && !operatorStatus.isDeploymentExists()) {
             log.warn("FLINK_K8S_OPERATOR FlinkDeployment不存在, taskInstanceId={}, appId={},"
-                            + " taskState={}, operatorState={}, podExists={}, serviceExists={}",
-                    state.getTaskInstanceId(), state.getAppId(), taskState, operatorStatus.getState(),
-                    operatorStatus.isPodExists(), operatorStatus.isServiceExists());
+                            + " taskState={}, operatorState={}",
+                    state.getTaskInstanceId(), state.getAppId(), taskState, operatorStatus.getState());
             return StatusEnum.UNKNOWN;
         }
         return switch (taskState) {
-            case SUBMITTING, SUBMIT_SUCCESS, RUNNING -> mapExecutionState(operatorStatus.getState(), state);
-            case STOPPING -> mapStoppingState(operatorStatus, state);
-            case KILLING -> operatorStatus.isDeploymentExists() || operatorStatus.isPodExists()
-                    || operatorStatus.isServiceExists() ? StatusEnum.KILLING : StatusEnum.KILLED;
+            case SUBMITTING, SUBMIT_SUCCESS, RUNNING -> mapExecutionState(operatorStatus, state);
+            case STOPPING -> mapStoppingState(operatorStatus, state, runtimeRef);
+            case KILLING -> mapKillingState(operatorStatus, runtimeRef);
             default -> {
                 log.warn("FLINK_K8S_OPERATOR 任务状态不支持映射, taskInstanceId={}, appId={},"
                                 + " taskState={}, operatorState={}",
@@ -175,21 +176,25 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
     /**
      * 映射正常执行状态.
      *
-     * @param operatorState Operator 状态
-     * @param state         任务执行状态
+     * @param operatorStatus Operator 状态
+     * @param state          任务执行状态
      * @return DataFusion 任务状态
      */
-    private StatusEnum mapExecutionState(FlinkOperatorStatus.State operatorState, WorkerTaskExecutionState state) {
-        return switch (operatorState) {
-            case NONE, CREATED, INITIALIZING, RECONCILING -> state.getStatus();
+    private StatusEnum mapExecutionState(FlinkOperatorStatus operatorStatus, WorkerTaskExecutionState state) {
+        if (isGenerationPending(operatorStatus)) {
+            return state.getStatus();
+        }
+        return switch (operatorStatus.getState()) {
+            case NONE, CREATED, INITIALIZING, RECONCILING -> mapPendingState(operatorStatus, state);
             case RUNNING, RESTARTING, FAILING, CANCELLING -> StatusEnum.RUNNING;
             case FINISHED -> StatusEnum.RUN_SUCCESS;
             case FAILED, CANCELED, SUSPENDED -> StatusEnum.RUN_FAILURE;
             case UNKNOWN -> {
                 log.warn("FLINK_K8S_OPERATOR Operator状态未知, taskInstanceId={}, appId={},"
                                 + " taskState={}, operatorState={}",
-                        state.getTaskInstanceId(), state.getAppId(), state.getStatus(), operatorState);
-                yield StatusEnum.UNKNOWN;
+                        state.getTaskInstanceId(), state.getAppId(), state.getStatus(), operatorStatus.getState());
+                yield operatorStatus.getJobManagerState() == FlinkOperatorStatus.JobManagerState.ERROR
+                        ? mapPendingState(operatorStatus, state) : StatusEnum.UNKNOWN;
             }
         };
     }
@@ -199,20 +204,71 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
      *
      * @param operatorStatus Operator 状态快照
      * @param state          任务执行状态
+     * @param runtimeRef     Kubernetes 运行引用
      * @return DataFusion 任务状态
      */
-    private StatusEnum mapStoppingState(FlinkOperatorStatus operatorStatus, WorkerTaskExecutionState state) {
+    private StatusEnum mapStoppingState(FlinkOperatorStatus operatorStatus, WorkerTaskExecutionState state,
+            FlinkKubernetesRuntimeRef runtimeRef) {
+        if (!operatorStatus.isDeploymentExists()) {
+            return operatorClient.runtimePodsExist(runtimeRef) ? StatusEnum.STOPPING : StatusEnum.STOP_SUCCESS;
+        }
+        if (operatorStatus.getDesiredState() != FlinkOperatorStatus.State.SUSPENDED
+                || isGenerationPending(operatorStatus)) {
+            return StatusEnum.STOPPING;
+        }
         FlinkOperatorStatus.State operatorState = operatorStatus.getState();
         return switch (operatorState) {
             case FINISHED, CANCELED, SUSPENDED -> StatusEnum.STOP_SUCCESS;
             case FAILED -> StatusEnum.STOP_FAILURE;
             case UNKNOWN -> {
-                log.warn("FLINK_K8S_OPERATOR 停止状态未知, taskInstanceId={}, appId={}, podExists={}",
-                        state.getTaskInstanceId(), state.getAppId(), operatorStatus.isPodExists());
-                yield StatusEnum.UNKNOWN;
+                log.warn("FLINK_K8S_OPERATOR 停止状态未知, taskInstanceId={}, appId={}, jobManagerState={}",
+                        state.getTaskInstanceId(), state.getAppId(), operatorStatus.getJobManagerState());
+                yield operatorStatus.getJobManagerState() == FlinkOperatorStatus.JobManagerState.ERROR
+                        ? StatusEnum.STOP_FAILURE : StatusEnum.UNKNOWN;
             }
-            default -> operatorStatus.isPodExists() ? StatusEnum.STOPPING : StatusEnum.STOP_SUCCESS;
+            default -> operatorStatus.getJobManagerState() == FlinkOperatorStatus.JobManagerState.ERROR
+                    ? StatusEnum.STOP_FAILURE : StatusEnum.STOPPING;
         };
+    }
+
+    /**
+     * 映射 Operator 尚未给出明确作业状态的阶段.
+     *
+     * @param operatorStatus Operator 状态快照
+     * @param state          任务执行状态
+     * @return DataFusion 任务状态
+     */
+    private StatusEnum mapPendingState(FlinkOperatorStatus operatorStatus, WorkerTaskExecutionState state) {
+        if (operatorStatus.getJobManagerState() != FlinkOperatorStatus.JobManagerState.ERROR) {
+            return state.getStatus();
+        }
+        return state.getStatus().isSubmitting() ? StatusEnum.SUBMIT_FAILURE : StatusEnum.RUN_FAILURE;
+    }
+
+    /**
+     * 映射强杀阶段状态.
+     *
+     * @param operatorStatus Operator 状态快照
+     * @param runtimeRef     Kubernetes 运行引用
+     * @return DataFusion 任务状态
+     */
+    private StatusEnum mapKillingState(FlinkOperatorStatus operatorStatus, FlinkKubernetesRuntimeRef runtimeRef) {
+        if (operatorStatus.isDeploymentExists()) {
+            return StatusEnum.KILLING;
+        }
+        return operatorClient.runtimePodsExist(runtimeRef) ? StatusEnum.KILLING : StatusEnum.KILLED;
+    }
+
+    /**
+     * 判断当前 FlinkDeployment generation 是否仍待 Operator 观察.
+     *
+     * @param operatorStatus Operator 状态快照
+     * @return true 表示状态仍对应旧 generation
+     */
+    private boolean isGenerationPending(FlinkOperatorStatus operatorStatus) {
+        Long generation = operatorStatus.getGeneration();
+        Long observedGeneration = operatorStatus.getObservedGeneration();
+        return generation != null && (observedGeneration == null || observedGeneration < generation);
     }
 
     private String collectLogs(WorkerTaskExecutionState state, FlinkExecutionParam param,

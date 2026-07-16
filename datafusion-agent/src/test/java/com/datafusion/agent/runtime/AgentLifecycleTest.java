@@ -2,7 +2,7 @@ package com.datafusion.agent.runtime;
 
 import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.rpc.ManagerClient;
-import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateReportScheduler;
+import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateListenerRegistry;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
@@ -52,7 +52,7 @@ class AgentLifecycleTest {
         when(workerConfigStore.load()).thenReturn(null);
         AgentLifecycle lifecycle = new AgentLifecycle(properties, mock(ManagerClient.class), runtimeState,
                 workerTaskOperatorRouter(), mock(ScheduledExecutorService.class),
-                mock(AgentTaskStateReportScheduler.class), workerConfigStore);
+                mock(AgentTaskStateListenerRegistry.class), workerConfigStore);
         Method initWorker = AgentLifecycle.class.getDeclaredMethod("initWorker");
         initWorker.setAccessible(true);
         initWorker.invoke(lifecycle);

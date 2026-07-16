@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -110,5 +111,10 @@ public class WorkerTaskOperatorRouter {
      * @param runMode 运行模式
      */
     private record RouteKey(String pluginType, String runMode) {
+
+        private RouteKey {
+            pluginType = pluginType.trim().toUpperCase(Locale.ROOT);
+            runMode = runMode.trim().toUpperCase(Locale.ROOT);
+        }
     }
 }

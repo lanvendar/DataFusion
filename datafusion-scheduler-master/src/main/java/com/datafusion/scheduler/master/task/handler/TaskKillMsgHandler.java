@@ -78,7 +78,6 @@ public class TaskKillMsgHandler extends AbstractTaskMsgHandler {
         StatusEnum finalState;
         TaskResult taskResult = null;
         try {
-            finalState = StatusEnum.KILLING;
             taskResult = super.getMasterTaskOperator().killTask(taskIns);
             finalState = resolveRecoveryKillState(taskResult);
         } catch (Exception e) {
@@ -96,7 +95,6 @@ public class TaskKillMsgHandler extends AbstractTaskMsgHandler {
     @Override
     protected void handleManualAction(TaskMsg msg, ActorSysContext context) {
         TaskInstance taskIns = getTaskInstance(msg.getTaskInstanceId());
-        StatusEnum originalState = taskIns.getState();
         taskIns.setState(StatusEnum.KILLING);
         super.saveTaskInstance(taskIns);
         notifyFlow(taskIns, StatusEnum.KILLING, context, true);
@@ -105,7 +103,7 @@ public class TaskKillMsgHandler extends AbstractTaskMsgHandler {
         TaskResult taskResult = null;
         try {
             taskResult = super.getMasterTaskOperator().killTask(taskIns);
-            finalState = resolveKillState(originalState, taskResult);
+            finalState = resolveKillState(taskResult);
         } catch (Exception e) {
             log.error("[{}] - 任务实例强杀失败.", taskIns.getInstanceId(), e);
             finalState = StatusEnum.UNKNOWN;
@@ -118,15 +116,11 @@ public class TaskKillMsgHandler extends AbstractTaskMsgHandler {
         notifyFlow(taskIns, finalState, context, true);
     }
 
-    private StatusEnum resolveKillState(StatusEnum originalState, TaskResult taskResult) {
+    private StatusEnum resolveKillState(TaskResult taskResult) {
         if (taskResult == null || taskResult.getTaskState() == null) {
             return StatusEnum.UNKNOWN;
         }
-        StatusEnum taskState = taskResult.getTaskState();
-        if (taskState == StatusEnum.KILLING && originalState == StatusEnum.UNKNOWN) {
-            return StatusEnum.KILLED;
-        }
-        return taskState;
+        return taskResult.getTaskState();
     }
 
     private StatusEnum resolveRecoveryKillState(TaskResult taskResult) {

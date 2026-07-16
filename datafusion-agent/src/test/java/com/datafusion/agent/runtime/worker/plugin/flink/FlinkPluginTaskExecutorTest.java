@@ -69,10 +69,13 @@ class FlinkPluginTaskExecutorTest {
         TaskRequest controlRequest = new TaskRequest();
         controlRequest.setTaskInstanceId(sourceRequest.getTaskInstanceId());
         TaskResult stopResult = executor.stopTask(controlRequest);
-        boolean finished = executor.finishTask(controlRequest);
+        TaskResult killResult = executor.killTask(controlRequest);
+        final boolean finished = executor.finishTask(controlRequest);
 
         assertEquals(StatusEnum.STOPPING, stopResult.getTaskState());
         assertEquals("df-flink-task-1", client.stoppedRuntimeRef.getDeploymentName());
+        assertEquals(StatusEnum.KILLING, killResult.getTaskState());
+        assertEquals("df-flink-task-1", client.killedRuntimeRef.getDeploymentName());
         assertTrue(finished);
         assertEquals("df-flink-task-1", client.cleanedRuntimeRef.getDeploymentName());
     }
@@ -130,6 +133,11 @@ class FlinkPluginTaskExecutorTest {
          */
         private FlinkKubernetesRuntimeRef cleanedRuntimeRef;
 
+        /**
+         * 已强杀运行引用.
+         */
+        private FlinkKubernetesRuntimeRef killedRuntimeRef;
+
         @Override
         public FlinkKubernetesRuntimeRef submit(FlinkExecutionParam param) {
             return FlinkKubernetesRuntimeRef.builder()
@@ -145,11 +153,17 @@ class FlinkPluginTaskExecutorTest {
 
         @Override
         public void kill(FlinkKubernetesRuntimeRef runtimeRef) {
+            killedRuntimeRef = runtimeRef;
         }
 
         @Override
         public FlinkOperatorStatus queryStatus(FlinkKubernetesRuntimeRef runtimeRef) {
             return null;
+        }
+
+        @Override
+        public boolean runtimePodsExist(FlinkKubernetesRuntimeRef runtimeRef) {
+            return false;
         }
 
         @Override

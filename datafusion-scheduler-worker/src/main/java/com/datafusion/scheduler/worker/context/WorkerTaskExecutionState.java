@@ -49,6 +49,11 @@ public class WorkerTaskExecutionState {
     private StatusEnum status;
 
     /**
+     * 运行态版本号.
+     */
+    private long revision;
+
+    /**
      * 本地进程退出码.
      */
     private Integer exitCode;
