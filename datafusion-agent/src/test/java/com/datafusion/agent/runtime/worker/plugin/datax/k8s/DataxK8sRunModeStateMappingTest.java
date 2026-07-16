@@ -1,7 +1,6 @@
 package com.datafusion.agent.runtime.worker.plugin.datax.k8s;
 
 import com.datafusion.agent.config.AgentProperties;
-import com.datafusion.agent.runtime.worker.InMemoryWorkerTaskExecutionStore;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxParamResolver;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxPluginTaskExecutor;
@@ -18,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -34,50 +34,52 @@ class DataxK8sRunModeStateMappingTest {
      */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
+    /**
+     * 临时目录.
+     */
     @TempDir
     private Path tempDir;
 
     @Test
     void shouldCollectLogsBeforeFinalStateReport() throws Exception {
         FakeKubernetesClient client = new FakeKubernetesClient();
-        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         AgentProperties properties = properties();
         DataxK8sRunModeStateMapping mapping = new DataxK8sRunModeStateMapping(client,
-                new DataxParamResolver(properties), stateStore);
+                new DataxParamResolver(properties));
         TaskRequest request = request();
+        WorkerTaskExecutionSnap snapshot = snapshot(request);
         WorkerTaskExecutionState state = state();
-        stateStore.saveSnapshot(snapshot(request));
 
-        mapping.beforeFinalReport(state);
+        assertTrue(mapping.prepareFinalReport(snapshot, state));
 
         Path logFile = tempDir.resolve("task-runtime").resolve("20260624").resolve("flow-1")
                 .resolve("task-1").resolve("k8s-datax.log");
         assertEquals("k8s datax logs", Files.readString(logFile));
         assertEquals(logFile.toString(), state.getResult().path("pluginLogUri").asText());
         assertTrue(state.getResult().path("finalized").asBoolean());
+        assertFalse(mapping.prepareFinalReport(snapshot, state));
         assertEquals(0, client.cleanupCount);
     }
 
     @Test
     void shouldMapKubernetesStatus() {
         FakeKubernetesClient client = new FakeKubernetesClient();
-        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         DataxK8sRunModeStateMapping mapping = new DataxK8sRunModeStateMapping(client,
-                new DataxParamResolver(properties()), stateStore);
+                new DataxParamResolver(properties()));
         TaskRequest request = request();
-        stateStore.saveSnapshot(snapshot(request));
+        WorkerTaskExecutionSnap snapshot = snapshot(request);
 
         client.status = status(DataxKubernetesStatus.State.ACTIVE, true, true, true, true);
-        assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.RUNNING)));
+        assertEquals(StatusEnum.RUNNING, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
 
         client.status = status(DataxKubernetesStatus.State.COMPLETE, true, true, false, false);
-        assertEquals(StatusEnum.RUN_SUCCESS, mapping.mapState(state(StatusEnum.RUNNING)));
+        assertEquals(StatusEnum.RUN_SUCCESS, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
 
         client.status = status(DataxKubernetesStatus.State.NONE, true, false, false, false);
-        assertEquals(StatusEnum.UNKNOWN, mapping.mapState(state(StatusEnum.RUNNING)));
+        assertEquals(StatusEnum.UNKNOWN, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
 
         client.status = status(DataxKubernetesStatus.State.NONE, false, false, false, false);
-        assertEquals(StatusEnum.KILLED, mapping.mapState(state(StatusEnum.KILLING)));
+        assertEquals(StatusEnum.KILLED, mapping.mapState(snapshot, state(StatusEnum.KILLING)));
     }
 
     private AgentProperties properties() {
@@ -87,7 +89,7 @@ class DataxK8sRunModeStateMappingTest {
     }
 
     private TaskRequest request() {
-        ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
+        final ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
         ObjectNode kubernetes = OBJECT_MAPPER.createObjectNode();
         kubernetes.put("namespace", "df");
         kubernetes.put("image", "datafusion/datax:latest");

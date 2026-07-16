@@ -96,6 +96,9 @@ Manager scheduler
 `status.jobStatus.state`、`status.jobManagerDeploymentStatus`、`metadata.generation` 和
 `status.observedGeneration`。Operator 状态足够时不查询 Pod 或 Service；仅在 `KILLING` 或停止阶段 CR 已不存在时查询运行 Pod 是否残留。
 
+映射器接收任务监听器同一次读取的 `.snap + .state`，不自行读取或写入 `WorkerTaskExecutionStore`。终态日志和
+结果只在 `prepareFinalReport` 中写入传入的内存状态，随后由监听器统一持久化、写后校验和上报。
+
 `.state.status` 是 DataFusion 控制意图的事实来源，`STOPPING` 和 `KILLING` 不重复写入 Operator 状态快照。
 当 `metadata.generation` 已推进但 `status.observedGeneration` 尚未追平时，Operator 状态仍属于旧版本，保持当前中间态。
 

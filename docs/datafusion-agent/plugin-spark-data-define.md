@@ -21,7 +21,7 @@ Manager 侧继续复用 `scheduler_task_info.definition`、`scheduler_task_insta
 | `SparkExecutionParam` | Agent 参数解析 | Agent | Agent | 单次 submit / control / status 操作内存对象 | 执行器消费后转为 `.snap/.state` 与 Kubernetes 资源 |
 | `SparkKubernetesRuntimeRef` | `.snap + .state` 重建 | Agent | Agent | 单次状态查询或控制动作 | 用于查询、停止、强杀、清理 Kubernetes 资源 |
 | `.snap` | `SparkPluginTaskExecutor.submitTask` | Agent | Agent | 任务运行期 | agent finish / destroy 流程清理 |
-| `.state` | 执行器与状态映射 | Agent | Agent | 任务运行期 | 终态上报后由 agent 流程清理 |
+| `.state` | 执行器与状态监听器 | Agent | Agent | 任务运行期 | 终态上报后由 agent 流程清理 |
 
 Agent 不回写 Manager 的 `pluginParam` 或 `taskData`。
 
@@ -92,8 +92,8 @@ Agent 不回写 Manager 的 `pluginParam` 或 `taskData`。
 | `runMode` | `WorkerTaskExecutionSnap` | `K8S_OPERATOR` | 状态映射和控制恢复键 |
 | `appId` | `WorkerTaskExecutionState` | SparkApplication name | 执行器提交后写入 |
 | `workDirPath` | `WorkerTaskExecutionState` | 本地任务运行目录 | 保存 job 快照和日志 |
-| `status` | `WorkerTaskExecutionState` | `StatusEnum` | 由执行器和状态映射写入 |
-| `result` | `WorkerTaskExecutionState` | JSON | 保存 `message`, `pluginLogUri`, `sparkWebUiUri`, `finalized` 等摘要 |
+| `status` | `WorkerTaskExecutionState` | `StatusEnum` | 执行器写入动作状态；状态监听器校验并写入映射结果 |
+| `result` | `WorkerTaskExecutionState` | JSON | 映射器准备终态摘要，状态监听器统一持久化；保存 `message`, `pluginLogUri`, `sparkWebUiUri`, `finalized` 等字段 |
 
 ## 8. 前端数据模型
 

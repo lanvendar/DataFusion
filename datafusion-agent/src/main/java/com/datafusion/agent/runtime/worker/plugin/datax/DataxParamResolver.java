@@ -29,17 +29,9 @@ import java.util.Map;
 public class DataxParamResolver {
 
     /**
-     * Run mode field name.
-     */
-    /**
      * Date formatter.
      */
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
-
-    /**
-     * Local job file name.
-     */
-    private static final String LOCAL_JOB_FILE_NAME = "job.json";
 
     /**
      * Local DataX log file name.

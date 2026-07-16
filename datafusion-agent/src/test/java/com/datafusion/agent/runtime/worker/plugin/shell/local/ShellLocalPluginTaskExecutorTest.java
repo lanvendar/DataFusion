@@ -43,13 +43,16 @@ class ShellLocalPluginTaskExecutorTest {
      */
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 
+    /**
+     * Temporary directory.
+     */
     @TempDir
     private Path tempDir;
 
     @Test
     void shouldSubmitLocalShellTaskAndPersistRuntimeState() throws Exception {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        ShellLocalPluginTaskExecutor executor = executor(stateStore);
+        final ShellLocalPluginTaskExecutor executor = executor(stateStore);
         TaskRequest request = shellRequest("printf \"%s\" \"$DF_TEST_VALUE\"; printf \"%s\" err >&2");
         ObjectNode pluginEnv = OBJECT_MAPPER.createObjectNode();
         pluginEnv.put("DF_TEST_VALUE", "plugin");
@@ -71,7 +74,8 @@ class ShellLocalPluginTaskExecutorTest {
         WorkerTaskExecutionState state = stateStore.readState("task-1").orElseThrow();
         assertEquals(0, state.getExitCode());
         assertEquals(result.getWorkerResult().getWorkDirPath(), state.getWorkDirPath());
-        assertEquals(StatusEnum.RUN_SUCCESS, new ShellLocalRunModeStateMapping().mapState(state));
+        assertEquals(StatusEnum.RUN_SUCCESS, new ShellLocalRunModeStateMapping()
+                .mapState(stateStore.readSnapshot("task-1").orElseThrow(), state));
     }
 
     @Test

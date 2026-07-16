@@ -29,9 +29,6 @@ import java.util.Map;
 public class SparkParamResolver {
 
     /**
-     * 运行模式字段.
-     */
-    /**
      * 日期格式.
      */
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;

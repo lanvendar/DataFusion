@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -42,88 +43,101 @@ class K8sOperatorRunModeStateMappingTest {
     void shouldMapOperatorStateByTaskState() {
         FakeOperatorClient client = new FakeOperatorClient();
         K8sOperatorRunModeStateMapping mapping = mapping(client);
+        WorkerTaskExecutionSnap snapshot = snapshot();
 
         client.status = status(FlinkOperatorStatus.State.RECONCILING);
-        assertEquals(StatusEnum.SUBMIT_SUCCESS, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
-        assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.RUNNING)));
+        assertEquals(StatusEnum.SUBMIT_SUCCESS, mapping.mapState(snapshot, state(StatusEnum.SUBMIT_SUCCESS)));
+        assertEquals(StatusEnum.RUNNING, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
 
         client.status = status(FlinkOperatorStatus.State.FAILING);
-        assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.RUNNING)));
+        assertEquals(StatusEnum.RUNNING, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
 
         client.status = status(FlinkOperatorStatus.State.FINISHED);
-        assertEquals(StatusEnum.RUN_SUCCESS, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
-        assertEquals(StatusEnum.RUN_SUCCESS, mapping.mapState(state(StatusEnum.RUNNING)));
+        assertEquals(StatusEnum.RUN_SUCCESS, mapping.mapState(snapshot, state(StatusEnum.SUBMIT_SUCCESS)));
+        assertEquals(StatusEnum.RUN_SUCCESS, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
 
         client.status = status(FlinkOperatorStatus.State.FAILED);
-        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
-        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.RUNNING)));
+        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(snapshot, state(StatusEnum.SUBMIT_SUCCESS)));
+        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
 
         client.status = status(FlinkOperatorStatus.State.CANCELLING);
-        assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
-        assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.RUNNING)));
+        assertEquals(StatusEnum.RUNNING, mapping.mapState(snapshot, state(StatusEnum.SUBMIT_SUCCESS)));
+        assertEquals(StatusEnum.RUNNING, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
 
         client.status = status(FlinkOperatorStatus.State.CANCELED);
-        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
-        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.RUNNING)));
+        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(snapshot, state(StatusEnum.SUBMIT_SUCCESS)));
+        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
 
         client.status = stoppedStatus(FlinkOperatorStatus.State.CANCELED, 1L, 1L);
-        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(state(StatusEnum.STOPPING)));
+        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(snapshot, state(StatusEnum.STOPPING)));
 
         client.status = stoppedStatus(FlinkOperatorStatus.State.FINISHED, 1L, 1L);
-        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(state(StatusEnum.STOPPING)));
+        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(snapshot, state(StatusEnum.STOPPING)));
 
         client.status = stoppedStatus(FlinkOperatorStatus.State.SUSPENDED, 1L, 1L);
-        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(state(StatusEnum.STOPPING)));
+        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(snapshot, state(StatusEnum.STOPPING)));
 
         client.status = stoppedStatus(FlinkOperatorStatus.State.FAILED, 1L, 1L);
-        assertEquals(StatusEnum.STOP_FAILURE, mapping.mapState(state(StatusEnum.STOPPING)));
+        assertEquals(StatusEnum.STOP_FAILURE, mapping.mapState(snapshot, state(StatusEnum.STOPPING)));
 
         client.status = missingStatus();
         client.runtimePodsExist = false;
-        assertEquals(StatusEnum.KILLED, mapping.mapState(state(StatusEnum.KILLING)));
+        assertEquals(StatusEnum.KILLED, mapping.mapState(snapshot, state(StatusEnum.KILLING)));
 
         client.runtimePodsExist = true;
-        assertEquals(StatusEnum.KILLING, mapping.mapState(state(StatusEnum.KILLING)));
-        assertEquals(StatusEnum.UNKNOWN, mapping.mapState(state(StatusEnum.RUNNING)));
+        assertEquals(StatusEnum.KILLING, mapping.mapState(snapshot, state(StatusEnum.KILLING)));
+        assertEquals(StatusEnum.UNKNOWN, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
     }
 
     @Test
     void shouldWaitForCurrentGenerationAndUseJobManagerErrorAsFallback() {
         FakeOperatorClient client = new FakeOperatorClient();
         K8sOperatorRunModeStateMapping mapping = mapping(client);
+        WorkerTaskExecutionSnap snapshot = snapshot();
 
         client.status = stoppedStatus(FlinkOperatorStatus.State.SUSPENDED, 2L, 1L);
-        assertEquals(StatusEnum.STOPPING, mapping.mapState(state(StatusEnum.STOPPING)));
+        assertEquals(StatusEnum.STOPPING, mapping.mapState(snapshot, state(StatusEnum.STOPPING)));
 
         client.status = status(FlinkOperatorStatus.State.FINISHED, FlinkOperatorStatus.State.RUNNING,
                 FlinkOperatorStatus.JobManagerState.READY, true, 2L, 1L);
-        assertEquals(StatusEnum.RUNNING, mapping.mapState(state(StatusEnum.RUNNING)));
+        assertEquals(StatusEnum.RUNNING, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
 
         client.status = status(FlinkOperatorStatus.State.RECONCILING, FlinkOperatorStatus.State.RUNNING,
                 FlinkOperatorStatus.JobManagerState.ERROR, true, 2L, 2L);
-        assertEquals(StatusEnum.SUBMIT_FAILURE, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
-        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.RUNNING)));
+        assertEquals(StatusEnum.SUBMIT_FAILURE, mapping.mapState(snapshot, state(StatusEnum.SUBMIT_SUCCESS)));
+        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
 
         client.status = status(FlinkOperatorStatus.State.UNKNOWN, FlinkOperatorStatus.State.RUNNING,
                 FlinkOperatorStatus.JobManagerState.ERROR, true, 2L, 2L);
-        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(state(StatusEnum.RUNNING)));
+        assertEquals(StatusEnum.RUN_FAILURE, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
 
         client.status = status(FlinkOperatorStatus.State.UNKNOWN, FlinkOperatorStatus.State.SUSPENDED,
                 FlinkOperatorStatus.JobManagerState.ERROR, true, 2L, 2L);
-        assertEquals(StatusEnum.STOP_FAILURE, mapping.mapState(state(StatusEnum.STOPPING)));
+        assertEquals(StatusEnum.STOP_FAILURE, mapping.mapState(snapshot, state(StatusEnum.STOPPING)));
     }
 
     @Test
     void shouldUseRuntimePodsOnlyWhenOperatorResourceIsMissing() {
         FakeOperatorClient client = new FakeOperatorClient();
         K8sOperatorRunModeStateMapping mapping = mapping(client);
+        WorkerTaskExecutionSnap snapshot = snapshot();
         client.status = missingStatus();
 
         client.runtimePodsExist = true;
-        assertEquals(StatusEnum.STOPPING, mapping.mapState(state(StatusEnum.STOPPING)));
+        assertEquals(StatusEnum.STOPPING, mapping.mapState(snapshot, state(StatusEnum.STOPPING)));
 
         client.runtimePodsExist = false;
-        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(state(StatusEnum.STOPPING)));
+        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(snapshot, state(StatusEnum.STOPPING)));
+    }
+
+    @Test
+    void shouldPrepareFinalResultOnce() {
+        K8sOperatorRunModeStateMapping mapping = mapping(new FakeOperatorClient());
+        WorkerTaskExecutionState state = state(StatusEnum.RUN_SUCCESS);
+
+        assertTrue(mapping.prepareFinalReport(snapshot(), state));
+        assertTrue(state.getResult().path("finalized").asBoolean());
+        assertFalse(mapping.prepareFinalReport(snapshot(), state));
     }
 
     @Test
@@ -143,9 +157,12 @@ class K8sOperatorRunModeStateMappingTest {
     }
 
     private K8sOperatorRunModeStateMapping mapping(FakeOperatorClient client) {
-        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        return new K8sOperatorRunModeStateMapping(client, new FlinkParamResolver(new AgentProperties()));
+    }
+
+    private WorkerTaskExecutionSnap snapshot() {
         TaskRequest request = request();
-        stateStore.saveSnapshot(WorkerTaskExecutionSnap.builder()
+        return WorkerTaskExecutionSnap.builder()
                 .flowInstanceId(request.getFlowInstanceId())
                 .taskInstanceId(request.getTaskInstanceId())
                 .taskName(request.getTaskName())
@@ -153,8 +170,7 @@ class K8sOperatorRunModeStateMappingTest {
                 .runMode(FlinkRunMode.K8S_OPERATOR.name())
                 .taskData(request.getTaskData())
                 .pluginParam(request.getPluginParam())
-                .build());
-        return new K8sOperatorRunModeStateMapping(client, new FlinkParamResolver(new AgentProperties()), stateStore);
+                .build();
     }
 
     private WorkerTaskExecutionState state(StatusEnum status) {
@@ -216,6 +232,7 @@ class K8sOperatorRunModeStateMappingTest {
         ObjectNode kubernetes = OBJECT_MAPPER.createObjectNode();
         kubernetes.put("image", "flink:2.2.0-scala_2.12-java17");
         kubernetes.put("sharedPvcName", "datafusion-shared-data");
+        kubernetes.put("collectLogsOnFinish", false);
         pluginParam.set("kubernetes", kubernetes);
         return pluginParam;
     }

@@ -45,6 +45,24 @@ public class FlinkOperatorStatus {
     private Long observedGeneration;
 
     /**
+     * 判断 Operator 是否尚未观察当前 FlinkDeployment generation.
+     *
+     * @return true 表示状态仍对应旧 generation
+     */
+    public boolean isReconciliationPending() {
+        return generation != null && (observedGeneration == null || observedGeneration < generation);
+    }
+
+    /**
+     * 判断 JobManager 是否处于错误状态.
+     *
+     * @return true 表示 JobManager 状态为 ERROR
+     */
+    public boolean isJobManagerError() {
+        return jobManagerState == JobManagerState.ERROR;
+    }
+
+    /**
      * JobManager 部署状态.
      */
     public enum JobManagerState {

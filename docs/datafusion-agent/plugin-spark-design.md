@@ -49,6 +49,9 @@ Manager scheduler
 | 状态刷新 | `.snap + .state`、Kubernetes 状态 | `K8sOperatorRunModeStateMapping` 映射 | `StatusEnum` 与 `WorkerResult` |
 | 终态处理 | driver pod log、SparkApplication 状态 | 终态上报前采集日志；finish 清理资源 | `pluginLogUri`、`sparkWebUiUri` |
 
+状态映射器接收任务监听器同一次读取的 `.snap + .state`，不自行访问状态存储。终态日志结果由映射器准备，
+再由监听器统一持久化、写后校验和上报。
+
 ## 4. 关键规则
 
 - `TaskRequest.runMode` 必须为 `K8S_OPERATOR`。

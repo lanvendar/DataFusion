@@ -102,7 +102,7 @@
 | `WorkerTaskExecutionState` -> `TaskResultReporter.report` | 运行时任务监听器观察到本地状态或映射状态变化后上报 manager/master | 上报实现位于 `datafusion-agent`；`WorkerTaskService` 不直接上报 |
 | `RunningTaskContext` -> `WorkerTaskExecutionSnap` | agent 侧运行时转换 | 保存提交快照和恢复上下文 |
 | `RunningTaskContext` -> `WorkerTaskExecutionState` | agent 侧运行时转换 | 保存持续刷新的运行态 |
-| `WorkerTaskExecutionSnap + WorkerTaskExecutionState` -> `PluginRunModeStateMapping` | 任务级监听器按 `snap.pluginType + snap.runMode` 路由 | 状态映射器读取运行态，必要上下文从提交快照恢复；查询结果在任务锁内按 `status + revision` 二次校验后提交 |
+| `WorkerTaskExecutionSnap + WorkerTaskExecutionState` -> `PluginRunModeStateMapping` | 任务级监听器按 `snap.pluginType + snap.runMode` 路由，并把同一次读取的两个对象传入映射器 | 状态映射器不访问状态存储；查询结果和终态准备结果由监听器在任务锁内按 `status + revision` 二次校验后持久化 |
 | `WorkerListener.getTaskInsByWorkerId` -> agent 状态恢复 | agent 注册成功后按 workerId 获取未完成任务清单 | agent 只恢复清单内任务 |
 
 ## 5. 状态 / 枚举模型

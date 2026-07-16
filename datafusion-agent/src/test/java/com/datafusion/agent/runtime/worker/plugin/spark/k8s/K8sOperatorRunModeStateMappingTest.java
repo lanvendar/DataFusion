@@ -1,7 +1,6 @@
 package com.datafusion.agent.runtime.worker.plugin.spark.k8s;
 
 import com.datafusion.agent.config.AgentProperties;
-import com.datafusion.agent.runtime.worker.InMemoryWorkerTaskExecutionStore;
 import com.datafusion.agent.runtime.worker.plugin.spark.SparkExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.spark.SparkParamResolver;
 import com.datafusion.agent.runtime.worker.plugin.spark.SparkPluginTaskExecutor;
@@ -15,6 +14,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Spark K8S_OPERATOR 状态映射测试.
@@ -33,29 +34,39 @@ class K8sOperatorRunModeStateMappingTest {
     @Test
     void shouldMapSparkOperatorStates() {
         FakeKubernetesClient client = new FakeKubernetesClient();
-        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         K8sOperatorRunModeStateMapping mapping = new K8sOperatorRunModeStateMapping(client,
-                new SparkParamResolver(new AgentProperties()), stateStore);
+                new SparkParamResolver(new AgentProperties()));
         TaskRequest request = request();
-        stateStore.saveSnapshot(snapshot(request));
+        WorkerTaskExecutionSnap snapshot = snapshot(request);
 
         client.status = status(SparkOperatorStatus.State.SUBMISSION_FAILED, true, true, true);
-        assertEquals(StatusEnum.SUBMIT_FAILURE, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
+        assertEquals(StatusEnum.SUBMIT_FAILURE, mapping.mapState(snapshot, state(StatusEnum.SUBMIT_SUCCESS)));
 
         client.status = status(SparkOperatorStatus.State.SUSPENDING, true, true, true);
-        assertEquals(StatusEnum.STOPPING, mapping.mapState(state(StatusEnum.STOPPING)));
+        assertEquals(StatusEnum.STOPPING, mapping.mapState(snapshot, state(StatusEnum.STOPPING)));
 
         client.status = status(SparkOperatorStatus.State.SUSPENDED, true, false, false);
-        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(state(StatusEnum.STOPPING)));
+        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(snapshot, state(StatusEnum.STOPPING)));
 
         client.status = status(SparkOperatorStatus.State.SUSPENDED, true, false, false);
-        assertEquals(StatusEnum.UNKNOWN, mapping.mapState(state(StatusEnum.RUNNING)));
+        assertEquals(StatusEnum.UNKNOWN, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
 
         client.status = status(SparkOperatorStatus.State.NONE, false, false, false);
-        assertEquals(StatusEnum.UNKNOWN, mapping.mapState(state(StatusEnum.SUBMIT_SUCCESS)));
+        assertEquals(StatusEnum.UNKNOWN, mapping.mapState(snapshot, state(StatusEnum.SUBMIT_SUCCESS)));
 
         client.status = status(SparkOperatorStatus.State.NONE, false, false, false);
-        assertEquals(StatusEnum.KILLED, mapping.mapState(state(StatusEnum.KILLING)));
+        assertEquals(StatusEnum.KILLED, mapping.mapState(snapshot, state(StatusEnum.KILLING)));
+    }
+
+    @Test
+    void shouldPrepareFinalResultOnce() {
+        K8sOperatorRunModeStateMapping mapping = new K8sOperatorRunModeStateMapping(new FakeKubernetesClient(),
+                new SparkParamResolver(new AgentProperties()));
+        WorkerTaskExecutionState state = state(StatusEnum.RUN_SUCCESS);
+
+        assertTrue(mapping.prepareFinalReport(snapshot(request()), state));
+        assertTrue(state.getResult().path("finalized").asBoolean());
+        assertFalse(mapping.prepareFinalReport(snapshot(request()), state));
     }
 
     private TaskRequest request() {
@@ -71,12 +82,13 @@ class K8sOperatorRunModeStateMappingTest {
     }
 
     private ObjectNode pluginParam() {
-        ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
+        final ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
         ObjectNode kubernetes = OBJECT_MAPPER.createObjectNode();
         kubernetes.put("namespace", "datafusion");
         kubernetes.put("serviceAccountName", "spark-driver");
         kubernetes.put("sharedPvcName", "datafusion-shared-data");
         kubernetes.put("pluginAppDir", "/opt/datafusion/plugins/spark/datafusion-plugin-spark-sql");
+        kubernetes.put("collectLogsOnFinish", false);
         pluginParam.set("kubernetes", kubernetes);
         return pluginParam;
     }

@@ -30,9 +30,6 @@ import java.util.Map;
 public class FlinkParamResolver {
 
     /**
-     * Run mode field name.
-     */
-    /**
      * Date formatter.
      */
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;

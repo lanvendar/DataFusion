@@ -40,7 +40,8 @@ com.datafusion.scheduler.worker.reporter
 - `WorkerTaskOperator`：worker 侧任务控制入口，定义 `submitTask`、`stopTask`、`killTask`、`finishTask`。
 - `WorkerTaskService`：默认实现，负责参数校验、插件路由、提交语义、上下文幂等和本地运行态提交；不直接上报 Manager。
 - `PluginTaskExecutor`：插件执行器，负责某一 `pluginType + runMode` 的 validate、submit、stop、kill、finish/destroy。
-- `PluginRunModeStateMapping`：插件状态映射器，按 `pluginType + runMode` 把终端状态映射为 `StatusEnum`。
+- `PluginRunModeStateMapping`：插件状态映射器，接收监听器读取的提交快照和运行态，按 `pluginType + runMode`
+  把终端状态映射为 `StatusEnum`；只准备终态上报结果，不直接读写状态存储。
 - `RunningTaskContext`：进程内运行上下文，直接组合 `WorkerTaskExecutionSnap` 和
   `WorkerTaskExecutionState`，不重复声明二者已有属性，也不内嵌完整 `TaskRequest` / `TaskResult`。
 - `WorkerTaskExecutionSnap`：可持久化的任务提交快照，保存恢复上下文、提交语义和插件参数。
@@ -65,9 +66,10 @@ TaskRequest
 运行时按 taskInstanceId 注册任务监听
     -> 读取 WorkerTaskExecutionSnap / WorkerTaskExecutionState
     -> 按 snap.pluginType + snap.runMode 找 PluginRunModeStateMapping
-    -> mapState(state) 得到 StatusEnum
+    -> mapState(snapshot, state) 得到 StatusEnum
     -> WorkerTaskExecutionStore.withTaskLock 二次读取并校验 status + revision
-    -> 状态变化后 WorkerTaskExecutionStore.saveState
+    -> 校验状态迁移，终态时 prepareFinalReport(snapshot, state)
+    -> 状态或终态结果变化后统一 WorkerTaskExecutionStore.saveState 并写后校验
     -> TaskResultReporter.report
 ```
 

@@ -243,7 +243,7 @@ TaskRequest(pluginType, runMode, taskData, pluginParam)
     -> PluginTaskExecutor.submitTask
     -> 写入 WorkerTaskExecutionSnap / WorkerTaskExecutionState
     -> 按 taskInstanceId 注册状态监听
-    -> PluginRunModeStateMapping.mapState
+    -> PluginRunModeStateMapping.mapState(snapshot, state)
     -> TaskResultReporter.report
     -> manager 调用 finishTask 后 destroyTask 并删除状态记录
 ```
@@ -288,13 +288,14 @@ state.log
 submit/stop/kill 或启动恢复
     -> AgentTaskStateListenerRegistry.register(taskInstanceId)
     -> 为该任务创建 scheduleWithFixedDelay
-    -> 锁外读取本地 status + revision 并调用 PluginRunModeStateMapping.mapState
+    -> 锁外各读取一次 snapshot 和 state，并调用 PluginRunModeStateMapping.mapState(snapshot, state)
     -> 获取 taskInstanceId 对应内存锁
     -> 重新读取 .state 和缓存
     -> status 或 revision 与查询前不一致则丢弃本次结果
     -> 本地 status 相对监听项 observedStatus 已变化则标记 reportPending
     -> 查询状态与本地状态一致则不上报
-    -> 校验状态迁移合法后 saveState
+    -> 校验状态迁移，终态时调用 prepareFinalReport(snapshot, state)
+    -> 状态或终态结果变化后由监听器一次性 saveState 并重新读取验证
     -> 当前监听线程直接调用 TaskResultReporter.report
 ```
 
@@ -309,6 +310,8 @@ submit/stop/kill 或启动恢复
 旧查询结果不得覆盖。即使状态枚举相同，只要 `.state.revision` 已变化，也视为查询期间发生了新的本地写入。
 
 状态相同且没有本地状态推进时不上报；映射状态写入成功或本地状态相对 `observedStatus` 已推进后才上报。
+`PluginRunModeStateMapping` 不直接访问 `WorkerTaskExecutionStore`；监听器读取的 `snapshot` 在单次刷新中同时用于
+路由、参数恢复、状态映射和终态准备，`.state` 的状态与终态结果均由监听器在任务锁内统一持久化。
 异步 submit 线程只写 `.state`，不直接调用 Manager；监听线程观察到 `SUBMITTING` 进入
 `SUBMIT_SUCCESS/SUBMIT_FAILURE` 后统一上报。Manager 不可用或结果上报失败时保留 `reportPending`，
 下一周期即使本地状态没有再次变化也重试。Agent 启动恢复 Manager 未完成任务时，注册项首次设置

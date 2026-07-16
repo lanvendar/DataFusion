@@ -155,6 +155,8 @@ Job 约定：
 
 `DataxKubernetesClient` 只查询 `DataxKubernetesStatus`，包含 Job 状态和 Pod 存活事实。
 `DataxK8sRunModeStateMapping` 结合本地状态转换为 DataFusion 状态。
+映射器接收任务监听器同一次读取的 `.snap + .state`，不自行访问状态存储；终态日志结果由映射器准备，
+再由监听器统一持久化、写后校验和上报。
 
 | Kubernetes Job 状态 | DataFusion 状态 |
 |---------------------|-----------------|

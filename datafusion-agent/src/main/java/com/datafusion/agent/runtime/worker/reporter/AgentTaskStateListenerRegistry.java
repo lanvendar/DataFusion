@@ -217,7 +217,8 @@ public class AgentTaskStateListenerRegistry {
                     return;
                 }
             }
-            StatusEnum mappedStatus = queriedStatus.isFinalState() ? queriedStatus : mapping.mapState(queriedState);
+            StatusEnum mappedStatus = queriedStatus.isFinalState()
+                    ? queriedStatus : mapping.mapState(snapshot, queriedState);
             commit(listener, snapshot, mapping, queriedStatus, queriedRevision, mappedStatus);
         } catch (Exception e) {
             log.warn("刷新任务状态失败, taskInstanceId={}", taskInstanceId, e);
@@ -275,22 +276,31 @@ public class AgentTaskStateListenerRegistry {
                 listener.reportPending = true;
                 listener.observedStatus = queriedStatus;
             }
-            if (nextStatus != queriedStatus) {
+            boolean statusChanged = nextStatus != queriedStatus;
+            if (statusChanged) {
                 if (!canApplyMappedState(queriedStatus, nextStatus)) {
                     log.warn("拒绝插件状态覆盖当前任务状态, taskInstanceId={}, currentStatus={}, mappedStatus={}",
                             listener.taskInstanceId, queriedStatus, nextStatus);
                     return null;
                 }
                 state.setStatus(nextStatus);
+            }
+            boolean finalResultChanged = (listener.reportPending || statusChanged)
+                    && state.getStatus().isFinalState() && mapping != null
+                    && mapping.prepareFinalReport(snapshot, state);
+            if (statusChanged || finalResultChanged) {
+                long previousRevision = state.getRevision();
                 stateStore.saveState(state);
                 state = stateStore.readState(listener.taskInstanceId).orElse(null);
-                if (state == null || state.getStatus() != nextStatus) {
+                if (state == null || state.getStatus() != nextStatus || state.getRevision() <= previousRevision) {
                     log.warn("任务状态写入失败, 暂不上报, taskInstanceId={}, expectedStatus={}",
                             listener.taskInstanceId, nextStatus);
                     return null;
                 }
-                listener.observedStatus = state.getStatus();
                 listener.reportPending = true;
+            }
+            if (statusChanged) {
+                listener.observedStatus = state.getStatus();
                 log.info("提交任务状态变化, taskInstanceId={}, oldStatus={}, newStatus={}",
                         listener.taskInstanceId, queriedStatus, nextStatus);
             }
@@ -299,9 +309,6 @@ public class AgentTaskStateListenerRegistry {
                 return null;
             }
             listener.terminalSince = 0L;
-            if (state.getStatus().isFinalState() && mapping != null) {
-                mapping.beforeFinalReport(state);
-            }
             TaskResult result = toTaskResult(snapshot, state);
             boolean reported = resultReporter.report(result);
             if (!reported) {

@@ -8,6 +8,7 @@ import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -128,6 +129,24 @@ class AgentTaskStateListenerRegistryTest {
         assertEquals(2, reporter.reportCount);
         assertEquals(StatusEnum.RUN_FAILURE, stateStore.readState("task-1").orElseThrow().getStatus());
         assertTrue(registry.isRegistered("task-1"));
+    }
+
+    @Test
+    void shouldPersistPreparedFinalResultOnce() {
+        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
+        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(false, true);
+        FinalizingStateMapping mapping = new FinalizingStateMapping();
+        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter, List.of(mapping), 60000L, 10);
+
+        registry.register("task-1");
+        registry.refreshTask("task-1");
+        registry.refreshTask("task-1");
+
+        WorkerTaskExecutionState state = stateStore.readState("task-1").orElseThrow();
+        assertEquals(2, reporter.reportCount);
+        assertEquals(2, mapping.prepareCount);
+        assertEquals(2L, state.getRevision());
+        assertTrue(state.getResult().path("finalized").asBoolean());
     }
 
     @Test
@@ -332,8 +351,33 @@ class AgentTaskStateListenerRegistryTest {
         }
 
         @Override
-        public StatusEnum mapState(WorkerTaskExecutionState state) {
+        public StatusEnum mapState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
             return mappedStatus;
+        }
+    }
+
+    /**
+     * Mapping that prepares a final result once.
+     */
+    private static class FinalizingStateMapping extends FixedStateMapping {
+
+        /**
+         * Prepare count.
+         */
+        private int prepareCount;
+
+        FinalizingStateMapping() {
+            super(StatusEnum.RUN_SUCCESS);
+        }
+
+        @Override
+        public boolean prepareFinalReport(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
+            prepareCount++;
+            if (state.getResult() != null && state.getResult().path("finalized").asBoolean()) {
+                return false;
+            }
+            state.setResult(JsonNodeFactory.instance.objectNode().put("finalized", true));
+            return true;
         }
     }
 
@@ -353,13 +397,13 @@ class AgentTaskStateListenerRegistryTest {
         }
 
         @Override
-        public StatusEnum mapState(WorkerTaskExecutionState state) {
+        public StatusEnum mapState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
             stateStore.saveState(WorkerTaskExecutionState.builder()
                     .taskInstanceId(state.getTaskInstanceId())
                     .appId(state.getAppId())
                     .status(StatusEnum.STOPPING)
                     .build());
-            return super.mapState(state);
+            return super.mapState(snapshot, state);
         }
     }
 
@@ -379,13 +423,13 @@ class AgentTaskStateListenerRegistryTest {
         }
 
         @Override
-        public StatusEnum mapState(WorkerTaskExecutionState state) {
+        public StatusEnum mapState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
             stateStore.saveState(WorkerTaskExecutionState.builder()
                     .taskInstanceId(state.getTaskInstanceId())
                     .appId(state.getAppId())
                     .status(state.getStatus())
                     .build());
-            return super.mapState(state);
+            return super.mapState(snapshot, state);
         }
     }
 }

@@ -9,7 +9,6 @@ import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
-import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
@@ -41,22 +40,14 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
     private final SparkParamResolver paramResolver;
 
     /**
-     * 状态存储.
-     */
-    private final WorkerTaskExecutionStore stateStore;
-
-    /**
      * 构造函数.
      *
      * @param operatorClient Operator 客户端
      * @param paramResolver  参数解析器
-     * @param stateStore     状态存储
      */
-    public K8sOperatorRunModeStateMapping(K8sOperatorClient operatorClient,
-            SparkParamResolver paramResolver, WorkerTaskExecutionStore stateStore) {
+    public K8sOperatorRunModeStateMapping(K8sOperatorClient operatorClient, SparkParamResolver paramResolver) {
         this.operatorClient = operatorClient;
         this.paramResolver = paramResolver;
-        this.stateStore = stateStore;
     }
 
     @Override
@@ -70,15 +61,9 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
     }
 
     @Override
-    public StatusEnum mapState(WorkerTaskExecutionState state) {
-        if (state == null || state.getAppId() == null) {
-            log.warn("SPARK_K8S_OPERATOR 状态为空或appId不存在, taskState={}", state);
-            return StatusEnum.UNKNOWN;
-        }
-        WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(state.getTaskInstanceId()).orElse(null);
-        if (snapshot == null) {
-            log.warn("SPARK_K8S_OPERATOR 执行快照snap不存在, taskInstanceId={}, appId={}, localState={}",
-                    state.getTaskInstanceId(), state.getAppId(), state.getStatus());
+    public StatusEnum mapState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
+        if (state.getAppId() == null) {
+            log.warn("SPARK_K8S_OPERATOR appId不存在, taskState={}", state);
             return StatusEnum.UNKNOWN;
         }
         SparkExecutionParam param = paramResolver.resolve(taskRequest(snapshot));
@@ -86,16 +71,9 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
     }
 
     @Override
-    public void beforeFinalReport(WorkerTaskExecutionState state) {
-        if (state == null || state.getStatus() == null || !state.getStatus().isFinalState()) {
-            return;
-        }
+    public boolean prepareFinalReport(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
         if (isFinalized(state)) {
-            return;
-        }
-        WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(state.getTaskInstanceId()).orElse(null);
-        if (snapshot == null) {
-            return;
+            return false;
         }
         SparkExecutionParam param = paramResolver.resolve(taskRequest(snapshot));
         SparkKubernetesRuntimeRef runtimeRef = runtimeRef(param, state);
@@ -105,7 +83,7 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
         result.put("sparkWebUiUri", runtimeRef.getSparkWebUiUri());
         result.put("finalized", true);
         state.setResult(result);
-        stateStore.saveState(state);
+        return true;
     }
 
     private SparkKubernetesRuntimeRef runtimeRef(SparkExecutionParam param, WorkerTaskExecutionState state) {
@@ -130,9 +108,6 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
      */
     private StatusEnum mapKubernetesStatus(SparkOperatorStatus kubernetesStatus, WorkerTaskExecutionState state) {
         StatusEnum localState = state.getStatus();
-        if (localState != null && localState.isFinalState()) {
-            return localState;
-        }
         if (kubernetesStatus == null || kubernetesStatus.getState() == null) {
             log.warn("SPARK_K8S_OPERATOR SparkApplication状态为空, taskInstanceId={}, appId={}, localState={}",
                     state.getTaskInstanceId(), state.getAppId(), localState);
@@ -187,7 +162,7 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
         if (localState == StatusEnum.RUNNING) {
             return StatusEnum.RUNNING;
         }
-        if (localState != null && localState.isSubmitting()) {
+        if (localState.isSubmitting()) {
             return StatusEnum.SUBMIT_SUCCESS;
         }
         log.warn("SPARK_K8S_OPERATOR 本地状态不支持映射, taskInstanceId={}, appId={},"

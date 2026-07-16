@@ -1,8 +1,9 @@
 package com.datafusion.agent.runtime.worker.plugin.shell.local;
 
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
+import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -30,15 +31,7 @@ public class ShellLocalRunModeStateMapping implements PluginRunModeStateMapping 
     }
 
     @Override
-    public StatusEnum mapState(WorkerTaskExecutionState state) {
-        if (state == null) {
-            log.warn("Shell LOCAL的状态为空, taskState=null");
-            return StatusEnum.UNKNOWN;
-        }
-        StatusEnum currentStatus = state.getStatus();
-        if (currentStatus != null && currentStatus.isFinalState()) {
-            return currentStatus;
-        }
+    public StatusEnum mapState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
         if (state.getExitCode() != null) {
             return state.getExitCode() == 0 ? StatusEnum.RUN_SUCCESS : StatusEnum.RUN_FAILURE;
         }

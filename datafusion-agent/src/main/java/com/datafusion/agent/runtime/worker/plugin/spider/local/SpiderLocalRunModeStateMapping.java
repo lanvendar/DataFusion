@@ -2,6 +2,7 @@ package com.datafusion.agent.runtime.worker.plugin.spider.local;
 
 import com.datafusion.agent.runtime.worker.plugin.shell.local.ShellLocalRunModeStateMapping;
 import com.datafusion.scheduler.enums.StatusEnum;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import org.springframework.stereotype.Component;
@@ -44,12 +45,7 @@ public class SpiderLocalRunModeStateMapping implements PluginRunModeStateMapping
     }
 
     @Override
-    public StatusEnum mapState(WorkerTaskExecutionState state) {
-        return delegate.mapState(state);
-    }
-
-    @Override
-    public void beforeFinalReport(WorkerTaskExecutionState state) {
-        delegate.beforeFinalReport(state);
+    public StatusEnum mapState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
+        return delegate.mapState(snapshot, state);
     }
 }

@@ -7,10 +7,9 @@ import com.datafusion.agent.runtime.worker.plugin.datax.DataxPluginTaskExecutor;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxRunMode;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
-import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
-import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
+import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -41,22 +40,14 @@ public class DataxK8sRunModeStateMapping implements PluginRunModeStateMapping {
     private final DataxParamResolver paramResolver;
 
     /**
-     * Worker 任务执行存储.
-     */
-    private final WorkerTaskExecutionStore stateStore;
-
-    /**
      * 构造函数.
      *
      * @param kubernetesClient Kubernetes 客户端
      * @param paramResolver    参数解析器
-     * @param stateStore       Worker 任务执行存储
      */
-    public DataxK8sRunModeStateMapping(DataxKubernetesClient kubernetesClient, DataxParamResolver paramResolver,
-            WorkerTaskExecutionStore stateStore) {
+    public DataxK8sRunModeStateMapping(DataxKubernetesClient kubernetesClient, DataxParamResolver paramResolver) {
         this.kubernetesClient = kubernetesClient;
         this.paramResolver = paramResolver;
-        this.stateStore = stateStore;
     }
 
     @Override
@@ -70,15 +61,9 @@ public class DataxK8sRunModeStateMapping implements PluginRunModeStateMapping {
     }
 
     @Override
-    public StatusEnum mapState(WorkerTaskExecutionState state) {
-        if (state == null || state.getAppId() == null) {
-            log.warn("DataX K8S的状态为空或appId为空, taskState={}", state);
-            return StatusEnum.UNKNOWN;
-        }
-        WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(state.getTaskInstanceId()).orElse(null);
-        if (snapshot == null) {
-            log.warn("DataX K8S的快照不存在, taskInstanceId={}, appId={}",
-                    state.getTaskInstanceId(), state.getAppId());
+    public StatusEnum mapState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
+        if (state.getAppId() == null) {
+            log.warn("DataX K8S的appId为空, taskState={}", state);
             return StatusEnum.UNKNOWN;
         }
         DataxExecutionParam param = paramResolver.resolve(taskRequest(snapshot));
@@ -86,16 +71,9 @@ public class DataxK8sRunModeStateMapping implements PluginRunModeStateMapping {
     }
 
     @Override
-    public void beforeFinalReport(WorkerTaskExecutionState state) {
-        if (state == null || state.getStatus() == null || !state.getStatus().isFinalState()) {
-            return;
-        }
+    public boolean prepareFinalReport(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
         if (isFinalized(state)) {
-            return;
-        }
-        WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(state.getTaskInstanceId()).orElse(null);
-        if (snapshot == null) {
-            return;
+            return false;
         }
         DataxExecutionParam param = paramResolver.resolve(taskRequest(snapshot));
         DataxKubernetesRuntimeRef runtimeRef = runtimeRef(param, state);
@@ -103,7 +81,7 @@ public class DataxK8sRunModeStateMapping implements PluginRunModeStateMapping {
         ObjectNode result = PluginResultJson.build("K8S DataX task finished", pluginType(), runMode(), pluginLogUri, null);
         result.put("finalized", true);
         state.setResult(result);
-        stateStore.saveState(state);
+        return true;
     }
 
     private DataxKubernetesRuntimeRef runtimeRef(DataxExecutionParam param, WorkerTaskExecutionState state) {
@@ -128,9 +106,6 @@ public class DataxK8sRunModeStateMapping implements PluginRunModeStateMapping {
      */
     private StatusEnum mapKubernetesStatus(DataxKubernetesStatus kubernetesStatus, WorkerTaskExecutionState state) {
         StatusEnum localState = state.getStatus();
-        if (localState != null && localState.isFinalState()) {
-            return localState;
-        }
         if (kubernetesStatus == null || kubernetesStatus.getState() == null) {
             log.warn("DataX K8S的K8S状态为空, taskInstanceId={}, appId={}",
                     state.getTaskInstanceId(), state.getAppId());
