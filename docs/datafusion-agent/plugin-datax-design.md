@@ -164,7 +164,7 @@ Job 约定：
 | `Failed=True` | `RUN_FAILURE` |
 | `active > 0` | `RUNNING` |
 | 本地 `STOPPING` 且 Pod 全部退出 | `STOP_SUCCESS` |
-| 本地 `KILLING` 且 Pod 全部退出 | `KILLED` |
+| 本地 `KILLING` 且 Job、Pod 均不存在 | `KILLED` |
 | Job 不存在、Job status 为空或 Job 未激活 | `UNKNOWN` |
 
 控制规则：
@@ -172,7 +172,7 @@ Job 约定：
 | 动作 | 行为 | 返回状态 |
 |------|------|----------|
 | stop | 删除 Job 和本次任务 Secret，Job 使用默认 grace period | `STOPPING`，待状态映射转终态 |
-| kill | 删除 Job/Secret，使用 `gracePeriodSeconds=0`；无 Job 引用视为无残留 | 成功/无资源返回 `KILLED`；失败返回 `UNKNOWN` |
+| kill | 删除 Job/Secret，使用 `gracePeriodSeconds=0`；无 Job 引用视为无残留 | 有运行引用且删除请求成功返回 `KILLING`，Job、Pod 均不存在后映射为 `KILLED`；无运行引用直接返回 `KILLED`；失败返回 `UNKNOWN` |
 | finish | master 确认终态后清理 Secret / Job；状态文件清理由 agent finish 流程处理 | 当前终态 |
 
 ## 日志

@@ -91,7 +91,7 @@ public class K8sDataxPluginTaskExecutor extends DataxPluginTaskExecutor {
         try {
             DataxKubernetesRuntimeRef runtimeRef = runtimeRef(param, state);
             kubernetesClient.stop(runtimeRef, true);
-            return result(state, StatusEnum.KILLED, "K8S DataX kill completed", null);
+            return result(state, StatusEnum.KILLING, "K8S DataX kill requested", null);
         } catch (RuntimeException e) {
             log.warn("DataX K8S强杀失败, taskInstanceId={}, appId={}, error={}",
                     param.getTaskInstanceId(), state.getAppId(), e.getMessage());

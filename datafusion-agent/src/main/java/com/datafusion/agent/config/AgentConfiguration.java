@@ -45,6 +45,8 @@ public class AgentConfiguration {
     /**
      * 任务运行线程池.
      *
+     * <p>同时作为本地 Shell 和 DataX 进程退出 watcher 的执行器；watcher 只等待外部进程，不在该线程池内运行任务进程。</p>
+     *
      * @param properties agent 配置
      * @return 任务运行线程池
      */

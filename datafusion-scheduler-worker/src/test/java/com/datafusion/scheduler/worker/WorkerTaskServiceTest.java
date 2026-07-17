@@ -148,6 +148,48 @@ class WorkerTaskServiceTest {
     }
 
     @Test
+    void shouldNotExecuteSubmitForExistingRuntimeState() {
+        for (StatusEnum status : List.of(StatusEnum.RUNNING, StatusEnum.STOPPING, StatusEnum.KILLING,
+                StatusEnum.RUN_SUCCESS)) {
+            RecordingContextStorage contextStorage = new RecordingContextStorage();
+            contextStorage.context = RunningTaskContext.fromRequest(finishRequest());
+            contextStorage.context.setTaskState(status);
+            SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor();
+            WorkerTaskService taskService = taskService(contextStorage, executor);
+
+            TaskResult result = taskService.submitTask(finishRequest());
+
+            assertEquals(0, executor.submitCount);
+            assertEquals(status, result.getTaskState());
+            assertEquals("重复提交", result.getWorkerResult().getMessage());
+        }
+    }
+
+    @Test
+    void shouldNotExecuteSubmitWhenOnlyPersistedStateExists() {
+        LockingContextStorage contextStorage = new LockingContextStorage();
+        contextStorage.persistedState = WorkerTaskExecutionState.builder()
+                .taskInstanceId("task-1")
+                .status(StatusEnum.RUNNING)
+                .build();
+        contextStorage.persistedSnapshot = WorkerTaskExecutionSnap.builder()
+                .flowInstanceId("flow-1")
+                .taskInstanceId("task-1")
+                .taskName("task-name")
+                .pluginType("TEST")
+                .runMode("LOCAL")
+                .build();
+        SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor();
+        WorkerTaskService taskService = taskService(contextStorage, executor);
+
+        TaskResult result = taskService.submitTask(finishRequest());
+
+        assertEquals(0, executor.submitCount);
+        assertEquals(StatusEnum.RUNNING, result.getTaskState());
+        assertEquals("重复提交", result.getWorkerResult().getMessage());
+    }
+
+    @Test
     void shouldReturnSubmittingAndQueueExecutorWhenSubmitModeIsAsync() {
         RecordingContextStorage contextStorage = new RecordingContextStorage();
         RecordingExecutor asyncExecutor = new RecordingExecutor();
@@ -277,13 +319,23 @@ class WorkerTaskServiceTest {
          */
         private final ReentrantLock taskLock = new ReentrantLock();
 
+        /**
+         * Persisted snapshot.
+         */
+        private WorkerTaskExecutionSnap persistedSnapshot;
+
+        /**
+         * Persisted state.
+         */
+        private WorkerTaskExecutionState persistedState;
+
         @Override
         public void saveSnapshot(WorkerTaskExecutionSnap snapshot) {
         }
 
         @Override
         public Optional<WorkerTaskExecutionSnap> readSnapshot(String taskInstanceId) {
-            return Optional.empty();
+            return Optional.ofNullable(persistedSnapshot);
         }
 
         @Override
@@ -292,7 +344,7 @@ class WorkerTaskServiceTest {
 
         @Override
         public Optional<WorkerTaskExecutionState> readState(String taskInstanceId) {
-            return Optional.empty();
+            return Optional.ofNullable(persistedState);
         }
 
         @Override

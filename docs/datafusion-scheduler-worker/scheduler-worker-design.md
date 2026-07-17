@@ -64,18 +64,22 @@ TaskRequest
 
 ```text
 运行时按 taskInstanceId 注册任务监听
-    -> 读取 WorkerTaskExecutionSnap / WorkerTaskExecutionState
+    -> 锁外各读取一次 WorkerTaskExecutionSnap / WorkerTaskExecutionState，state 作为 status + revision 基线
     -> 按 snap.pluginType + snap.runMode 找 PluginRunModeStateMapping
     -> mapState(snapshot, state) 得到 StatusEnum
-    -> WorkerTaskExecutionStore.withTaskLock 二次读取并校验 status + revision
+    -> 映射状态等于基线状态且没有待上报事件时直接结束
+    -> 其余情况由 WorkerTaskExecutionStore.withTaskLock 复读并校验 status + revision
     -> 校验状态迁移，终态时 prepareFinalReport(snapshot, state)
     -> 状态或终态结果变化后统一 WorkerTaskExecutionStore.saveState 并写后校验
+    -> 释放任务锁
     -> TaskResultReporter.report
+    -> 上报成功后按 status + revision 确认并清除待上报标记
 ```
 
 worker SPI 不定义统一扫描策略。运行时负责监听注册、调度线程和终态保留；
 `WorkerTaskExecutionStore.withTaskLock` 只提供同一任务读写原子边界，锁不持久化。
 `WorkerTaskExecutionState.revision` 随每次 `.state` 写入递增，用于识别查询期间发生的同状态写入，不替代任务锁。
+单次 `readState` 只取得原子快照，不持有任务锁；需要比较并写入时，运行时必须在任务锁内复读 revision。
 
 ## 5. 提交语义
 
@@ -104,7 +108,7 @@ worker SPI 不定义统一扫描策略。运行时负责监听注册、调度线
 ## 7. 幂等与恢复边界
 
 - 幂等键以 `taskInstanceId` 为核心。
-- 重复 `submitTask` 不重复启动同一任务实例。
+- taskInstanceId 已存在执行状态时，重复 `submitTask` 直接返回当前结果，不再调用插件执行器；调度重试使用新的 taskInstanceId。
 - 重复 `stopTask` / `killTask` 返回当前控制结果或当前终态。
 - `WorkerTaskContextStorage` 只保证运行时上下文存储和单进程幂等。
 - 跨进程恢复、状态文件、Redis 存储、manager 查询未完成任务等由 agent 实现。

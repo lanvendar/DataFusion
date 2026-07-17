@@ -259,7 +259,7 @@ public class SparkPluginTaskExecutor implements PluginTaskExecutor {
         }
         try {
             operatorClient.kill(runtimeRef(param, state));
-            return controlResult(state, StatusEnum.KILLED, "SPARK_K8S_OPERATOR kill completed");
+            return controlResult(state, StatusEnum.KILLING, "SPARK_K8S_OPERATOR kill requested");
         } catch (RuntimeException e) {
             log.warn("SPARK_K8S_OPERATOR强杀失败, taskInstanceId={}, appId={}, error={}",
                     param.getTaskInstanceId(), state.getAppId(), e.getMessage());

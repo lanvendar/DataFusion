@@ -80,6 +80,9 @@ class DataxK8sRunModeStateMappingTest {
 
         client.status = status(DataxKubernetesStatus.State.NONE, false, false, false, false);
         assertEquals(StatusEnum.KILLED, mapping.mapState(snapshot, state(StatusEnum.KILLING)));
+
+        client.status = status(DataxKubernetesStatus.State.NONE, false, false, true, false);
+        assertEquals(StatusEnum.KILLING, mapping.mapState(snapshot, state(StatusEnum.KILLING)));
     }
 
     private AgentProperties properties() {

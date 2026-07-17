@@ -265,7 +265,8 @@ state.log
 
 规则：
 
-- `.snap` 保存提交快照，包含 `workerId`、`pluginType`、`runMode`、`submitMode`、`taskData`、`pluginParam`。
+- `.snap` 保存最近一次实际提交快照，包含 `workerId`、`pluginType`、`runMode`、`submitMode`、`taskData`、`pluginParam`；
+  每次真正进入插件 submit 时覆盖，不参与运行态 revision 和任务状态锁。
 - `.state` 保存运行态，包含 `workerId`、`appId`、`workDirPath`、`status`、`revision`、`exitCode`、`result`、`outputVars`。
 - `stdout.log`、`stderr.log`、`state.log` 是 agent 标准任务日志，文件名由 `TaskRuntimeFiles` 统一定义。
 - `state.log` 保存状态变化流水，终态后保留。
@@ -277,8 +278,9 @@ state.log
   `contextMap`。
 - `saveState` 在任务锁内读取旧 `.state` 并将 `revision` 加一后写入；同时比较旧状态，当 `status`、`appId` 或
   `exitCode` 变化时追加 `state.log`，避免 watcher 或状态刷新器原地修改运行态对象导致终态漏记。
-- `WorkerTaskExecutionContext` 为每个 `taskInstanceId` 创建进程内 `ReentrantLock`。所有 `.snap/.state` 和缓存读写、
-  submit/stop/kill/finish 状态提交均使用同一任务锁；锁不持久化，不处理多 Agent 写同一任务的场景。
+- `WorkerTaskExecutionContext` 为每个 `taskInstanceId` 创建进程内 `ReentrantLock`。`.state` 通过临时文件原子替换，
+  单次读取不加锁；`.state` 复合校验、写入以及 submit/stop/kill/finish 状态提交使用同一任务锁。`.snap` 是可覆盖的
+  提交快照，原子替换但不占用状态锁。锁不持久化，不处理多 Agent 写同一任务的场景。
 - `exitCode` 是本地运行态诊断字段，不进入 `TaskResult.workerResult`。
 - 控制请求可以只携带 `taskInstanceId`；agent 通过 `.snap + .state` 恢复插件类型、运行模式和运行引用。
 
@@ -288,22 +290,26 @@ state.log
 submit/stop/kill 或启动恢复
     -> AgentTaskStateListenerRegistry.register(taskInstanceId)
     -> 为该任务创建 scheduleWithFixedDelay
-    -> 锁外各读取一次 snapshot 和 state，并调用 PluginRunModeStateMapping.mapState(snapshot, state)
-    -> 获取 taskInstanceId 对应内存锁
-    -> 重新读取 .state 和缓存
-    -> status 或 revision 与查询前不一致则丢弃本次结果
+    -> 周期开始锁外只读取一次 .state 作为 status + revision 基线，同时读取 snapshot
+    -> 调用 PluginRunModeStateMapping.mapState(snapshot, state)
+    -> 映射状态等于基线状态且没有待上报事件则结束，不获取任务锁
+    -> 映射状态不同、存在待上报事件或基线已是终态时，获取 taskInstanceId 对应内存锁
+    -> 重新读取 .state；status 或 revision 与基线不一致则丢弃本次结果
     -> 本地 status 相对监听项 observedStatus 已变化则标记 reportPending
-    -> 查询状态与本地状态一致则不上报
     -> 校验状态迁移，终态时调用 prepareFinalReport(snapshot, state)
     -> 状态或终态结果变化后由监听器一次性 saveState 并重新读取验证
+    -> 释放任务锁
     -> 当前监听线程直接调用 TaskResultReporter.report
+    -> 上报成功后重新获取任务锁，按 status + revision 确认本次上报仍对应当前状态
 ```
 
 `AgentTaskStateListenerRegistry` 是任务级线程注册器，不再启动统一任务扫描。共享
 `ScheduledThreadPoolExecutor`，每个 `taskInstanceId` 只注册一个 `ScheduledFuture`；线程执行粒度是任务，
 不是每个任务创建独立操作系统线程。submit/stop/kill 会幂等注册，`finishTask` 会立即注销。
 
-状态刷新只查询终端状态，不主动停止、强杀或重启任务。查询在任务锁外执行，提交和上报在任务锁内执行。
+状态刷新只查询终端状态，不主动停止、强杀或重启任务。每个周期只有一处锁外 `.state` 基线读取，这个对象同时提供
+映射输入和并发校验基线。映射状态不同、存在待上报事件或基线已是终态时才锁内复读 `.state`；该复读是 revision
+提交校验，不会再次查询第三方状态。第三方状态查询和 Manager 上报在任务锁外执行，状态校验与提交在任务锁内执行。
 查询回来后只允许以下状态迁移：提交阶段保持提交成功或进入运行/失败、运行阶段进入运行终态、`STOPPING` 进入
 `STOP_SUCCESS/STOP_FAILURE`、`KILLING` 进入 `KILLED`，以及非终态进入 `UNKNOWN`。查询结果不得生成
 `STOPPING/KILLING` 等控制中间态；控制中间态只能由任务动作写入。当前状态已经变化或已经进入终态时，
@@ -317,9 +323,11 @@ submit/stop/kill 或启动恢复
 下一周期即使本地状态没有再次变化也重试。Agent 启动恢复 Manager 未完成任务时，注册项首次设置
 `reportPending`，用于重新对齐可能遗漏的终态。
 
-终态上报成功后停止第三方状态查询，但注册项继续保留。超过 `LISTENER_RETENTION_MS`，或保留的终态注册项
-超过 `LISTENER_RETENTION_NUM` 时，按终态时间淘汰最老注册项；活跃任务不参与数量淘汰。淘汰只取消监听，
-不删除 `.snap/.state`。`finishTask` 不受保留策略影响，始终注销监听、执行插件清理并删除 `.snap/.state`。
+终态上报成功后立即取消该任务的周期刷新；注册项仍保存在唯一的 `listeners` 注册表中，并通过
+`terminalSince > 0` 标识终态保留期。注册项通过一次性延迟任务在 `LISTENER_RETENTION_MS` 后淘汰；保留数量超过
+`LISTENER_RETENTION_NUM` 时，只在终态进入事件发生时按 `terminalSince` 排序并淘汰最老注册项，不执行周期性全表扫描。
+活跃任务不参与数量淘汰。终态监听淘汰只原子删除内存注册项，不获取任务状态锁，也不删除 `.snap/.state`。
+`finishTask` 不受保留策略影响，始终注销监听、执行插件清理并删除 `.snap/.state`。
 
 `readState` / `readSnapshot` 可以读取保留的 `.state/.snap` 用于诊断或插件控制，但读取文件本身不会注册监听。
 只有任务控制入口和启动恢复流程调用 `AgentTaskStateListenerRegistry.register`。

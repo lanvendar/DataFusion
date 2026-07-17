@@ -20,7 +20,7 @@ Manager 侧继续复用 `scheduler_task_info.definition`、`scheduler_task_insta
 | `effectiveTaskData` | Agent 参数解析 | Agent | Agent | 单次任务运行期 | 写入 `spark-sql-job.json` 和 Kubernetes ConfigMap |
 | `SparkExecutionParam` | Agent 参数解析 | Agent | Agent | 单次 submit / control / status 操作内存对象 | 执行器消费后转为 `.snap/.state` 与 Kubernetes 资源 |
 | `SparkKubernetesRuntimeRef` | `.snap + .state` 重建 | Agent | Agent | 单次状态查询或控制动作 | 用于查询、停止、强杀、清理 Kubernetes 资源 |
-| `.snap` | `SparkPluginTaskExecutor.submitTask` | Agent | Agent | 任务运行期 | agent finish / destroy 流程清理 |
+| `.snap` | `SparkPluginTaskExecutor.submitTask` | Agent | Agent | 最近一次实际提交到任务清理 | 每次真正 submit 时覆盖；agent finish / destroy 流程清理 |
 | `.state` | 执行器与状态监听器 | Agent | Agent | 任务运行期 | 终态上报后由 agent 流程清理 |
 
 Agent 不回写 Manager 的 `pluginParam` 或 `taskData`。

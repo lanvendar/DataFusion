@@ -44,12 +44,12 @@ public class InMemoryWorkerTaskExecutionStore implements WorkerTaskExecutionStor
 
     @Override
     public void saveSnapshot(WorkerTaskExecutionSnap snapshot) {
-        withTaskLock(snapshot.getTaskInstanceId(), () -> snapshots.put(snapshot.getTaskInstanceId(), snapshot));
+        snapshots.put(snapshot.getTaskInstanceId(), snapshot);
     }
 
     @Override
     public Optional<WorkerTaskExecutionSnap> readSnapshot(String taskInstanceId) {
-        return withTaskLock(taskInstanceId, () -> Optional.ofNullable(snapshots.get(taskInstanceId)));
+        return Optional.ofNullable(snapshots.get(taskInstanceId));
     }
 
     @Override
@@ -74,7 +74,7 @@ public class InMemoryWorkerTaskExecutionStore implements WorkerTaskExecutionStor
 
     @Override
     public Optional<WorkerTaskExecutionState> readState(String taskInstanceId) {
-        return withTaskLock(taskInstanceId, () -> Optional.ofNullable(records.get(taskInstanceId)));
+        return Optional.ofNullable(records.get(taskInstanceId));
     }
 
     @Override

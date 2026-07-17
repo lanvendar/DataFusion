@@ -50,13 +50,13 @@ class K8sDataxPluginTaskExecutorTest {
     }
 
     @Test
-    void shouldReturnKilledWhenKubernetesKillDeletesJob() {
+    void shouldReturnKillingWhenKubernetesKillDeletesJob() {
         FakeKubernetesClient client = new FakeKubernetesClient();
         K8sDataxPluginTaskExecutor executor = executor(client, stateStore(StatusEnum.UNKNOWN));
 
         TaskResult result = executor.killTask(request());
 
-        assertEquals(StatusEnum.KILLED, result.getTaskState());
+        assertEquals(StatusEnum.KILLING, result.getTaskState());
         assertEquals(true, client.forcibly);
         assertEquals("df-datax-task-1", client.lastRuntimeRef.getJobName());
     }

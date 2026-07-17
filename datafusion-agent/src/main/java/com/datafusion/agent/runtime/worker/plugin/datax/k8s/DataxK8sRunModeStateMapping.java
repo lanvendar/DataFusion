@@ -115,7 +115,8 @@ public class DataxK8sRunModeStateMapping implements PluginRunModeStateMapping {
             return kubernetesStatus.isPodRunning() ? StatusEnum.STOPPING : StatusEnum.STOP_SUCCESS;
         }
         if (localState == StatusEnum.KILLING) {
-            return kubernetesStatus.isPodRunning() ? StatusEnum.KILLING : StatusEnum.KILLED;
+            return kubernetesStatus.isJobExists() || kubernetesStatus.isPodExists()
+                    ? StatusEnum.KILLING : StatusEnum.KILLED;
         }
         if (!kubernetesStatus.isJobExists()) {
             log.warn("DataX K8S的Job不存在, taskInstanceId={}, appId={}, localState={}",

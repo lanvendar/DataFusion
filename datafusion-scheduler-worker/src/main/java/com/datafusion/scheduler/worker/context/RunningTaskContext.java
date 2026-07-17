@@ -596,8 +596,7 @@ public class RunningTaskContext {
      * @return 是否已经提交
      */
     public boolean isSubmitted() {
-        StatusEnum state = getTaskState();
-        return state == StatusEnum.SUBMITTING || state == StatusEnum.SUBMIT_SUCCESS;
+        return getTaskState() != null;
     }
 
     private void updateWorkerResult(WorkerResult workerResult) {

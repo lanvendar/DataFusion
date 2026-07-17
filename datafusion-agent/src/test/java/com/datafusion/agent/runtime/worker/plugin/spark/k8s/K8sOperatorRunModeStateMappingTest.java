@@ -1,12 +1,14 @@
 package com.datafusion.agent.runtime.worker.plugin.spark.k8s;
 
 import com.datafusion.agent.config.AgentProperties;
+import com.datafusion.agent.runtime.worker.InMemoryWorkerTaskExecutionStore;
 import com.datafusion.agent.runtime.worker.plugin.spark.SparkExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.spark.SparkParamResolver;
 import com.datafusion.agent.runtime.worker.plugin.spark.SparkPluginTaskExecutor;
 import com.datafusion.agent.runtime.worker.plugin.spark.SparkRunMode;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -67,6 +69,21 @@ class K8sOperatorRunModeStateMappingTest {
         assertTrue(mapping.prepareFinalReport(snapshot(request()), state));
         assertTrue(state.getResult().path("finalized").asBoolean());
         assertFalse(mapping.prepareFinalReport(snapshot(request()), state));
+    }
+
+    @Test
+    void shouldKeepKillingUntilKubernetesResourcesDisappear() {
+        FakeKubernetesClient client = new FakeKubernetesClient();
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        stateStore.saveSnapshot(snapshot(request()));
+        stateStore.saveState(state(StatusEnum.RUNNING));
+        SparkPluginTaskExecutor executor = new SparkPluginTaskExecutor(new SparkParamResolver(new AgentProperties()),
+                stateStore, client);
+
+        TaskResult result = executor.killTask(request());
+
+        assertEquals(StatusEnum.KILLING, result.getTaskState());
+        assertTrue(client.killRequested);
     }
 
     private TaskRequest request() {
@@ -134,6 +151,11 @@ class K8sOperatorRunModeStateMappingTest {
          */
         private SparkOperatorStatus status;
 
+        /**
+         * Whether kill was requested.
+         */
+        private boolean killRequested;
+
         @Override
         public SparkKubernetesRuntimeRef submit(SparkExecutionParam param) {
             return null;
@@ -145,6 +167,7 @@ class K8sOperatorRunModeStateMappingTest {
 
         @Override
         public void kill(SparkKubernetesRuntimeRef runtimeRef) {
+            killRequested = true;
         }
 
         @Override

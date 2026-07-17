@@ -8,6 +8,8 @@ import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.context.CachedWorkerTaskContextStorage;
 import com.datafusion.scheduler.worker.context.RunningTaskContext;
 import com.datafusion.scheduler.worker.context.WorkerTaskContextStorage;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import com.datafusion.scheduler.worker.plugin.WorkerTaskOperatorRouter;
@@ -83,8 +85,8 @@ public class WorkerTaskService implements WorkerTaskOperator {
         if (isBlank(request.getRunMode())) {
             throw new IllegalArgumentException("runMode不能为空");
         }
-        RunningTaskContext existingContext = contextStore.get(request.getTaskInstanceId());
-        if (existingContext != null && existingContext.isSubmitted()) {
+        RunningTaskContext existingContext = existingExecution(request.getTaskInstanceId());
+        if (existingContext != null) {
             return duplicateSubmitResult(existingContext);
         }
         RunningTaskContext context = contextStore.getOrCreate(snapshotRequest(request));
@@ -299,6 +301,22 @@ public class WorkerTaskService implements WorkerTaskOperator {
         }
         result.getWorkerResult().setMessage("重复提交");
         return result;
+    }
+
+    private RunningTaskContext existingExecution(String taskInstanceId) {
+        RunningTaskContext context = contextStore.get(taskInstanceId);
+        if (context != null && context.isSubmitted()) {
+            return context;
+        }
+        if (!(contextStore instanceof WorkerTaskExecutionStore executionStore)) {
+            return null;
+        }
+        WorkerTaskExecutionState state = executionStore.readState(taskInstanceId).orElse(null);
+        if (state == null || state.getStatus() == null) {
+            return null;
+        }
+        WorkerTaskExecutionSnap snapshot = executionStore.readSnapshot(taskInstanceId).orElse(null);
+        return RunningTaskContext.fromSnapshotAndState(snapshot, state);
     }
 
     private void deleteExecution(String taskInstanceId) {

@@ -98,11 +98,11 @@
 | `TaskRequest` -> `RunningTaskContext` | worker 接收请求后创建或复用上下文 | 幂等键为 `taskInstanceId`；worker 信息来自 `request.workerResult` |
 | `PluginTaskExecutor.validateTaskRequest` -> `TaskRequest` | 插件在提交前校验任务请求 | 校验失败返回 `SUBMIT_FAILURE` |
 | `PluginTaskExecutor.submitTask` -> `TaskResult` | 插件返回执行结果 | worker 补齐任务身份、`submitMode` 和 `workerResult.workerId` |
-| `RunningTaskContext` -> `TaskResult` | 重复请求返回最近结果或当前状态 | 已有终态直接返回终态；无状态时 `ASYNC` 返回 `SUBMITTING`，`SYNC` 返回 `RUNNING` |
+| `RunningTaskContext` -> `TaskResult` | 重复请求返回最近结果或当前状态 | taskInstanceId 已存在执行状态时 submit 不再调用插件；无状态时才执行首次提交 |
 | `WorkerTaskExecutionState` -> `TaskResultReporter.report` | 运行时任务监听器观察到本地状态或映射状态变化后上报 manager/master | 上报实现位于 `datafusion-agent`；`WorkerTaskService` 不直接上报 |
 | `RunningTaskContext` -> `WorkerTaskExecutionSnap` | agent 侧运行时转换 | 保存提交快照和恢复上下文 |
 | `RunningTaskContext` -> `WorkerTaskExecutionState` | agent 侧运行时转换 | 保存持续刷新的运行态 |
-| `WorkerTaskExecutionSnap + WorkerTaskExecutionState` -> `PluginRunModeStateMapping` | 任务级监听器按 `snap.pluginType + snap.runMode` 路由，并把同一次读取的两个对象传入映射器 | 状态映射器不访问状态存储；查询结果和终态准备结果由监听器在任务锁内按 `status + revision` 二次校验后持久化 |
+| `WorkerTaskExecutionSnap + WorkerTaskExecutionState` -> `PluginRunModeStateMapping` | 任务级监听器按 `snap.pluginType + snap.runMode` 路由，并把周期开始时唯一一次锁外读取的 state 基线与 snapshot 传入映射器 | 状态映射器不访问状态存储；状态相同且无待上报事件时不加锁，状态变化时由监听器在任务锁内按 `status + revision` 复读校验后持久化 |
 | `WorkerListener.getTaskInsByWorkerId` -> agent 状态恢复 | agent 注册成功后按 workerId 获取未完成任务清单 | agent 只恢复清单内任务 |
 
 ## 5. 状态 / 枚举模型

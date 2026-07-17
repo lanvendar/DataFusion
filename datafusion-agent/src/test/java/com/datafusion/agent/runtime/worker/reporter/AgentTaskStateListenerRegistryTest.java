@@ -17,8 +17,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -56,15 +58,18 @@ class AgentTaskStateListenerRegistryTest {
 
     @Test
     void shouldNotReportWhenMappedStateIsUnchanged() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
+        LockCountingTaskExecutionStore stateStore = new LockCountingTaskExecutionStore();
+        saveTask(stateStore, "task-1", StatusEnum.RUNNING);
         RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
         AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
                 List.of(new FixedStateMapping(StatusEnum.RUNNING)), 60000L, 10);
 
         registry.register("task-1");
+        stateStore.resetLockCount();
         registry.refreshTask("task-1");
 
         assertEquals(0, reporter.reportCount);
+        assertEquals(0, stateStore.lockCount);
         assertEquals(StatusEnum.RUNNING, stateStore.readState("task-1").orElseThrow().getStatus());
         assertTrue(registry.isRegistered("task-1"));
     }
@@ -162,6 +167,21 @@ class AgentTaskStateListenerRegistryTest {
     }
 
     @Test
+    void shouldReleaseTaskLockBeforeReporting() {
+        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
+        StateChangingReporter reporter = new StateChangingReporter(stateStore);
+        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
+                List.of(new FixedStateMapping(StatusEnum.RUN_SUCCESS)), 60000L, 10);
+
+        registry.register("task-1");
+        registry.refreshTask("task-1");
+
+        assertTrue(reporter.stateChanged);
+        assertEquals(StatusEnum.STOPPING, stateStore.readState("task-1").orElseThrow().getStatus());
+        assertTrue(registry.isRegistered("task-1"));
+    }
+
+    @Test
     void shouldDiscardMappedStateWhenControlStateChangedDuringQuery() {
         InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
         RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
@@ -176,17 +196,20 @@ class AgentTaskStateListenerRegistryTest {
     }
 
     @Test
-    void shouldDiscardMappedStateWhenRevisionChangedDuringQuery() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
+    void shouldDiscardMappedStateWithoutLockWhenRevisionChangedDuringQuery() {
+        LockCountingTaskExecutionStore stateStore = new LockCountingTaskExecutionStore();
+        saveTask(stateStore, "task-1", StatusEnum.RUNNING);
         RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
         AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
                 List.of(new RevisionChangingMapping(stateStore)), 60000L, 10);
 
         registry.register("task-1");
+        stateStore.resetLockCount();
         registry.refreshTask("task-1");
 
         WorkerTaskExecutionState state = stateStore.readState("task-1").orElseThrow();
         assertEquals(0, reporter.reportCount);
+        assertEquals(1, stateStore.lockCount);
         assertEquals(StatusEnum.RUNNING, state.getStatus());
         assertEquals(2L, state.getRevision());
     }
@@ -239,7 +262,7 @@ class AgentTaskStateListenerRegistryTest {
     }
 
     @Test
-    void shouldEvictTerminalListenerImmediatelyWhenRetentionIsZero() {
+    void shouldEvictTerminalListenerImmediatelyWhenRetentionIsZero() throws Exception {
         InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUN_FAILURE);
         AgentTaskStateListenerRegistry registry = registry(stateStore, new RecordingTaskResultReporter(true),
                 Collections.emptyList(), 0L, 10);
@@ -247,11 +270,11 @@ class AgentTaskStateListenerRegistryTest {
         registry.register("task-1");
         registry.refreshTask("task-1");
 
-        assertFalse(registry.isRegistered("task-1"));
+        awaitRegistration(registry, "task-1", false);
     }
 
     @Test
-    void shouldOnlyCountRetainedTerminalListenersForCapacityEviction() {
+    void shouldOnlyCountRetainedTerminalListenersForCapacityEviction() throws Exception {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         saveTask(stateStore, "task-1", StatusEnum.RUN_FAILURE);
         saveTask(stateStore, "task-2", StatusEnum.STOP_FAILURE);
@@ -266,12 +289,22 @@ class AgentTaskStateListenerRegistryTest {
         registry.refreshTask("task-2");
         registry.refreshTask("task-3");
 
+        awaitRegistration(registry, "task-1", false);
         assertEquals(2, registry.listenerCount());
         assertTrue(registry.isRegistered("task-3"));
     }
 
+    private void awaitRegistration(AgentTaskStateListenerRegistry registry, String taskInstanceId,
+            boolean expected) throws Exception {
+        long deadline = System.currentTimeMillis() + 1000L;
+        while (registry.isRegistered(taskInstanceId) != expected && System.currentTimeMillis() < deadline) {
+            TimeUnit.MILLISECONDS.sleep(10L);
+        }
+        assertEquals(expected, registry.isRegistered(taskInstanceId));
+    }
+
     private AgentTaskStateListenerRegistry registry(InMemoryWorkerTaskExecutionStore stateStore,
-            RecordingTaskResultReporter reporter, List<PluginRunModeStateMapping> mappings, long retentionMs,
+            TaskResultReporter reporter, List<PluginRunModeStateMapping> mappings, long retentionMs,
             int retentionNum) {
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
         schedulers.add(scheduler);
@@ -301,6 +334,27 @@ class AgentTaskStateListenerRegistryTest {
     }
 
     /**
+     * Task execution store that counts explicit task-lock sections.
+     */
+    private static class LockCountingTaskExecutionStore extends InMemoryWorkerTaskExecutionStore {
+
+        /**
+         * Task-lock acquisition count.
+         */
+        private int lockCount;
+
+        @Override
+        public <T> T withTaskLock(String taskInstanceId, java.util.function.Supplier<T> action) {
+            lockCount++;
+            return super.withTaskLock(taskInstanceId, action);
+        }
+
+        private void resetLockCount() {
+            lockCount = 0;
+        }
+    }
+
+    /**
      * Recording task result reporter.
      */
     private static class RecordingTaskResultReporter implements TaskResultReporter {
@@ -323,6 +377,42 @@ class AgentTaskStateListenerRegistryTest {
         public boolean report(TaskResult result) {
             reportCount++;
             return results.size() > 1 ? results.removeFirst() : results.getFirst();
+        }
+    }
+
+    /**
+     * Reporter that changes local state from another thread.
+     */
+    private static class StateChangingReporter implements TaskResultReporter {
+
+        /**
+         * Task execution store.
+         */
+        private final InMemoryWorkerTaskExecutionStore stateStore;
+
+        /**
+         * Whether the state change completed while reporting.
+         */
+        private boolean stateChanged;
+
+        StateChangingReporter(InMemoryWorkerTaskExecutionStore stateStore) {
+            this.stateStore = stateStore;
+        }
+
+        @Override
+        public boolean report(TaskResult result) {
+            try {
+                CompletableFuture.runAsync(() -> stateStore.saveState(WorkerTaskExecutionState.builder()
+                                .taskInstanceId(result.getTaskInstanceId())
+                                .appId(result.getWorkerResult().getAppId())
+                                .status(StatusEnum.STOPPING)
+                                .build()))
+                        .get(1L, TimeUnit.SECONDS);
+                stateChanged = true;
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
         }
     }
 

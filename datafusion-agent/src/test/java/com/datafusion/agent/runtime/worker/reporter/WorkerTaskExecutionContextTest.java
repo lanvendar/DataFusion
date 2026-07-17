@@ -145,6 +145,19 @@ class WorkerTaskExecutionContextTest {
         assertNotNull(store.get("task-1"));
     }
 
+    @Test
+    void shouldOverwriteSnapshotOnEachSubmit() {
+        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
+        store.saveSnapshot(snapshot());
+        WorkerTaskExecutionSnap latestSnapshot = snapshot();
+        latestSnapshot.setPluginType("DATAX");
+
+        store.saveSnapshot(latestSnapshot);
+
+        assertEquals("DATAX", store.readSnapshot("task-1").orElseThrow().getPluginType());
+        assertEquals("DATAX", store.get("task-1").getPluginType());
+    }
+
     private AgentProperties properties() {
         AgentProperties properties = new AgentProperties();
         properties.setModules(tempDir.toString());

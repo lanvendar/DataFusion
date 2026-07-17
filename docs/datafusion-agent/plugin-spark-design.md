@@ -73,7 +73,7 @@ Manager scheduler
 |------|------|------|
 | `submit` | 写本地 job 快照，创建 ConfigMap 和 SparkApplication，保存 `.snap/.state` | 成功返回 `SUBMIT_SUCCESS`；失败返回 `SUBMIT_FAILURE` |
 | `stop` | patch `SparkApplication.spec.suspend=true` | 返回 `STOPPING`，由状态刷新推进终态 |
-| `kill` | 删除 SparkApplication、Pod 和 ConfigMap | 成功或资源不存在返回 `KILLED` |
+| `kill` | 删除 SparkApplication、Pod 和 ConfigMap | 删除请求成功返回 `KILLING`；状态刷新确认 Application、Pod、Service 均不存在后返回 `KILLED` |
 | `finish` | master 确认终态后幂等清理 SparkApplication 和 ConfigMap | 清理成功返回 `true` |
 
 清理 Pod 时先按任务标签查询，再按资源名称逐个删除，不依赖 Kubernetes `deletecollection` 权限。
