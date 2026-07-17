@@ -38,7 +38,7 @@ class DataxParamResolverTest {
 
     @Test
     void shouldResolveLocalRunModeFromPluginParam() {
-        ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
+        final ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
         pluginParam.put("dataxHome", "/opt/plugins/datax");
         pluginParam.put("dataxJar", "/opt/plugins/datax/lib/datax-bundle-0.0.1.jar");
         pluginParam.put("logConfigFile", "/opt/plugins/datax/conf/logback.xml");
@@ -61,7 +61,7 @@ class DataxParamResolverTest {
 
     @Test
     void shouldResolveKubernetesTaskOverrideFromTaskData() {
-        ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
+        final ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
         ObjectNode pluginKubernetes = OBJECT_MAPPER.createObjectNode();
         pluginKubernetes.put("namePrefix", "custom-datax");
         pluginKubernetes.put("namespace", "plugin-ns");
@@ -105,7 +105,7 @@ class DataxParamResolverTest {
 
     @Test
     void shouldMergeStandardJobContentAndIgnoreRegisterMetadata() {
-        ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
+        final ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
         final ObjectNode defaultTaskData = OBJECT_MAPPER.createObjectNode();
         ObjectNode defaultJob = OBJECT_MAPPER.createObjectNode();
         ObjectNode setting = OBJECT_MAPPER.createObjectNode();

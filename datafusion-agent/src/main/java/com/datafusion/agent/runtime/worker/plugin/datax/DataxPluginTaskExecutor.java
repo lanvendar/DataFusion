@@ -57,18 +57,8 @@ public abstract class DataxPluginTaskExecutor implements PluginTaskExecutor {
     @Override
     public final TaskResult submitTask(TaskRequest request) {
         DataxExecutionParam param = paramResolver.resolve(request);
-        DataxTaskResult result = submit(param);
-        stateStore.saveSnapshot(snapshot(request));
-        WorkerResult workerResult = request.getWorkerResult();
-        stateStore.saveState(WorkerTaskExecutionState.builder()
-                .taskInstanceId(request.getTaskInstanceId())
-                .workerId(workerResult == null ? null : workerResult.getWorkerId())
-                .appId(result.getAppId())
-                .workDirPath(result.getWorkDirPath())
-                .status(result.getStatus())
-                .result(result.getResult())
-                .build());
-        return taskResult(request, result);
+        WorkerTaskExecutionState state = currentState(request);
+        return submit(request, param, state);
     }
 
     @Override
@@ -100,10 +90,15 @@ public abstract class DataxPluginTaskExecutor implements PluginTaskExecutor {
     /**
      * 提交当前运行模式任务.
      *
-     * @param param 执行参数
-     * @return 执行结果
+     * <p>子类应使用传入的状态基线记录提交结果，LOCAL 模式需在记录完成后再注册进程监听。
+     *
+     * @param request 任务请求
+     * @param param   执行参数
+     * @param state   第三方动作执行前的状态基线
+     * @return 任务响应
      */
-    protected abstract DataxTaskResult submit(DataxExecutionParam param);
+    protected abstract TaskResult submit(TaskRequest request, DataxExecutionParam param,
+            WorkerTaskExecutionState state);
 
     /**
      * 停止当前运行模式任务.
@@ -141,6 +136,24 @@ public abstract class DataxPluginTaskExecutor implements PluginTaskExecutor {
      */
     protected final WorkerTaskExecutionStore stateStore() {
         return stateStore;
+    }
+
+    /**
+     * 记录提交结果并转换为任务响应.
+     *
+     * @param request 任务请求
+     * @param state   第三方动作执行前的状态基线
+     * @param result  DataX 执行结果
+     * @return 任务响应
+     */
+    protected final TaskResult recordSubmitResult(TaskRequest request, WorkerTaskExecutionState state,
+            DataxTaskResult result) {
+        state.setAppId(result.getAppId());
+        state.setWorkDirPath(result.getWorkDirPath());
+        state.setStatus(result.getStatus());
+        state.setResult(result.getResult());
+        stateStore.saveState(state, state.getRevision());
+        return taskResult(request, result);
     }
 
     private WorkerTaskExecutionState currentState(TaskRequest request) {
@@ -184,21 +197,7 @@ public abstract class DataxPluginTaskExecutor implements PluginTaskExecutor {
         state.setAppId(firstText(result.getAppId(), state.getAppId()));
         state.setWorkDirPath(firstText(result.getWorkDirPath(), state.getWorkDirPath()));
         state.setResult(result.getResult());
-        stateStore.saveState(state);
-    }
-
-    private WorkerTaskExecutionSnap snapshot(TaskRequest request) {
-        WorkerResult workerResult = request.getWorkerResult();
-        return WorkerTaskExecutionSnap.builder()
-                .flowInstanceId(request.getFlowInstanceId())
-                .taskName(request.getTaskName())
-                .workerId(workerResult == null ? null : workerResult.getWorkerId())
-                .pluginType(PLUGIN_TYPE)
-                .runMode(runMode())
-                .taskInstanceId(request.getTaskInstanceId())
-                .taskData(request.getTaskData())
-                .pluginParam(request.getPluginParam())
-                .build();
+        stateStore.saveState(state, state.getRevision());
     }
 
     private TaskResult taskResult(TaskRequest request, DataxTaskResult result) {

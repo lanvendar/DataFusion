@@ -45,6 +45,12 @@ public class InMemoryWorkerTaskExecutionStore implements WorkerTaskExecutionStor
     @Override
     public void saveSnapshot(WorkerTaskExecutionSnap snapshot) {
         snapshots.put(snapshot.getTaskInstanceId(), snapshot);
+        contexts.compute(snapshot.getTaskInstanceId(), (taskInstanceId, context) -> {
+            RunningTaskContext current = context == null ? new RunningTaskContext() : context;
+            current.setTaskInstanceId(taskInstanceId);
+            current.setSnapshot(snapshot);
+            return current;
+        });
     }
 
     @Override
@@ -53,22 +59,36 @@ public class InMemoryWorkerTaskExecutionStore implements WorkerTaskExecutionStor
     }
 
     @Override
-    public void saveState(WorkerTaskExecutionState state) {
-        withTaskLock(state.getTaskInstanceId(), () -> {
+    public boolean saveState(WorkerTaskExecutionState state, long expectedRevision) {
+        return withTaskLock(state.getTaskInstanceId(), () -> {
             WorkerTaskExecutionState oldState = records.get(state.getTaskInstanceId());
-            state.setRevision(oldState == null ? 1L : oldState.getRevision() + 1L);
+            long currentRevision = oldState == null ? 0L : oldState.getRevision();
+            if (currentRevision != expectedRevision) {
+                return false;
+            }
+            if (oldState != null) {
+                if (state.getAppId() == null) {
+                    state.setAppId(oldState.getAppId());
+                }
+                if (state.getWorkerId() == null) {
+                    state.setWorkerId(oldState.getWorkerId());
+                }
+                if (state.getWorkDirPath() == null) {
+                    state.setWorkDirPath(oldState.getWorkDirPath());
+                }
+                if (state.getExitCode() == null) {
+                    state.setExitCode(oldState.getExitCode());
+                }
+            }
+            state.setRevision(currentRevision + 1L);
             records.put(state.getTaskInstanceId(), state);
             contexts.compute(state.getTaskInstanceId(), (taskInstanceId, context) -> {
                 RunningTaskContext current = context == null ? new RunningTaskContext() : context;
                 current.setTaskInstanceId(taskInstanceId);
-                current.setWorkerId(state.getWorkerId());
-                current.setAppId(state.getAppId());
-                current.setWorkDirPath(state.getWorkDirPath());
-                current.setTaskState(state.getStatus());
-                current.setResult(state.getResult());
+                current.setExecutionState(state);
                 return current;
             });
-            return null;
+            return true;
         });
     }
 
@@ -79,53 +99,38 @@ public class InMemoryWorkerTaskExecutionStore implements WorkerTaskExecutionStor
 
     @Override
     public RunningTaskContext get(String taskInstanceId) {
-        return withTaskLock(taskInstanceId, () -> contexts.get(taskInstanceId));
+        return contexts.get(taskInstanceId);
     }
 
     @Override
     public RunningTaskContext getOrCreate(TaskRequest request) {
-        return withTaskLock(request.getTaskInstanceId(), () -> contexts.computeIfAbsent(request.getTaskInstanceId(),
-                taskInstanceId -> RunningTaskContext.fromRequest(request)));
+        return contexts.computeIfAbsent(request.getTaskInstanceId(),
+                taskInstanceId -> RunningTaskContext.fromRequest(request));
     }
 
     @Override
     public void save(RunningTaskContext context) {
-        withTaskLock(context.getTaskInstanceId(), () -> {
-            readState(context.getTaskInstanceId()).ifPresent(existing -> {
-                if (context.getAppId() == null) {
-                    context.setAppId(existing.getAppId());
-                }
-                if (context.getWorkerId() == null) {
-                    context.setWorkerId(existing.getWorkerId());
-                }
-                if (context.getWorkDirPath() == null) {
-                    context.setWorkDirPath(existing.getWorkDirPath());
-                }
-            });
-            contexts.put(context.getTaskInstanceId(), context);
-            saveSnapshot(context.getSnapshot());
-            saveState(context.getExecutionState());
-            return null;
-        });
+        contexts.put(context.getTaskInstanceId(), context);
+        saveSnapshot(context.getSnapshot());
+        WorkerTaskExecutionState state = context.getExecutionState();
+        if (state != null) {
+            saveState(state, state.getRevision());
+        }
     }
 
     @Override
     public void deleteExecution(String taskInstanceId) {
-        withTaskLock(taskInstanceId, () -> {
-            records.remove(taskInstanceId);
-            snapshots.remove(taskInstanceId);
-            contexts.remove(taskInstanceId);
-            return null;
-        });
+        records.remove(taskInstanceId);
+        contexts.remove(taskInstanceId);
+        snapshots.remove(taskInstanceId);
     }
 
     @Override
     public void removeContext(String taskInstanceId) {
-        withTaskLock(taskInstanceId, () -> contexts.remove(taskInstanceId));
+        contexts.remove(taskInstanceId);
     }
 
-    @Override
-    public <T> T withTaskLock(String taskInstanceId, Supplier<T> action) {
+    private <T> T withTaskLock(String taskInstanceId, Supplier<T> action) {
         if (taskInstanceId == null) {
             return action.get();
         }

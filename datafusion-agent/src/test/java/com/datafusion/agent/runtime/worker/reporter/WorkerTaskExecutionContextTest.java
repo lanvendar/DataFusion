@@ -5,6 +5,7 @@ import com.datafusion.agent.runtime.worker.context.WorkerTaskExecutionContext;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.WorkerResult;
+import com.datafusion.scheduler.worker.context.RunningTaskContext;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import org.junit.jupiter.api.Test;
@@ -41,9 +42,9 @@ class WorkerTaskExecutionContextTest {
     void shouldRestoreStateOnlyByManagerTaskRequestsAndKeepLogWhenRemovingRuntimeFiles() throws Exception {
         WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
         store.saveSnapshot(snapshot());
-        store.saveState(state(StatusEnum.RUNNING));
-        store.saveState(state(StatusEnum.RUNNING));
-        store.saveState(state(StatusEnum.RUN_SUCCESS));
+        saveState(store, state(StatusEnum.RUNNING));
+        saveState(store, state(StatusEnum.RUNNING));
+        saveState(store, state(StatusEnum.RUN_SUCCESS));
 
         Path executionDir = executionDir();
         final Path logFile = executionDir.resolve("state.log");
@@ -80,38 +81,41 @@ class WorkerTaskExecutionContextTest {
     void shouldAppendStatusLogWhenReadStateIsMutatedBeforeSave() throws Exception {
         WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
         store.saveSnapshot(snapshot());
-        store.saveState(state(StatusEnum.RUNNING));
+        saveState(store, state(StatusEnum.RUNNING));
 
         WorkerTaskExecutionState state = store.readState("task-1").orElseThrow();
         state.setExitCode(0);
         state.setStatus(StatusEnum.RUN_SUCCESS);
-        store.saveState(state);
+        assertTrue(store.saveState(state, state.getRevision()));
 
         Path logFile = executionDir().resolve("state.log");
-        assertEquals(2, Files.readAllLines(logFile).size());
-        assertTrue(Files.readString(logFile).contains("status:RUN_SUCCESS|exitCode:0"));
+        List<String> statusLines = Files.readAllLines(logFile);
+        assertEquals(2, statusLines.size());
+        assertTrue(statusLines.get(0).contains("revision:1|"));
+        assertTrue(statusLines.get(1).contains("revision:2|"));
+        assertTrue(statusLines.get(1).contains("status:RUN_SUCCESS|exitCode:0"));
     }
 
     @Test
     void shouldAppendStatusLogWhenAppIdChanges() throws Exception {
         WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
         store.saveSnapshot(snapshot());
-        store.saveState(state(StatusEnum.RUNNING));
+        saveState(store, state(StatusEnum.RUNNING));
 
         WorkerTaskExecutionState state = state(StatusEnum.RUNNING);
         state.setAppId("200");
-        store.saveState(state);
+        saveState(store, state);
 
         Path logFile = executionDir().resolve("state.log");
         assertEquals(2, Files.readAllLines(logFile).size());
-        assertTrue(Files.readString(logFile).contains("appId:200|status:RUNNING"));
+        assertTrue(Files.readString(logFile).contains("appId:200|revision:2|status:RUNNING"));
     }
 
     @Test
     void shouldRemoveContextWithoutDeletingRuntimeFiles() {
         WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
         store.saveSnapshot(snapshot());
-        store.saveState(state(StatusEnum.RUN_FAILURE));
+        saveState(store, state(StatusEnum.RUN_FAILURE));
 
         store.removeContext("task-1");
 
@@ -125,7 +129,7 @@ class WorkerTaskExecutionContextTest {
     void shouldNotRestoreContextWhenReadingRemovedRuntimeFiles() {
         WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
         store.saveSnapshot(snapshot());
-        store.saveState(state(StatusEnum.RUN_FAILURE));
+        saveState(store, state(StatusEnum.RUN_FAILURE));
         store.removeContext("task-1");
 
         assertEquals(StatusEnum.RUN_FAILURE, store.readState("task-1").orElseThrow().getStatus());
@@ -146,6 +150,43 @@ class WorkerTaskExecutionContextTest {
     }
 
     @Test
+    void shouldRemoveCachedContextWhenRuntimeFilesDoNotExist() {
+        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
+        TaskRequest request = new TaskRequest();
+        request.setTaskInstanceId("task-without-files");
+        store.getOrCreate(request);
+
+        store.deleteExecution(request.getTaskInstanceId());
+
+        assertNull(store.get(request.getTaskInstanceId()));
+    }
+
+    @Test
+    void shouldDeleteRuntimeFilesFromSharedDirectoryWhenContextWasRemoved() {
+        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
+        store.saveSnapshot(snapshot());
+        saveState(store, state(StatusEnum.RUN_FAILURE));
+        store.removeContext("task-1");
+
+        store.deleteExecution("task-1");
+
+        assertFalse(Files.exists(executionDir().resolve("task-1.state")));
+        assertFalse(Files.exists(executionDir().resolve("task-1.snap")));
+    }
+
+    @Test
+    void shouldSaveStateToItsWorkDirectoryWithoutSnapshot() {
+        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
+        WorkerTaskExecutionState state = state(StatusEnum.RUNNING);
+        state.setWorkDirPath(executionDir().toString());
+
+        saveState(store, state);
+
+        assertTrue(Files.exists(executionDir().resolve("task-1.state")));
+        assertEquals(executionDir().toString(), store.readState("task-1").orElseThrow().getWorkDirPath());
+    }
+
+    @Test
     void shouldOverwriteSnapshotOnEachSubmit() {
         WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
         store.saveSnapshot(snapshot());
@@ -156,6 +197,62 @@ class WorkerTaskExecutionContextTest {
 
         assertEquals("DATAX", store.readSnapshot("task-1").orElseThrow().getPluginType());
         assertEquals("DATAX", store.get("task-1").getPluginType());
+    }
+
+    @Test
+    void shouldOverwriteSnapshotWhenSavingContext() {
+        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
+        store.save(RunningTaskContext.fromSnapshotAndState(snapshot(), state(StatusEnum.RUNNING)));
+        WorkerTaskExecutionSnap latestSnapshot = snapshot();
+        latestSnapshot.setPluginType("DATAX");
+
+        store.save(RunningTaskContext.fromSnapshotAndState(latestSnapshot, state(StatusEnum.RUNNING)));
+
+        assertEquals("DATAX", store.readSnapshot("task-1").orElseThrow().getPluginType());
+        assertEquals("DATAX", store.get("task-1").getPluginType());
+    }
+
+    @Test
+    void shouldMergeMissingStateFieldsInsideStateLock() {
+        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
+        store.saveSnapshot(snapshot());
+        WorkerTaskExecutionState existingState = state(StatusEnum.RUNNING);
+        existingState.setWorkerId("worker-1");
+        existingState.setWorkDirPath(executionDir().toString());
+        existingState.setExitCode(1);
+        saveState(store, existingState);
+        WorkerTaskExecutionState nextState = WorkerTaskExecutionState.builder()
+                .taskInstanceId("task-1")
+                .status(StatusEnum.STOPPING)
+                .revision(existingState.getRevision())
+                .build();
+
+        store.save(RunningTaskContext.fromSnapshotAndState(snapshot(), nextState));
+
+        WorkerTaskExecutionState savedState = store.readState("task-1").orElseThrow();
+        assertEquals("100", savedState.getAppId());
+        assertEquals("worker-1", savedState.getWorkerId());
+        assertEquals(executionDir().toString(), savedState.getWorkDirPath());
+        assertEquals(1, savedState.getExitCode());
+        assertEquals(2L, savedState.getRevision());
+        assertEquals(StatusEnum.STOPPING, store.get("task-1").getTaskState());
+    }
+
+    @Test
+    void shouldRejectStateWriteWhenExpectedRevisionIsStale() {
+        WorkerTaskExecutionContext store = new WorkerTaskExecutionContext(properties());
+        store.saveSnapshot(snapshot());
+        saveState(store, state(StatusEnum.RUNNING));
+        WorkerTaskExecutionState staleState = store.readState("task-1").orElseThrow();
+        WorkerTaskExecutionState latestState = state(StatusEnum.STOPPING);
+
+        assertTrue(store.saveState(latestState, staleState.getRevision()));
+        staleState.setStatus(StatusEnum.RUN_SUCCESS);
+
+        assertFalse(store.saveState(staleState, staleState.getRevision()));
+        WorkerTaskExecutionState persistedState = store.readState("task-1").orElseThrow();
+        assertEquals(StatusEnum.STOPPING, persistedState.getStatus());
+        assertEquals(2L, persistedState.getRevision());
     }
 
     private AgentProperties properties() {
@@ -181,6 +278,13 @@ class WorkerTaskExecutionContextTest {
                 .appId("100")
                 .status(status)
                 .build();
+    }
+
+    private void saveState(WorkerTaskExecutionContext store, WorkerTaskExecutionState state) {
+        long expectedRevision = store.readState(state.getTaskInstanceId())
+                .map(WorkerTaskExecutionState::getRevision)
+                .orElse(0L);
+        assertTrue(store.saveState(state, expectedRevision));
     }
 
     private TaskRequest restoreRequest() {

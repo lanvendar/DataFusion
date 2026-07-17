@@ -17,7 +17,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -58,19 +57,35 @@ class AgentTaskStateListenerRegistryTest {
 
     @Test
     void shouldNotReportWhenMappedStateIsUnchanged() {
-        LockCountingTaskExecutionStore stateStore = new LockCountingTaskExecutionStore();
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         saveTask(stateStore, "task-1", StatusEnum.RUNNING);
         RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
         AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
                 List.of(new FixedStateMapping(StatusEnum.RUNNING)), 60000L, 10);
 
-        registry.register("task-1");
-        stateStore.resetLockCount();
+        registry.register("task-1", StatusEnum.RUNNING);
         registry.refreshTask("task-1");
 
         assertEquals(0, reporter.reportCount);
-        assertEquals(0, stateStore.lockCount);
         assertEquals(StatusEnum.RUNNING, stateStore.readState("task-1").orElseThrow().getStatus());
+        assertEquals(1L, stateStore.readState("task-1").orElseThrow().getRevision());
+        assertTrue(registry.isRegistered("task-1"));
+    }
+
+    @Test
+    void shouldManageListenerRegistrationWithoutChangingState() {
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        saveTask(stateStore, "task-1", StatusEnum.RUNNING);
+        AgentTaskStateListenerRegistry registry = registry(stateStore, new RecordingTaskResultReporter(true),
+                List.of(new FixedStateMapping(StatusEnum.RUNNING)), 60000L, 10);
+        TaskRequest request = new TaskRequest();
+        request.setTaskInstanceId("task-1");
+
+        registry.register("task-1", StatusEnum.RUNNING);
+        registry.unregister("task-1");
+        registry.restoreTasks(List.of(request));
+
+        assertEquals(1L, stateStore.readState("task-1").orElseThrow().getRevision());
         assertTrue(registry.isRegistered("task-1"));
     }
 
@@ -80,7 +95,7 @@ class AgentTaskStateListenerRegistryTest {
         RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
         AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
                 List.of(new FixedStateMapping(StatusEnum.SUBMIT_SUCCESS)), 60000L, 10);
-        registry.register("task-1");
+        registry.register("task-1", StatusEnum.SUBMITTING);
         saveTask(stateStore, "task-1", StatusEnum.SUBMIT_SUCCESS);
 
         registry.refreshTask("task-1");
@@ -90,12 +105,26 @@ class AgentTaskStateListenerRegistryTest {
     }
 
     @Test
+    void shouldReportStateWrittenBeforeListenerRegistration() {
+        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
+        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
+        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
+                List.of(new FixedStateMapping(StatusEnum.RUNNING)), 60000L, 10);
+
+        registry.register("task-1", StatusEnum.SUBMIT_SUCCESS);
+        registry.refreshTask("task-1");
+
+        assertEquals(1, reporter.reportCount);
+        assertEquals(StatusEnum.RUNNING, stateStore.readState("task-1").orElseThrow().getStatus());
+    }
+
+    @Test
     void shouldNotReportSameStatusWrite() {
         InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
         RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
         AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
                 List.of(new FixedStateMapping(StatusEnum.RUNNING)), 60000L, 10);
-        registry.register("task-1");
+        registry.register("task-1", StatusEnum.RUNNING);
         saveTask(stateStore, "task-1", StatusEnum.RUNNING);
 
         registry.refreshTask("task-1");
@@ -111,7 +140,7 @@ class AgentTaskStateListenerRegistryTest {
         AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
                 List.of(new FixedStateMapping(StatusEnum.RUN_SUCCESS)), 60000L, 10);
 
-        registry.register("task-1");
+        registry.register("task-1", StatusEnum.RUNNING);
         registry.refreshTask("task-1");
         registry.refreshTask("task-1");
 
@@ -121,13 +150,13 @@ class AgentTaskStateListenerRegistryTest {
     }
 
     @Test
-    void shouldRetryPendingReportWithoutAnotherStateChange() {
+    void shouldRetryFailedReportWithoutAnotherStateChange() {
         InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
         RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(false, true);
         AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
                 List.of(new FixedStateMapping(StatusEnum.RUN_FAILURE)), 60000L, 10);
 
-        registry.register("task-1");
+        registry.register("task-1", StatusEnum.RUNNING);
         registry.refreshTask("task-1");
         registry.refreshTask("task-1");
 
@@ -143,7 +172,7 @@ class AgentTaskStateListenerRegistryTest {
         FinalizingStateMapping mapping = new FinalizingStateMapping();
         AgentTaskStateListenerRegistry registry = registry(stateStore, reporter, List.of(mapping), 60000L, 10);
 
-        registry.register("task-1");
+        registry.register("task-1", StatusEnum.RUNNING);
         registry.refreshTask("task-1");
         registry.refreshTask("task-1");
 
@@ -155,30 +184,31 @@ class AgentTaskStateListenerRegistryTest {
     }
 
     @Test
-    void shouldNotEvictTerminalListenerWhileReportIsPending() {
+    void shouldNotEvictTerminalListenerAfterReportFailure() {
         InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
         AgentTaskStateListenerRegistry registry = registry(stateStore, new RecordingTaskResultReporter(false),
                 List.of(new FixedStateMapping(StatusEnum.RUN_FAILURE)), 0L, 0);
 
-        registry.register("task-1");
+        registry.register("task-1", StatusEnum.RUNNING);
         registry.refreshTask("task-1");
 
         assertTrue(registry.isRegistered("task-1"));
     }
 
     @Test
-    void shouldReleaseTaskLockBeforeReporting() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
-        StateChangingReporter reporter = new StateChangingReporter(stateStore);
+    void shouldCommitChangedStateWithSingleRevisionIncrement() {
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
+        saveTask(stateStore, "task-1", StatusEnum.SUBMITTING);
+        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
         AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
-                List.of(new FixedStateMapping(StatusEnum.RUN_SUCCESS)), 60000L, 10);
+                List.of(new FixedStateMapping(StatusEnum.RUNNING)), 60000L, 10);
 
-        registry.register("task-1");
+        registry.register("task-1", StatusEnum.SUBMITTING);
         registry.refreshTask("task-1");
 
-        assertTrue(reporter.stateChanged);
-        assertEquals(StatusEnum.STOPPING, stateStore.readState("task-1").orElseThrow().getStatus());
-        assertTrue(registry.isRegistered("task-1"));
+        assertEquals(1, reporter.reportCount);
+        assertEquals(StatusEnum.RUNNING, stateStore.readState("task-1").orElseThrow().getStatus());
+        assertEquals(2L, stateStore.readState("task-1").orElseThrow().getRevision());
     }
 
     @Test
@@ -188,7 +218,7 @@ class AgentTaskStateListenerRegistryTest {
         AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
                 List.of(new StateChangingMapping(stateStore)), 60000L, 10);
 
-        registry.register("task-1");
+        registry.register("task-1", StatusEnum.RUNNING);
         registry.refreshTask("task-1");
 
         assertEquals(0, reporter.reportCount);
@@ -196,20 +226,18 @@ class AgentTaskStateListenerRegistryTest {
     }
 
     @Test
-    void shouldDiscardMappedStateWithoutLockWhenRevisionChangedDuringQuery() {
-        LockCountingTaskExecutionStore stateStore = new LockCountingTaskExecutionStore();
+    void shouldDiscardMappedStateWhenRevisionChangedDuringQuery() {
+        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         saveTask(stateStore, "task-1", StatusEnum.RUNNING);
         RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
         AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
                 List.of(new RevisionChangingMapping(stateStore)), 60000L, 10);
 
-        registry.register("task-1");
-        stateStore.resetLockCount();
+        registry.register("task-1", StatusEnum.RUNNING);
         registry.refreshTask("task-1");
 
         WorkerTaskExecutionState state = stateStore.readState("task-1").orElseThrow();
         assertEquals(0, reporter.reportCount);
-        assertEquals(1, stateStore.lockCount);
         assertEquals(StatusEnum.RUNNING, state.getStatus());
         assertEquals(2L, state.getRevision());
     }
@@ -221,7 +249,7 @@ class AgentTaskStateListenerRegistryTest {
         AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
                 List.of(new FixedStateMapping(StatusEnum.RUN_SUCCESS)), 60000L, 10);
 
-        registry.register("task-1");
+        registry.register("task-1", StatusEnum.STOPPING);
         registry.refreshTask("task-1");
 
         assertEquals(0, reporter.reportCount);
@@ -267,10 +295,25 @@ class AgentTaskStateListenerRegistryTest {
         AgentTaskStateListenerRegistry registry = registry(stateStore, new RecordingTaskResultReporter(true),
                 Collections.emptyList(), 0L, 10);
 
-        registry.register("task-1");
+        registry.register("task-1", StatusEnum.RUN_FAILURE);
         registry.refreshTask("task-1");
 
         awaitRegistration(registry, "task-1", false);
+    }
+
+    @Test
+    void shouldReactivateRetainedTerminalListenerWhenTaskRestarts() throws Exception {
+        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUN_FAILURE);
+        AgentTaskStateListenerRegistry registry = registry(stateStore, new RecordingTaskResultReporter(true),
+                Collections.emptyList(), 100L, 10);
+        registry.register("task-1", StatusEnum.RUN_FAILURE);
+        registry.refreshTask("task-1");
+        saveTask(stateStore, "task-1", StatusEnum.SUBMITTING);
+
+        registry.register("task-1", StatusEnum.SUBMITTING);
+        TimeUnit.MILLISECONDS.sleep(150L);
+
+        assertTrue(registry.isRegistered("task-1"));
     }
 
     @Test
@@ -282,9 +325,9 @@ class AgentTaskStateListenerRegistryTest {
         AgentTaskStateListenerRegistry registry = registry(stateStore, new RecordingTaskResultReporter(true),
                 List.of(new FixedStateMapping(StatusEnum.RUNNING)), 60000L, 1);
 
-        registry.register("task-1");
-        registry.register("task-2");
-        registry.register("task-3");
+        registry.register("task-1", StatusEnum.RUN_FAILURE);
+        registry.register("task-2", StatusEnum.STOP_FAILURE);
+        registry.register("task-3", StatusEnum.RUNNING);
         registry.refreshTask("task-1");
         registry.refreshTask("task-2");
         registry.refreshTask("task-3");
@@ -326,32 +369,14 @@ class AgentTaskStateListenerRegistryTest {
                 .pluginType("SHELL")
                 .runMode("LOCAL")
                 .build());
+        long expectedRevision = stateStore.readState(taskInstanceId)
+                .map(WorkerTaskExecutionState::getRevision)
+                .orElse(0L);
         stateStore.saveState(WorkerTaskExecutionState.builder()
                 .taskInstanceId(taskInstanceId)
                 .appId("app-1")
                 .status(status)
-                .build());
-    }
-
-    /**
-     * Task execution store that counts explicit task-lock sections.
-     */
-    private static class LockCountingTaskExecutionStore extends InMemoryWorkerTaskExecutionStore {
-
-        /**
-         * Task-lock acquisition count.
-         */
-        private int lockCount;
-
-        @Override
-        public <T> T withTaskLock(String taskInstanceId, java.util.function.Supplier<T> action) {
-            lockCount++;
-            return super.withTaskLock(taskInstanceId, action);
-        }
-
-        private void resetLockCount() {
-            lockCount = 0;
-        }
+                .build(), expectedRevision);
     }
 
     /**
@@ -377,42 +402,6 @@ class AgentTaskStateListenerRegistryTest {
         public boolean report(TaskResult result) {
             reportCount++;
             return results.size() > 1 ? results.removeFirst() : results.getFirst();
-        }
-    }
-
-    /**
-     * Reporter that changes local state from another thread.
-     */
-    private static class StateChangingReporter implements TaskResultReporter {
-
-        /**
-         * Task execution store.
-         */
-        private final InMemoryWorkerTaskExecutionStore stateStore;
-
-        /**
-         * Whether the state change completed while reporting.
-         */
-        private boolean stateChanged;
-
-        StateChangingReporter(InMemoryWorkerTaskExecutionStore stateStore) {
-            this.stateStore = stateStore;
-        }
-
-        @Override
-        public boolean report(TaskResult result) {
-            try {
-                CompletableFuture.runAsync(() -> stateStore.saveState(WorkerTaskExecutionState.builder()
-                                .taskInstanceId(result.getTaskInstanceId())
-                                .appId(result.getWorkerResult().getAppId())
-                                .status(StatusEnum.STOPPING)
-                                .build()))
-                        .get(1L, TimeUnit.SECONDS);
-                stateChanged = true;
-                return true;
-            } catch (Exception e) {
-                return false;
-            }
         }
     }
 
@@ -492,7 +481,7 @@ class AgentTaskStateListenerRegistryTest {
                     .taskInstanceId(state.getTaskInstanceId())
                     .appId(state.getAppId())
                     .status(StatusEnum.STOPPING)
-                    .build());
+                    .build(), state.getRevision());
             return super.mapState(snapshot, state);
         }
     }
@@ -518,7 +507,7 @@ class AgentTaskStateListenerRegistryTest {
                     .taskInstanceId(state.getTaskInstanceId())
                     .appId(state.getAppId())
                     .status(state.getStatus())
-                    .build());
+                    .build(), state.getRevision());
             return super.mapState(snapshot, state);
         }
     }

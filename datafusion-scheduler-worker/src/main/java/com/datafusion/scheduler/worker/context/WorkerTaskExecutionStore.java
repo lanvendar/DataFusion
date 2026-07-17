@@ -3,7 +3,6 @@ package com.datafusion.scheduler.worker.context;
 import com.datafusion.scheduler.model.TaskRequest;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 /**
  * Worker 任务执行状态存储接口.
@@ -30,11 +29,15 @@ public interface WorkerTaskExecutionStore {
     Optional<WorkerTaskExecutionSnap> readSnapshot(String taskInstanceId);
 
     /**
-     * 记录任务运行态.
+     * 按预期 revision 原子记录任务运行态.
      *
-     * @param state 任务运行态
+     * <p>当前 revision 与预期值不一致时不写入并返回 {@code false}；写入成功时 revision 自增 1。
+     *
+     * @param state            任务运行态
+     * @param expectedRevision 预期的当前 revision，首次写入为 0
+     * @return 是否写入成功
      */
-    void saveState(WorkerTaskExecutionState state);
+    boolean saveState(WorkerTaskExecutionState state, long expectedRevision);
 
     /**
      * 按任务实例 ID 读取任务运行态.
@@ -59,13 +62,4 @@ public interface WorkerTaskExecutionStore {
      */
     void deleteExecution(String taskInstanceId);
 
-    /**
-     * 在任务级内存锁内执行操作.
-     *
-     * @param taskInstanceId 任务实例 ID
-     * @param action         待执行操作
-     * @param <T>            返回类型
-     * @return 操作结果
-     */
-    <T> T withTaskLock(String taskInstanceId, Supplier<T> action);
 }

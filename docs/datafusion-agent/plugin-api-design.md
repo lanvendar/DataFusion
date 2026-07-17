@@ -34,8 +34,8 @@ ApiLocalRunModeStateMapping(API + LOCAL)
 ```
 
 API executor 的 `validateTaskRequest` 只做参数和命令模板校验；`submitTask` 写入
-`api-job.json` 后再归一化为 Shell 请求提交。Shell 保存的 `.snap.pluginType` 仍保持 `API`，
-状态刷新按 `API + LOCAL` 路由。
+`api-job.json` 后再归一化为 Shell 请求提交。`WorkerTaskService` 在调用插件前保存原始 API 请求快照，
+`.snap.pluginType` 保持 `API`，状态刷新按 `API + LOCAL` 路由。
 
 ## 提交流程
 
@@ -47,8 +47,7 @@ TaskRequest(pluginType=API, runMode=LOCAL, taskData, pluginParam)
     -> 按 launchMode 渲染 API LOCAL 命令
     -> 归一化为 Shell command/args/env
     -> ShellLocalPluginTaskExecutor.submitTask
-    -> 写 WorkerTaskExecutionSnap(pluginType=API, runMode=LOCAL, 归一化后的 taskData/pluginParam)
-    -> 写 WorkerTaskExecutionState(status=RUNNING, appId=pid, workDirPath=任务运行目录)
+    -> CAS 写 WorkerTaskExecutionState(status=SUBMIT_SUCCESS, appId=pid, workDirPath=任务运行目录)
     -> watcher 等待退出码并更新 RUN_SUCCESS / RUN_FAILURE
 ```
 

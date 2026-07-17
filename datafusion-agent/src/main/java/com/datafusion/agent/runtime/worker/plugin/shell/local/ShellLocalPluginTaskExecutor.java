@@ -132,19 +132,21 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
             log.info("SHELL LOCAL任务提交成功, taskInstanceId={}, appId={}, workDirPath={}, pluginLogUri={}",
                     request.getTaskInstanceId(), appId, workDirPath, pluginLogUri);
             final WorkerResult requestWorkerResult = request.getWorkerResult();
-            WorkerTaskExecutionState state = baseState(request, StatusEnum.RUNNING)
-                    .appId(appId)
-                    .workDirPath(workDirPath)
-                    .result(resultJson(request, "LOCAL shell task submitted", pluginLogUri, null))
-                    .build();
-            stateStore.saveSnapshot(snapshot(request));
-            stateStore.saveState(state);
+            WorkerTaskExecutionState state = currentState(request);
+            if (state == null) {
+                state = baseState(request, StatusEnum.SUBMIT_SUCCESS).build();
+            }
+            state.setStatus(StatusEnum.SUBMIT_SUCCESS);
+            state.setAppId(appId);
+            state.setWorkDirPath(workDirPath);
+            state.setResult(resultJson(request, "LOCAL shell task submitted", pluginLogUri, null));
+            stateStore.saveState(state, state.getRevision());
             watchExit(process, state);
             return TaskResult.builder()
                     .taskInstanceId(request.getTaskInstanceId())
                     .flowInstanceId(request.getFlowInstanceId())
                     .taskName(request.getTaskName())
-                    .taskState(StatusEnum.RUNNING)
+                    .taskState(StatusEnum.SUBMIT_SUCCESS)
                     .workerResult(workerResult(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId(),
                             appId, workDirPath, "LOCAL shell task submitted", pluginLogUri))
                     .build();
@@ -152,6 +154,8 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
             log.warn("SHELL LOCAL任务提交失败, taskInstanceId={}, pluginLogUri={}",
                     request.getTaskInstanceId(), pluginLogUri(request), e);
             WorkerResult requestWorkerResult = request.getWorkerResult();
+            recordControlResult(request, currentState(request), StatusEnum.SUBMIT_FAILURE, null, null,
+                    resultJson(request, e.getMessage(), pluginLogUri(request), null));
             return TaskResult.builder()
                     .taskInstanceId(request.getTaskInstanceId())
                     .flowInstanceId(request.getFlowInstanceId())
@@ -265,7 +269,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                 latestState.setResult(resultJson(resolvePluginType(latestState.getTaskInstanceId()),
                         "LOCAL process exited, exitCode=" + exitCode,
                         pluginLogUri(null, latestState), exitCode));
-                stateStore.saveState(latestState);
+                stateStore.saveState(latestState, latestState.getRevision());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.warn("LOCAL process watcher interrupted, taskInstanceId={}", state.getTaskInstanceId(), e);
@@ -282,7 +286,7 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
         state.setAppId(appId == null ? state.getAppId() : appId);
         state.setWorkDirPath(workDirPath == null ? state.getWorkDirPath() : workDirPath);
         state.setResult(result);
-        stateStore.saveState(state);
+        stateStore.saveState(state, state.getRevision());
     }
 
     private WorkerTaskExecutionState.WorkerTaskExecutionStateBuilder baseState(TaskRequest request, StatusEnum status) {
@@ -292,20 +296,6 @@ public class ShellLocalPluginTaskExecutor implements PluginTaskExecutor {
                 .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
                 .appId(requestWorkerResult == null ? null : requestWorkerResult.getAppId())
                 .status(status);
-    }
-
-    private WorkerTaskExecutionSnap snapshot(TaskRequest request) {
-        WorkerResult requestWorkerResult = request.getWorkerResult();
-        return WorkerTaskExecutionSnap.builder()
-                .flowInstanceId(request.getFlowInstanceId())
-                .taskInstanceId(request.getTaskInstanceId())
-                .taskName(request.getTaskName())
-                .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
-                .pluginType(resolvePluginType(request))
-                .runMode(RUN_MODE)
-                .taskData(request.getTaskData())
-                .pluginParam(request.getPluginParam())
-                .build();
     }
 
     private WorkerTaskExecutionState currentState(TaskRequest request) {

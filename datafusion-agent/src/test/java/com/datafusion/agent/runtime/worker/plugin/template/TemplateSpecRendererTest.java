@@ -67,8 +67,8 @@ class TemplateSpecRendererTest {
         Path workingDir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         Path moduleResourceDir = workingDir.resolve("src/main/resources");
         if (Files.isDirectory(moduleResourceDir)) {
-            return moduleResourceDir.toString();
+            return moduleResourceDir.resolve("plugins").toString();
         }
-        return workingDir.resolve("datafusion-agent/src/main/resources").toString();
+        return workingDir.resolve("datafusion-agent/src/main/resources/plugins").toString();
     }
 }

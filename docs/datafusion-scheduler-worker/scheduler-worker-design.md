@@ -38,8 +38,9 @@ com.datafusion.scheduler.worker.reporter
 ## 3. 核心职责
 
 - `WorkerTaskOperator`：worker 侧任务控制入口，定义 `submitTask`、`stopTask`、`killTask`、`finishTask`。
-- `WorkerTaskService`：默认实现，负责参数校验、插件路由、提交语义、上下文幂等和本地运行态提交；不直接上报 Manager。
-- `PluginTaskExecutor`：插件执行器，负责某一 `pluginType + runMode` 的 validate、submit、stop、kill、finish/destroy。
+- `WorkerTaskService`：默认实现，负责参数校验、插件路由、完整提交快照、动作前置态和插件执行后读取权威运行态；不直接上报 Manager。
+- `PluginTaskExecutor`：插件执行器，负责某一 `pluginType + runMode` 的 validate、submit、stop、kill、finish/destroy，
+  并在动作完成后使用当前 revision 提交一次动作结果。
 - `PluginRunModeStateMapping`：插件状态映射器，接收监听器读取的提交快照和运行态，按 `pluginType + runMode`
   把终端状态映射为 `StatusEnum`；只准备终态上报结果，不直接读写状态存储。
 - `RunningTaskContext`：进程内运行上下文，直接组合 `WorkerTaskExecutionSnap` 和
@@ -56,8 +57,12 @@ TaskRequest
     -> WorkerTaskService
     -> WorkerTaskOperatorRouter.route(pluginType, runMode)
     -> PluginTaskExecutor.validateTaskRequest
+    -> WorkerTaskService 保存完整 WorkerTaskExecutionSnap
+    -> WorkerTaskService CAS 写入 SUBMITTING / STOPPING / KILLING
     -> PluginTaskExecutor.submitTask / stopTask / killTask / finishTask
-    -> RunningTaskContext 更新
+    -> PluginTaskExecutor CAS 写入动作结果
+    -> WorkerTaskService 重读 WorkerTaskExecutionState 并返回权威结果
+    -> 运行时注册任务监听
 ```
 
 状态刷新由运行时应用发起，但使用 worker SPI：
@@ -68,28 +73,37 @@ TaskRequest
     -> 按 snap.pluginType + snap.runMode 找 PluginRunModeStateMapping
     -> mapState(snapshot, state) 得到 StatusEnum
     -> 映射状态等于基线状态且没有待上报事件时直接结束
-    -> 其余情况由 WorkerTaskExecutionStore.withTaskLock 复读并校验 status + revision
     -> 校验状态迁移，终态时 prepareFinalReport(snapshot, state)
-    -> 状态或终态结果变化后统一 WorkerTaskExecutionStore.saveState 并写后校验
-    -> 释放任务锁
+    -> 状态或终态结果变化后调用 WorkerTaskExecutionStore.saveState(state, state.revision)
+    -> 存储层内部复读 revision，不一致时返回 false 并丢弃结果
     -> TaskResultReporter.report
-    -> 上报成功后按 status + revision 确认并清除待上报标记
+    -> 上报成功后更新待上报标记
 ```
 
-worker SPI 不定义统一扫描策略。运行时负责监听注册、调度线程和终态保留；
-`WorkerTaskExecutionStore.withTaskLock` 只提供同一任务读写原子边界，锁不持久化。
-`WorkerTaskExecutionState.revision` 随每次 `.state` 写入递增，用于识别查询期间发生的同状态写入，不替代任务锁。
-单次 `readState` 只取得原子快照，不持有任务锁；需要比较并写入时，运行时必须在任务锁内复读 revision。
+worker SPI 不定义统一扫描策略。运行时负责监听注册、调度线程和终态保留。
+`WorkerTaskExecutionStore.saveState(state, expectedRevision)` 定义 revision CAS 语义：写入成功时 revision 递增，
+预期值不匹配时返回 `false` 且不写入。锁由运行时实现封装在 `saveState` 内部，不对调用方暴露。
+单次 `readState` 只取得原子快照；调用方使用该快照的 revision 尝试写入即可。
 
 ## 5. 提交语义
 
 `SubmitModeEnum` 只表达提交确认方式，不表达任务本体同步运行。
+调用插件前，`WorkerTaskService` 先将可执行动作用 revision CAS 写为
+`SUBMITTING/STOPPING/KILLING`；当前状态不允许动作或 CAS 失败时，不调用插件。
+Master 恢复时重复下发的 `STOPPING/KILLING` 会直接重试幂等插件动作，不重复写入同一个中间态；
+重复 `SUBMITTING` 仍不再执行插件提交，避免本地进程类任务重复启动。
+
+`.snap` 只由 `WorkerTaskService` 整体保存，插件不再构造或覆盖快照。插件执行后负责提交一次 `.state` 动作结果；
+`WorkerTaskService` 不根据 `TaskResult` 再写一次正常结果，而是重读 `.state` 作为响应依据。这样本地 watcher 或第三方状态
+监听已经写入的较新状态不会被旧的插件返回值覆盖。
 
 - `SYNC`：worker 在当前请求线程调用插件 `submitTask`；提交成功响应统一归一为 `SUBMIT_SUCCESS`，提交失败返回 `SUBMIT_FAILURE`。
 - `ASYNC`：worker 接收请求后返回 `SUBMITTING`，后台执行插件提交并写入 `SUBMIT_SUCCESS` 或
   `SUBMIT_FAILURE`；运行时任务监听器观察到本地状态变化后统一上报。
 
-提交响应不等待任务执行完成，也不把最终成功/失败作为同步提交响应返回。插件观测到的 `RUNNING`、`RUN_SUCCESS`、`RUN_FAILURE` 等运行状态通过 `TaskResultReporter` 异步上报。
+提交接口不主动等待任务执行完成。一般成功响应为 `SUBMIT_SUCCESS`；如果本地任务在插件返回前已经结束，watcher 可以用
+更高 revision 写入 `RUN_SUCCESS/RUN_FAILURE`，此时 Service 直接返回该权威终态。后续状态变化仍通过
+`TaskResultReporter` 异步上报。
 
 ## 6. 状态映射规则
 

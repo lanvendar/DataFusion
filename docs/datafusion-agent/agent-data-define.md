@@ -42,8 +42,8 @@
 
 | 对象 | 字段 | 生命周期 | 说明 |
 |------|------|----------|------|
-| `AgentTaskStateListenerRegistry.listeners` / `TaskStateListener` | `taskInstanceId -> TaskStateListener`；监听项包含 `future`, `observedStatus`, `reportPending`, `terminalSince` | 任务注册监听到 `finishTask` 或终态保留策略淘汰 | 活跃和终态保留监听共用唯一注册表；`terminalSince > 0` 表示已进入终态保留期；终态上报成功后 `future` 从周期刷新切换为一次性延迟清理；容量检查只在终态进入事件发生时按 `terminalSince` 排序；不使用 `listenerToken`；注册项不写入 `.state` |
-| `WorkerTaskExecutionContext.taskLocks` | `taskInstanceId -> ReentrantLock` | Agent 进程内任务读写期间 | 串行化同一任务的 submit/stop/kill/finish 和 `.state` 复合校验、写入；单次 `.state` 读取、Manager 上报和 `.snap` 读写不持有该锁；不同任务互不阻塞；锁本身不写入 `.state` |
+| `AgentTaskStateListenerRegistry.listeners` / `TaskStateListener` | `taskInstanceId -> TaskStateListener`；监听项包含 `future`, `reportedStatus`, `terminalSince` | 任务注册监听到 `finishTask` 或终态保留策略淘汰 | 活跃和终态保留监听共用唯一注册表；任务控制注册以本次 RPC 返回的 `TaskResult.taskState` 初始化 `reportedStatus`，不重读 `.state`，后续只在 Manager 成功接收状态后推进，上报失败时保持不变，启动恢复时初始为 `null`；注册和注销只使用并发 Map 原子操作，不获取任务状态锁；启动恢复在 Agent ready 前完成；`terminalSince > 0` 表示已进入终态保留期；终态上报成功后 `future` 从周期刷新切换为一次性延迟清理，任务重启注册时再切回周期刷新；容量检查只在终态进入事件发生时按 `terminalSince` 排序；不使用 `listenerToken`；注册项不写入 `.state` |
+| `WorkerTaskExecutionContext.taskLocks` | `taskInstanceId -> ReentrantLock` | Agent 进程内 `.state` CAS 写入期间 | 只在 `saveState(state, expectedRevision)` 内部串行化同一任务的 revision 复读、文件替换和缓存更新；不暴露为 Worker SPI；单次 `.state` 读取、删除、Manager 上报和 `.snap` 读写不持有该锁 |
 
 监听注册项和任务锁都由 Agent 进程拥有。一个任务只属于一个 Agent，不处理多个 Agent 同时写同一任务 `.state` 的场景。
 
@@ -132,8 +132,8 @@ ${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
 `state.log` 是任务状态变化流水：
 
 ```text
-time:1780000000000|workerId:{workerId}|appId:123|status:RUNNING|exitCode:
-time:1780000001000|workerId:{workerId}|appId:123|status:RUN_SUCCESS|exitCode:0
+time:1780000000000|workerId:{workerId}|appId:123|revision:1|status:RUNNING|exitCode:
+time:1780000001000|workerId:{workerId}|appId:123|revision:2|status:RUN_SUCCESS|exitCode:0
 ```
 
 规则：
@@ -142,21 +142,23 @@ time:1780000001000|workerId:{workerId}|appId:123|status:RUN_SUCCESS|exitCode:0
 - `workerId` 使用 manager 返回的 `Worker.id`，即 `scheduler_worker_registry.id` 的 UUID 字符串，并随 `TaskRequest` / `TaskResult` / `.snap` / `.state` 透传。
 - `Worker.workerCode` 使用 agent 配置或推导出的稳定编码，落到 `scheduler_worker_registry.worker_code`，不在 `TaskRequest` 中新增顶层 `workerId` 字段。
 - `appId` 统一表示终端任务 ID。
-- `.snap` 只保存最近一次实际提交快照和插件配置参数，不保存运行时观测字段；每次真正 submit 时原子覆盖，
-  不参与 `.state.revision` 和任务状态锁。
+- `.snap` 只保存最近一次提交快照和插件配置参数，不保存运行时观测字段；由 `WorkerTaskService` 在调用插件前
+  整体原子覆盖，不读取旧快照、不做字段合并或对象复制，插件不重复保存，也不参与 `.state.revision` 和任务状态锁。
 - `.state` 只保存通用运行态，不回写 `taskData` / `pluginParam`。
-- `.state.revision` 是任务运行态版本号，首次写入为 `1`，每次在任务锁内成功写入 `.state` 前递增；状态监听用
-  `status + revision` 判断第三方查询期间是否发生过新的本地写入。
-- `.state` 通过临时文件原子替换；监听周期只做一次锁外基线读取，映射状态不同时才在任务锁内复读并校验
-  `revision`，稳定状态不进入任务锁。
+- `.state.revision` 是任务运行态版本号，首次写入为 `1`。每次调用方必须提供查询基线的
+  `expectedRevision`；存储层复读当前 revision，一致时写入并加一，不一致时记录 `warn`、返回 `false` 且不写入。
+- `.state` 通过临时文件原子替换；监听周期只在第三方查询前读取一次 Q。映射状态不同时调用
+  `saveState(state, Q.revision)`；查询或等锁期间的其他写入会使 CAS 失败，本轮映射结果被丢弃。
 - `.state` 不保存锁、监听器、`listenerToken` 或单独的控制代次；任务锁和监听注册项只存在于 Agent 内存。
 - `workDirPath` 统一表示任务运行目录，manager 只通过该目录读取标准任务日志。
 - `stdout.log`、`stderr.log`、`state.log` 是 agent 标准任务日志，文件名由 `TaskRuntimeFiles` 统一定义。
+- `state.log` 每行的 `revision` 记录本条流水对应的 `.state.revision`，用于关联状态文件版本和并发写入顺序。
 - `TaskResult.workerResult.workDirPath` 表示任务运行目录；manager 查询任务日志时只使用该目录。
 - `TaskResult.workerResult.pluginLogUri` 表示插件日志入口。
 - `TaskResult.workerResult` 不返回 agent 自身服务日志入口；worker 服务日志目录由 `Worker.workerLogDir` 在注册时上报。
 - `saveState` 更新 `.state` 时同步比较旧 `.state`，当 `status`、`appId` 或 `exitCode` 变化时追加 `state.log`。
-- `finishTask` 确认终态后删除 `.state` / `.snap`，保留 `stdout.log` / `stderr.log` / `state.log`。
+- `finishTask` 确认终态后直接删除实际存在的 `.state` / `.snap` 并使 `executionCache` 失效，不占用状态写入锁；
+  继续保留 `stdout.log` / `stderr.log` / `state.log`。
 - 监听注册项被终态保留策略淘汰时只取消内存监听，不删除 `.state` / `.snap`；后续 UI 强制成功仍可通过 `finishTask` 清理本地文件。
 
 ## 5. WorkerResult 结构

@@ -84,7 +84,7 @@
 | `WorkerOperator` | Port | `active(workerId)` | 手工置为有效 | 不修改运行态状态 |
 | `WorkerOperator` | Port | `inactive(workerId)` | 手工置为无效 | 不修改运行态状态 |
 | `WorkerOperator` | Port | `delete(workerId)` | 删除 worker 注册记录 | manager 侧实现 |
-| `WorkerTaskExecutionStore` | Port | `withTaskLock(taskInstanceId, action)` | 同一任务串行、不同任务并行 | 运行时实现进程内任务锁，锁不进入持久化模型 |
+| `WorkerTaskExecutionStore` | Port | `saveState(state, expectedRevision)` | revision 一致时写入并加一，不一致返回 `false` | 运行时实现在方法内部封装任务锁，Worker SPI 不暴露锁操作 |
 
 ## 3. API 数据映射
 
@@ -97,12 +97,12 @@
 | `TaskInstance` -> `TaskRequest` | manager/master 侧运行时转换 | `pluginData.pluginType/runMode/pluginParam` 映射为同名字段 |
 | `TaskRequest` -> `RunningTaskContext` | worker 接收请求后创建或复用上下文 | 幂等键为 `taskInstanceId`；worker 信息来自 `request.workerResult` |
 | `PluginTaskExecutor.validateTaskRequest` -> `TaskRequest` | 插件在提交前校验任务请求 | 校验失败返回 `SUBMIT_FAILURE` |
-| `PluginTaskExecutor.submitTask` -> `TaskResult` | 插件返回执行结果 | worker 补齐任务身份、`submitMode` 和 `workerResult.workerId` |
-| `RunningTaskContext` -> `TaskResult` | 重复请求返回最近结果或当前状态 | taskInstanceId 已存在执行状态时 submit 不再调用插件；无状态时才执行首次提交 |
+| `PluginTaskExecutor.submitTask` -> `TaskResult` | 插件提交一次动作结果后返回执行摘要 | worker 重读 `.state`，以更高 revision 的 watcher/监听结果为准 |
+| `RunningTaskContext` -> `TaskResult` | 当前状态不允许动作或 revision CAS 失败时返回最近结果 | submit 可从首次提交或 Master 允许的失败/停止状态重启；不可执行时不调用插件 |
 | `WorkerTaskExecutionState` -> `TaskResultReporter.report` | 运行时任务监听器观察到本地状态或映射状态变化后上报 manager/master | 上报实现位于 `datafusion-agent`；`WorkerTaskService` 不直接上报 |
-| `RunningTaskContext` -> `WorkerTaskExecutionSnap` | agent 侧运行时转换 | 保存提交快照和恢复上下文 |
-| `RunningTaskContext` -> `WorkerTaskExecutionState` | agent 侧运行时转换 | 保存持续刷新的运行态 |
-| `WorkerTaskExecutionSnap + WorkerTaskExecutionState` -> `PluginRunModeStateMapping` | 任务级监听器按 `snap.pluginType + snap.runMode` 路由，并把周期开始时唯一一次锁外读取的 state 基线与 snapshot 传入映射器 | 状态映射器不访问状态存储；状态相同且无待上报事件时不加锁，状态变化时由监听器在任务锁内按 `status + revision` 复读校验后持久化 |
+| `RunningTaskContext` -> `WorkerTaskExecutionSnap` | `WorkerTaskService` 在插件调用前整体保存 | 保存完整提交快照和恢复上下文，插件不重复覆盖 |
+| 插件动作结果 -> `WorkerTaskExecutionState` | 插件使用动作前置态 revision 提交一次 | Service 不按返回值二次写入；未捕获异常使用调用插件前的 revision 尝试补写失败态 |
+| `WorkerTaskExecutionSnap + WorkerTaskExecutionState` -> `PluginRunModeStateMapping` | 任务级监听器按 `snap.pluginType + snap.runMode` 路由，并把周期开始时唯一一次锁外读取的 state 基线与 snapshot 传入映射器 | 状态映射器不访问状态存储；状态相同且无待上报事件时不写入，状态变化时由监听器使用基线 revision 调用 `saveState` 完成 CAS 持久化 |
 | `WorkerListener.getTaskInsByWorkerId` -> agent 状态恢复 | agent 注册成功后按 workerId 获取未完成任务清单 | agent 只恢复清单内任务 |
 
 ## 5. 状态 / 枚举模型

@@ -34,6 +34,9 @@ class K8sDataxPluginTaskExecutorTest {
      */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
+    /**
+     * Temporary directory.
+     */
     @TempDir
     private Path tempDir;
 
@@ -77,7 +80,7 @@ class K8sDataxPluginTaskExecutorTest {
     void shouldReturnKilledWhenKubernetesRuntimeRefIsMissingOnKill() {
         FakeKubernetesClient client = new FakeKubernetesClient();
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        stateStore.saveState(stateWithoutAppId(StatusEnum.UNKNOWN));
+        stateStore.saveState(stateWithoutAppId(StatusEnum.UNKNOWN), 0L);
         K8sDataxPluginTaskExecutor executor = executor(client, stateStore);
 
         TaskResult result = executor.killTask(request());
@@ -90,12 +93,12 @@ class K8sDataxPluginTaskExecutorTest {
     void shouldCleanupOldKubernetesJobBeforeSubmit() {
         FakeKubernetesClient client = new FakeKubernetesClient();
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        stateStore.saveState(state(StatusEnum.RUN_FAILURE));
+        stateStore.saveState(state(StatusEnum.RUN_FAILURE), 0L);
         K8sDataxPluginTaskExecutor executor = executor(client, stateStore);
 
         TaskResult result = executor.submitTask(request());
 
-        assertEquals(StatusEnum.RUNNING, result.getTaskState());
+        assertEquals(StatusEnum.SUBMIT_SUCCESS, result.getTaskState());
         assertEquals(1, client.cleanupCount);
         assertEquals(DataxKubernetesCleanupMode.BEFORE_SUBMIT, client.lastCleanupMode);
         assertEquals(1, client.submitCount);
@@ -107,7 +110,7 @@ class K8sDataxPluginTaskExecutorTest {
         FakeKubernetesClient client = new FakeKubernetesClient();
         client.cleanupResult = false;
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        stateStore.saveState(state(StatusEnum.RUN_FAILURE));
+        stateStore.saveState(state(StatusEnum.RUN_FAILURE), 0L);
         K8sDataxPluginTaskExecutor executor = executor(client, stateStore);
 
         TaskResult result = executor.submitTask(request());
@@ -150,7 +153,7 @@ class K8sDataxPluginTaskExecutorTest {
     }
 
     private TaskRequest request(boolean collectLogsOnFinish) {
-        ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
+        final ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
         ObjectNode pluginKubernetes = OBJECT_MAPPER.createObjectNode();
         pluginKubernetes.put("namespace", "df");
         pluginKubernetes.put("image", "datafusion/datax:latest");
@@ -171,7 +174,7 @@ class K8sDataxPluginTaskExecutorTest {
 
     private InMemoryWorkerTaskExecutionStore stateStore(StatusEnum status) {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        stateStore.saveState(state(status));
+        stateStore.saveState(state(status), 0L);
         return stateStore;
     }
 

@@ -42,13 +42,13 @@ TaskRequest(pluginType=SPIDER, runMode=LOCAL, taskData, pluginParam)
     -> WorkerTaskOperatorRouter.route("SPIDER", "LOCAL")
     -> SpiderLocalPluginTaskExecutor
     -> ShellLocalPluginTaskExecutor.validateTaskRequest / submitTask
-    -> 写 WorkerTaskExecutionSnap(pluginType=SPIDER, runMode=LOCAL)
-    -> 写 WorkerTaskExecutionState(status=RUNNING, appId=pid, workDirPath=任务运行目录)
+    -> CAS 写 WorkerTaskExecutionState(status=SUBMIT_SUCCESS, appId=pid, workDirPath=任务运行目录)
     -> watcher 等待退出码并更新 RUN_SUCCESS / RUN_FAILURE
 ```
 
-Shell LOCAL 执行器必须使用 `TaskRequest.pluginType` 写入 `.snap.pluginType` 和结果摘要，不能硬编码为 `SHELL`。
-这样 SPIDER 委托 Shell 执行时，状态刷新仍能按 `SPIDER + LOCAL` 找到 Spider 状态映射。
+`WorkerTaskService` 保存的 `.snap.pluginType` 保持 `SPIDER`；Shell LOCAL 执行器必须使用
+`TaskRequest.pluginType` 写入结果摘要，不能硬编码为 `SHELL`。这样 SPIDER 委托 Shell 执行时，状态刷新仍能按
+`SPIDER + LOCAL` 找到 Spider 状态映射。
 
 ## 状态映射
 

@@ -10,7 +10,6 @@ import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.Worker;
 import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.WorkerTaskOperator;
-import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -47,11 +46,6 @@ public class AgentExecutorRpcProvider {
     private final AgentProperties properties;
 
     /**
-     * 任务执行状态存储.
-     */
-    private final WorkerTaskExecutionStore stateStore;
-
-    /**
      * 任务状态监听注册器.
      */
     private final AgentTaskStateListenerRegistry listenerRegistry;
@@ -62,16 +56,13 @@ public class AgentExecutorRpcProvider {
      * @param workerTaskOperator worker 任务操作入口
      * @param runtimeState       agent 运行状态
      * @param properties         agent 配置
-     * @param stateStore         任务执行状态存储
      * @param listenerRegistry   任务状态监听注册器
      */
     public AgentExecutorRpcProvider(WorkerTaskOperator workerTaskOperator, AgentRuntimeState runtimeState,
-            AgentProperties properties, WorkerTaskExecutionStore stateStore,
-            AgentTaskStateListenerRegistry listenerRegistry) {
+            AgentProperties properties, AgentTaskStateListenerRegistry listenerRegistry) {
         this.workerTaskOperator = workerTaskOperator;
         this.runtimeState = runtimeState;
         this.properties = properties;
-        this.stateStore = stateStore;
         this.listenerRegistry = listenerRegistry;
     }
 
@@ -86,7 +77,7 @@ public class AgentExecutorRpcProvider {
         TaskRequest filledRequest = fillWorkerId(request);
         return execute("submitTask", filledRequest, () -> {
             TaskResult result = workerTaskOperator.submitTask(filledRequest);
-            listenerRegistry.register(filledRequest.getTaskInstanceId());
+            listenerRegistry.register(filledRequest.getTaskInstanceId(), result.getTaskState());
             return result;
         });
     }
@@ -102,7 +93,7 @@ public class AgentExecutorRpcProvider {
         TaskRequest filledRequest = fillWorkerId(request);
         return execute("stopTask", filledRequest, () -> {
             TaskResult result = workerTaskOperator.stopTask(filledRequest);
-            listenerRegistry.register(filledRequest.getTaskInstanceId());
+            listenerRegistry.register(filledRequest.getTaskInstanceId(), result.getTaskState());
             return result;
         });
     }
@@ -118,7 +109,7 @@ public class AgentExecutorRpcProvider {
         TaskRequest filledRequest = fillWorkerId(request);
         return execute("killTask", filledRequest, () -> {
             TaskResult result = workerTaskOperator.killTask(filledRequest);
-            listenerRegistry.register(filledRequest.getTaskInstanceId());
+            listenerRegistry.register(filledRequest.getTaskInstanceId(), result.getTaskState());
             return result;
         });
     }
@@ -161,7 +152,7 @@ public class AgentExecutorRpcProvider {
         try {
             log.info("agent开始执行调度请求, operation={}, taskInstanceId={}",
                     operation, taskInstanceId);
-            T result = stateStore.withTaskLock(taskInstanceId, action);
+            T result = action.get();
             long costMs = System.currentTimeMillis() - startTime;
             if (result instanceof TaskResult taskResult) {
                 WorkerResult resultWorker = taskResult.getWorkerResult();

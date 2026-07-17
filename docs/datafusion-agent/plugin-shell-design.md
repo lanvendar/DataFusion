@@ -25,12 +25,12 @@ TaskRequest(pluginType=SHELL, runMode=LOCAL, taskData, pluginParam)
     -> 创建 ${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
     -> ProcessBuilder 启动本地进程
     -> stdout 写入 stdout.log，stderr 写入 stderr.log
-    -> 写 WorkerTaskExecutionSnap(...)
-    -> 写 WorkerTaskExecutionState(status=RUNNING, appId=pid, workDirPath=任务运行目录)
+    -> CAS 写 WorkerTaskExecutionState(status=SUBMIT_SUCCESS, appId=pid, workDirPath=任务运行目录)
     -> watcher 等待退出码并更新 RUN_SUCCESS / RUN_FAILURE
 ```
 
 模板只描述 `kind + command`。工作目录、环境变量、stdout 和 stderr 都由执行器生成。
+完整 `.snap` 由 `WorkerTaskService` 在调用插件前保存；Shell watcher 只在提交状态保存后启动，不使用额外提交后钩子。
 
 ## 参数规则
 

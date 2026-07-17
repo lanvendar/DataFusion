@@ -81,17 +81,12 @@ public class SparkPluginTaskExecutor implements PluginTaskExecutor {
     public TaskResult submitTask(TaskRequest request) {
         SparkExecutionParam param = paramResolver.resolve(request);
         SparkTaskResult result = submit(param);
-        stateStore.saveSnapshot(snapshot(request));
-        WorkerResult requestWorkerResult = request.getWorkerResult();
-        WorkerTaskExecutionState state = WorkerTaskExecutionState.builder()
-                .taskInstanceId(request.getTaskInstanceId())
-                .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
-                .appId(result.getAppId())
-                .workDirPath(result.getWorkDirPath())
-                .status(result.getStatus())
-                .result(result.getResult())
-                .build();
-        stateStore.saveState(state);
+        WorkerTaskExecutionState state = currentState(request);
+        state.setAppId(result.getAppId());
+        state.setWorkDirPath(result.getWorkDirPath());
+        state.setStatus(result.getStatus());
+        state.setResult(result.getResult());
+        stateStore.saveState(state, state.getRevision());
         return taskResult(request, result);
     }
 
@@ -171,21 +166,7 @@ public class SparkPluginTaskExecutor implements PluginTaskExecutor {
         next.setAppId(result.getAppId() == null ? next.getAppId() : result.getAppId());
         next.setWorkDirPath(result.getWorkDirPath() == null ? next.getWorkDirPath() : result.getWorkDirPath());
         next.setResult(result.getResult());
-        stateStore.saveState(next);
-    }
-
-    private WorkerTaskExecutionSnap snapshot(TaskRequest request) {
-        WorkerResult requestWorkerResult = request.getWorkerResult();
-        return WorkerTaskExecutionSnap.builder()
-                .flowInstanceId(request.getFlowInstanceId())
-                .taskName(request.getTaskName())
-                .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
-                .pluginType(PLUGIN_TYPE)
-                .runMode(runMode())
-                .taskInstanceId(request.getTaskInstanceId())
-                .taskData(request.getTaskData())
-                .pluginParam(request.getPluginParam())
-                .build();
+        stateStore.saveState(next, next.getRevision());
     }
 
     private TaskResult taskResult(TaskRequest request, SparkTaskResult result) {

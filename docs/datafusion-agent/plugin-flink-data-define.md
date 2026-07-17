@@ -19,9 +19,9 @@ Manager 侧继续复用 `scheduler_task_info.definition`、`scheduler_task_insta
 | `TaskRequest.taskData` | Manager 任务定义与实例上下文 | Manager | Manager | 单次调度请求；agent 保存到 `.snap` | 与 `defaultTaskData` 合并为 `effectiveTaskData` |
 | `effectiveTaskData` | Agent 参数解析 | Agent | Agent | 单次任务运行期 | 写入本地 `flink-job.json` |
 | `flinkConfig` | Agent 参数解析 | Agent | Agent | 单次任务运行期 | 写回 `effectiveTaskData.flinkConfig` 并渲染到 `FlinkDeployment` |
-| `FlinkExecutionParam` | Agent 参数解析 | Agent | Agent | 单次 submit / control / status 操作内存对象 | 执行器消费后转为 `.snap/.state` 与 Kubernetes 资源 |
+| `FlinkExecutionParam` | Agent 参数解析 | Agent | Agent | 单次 submit / control / status 操作内存对象 | 执行器消费后转为 `.state` 与 Kubernetes 资源；`.snap` 由 Service 保存 |
 | `FlinkKubernetesRuntimeRef` | `.snap + .state` 重建 | Agent | Agent | 单次状态查询或控制动作 | 用于查询、停止、强杀、清理 Kubernetes 资源 |
-| `.snap` | `FlinkPluginTaskExecutor.submitTask` | Agent | Agent | 任务运行期 | agent finish / destroy 流程清理 |
+| `.snap` | `WorkerTaskService.submitTask` | Agent | Agent | 任务运行期 | agent finish / destroy 流程清理；Flink 执行器不重复覆盖 |
 | `.state` | 执行器与状态监听器 | Agent | Agent | 任务运行期 | 终态上报后由 agent 流程清理 |
 
 Agent 不回写 Manager 的 `pluginParam` 或 `taskData`。

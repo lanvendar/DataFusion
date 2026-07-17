@@ -80,25 +80,18 @@ public class FlinkPluginTaskExecutor implements PluginTaskExecutor {
     public TaskResult submitTask(TaskRequest request) {
         FlinkExecutionParam param = paramResolver.resolve(request);
         FlinkTaskResult result = submit(param);
-        stateStore.saveSnapshot(snapshot(request));
-        WorkerResult requestWorkerResult = request.getWorkerResult();
-        WorkerTaskExecutionState state = WorkerTaskExecutionState.builder()
-                .taskInstanceId(request.getTaskInstanceId())
-                .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
-                .appId(result.getAppId())
-                .workDirPath(result.getWorkDirPath())
-                .status(result.getStatus())
-                .result(result.getResult())
-                .build();
-        stateStore.saveState(state);
+        WorkerTaskExecutionState state = currentState(request);
+        state.setAppId(result.getAppId());
+        state.setWorkDirPath(result.getWorkDirPath());
+        state.setStatus(result.getStatus());
+        state.setResult(result.getResult());
+        stateStore.saveState(state, state.getRevision());
         return taskResult(request, result);
     }
 
     @Override
     public TaskResult stopTask(TaskRequest request) {
         WorkerTaskExecutionState state = currentState(request);
-        state.setStatus(StatusEnum.STOPPING);
-        stateStore.saveState(state);
         TaskRequest resolvedRequest = resolveRequest(request, state);
         FlinkExecutionParam param = paramResolver.resolve(resolvedRequest);
         FlinkTaskResult result = stop(param, state);
@@ -109,8 +102,6 @@ public class FlinkPluginTaskExecutor implements PluginTaskExecutor {
     @Override
     public TaskResult killTask(TaskRequest request) {
         WorkerTaskExecutionState state = currentState(request);
-        state.setStatus(StatusEnum.KILLING);
-        stateStore.saveState(state);
         TaskRequest resolvedRequest = resolveRequest(request, state);
         FlinkExecutionParam param = paramResolver.resolve(resolvedRequest);
         FlinkTaskResult result = kill(param, state);
@@ -174,7 +165,7 @@ public class FlinkPluginTaskExecutor implements PluginTaskExecutor {
         next.setAppId(result.getAppId() == null ? next.getAppId() : result.getAppId());
         next.setWorkDirPath(result.getWorkDirPath() == null ? next.getWorkDirPath() : result.getWorkDirPath());
         next.setResult(result.getResult());
-        stateStore.saveState(next);
+        stateStore.saveState(next, next.getRevision());
     }
 
     private String resultText(JsonNode result, String fieldName) {
@@ -182,20 +173,6 @@ public class FlinkPluginTaskExecutor implements PluginTaskExecutor {
             return null;
         }
         return result.get(fieldName).asText();
-    }
-
-    private WorkerTaskExecutionSnap snapshot(TaskRequest request) {
-        WorkerResult requestWorkerResult = request.getWorkerResult();
-        return WorkerTaskExecutionSnap.builder()
-                .flowInstanceId(request.getFlowInstanceId())
-                .taskName(request.getTaskName())
-                .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
-                .pluginType(PLUGIN_TYPE)
-                .runMode(runMode())
-                .taskInstanceId(request.getTaskInstanceId())
-                .taskData(request.getTaskData())
-                .pluginParam(request.getPluginParam())
-                .build();
     }
 
     private TaskResult taskResult(TaskRequest request, FlinkTaskResult result) {

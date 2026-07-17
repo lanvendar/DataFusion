@@ -17,8 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -68,12 +66,12 @@ class WorkerTaskServiceTest {
         TaskResult result = taskService.stopTask(finishRequest());
 
         assertEquals(StatusEnum.STOP_SUCCESS, result.getTaskState());
-        assertEquals(List.of("get:task-1", "save:STOP_SUCCESS", "remove:task-1"),
+        assertEquals(List.of("get:task-1", "save:STOPPING", "save:STOP_SUCCESS", "remove:task-1"),
                 contextStorage.getOperations());
     }
 
     @Test
-    void shouldReturnCurrentStateForRepeatedStop() {
+    void shouldRetryPluginActionForRecoveryStop() {
         RecordingContextStorage contextStorage = new RecordingContextStorage();
         contextStorage.context = RunningTaskContext.fromRequest(finishRequest());
         contextStorage.context.setTaskState(StatusEnum.STOPPING);
@@ -82,8 +80,8 @@ class WorkerTaskServiceTest {
 
         TaskResult result = taskService.stopTask(finishRequest());
 
-        assertEquals(StatusEnum.STOPPING, result.getTaskState());
-        assertEquals(0, executor.stopCount);
+        assertEquals(StatusEnum.STOP_SUCCESS, result.getTaskState());
+        assertEquals(1, executor.stopCount);
     }
 
     @Test
@@ -114,11 +112,11 @@ class WorkerTaskServiceTest {
 
         assertEquals(0, executor.submitCount);
         assertEquals(StatusEnum.SUBMITTING, result.getTaskState());
-        assertEquals("重复提交", result.getWorkerResult().getMessage());
+        assertEquals("当前状态不允许进入SUBMITTING", result.getWorkerResult().getMessage());
     }
 
     @Test
-    void shouldNotSaveSubmittingContextBeforeSyncExecutorStarts() {
+    void shouldReserveSubmittingContextBeforeSyncExecutorStarts() {
         RecordingContextStorage contextStorage = new RecordingContextStorage();
         SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor();
         WorkerTaskService taskService = taskService(contextStorage, executor);
@@ -128,7 +126,7 @@ class WorkerTaskServiceTest {
         taskService.submitTask(request);
 
         assertEquals(1, executor.submitCount);
-        assertEquals(List.of("get:task-1", "create:task-1", "save:SUBMIT_SUCCESS"),
+        assertEquals(List.of("create:task-1", "save:SUBMITTING", "save:SUBMIT_SUCCESS"),
                 contextStorage.getOperations());
     }
 
@@ -144,7 +142,7 @@ class WorkerTaskServiceTest {
 
         assertEquals(0, executor.submitCount);
         assertEquals(StatusEnum.SUBMIT_SUCCESS, result.getTaskState());
-        assertEquals("重复提交", result.getWorkerResult().getMessage());
+        assertEquals("当前状态不允许进入SUBMITTING", result.getWorkerResult().getMessage());
     }
 
     @Test
@@ -161,7 +159,7 @@ class WorkerTaskServiceTest {
 
             assertEquals(0, executor.submitCount);
             assertEquals(status, result.getTaskState());
-            assertEquals("重复提交", result.getWorkerResult().getMessage());
+            assertEquals("当前状态不允许进入SUBMITTING", result.getWorkerResult().getMessage());
         }
     }
 
@@ -186,7 +184,7 @@ class WorkerTaskServiceTest {
 
         assertEquals(0, executor.submitCount);
         assertEquals(StatusEnum.RUNNING, result.getTaskState());
-        assertEquals("重复提交", result.getWorkerResult().getMessage());
+        assertEquals("当前状态不允许进入SUBMITTING", result.getWorkerResult().getMessage());
     }
 
     @Test
@@ -206,15 +204,15 @@ class WorkerTaskServiceTest {
         assertNull(result.getWorkerResult().getMessage());
         assertEquals(0, executor.submitCount);
         assertEquals(1, asyncExecutor.tasks.size());
-        assertEquals(List.of("get:task-1", "create:task-1", "save:SUBMITTING"),
+        assertEquals(List.of("create:task-1", "save:SUBMITTING"),
                 contextStorage.getOperations());
     }
 
     @Test
-    void shouldKeepStoppingWhenAsyncSubmitCompletesLater() {
+    void shouldRejectStopWhileAsyncSubmitIsStillSubmitting() {
         LockingContextStorage contextStorage = new LockingContextStorage();
         RecordingExecutor asyncExecutor = new RecordingExecutor();
-        SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor();
+        SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor(contextStorage);
         executor.stopState = StatusEnum.STOPPING;
         WorkerTaskService taskService = new WorkerTaskService(new WorkerTaskOperatorRouter(List.of(executor)),
                 contextStorage, asyncExecutor, SubmitModeEnum.SYNC);
@@ -225,8 +223,38 @@ class WorkerTaskServiceTest {
         taskService.stopTask(finishRequest());
         asyncExecutor.tasks.get(0).run();
 
-        assertEquals(StatusEnum.STOPPING, ((RecordingContextStorage) contextStorage).context.getTaskState());
-        assertEquals(0, executor.submitCount);
+        assertEquals(StatusEnum.SUBMIT_SUCCESS, ((RecordingContextStorage) contextStorage).context.getTaskState());
+        assertEquals(1, executor.submitCount);
+        assertEquals(0, executor.stopCount);
+    }
+
+    @Test
+    void shouldReturnCanonicalTerminalStateAfterSubmit() {
+        LockingContextStorage contextStorage = new LockingContextStorage();
+        SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor(contextStorage);
+        executor.persistedSubmitState = StatusEnum.RUN_SUCCESS;
+        WorkerTaskService taskService = taskService(contextStorage, executor);
+
+        TaskResult result = taskService.submitTask(finishRequest());
+
+        assertEquals(StatusEnum.RUN_SUCCESS, result.getTaskState());
+        assertEquals(StatusEnum.RUN_SUCCESS, contextStorage.persistedState.getStatus());
+        assertEquals(1, contextStorage.snapshotSaveCount);
+        assertEquals(SubmitModeEnum.SYNC, contextStorage.persistedSnapshot.getSubmitMode());
+    }
+
+    @Test
+    void shouldNotOverwriteNewerTerminalStateWhenPluginThrows() {
+        LockingContextStorage contextStorage = new LockingContextStorage();
+        SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor(contextStorage);
+        executor.persistedSubmitState = StatusEnum.RUN_SUCCESS;
+        executor.submitException = new IllegalStateException("submit response failed");
+        WorkerTaskService taskService = taskService(contextStorage, executor);
+
+        TaskResult result = taskService.submitTask(finishRequest());
+
+        assertEquals(StatusEnum.RUN_SUCCESS, result.getTaskState());
+        assertEquals(StatusEnum.RUN_SUCCESS, contextStorage.persistedState.getStatus());
     }
 
     @Test
@@ -242,8 +270,25 @@ class WorkerTaskServiceTest {
 
         assertEquals(1, executor.killCount);
         assertEquals(StatusEnum.KILLED, result.getTaskState());
-        assertEquals(List.of("get:task-1", "save:KILLED", "remove:task-1"),
+        assertEquals(List.of("get:task-1", "save:KILLING", "save:KILLED", "remove:task-1"),
                 contextStorage.getOperations());
+    }
+
+    @Test
+    void shouldRejectStopAndKillAfterRunSuccess() {
+        RecordingContextStorage contextStorage = new RecordingContextStorage();
+        contextStorage.context = RunningTaskContext.fromRequest(finishRequest());
+        contextStorage.context.setTaskState(StatusEnum.RUN_SUCCESS);
+        SuccessPluginTaskExecutor executor = new SuccessPluginTaskExecutor();
+        WorkerTaskService taskService = taskService(contextStorage, executor);
+
+        TaskResult stopResult = taskService.stopTask(finishRequest());
+        TaskResult killResult = taskService.killTask(finishRequest());
+
+        assertEquals(StatusEnum.RUN_SUCCESS, stopResult.getTaskState());
+        assertEquals(StatusEnum.RUN_SUCCESS, killResult.getTaskState());
+        assertEquals(0, executor.stopCount);
+        assertEquals(0, executor.killCount);
     }
 
     private WorkerTaskService taskService(RecordingContextStorage contextStorage, PluginTaskExecutor executor) {
@@ -310,14 +355,9 @@ class WorkerTaskServiceTest {
     }
 
     /**
-     * Recording context storage with a task lock.
+     * Recording context storage with revision CAS.
      */
     private static class LockingContextStorage extends RecordingContextStorage implements WorkerTaskExecutionStore {
-
-        /**
-         * Task lock.
-         */
-        private final ReentrantLock taskLock = new ReentrantLock();
 
         /**
          * Persisted snapshot.
@@ -329,8 +369,15 @@ class WorkerTaskServiceTest {
          */
         private WorkerTaskExecutionState persistedState;
 
+        /**
+         * Snapshot save count.
+         */
+        private int snapshotSaveCount;
+
         @Override
         public void saveSnapshot(WorkerTaskExecutionSnap snapshot) {
+            snapshotSaveCount++;
+            persistedSnapshot = snapshot;
         }
 
         @Override
@@ -339,12 +386,22 @@ class WorkerTaskServiceTest {
         }
 
         @Override
-        public void saveState(WorkerTaskExecutionState state) {
+        public boolean saveState(WorkerTaskExecutionState state, long expectedRevision) {
+            long currentRevision = persistedState == null ? 0L : persistedState.getRevision();
+            if (currentRevision != expectedRevision) {
+                return false;
+            }
+            state.setRevision(currentRevision + 1L);
+            persistedState = copyState(state);
+            if (super.context != null) {
+                super.context.setExecutionState(copyState(state));
+            }
+            return true;
         }
 
         @Override
         public Optional<WorkerTaskExecutionState> readState(String taskInstanceId) {
-            return Optional.ofNullable(persistedState);
+            return Optional.ofNullable(persistedState).map(LockingContextStorage::copyState);
         }
 
         @Override
@@ -352,15 +409,21 @@ class WorkerTaskServiceTest {
             removeContext(taskInstanceId);
         }
 
-        @Override
-        public <T> T withTaskLock(String taskInstanceId, Supplier<T> action) {
-            taskLock.lock();
-            try {
-                return action.get();
-            } finally {
-                taskLock.unlock();
-            }
+        private static WorkerTaskExecutionState copyState(WorkerTaskExecutionState state) {
+            return WorkerTaskExecutionState.builder()
+                    .taskInstanceId(state.getTaskInstanceId())
+                    .workerId(state.getWorkerId())
+                    .appId(state.getAppId())
+                    .workDirPath(state.getWorkDirPath())
+                    .status(state.getStatus())
+                    .revision(state.getRevision())
+                    .exitCode(state.getExitCode())
+                    .updateTime(state.getUpdateTime())
+                    .result(state.getResult())
+                    .outputVars(state.getOutputVars())
+                    .build();
         }
+
     }
 
     /**
@@ -389,12 +452,26 @@ class WorkerTaskServiceTest {
          */
         private final String runMode;
 
+        /**
+         * Execution state store.
+         */
+        private final WorkerTaskExecutionStore stateStore;
+
         SuccessPluginTaskExecutor() {
-            this("LOCAL");
+            this("LOCAL", null);
         }
 
         SuccessPluginTaskExecutor(String runMode) {
+            this(runMode, null);
+        }
+
+        SuccessPluginTaskExecutor(WorkerTaskExecutionStore stateStore) {
+            this("LOCAL", stateStore);
+        }
+
+        SuccessPluginTaskExecutor(String runMode, WorkerTaskExecutionStore stateStore) {
             this.runMode = runMode;
+            this.stateStore = stateStore;
         }
 
         /**
@@ -422,6 +499,16 @@ class WorkerTaskServiceTest {
          */
         private StatusEnum stopState = StatusEnum.STOP_SUCCESS;
 
+        /**
+         * State persisted by submit.
+         */
+        private StatusEnum persistedSubmitState = StatusEnum.SUBMIT_SUCCESS;
+
+        /**
+         * Exception thrown after submit state persistence.
+         */
+        private RuntimeException submitException;
+
         @Override
         public String pluginType() {
             return "TEST";
@@ -435,12 +522,17 @@ class WorkerTaskServiceTest {
         @Override
         public TaskResult submitTask(TaskRequest request) {
             submitCount++;
+            persist(request, persistedSubmitState);
+            if (submitException != null) {
+                throw submitException;
+            }
             return null;
         }
 
         @Override
         public TaskResult stopTask(TaskRequest request) {
             stopCount++;
+            persist(request, stopState);
             return TaskResult.builder()
                     .taskInstanceId(request.getTaskInstanceId())
                     .flowInstanceId(request.getFlowInstanceId())
@@ -452,6 +544,7 @@ class WorkerTaskServiceTest {
         @Override
         public TaskResult killTask(TaskRequest request) {
             killCount++;
+            persist(request, killState);
             return TaskResult.builder()
                     .taskInstanceId(request.getTaskInstanceId())
                     .flowInstanceId(request.getFlowInstanceId())
@@ -463,6 +556,15 @@ class WorkerTaskServiceTest {
         @Override
         public boolean finishTask(TaskRequest request) {
             return true;
+        }
+
+        private void persist(TaskRequest request, StatusEnum status) {
+            if (stateStore == null) {
+                return;
+            }
+            WorkerTaskExecutionState state = stateStore.readState(request.getTaskInstanceId()).orElseThrow();
+            state.setStatus(status);
+            stateStore.saveState(state, state.getRevision());
         }
     }
 }

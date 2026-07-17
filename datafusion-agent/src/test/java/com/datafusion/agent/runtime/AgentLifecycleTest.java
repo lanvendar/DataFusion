@@ -6,16 +6,24 @@ import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateListenerRegist
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.Worker;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import com.datafusion.scheduler.worker.plugin.WorkerTaskOperatorRouter;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -41,6 +49,41 @@ class AgentLifecycleTest {
         assertEquals(List.of("DATAX"), runtimeState.getWorker().getPluginTypes());
     }
 
+    @Test
+    void shouldRemainUnreadyUntilTaskListenersAreRestored() throws Exception {
+        AgentProperties properties = new AgentProperties();
+        properties.getWorker().setWorkerCode("worker-1");
+        properties.getWorker().setIp("127.0.0.1");
+        properties.getWorker().setHostName("localhost");
+        final AgentRuntimeState runtimeState = new AgentRuntimeState();
+        ManagerClient managerClient = mock(ManagerClient.class);
+        final AgentTaskStateListenerRegistry listenerRegistry = mock(AgentTaskStateListenerRegistry.class);
+        AgentWorkerConfigStore workerConfigStore = mock(AgentWorkerConfigStore.class);
+        Worker savedWorker = new Worker();
+        savedWorker.setId("worker-id");
+        when(workerConfigStore.load()).thenReturn(null);
+        when(managerClient.register(any(Worker.class))).thenReturn(savedWorker);
+        when(managerClient.heartbeat(any(Worker.class))).thenReturn(savedWorker);
+        when(managerClient.getTaskInsByWorker(any(Worker.class)))
+                .thenReturn(Optional.empty(), Optional.of(List.of()));
+        AgentLifecycle lifecycle = new AgentLifecycle(properties, managerClient, runtimeState,
+                workerTaskOperatorRouter(), mock(ScheduledExecutorService.class), listenerRegistry, workerConfigStore);
+        invoke(lifecycle, "initWorker");
+
+        invoke(lifecycle, "registerOrHeartbeat");
+        assertFalse(runtimeState.isReady());
+        verify(managerClient, never()).heartbeat(any(Worker.class));
+
+        invoke(lifecycle, "registerOrHeartbeat");
+        assertTrue(runtimeState.isReady());
+        verify(managerClient, times(2)).register(any(Worker.class));
+        verify(listenerRegistry).restoreTasks(List.of());
+
+        invoke(lifecycle, "registerOrHeartbeat");
+        verify(managerClient).heartbeat(any(Worker.class));
+        verify(listenerRegistry).restoreTasks(List.of());
+    }
+
     private AgentRuntimeState initWorker(String pluginTypes) throws Exception {
         AgentProperties properties = new AgentProperties();
         properties.getWorker().setWorkerCode("worker-1");
@@ -53,10 +96,14 @@ class AgentLifecycleTest {
         AgentLifecycle lifecycle = new AgentLifecycle(properties, mock(ManagerClient.class), runtimeState,
                 workerTaskOperatorRouter(), mock(ScheduledExecutorService.class),
                 mock(AgentTaskStateListenerRegistry.class), workerConfigStore);
-        Method initWorker = AgentLifecycle.class.getDeclaredMethod("initWorker");
-        initWorker.setAccessible(true);
-        initWorker.invoke(lifecycle);
+        invoke(lifecycle, "initWorker");
         return runtimeState;
+    }
+
+    private void invoke(AgentLifecycle lifecycle, String methodName) throws Exception {
+        Method method = AgentLifecycle.class.getDeclaredMethod(methodName);
+        method.setAccessible(true);
+        method.invoke(lifecycle);
     }
 
     private WorkerTaskOperatorRouter workerTaskOperatorRouter() {

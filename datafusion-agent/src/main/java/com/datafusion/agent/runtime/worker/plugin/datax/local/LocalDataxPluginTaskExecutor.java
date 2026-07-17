@@ -11,6 +11,8 @@ import com.datafusion.agent.runtime.worker.plugin.datax.DataxPluginTaskExecutor;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxRunMode;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxTaskResult;
 import com.datafusion.scheduler.enums.StatusEnum;
+import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -80,7 +82,9 @@ public class LocalDataxPluginTaskExecutor extends DataxPluginTaskExecutor {
     }
 
     @Override
-    protected DataxTaskResult submit(DataxExecutionParam param) {
+    protected TaskResult submit(TaskRequest request, DataxExecutionParam param, WorkerTaskExecutionState state) {
+        Process process;
+        DataxTaskResult result;
         try {
             Path jobFile = jobFileService.resolveJobFile(param);
             Files.createDirectories(param.getWorkDir());
@@ -89,21 +93,24 @@ public class LocalDataxPluginTaskExecutor extends DataxPluginTaskExecutor {
             builder.directory(param.getWorkDir().toFile());
             builder.redirectOutput(ProcessBuilder.Redirect.appendTo(param.getLogFile().toFile()));
             builder.redirectError(ProcessBuilder.Redirect.appendTo(param.getLogFile().toFile()));
-            Process process = builder.start();
+            process = builder.start();
             String appId = String.valueOf(process.pid());
-            watchExit(process, param.getTaskInstanceId());
-            return DataxTaskResult.builder()
-                    .status(StatusEnum.RUNNING)
+            result = DataxTaskResult.builder()
+                    .status(StatusEnum.SUBMIT_SUCCESS)
                     .appId(appId)
                     .workDirPath(param.getWorkDir().toString())
                     .result(resultJson("LOCAL DataX task submitted", param.getLogFile().toString(), null))
                     .build();
         } catch (Exception e) {
-            return DataxTaskResult.builder()
+            result = DataxTaskResult.builder()
                     .status(StatusEnum.SUBMIT_FAILURE)
                     .result(resultJson(e.getMessage(), null, null))
                     .build();
+            return recordSubmitResult(request, state, result);
         }
+        TaskResult taskResult = recordSubmitResult(request, state, result);
+        watchExit(process, param.getTaskInstanceId());
+        return taskResult;
     }
 
     @Override
@@ -170,7 +177,7 @@ public class LocalDataxPluginTaskExecutor extends DataxPluginTaskExecutor {
                 state.setStatus(exitCode == 0 ? StatusEnum.RUN_SUCCESS : StatusEnum.RUN_FAILURE);
                 state.setResult(resultJson("LOCAL DataX process exited, exitCode=" + exitCode, pluginLogUri(state),
                         exitCode));
-                stateStore().saveState(state);
+                stateStore().saveState(state, state.getRevision());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.warn("LOCAL DataX watcher interrupted, taskInstanceId={}", taskInstanceId, e);

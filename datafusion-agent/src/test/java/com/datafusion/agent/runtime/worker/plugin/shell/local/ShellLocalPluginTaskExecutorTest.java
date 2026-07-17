@@ -60,11 +60,16 @@ class ShellLocalPluginTaskExecutorTest {
         taskEnv.put("DF_TEST_VALUE", "task");
         ((ObjectNode) request.getPluginParam()).set("env", pluginEnv);
         ((ObjectNode) request.getTaskData()).set("env", taskEnv);
+        stateStore.saveSnapshot(snapshot(request));
+        stateStore.saveState(WorkerTaskExecutionState.builder()
+                .taskInstanceId(request.getTaskInstanceId())
+                .status(StatusEnum.SUBMITTING)
+                .build(), 0L);
 
         TaskResult result = executor.submitTask(request);
 
         Path workDir = workDir();
-        assertEquals(StatusEnum.RUNNING, result.getTaskState());
+        assertEquals(StatusEnum.SUBMIT_SUCCESS, result.getTaskState());
         assertEquals(workDir.toString(), result.getWorkerResult().getWorkDirPath());
         assertNull(result.getWorkerResult().getPluginLogUri());
         assertEquals("task", Files.readString(workDir.resolve("stdout.log")));
@@ -83,7 +88,7 @@ class ShellLocalPluginTaskExecutorTest {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         TaskRequest submittedRequest = submittedRequest();
         stateStore.saveSnapshot(snapshot(submittedRequest));
-        stateStore.saveState(state(StatusEnum.RUN_SUCCESS, "12345"));
+        stateStore.saveState(state(StatusEnum.RUN_SUCCESS, "12345"), 0L);
         ShellLocalPluginTaskExecutor executor = executor(stateStore);
 
         TaskRequest minimalRequest = new TaskRequest();
@@ -98,7 +103,7 @@ class ShellLocalPluginTaskExecutorTest {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         TaskRequest submittedRequest = submittedRequest();
         stateStore.saveSnapshot(snapshot(submittedRequest));
-        stateStore.saveState(state(StatusEnum.RUNNING, "9223372036854775807"));
+        stateStore.saveState(state(StatusEnum.RUNNING, "9223372036854775807"), 0L);
         ShellLocalPluginTaskExecutor executor = executor(stateStore);
 
         TaskRequest minimalRequest = new TaskRequest();
@@ -120,7 +125,7 @@ class ShellLocalPluginTaskExecutorTest {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         TaskRequest submittedRequest = submittedRequest();
         stateStore.saveSnapshot(snapshot(submittedRequest));
-        stateStore.saveState(state(StatusEnum.RUNNING, "9223372036854775807"));
+        stateStore.saveState(state(StatusEnum.RUNNING, "9223372036854775807"), 0L);
         ShellLocalPluginTaskExecutor executor = executor(stateStore);
 
         TaskRequest minimalRequest = new TaskRequest();
@@ -149,9 +154,9 @@ class ShellLocalPluginTaskExecutorTest {
         Path workingDir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         Path moduleResourceDir = workingDir.resolve("src/main/resources");
         if (Files.isDirectory(moduleResourceDir)) {
-            return moduleResourceDir.toString();
+            return moduleResourceDir.resolve("plugins").toString();
         }
-        return workingDir.resolve("datafusion-agent/src/main/resources").toString();
+        return workingDir.resolve("datafusion-agent/src/main/resources/plugins").toString();
     }
 
     private TaskRequest submittedRequest() {

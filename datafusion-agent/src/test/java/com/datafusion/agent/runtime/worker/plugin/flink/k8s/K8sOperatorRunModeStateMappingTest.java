@@ -145,7 +145,7 @@ class K8sOperatorRunModeStateMappingTest {
         FakeOperatorClient client = new FakeOperatorClient();
         client.stopFailure = new IllegalArgumentException("invalid desired state");
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        stateStore.saveState(state(StatusEnum.RUNNING));
+        stateStore.saveState(state(StatusEnum.RUNNING), 0L);
         FlinkPluginTaskExecutor executor = new FlinkPluginTaskExecutor(
                 new FlinkParamResolver(new AgentProperties()), stateStore, client);
 

@@ -64,7 +64,7 @@ class FlinkPluginTaskExecutorTest {
                 .taskInstanceId(sourceRequest.getTaskInstanceId())
                 .status(StatusEnum.RUNNING)
                 .appId("df-flink-task-1")
-                .build());
+                .build(), 0L);
 
         TaskRequest controlRequest = new TaskRequest();
         controlRequest.setTaskInstanceId(sourceRequest.getTaskInstanceId());

@@ -9,6 +9,8 @@ import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.WorkerResult;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
@@ -34,6 +36,9 @@ class SpiderLocalPluginTaskExecutorTest {
      */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
+    /**
+     * Temporary directory.
+     */
     @TempDir
     private Path tempDir;
 
@@ -41,11 +46,25 @@ class SpiderLocalPluginTaskExecutorTest {
     void shouldDelegateShellLocalExecutionAndPersistSpiderPluginType() {
         InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
         SpiderLocalPluginTaskExecutor executor = spiderExecutor(stateStore);
+        TaskRequest request = spiderRequest();
+        stateStore.saveSnapshot(WorkerTaskExecutionSnap.builder()
+                .flowInstanceId(request.getFlowInstanceId())
+                .taskInstanceId(request.getTaskInstanceId())
+                .taskName(request.getTaskName())
+                .pluginType(request.getPluginType())
+                .runMode(SpiderLocalPluginTaskExecutor.RUN_MODE)
+                .taskData(request.getTaskData())
+                .pluginParam(request.getPluginParam())
+                .build());
+        stateStore.saveState(WorkerTaskExecutionState.builder()
+                .taskInstanceId(request.getTaskInstanceId())
+                .status(StatusEnum.SUBMITTING)
+                .build(), 0L);
 
-        TaskResult result = executor.submitTask(spiderRequest());
+        TaskResult result = executor.submitTask(request);
 
         assertEquals(SpiderLocalPluginTaskExecutor.PLUGIN_TYPE, executor.pluginType());
-        assertEquals(StatusEnum.RUNNING, result.getTaskState());
+        assertEquals(StatusEnum.SUBMIT_SUCCESS, result.getTaskState());
         assertEquals(SpiderLocalPluginTaskExecutor.PLUGIN_TYPE,
                 stateStore.readSnapshot("task-1").orElseThrow().getPluginType());
         assertEquals(SpiderLocalPluginTaskExecutor.RUN_MODE,
@@ -76,9 +95,9 @@ class SpiderLocalPluginTaskExecutorTest {
         Path workingDir = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         Path moduleResourceDir = workingDir.resolve("src/main/resources");
         if (Files.isDirectory(moduleResourceDir)) {
-            return moduleResourceDir.toString();
+            return moduleResourceDir.resolve("plugins").toString();
         }
-        return workingDir.resolve("datafusion-agent/src/main/resources").toString();
+        return workingDir.resolve("datafusion-agent/src/main/resources/plugins").toString();
     }
 
     private TaskRequest spiderRequest() {

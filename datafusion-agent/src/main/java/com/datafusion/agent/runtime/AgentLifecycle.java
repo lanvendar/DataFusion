@@ -18,7 +18,6 @@ import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -71,11 +70,6 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
      * worker 本地配置存储.
      */
     private final AgentWorkerConfigStore workerConfigStore;
-
-    /**
-     * 已恢复任务清单的 worker ID.
-     */
-    private volatile String restoredWorkerId;
 
     /**
      * 构造函数.
@@ -143,25 +137,24 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         if (worker == null) {
             return;
         }
+        boolean wasReady = runtimeState.isReady();
         long now = System.currentTimeMillis();
         worker.setLastHeartbeatTime(now);
         worker.setWorkerLogDir(resolveWorkerLogDir());
         worker.setUpdateTime(now);
-        Worker savedWorker = runtimeState.isReady() ? managerClient.heartbeat(heartbeatWorker(worker)) : managerClient.register(worker);
+        Worker savedWorker = wasReady ? managerClient.heartbeat(heartbeatWorker(worker)) : managerClient.register(worker);
         boolean success = savedWorker != null;
         if (success) {
-            String beforeWorkerId = worker.getId();
             mergeSavedWorker(worker, savedWorker);
             workerConfigStore.save(worker);
-            if (!Objects.equals(worker.getId(), beforeWorkerId) || !Objects.equals(worker.getId(), restoredWorkerId)) {
-                if (restoreWorkerTasks(worker)) {
-                    restoredWorkerId = worker.getId();
-                }
+            if (!wasReady) {
+                // 恢复完成前保持未就绪，确保 restoreTasks 无需与任务控制接口并发。
+                success = restoreWorkerTasks(worker);
             }
         }
         runtimeState.setReady(success);
         if (!success) {
-            log.warn("agent 注册或心跳失败, workerId={}", worker.getId());
+            log.warn("agent 注册、心跳或任务恢复失败, workerId={}", worker.getId());
         }
     }
 

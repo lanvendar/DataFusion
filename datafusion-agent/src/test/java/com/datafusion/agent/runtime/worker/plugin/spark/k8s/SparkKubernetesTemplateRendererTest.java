@@ -119,7 +119,7 @@ class SparkKubernetesTemplateRendererTest {
     }
 
     private ObjectNode pluginParam() {
-        ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
+        final ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
         ObjectNode kubernetes = OBJECT_MAPPER.createObjectNode();
         kubernetes.put("namespace", "datafusion");
         kubernetes.put("serviceAccountName", "spark-driver");
