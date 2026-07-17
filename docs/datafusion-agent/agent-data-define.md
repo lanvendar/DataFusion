@@ -155,8 +155,8 @@ time:1780000001000|workerId:{workerId}|appId:123|revision:2|status:RUN_SUCCESS|e
 - `appId` 统一表示终端任务 ID。
 - `.snap` 只保存最近一次提交快照和插件配置参数，不保存运行时观测字段；由 `WorkerService` 在调用插件前
   整体原子覆盖，不做字段合并或深拷贝，插件不重复保存，也不参与 `.state.revision` 和任务状态锁。
-- 重新提交覆盖 `.snap` 前，`WorkerService` 先读取旧 `.snap/.state`，仅放入本次动作级
-  `RunningTaskContext.previousSnapshot/previousState`；旧上下文不进入缓存，也不新增 `.previous.snap`。
+- 同一任务实例重新提交时，Master 复用实例中的任务数据和插件配置；K8S 插件使用当前 `.snap`
+  重新计算确定性资源名并幂等清理同名旧资源，不保存历史快照或历史状态。
 - `.state` 只保存通用运行态，不回写 `taskData` / `pluginParam`。
 - `.state.revision` 是任务运行态版本号，首次写入为 `1`。每次调用方必须提供状态基线的
   `expectedRevision`；存储层复读当前 revision，一致时写入并加一，不一致时记录 `warn`、返回 `false` 且不写入。

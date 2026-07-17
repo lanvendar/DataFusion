@@ -213,28 +213,18 @@ public class WorkerService {
                     "未匹配到插件执行器: " + request.getPluginType() + '/' + request.getRunMode());
         }
 
-        WorkerTaskExecutionSnap previousSnapshot = executionStore.readSnapshot(request.getTaskInstanceId())
-                .orElse(null);
-        WorkerTaskExecutionState previousState = executionStore.readState(request.getTaskInstanceId())
-                .orElse(null);
         WorkerTaskExecutionSnap snapshot = snapshot(request);
         String workDirPath = executionStore.saveSnapshot(snapshot);
         WorkerTaskStateCoordinator.ActionReservation reservation = stateCoordinator.reserveAction(
                 snapshot, workDirPath, StatusEnum.SUBMITTING);
         if (!reservation.accepted()) {
-            WorkerTaskExecutionSnap responseSnapshot = snapshot;
-            if (previousSnapshot != null) {
-                executionStore.saveSnapshot(previousSnapshot);
-                responseSnapshot = previousSnapshot;
-            }
-            TaskResult rejected = result(responseSnapshot, reservation.executionState(),
+            TaskResult rejected = result(snapshot, reservation.executionState(),
                     "当前状态不允许进入SUBMITTING");
             listenerRegistry.register(request.getTaskInstanceId(), rejected.getTaskState());
             return rejected;
         }
 
-        RunningTaskContext context = new RunningTaskContext(snapshot, reservation.executionState(),
-                previousSnapshot, previousState, workDirPath);
+        RunningTaskContext context = new RunningTaskContext(snapshot, reservation.executionState(), workDirPath);
         try {
             executor.validate(context);
         } catch (RuntimeException e) {
@@ -358,8 +348,8 @@ public class WorkerService {
         if (executor == null) {
             return false;
         }
-        RunningTaskContext context = new RunningTaskContext(snapshot.get(), state.get().copy(),
-                null, null, state.get().getWorkDirPath());
+        RunningTaskContext context = new RunningTaskContext(
+                snapshot.get(), state.get().copy(), state.get().getWorkDirPath());
         try {
             if (!executor.finish(context)) {
                 return false;
@@ -389,16 +379,16 @@ public class WorkerService {
 
     private RunningTaskContext controlContext(String taskInstanceId, StatusEnum actionStatus) {
         WorkerTaskExecutionSnap snapshot = executionStore.readSnapshot(taskInstanceId).orElse(null);
-        WorkerTaskExecutionState previousState = executionStore.readState(taskInstanceId).orElse(null);
-        if (snapshot == null || previousState == null
+        WorkerTaskExecutionState currentState = executionStore.readState(taskInstanceId).orElse(null);
+        if (snapshot == null || currentState == null
                 || pluginRouter.routeExecutor(snapshot.getPluginType(), snapshot.getRunMode()) == null) {
             return null;
         }
         WorkerTaskStateCoordinator.ActionReservation reservation = stateCoordinator.reserveAction(
-                snapshot, previousState.getWorkDirPath(), actionStatus);
+                snapshot, currentState.getWorkDirPath(), actionStatus);
         WorkerTaskExecutionState executionState = reservation.executionState();
-        return new RunningTaskContext(snapshot, executionState, null, previousState,
-                executionState == null ? previousState.getWorkDirPath() : executionState.getWorkDirPath());
+        return new RunningTaskContext(snapshot, executionState,
+                executionState == null ? currentState.getWorkDirPath() : executionState.getWorkDirPath());
     }
 
     private synchronized void refreshWorkerLifecycle() {

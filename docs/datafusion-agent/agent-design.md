@@ -360,9 +360,8 @@ state.log
 - 所有插件 Resolver 使用 `RunningTaskContext.workDirPath`，不得通过 `LocalDate.now()` 重算目录；否则跨日控制和
   重新提交会把状态文件、插件产物和日志拆到不同目录。
 
-DataX/Spark 重新提交时使用 `RunningTaskContext.previousSnapshot/previousState` 清理旧资源。当前方案不增加
-`.previous.snap`；如果 Agent 在新 `.snap` 覆盖后、旧资源清理前崩溃，重启依赖稳定资源名、旧 appId 和新配置做
-幂等清理。
+DataX/Spark 重新提交时使用当前 `RunningTaskContext.snapshot` 重新计算确定性的 Kubernetes 资源名，先幂等清理
+同名旧资源再创建新资源。同一任务实例的任务数据和插件配置由 Master 固定，因此不保存历史快照或历史状态。
 
 ## 状态上报
 

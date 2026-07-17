@@ -47,7 +47,7 @@ class DataxPluginTaskExecutorTest {
                 .status(StatusEnum.SUBMITTING)
                 .revision(1L)
                 .build();
-        return new RunningTaskContext(snapshot, state, null, null, "/runtime/task-1");
+        return new RunningTaskContext(snapshot, state, "/runtime/task-1");
     }
 
     /** Test DataX executor. */

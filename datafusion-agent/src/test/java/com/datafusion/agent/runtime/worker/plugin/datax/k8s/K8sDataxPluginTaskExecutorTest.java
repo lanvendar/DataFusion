@@ -31,7 +31,7 @@ class K8sDataxPluginTaskExecutorTest {
     void shouldSubmitAndUpdateCandidateState() {
         FakeKubernetesClient client = new FakeKubernetesClient();
         K8sDataxPluginTaskExecutor executor = executor(client);
-        RunningTaskContext context = context(null, null);
+        RunningTaskContext context = context();
 
         WorkerResult result = executor.submit(context);
 
@@ -40,24 +40,22 @@ class K8sDataxPluginTaskExecutorTest {
     }
 
     @Test
-    void shouldCleanupPreviousRuntimeBeforeResubmit() {
+    void shouldCleanupDeterministicRuntimeBeforeSubmit() {
         FakeKubernetesClient client = new FakeKubernetesClient();
         K8sDataxPluginTaskExecutor executor = executor(client);
-        WorkerTaskExecutionSnap previousSnapshot = snapshot();
-        WorkerTaskExecutionState previousState = state(StatusEnum.RUN_FAILURE);
-        previousState.setAppId("old-job");
 
-        executor.submit(context(previousSnapshot, previousState));
+        executor.submit(context());
 
         assertEquals(1, client.cleanupCount);
         assertEquals(DataxKubernetesCleanupMode.BEFORE_SUBMIT, client.cleanupMode);
+        assertEquals("datax-job", client.cleanedRuntimeRef.getJobName());
     }
 
     @Test
     void shouldKeepStoppingAfterStopRequestAccepted() {
         FakeKubernetesClient client = new FakeKubernetesClient();
         K8sDataxPluginTaskExecutor executor = executor(client);
-        RunningTaskContext context = context(null, null);
+        RunningTaskContext context = context();
         context.getExecutionState().setStatus(StatusEnum.STOPPING);
         context.getExecutionState().setAppId("datax-job");
 
@@ -71,7 +69,7 @@ class K8sDataxPluginTaskExecutorTest {
     void shouldCleanupRuntimeOnFinish() {
         FakeKubernetesClient client = new FakeKubernetesClient();
         K8sDataxPluginTaskExecutor executor = executor(client);
-        RunningTaskContext context = context(null, null);
+        RunningTaskContext context = context();
         context.getExecutionState().setAppId("datax-job");
 
         assertTrue(executor.finish(context));
@@ -84,10 +82,8 @@ class K8sDataxPluginTaskExecutorTest {
         return new K8sDataxPluginTaskExecutor(resolver, client);
     }
 
-    private RunningTaskContext context(WorkerTaskExecutionSnap previousSnapshot,
-            WorkerTaskExecutionState previousState) {
-        return new RunningTaskContext(snapshot(), state(StatusEnum.SUBMITTING),
-                previousSnapshot, previousState, "/runtime/task-1");
+    private RunningTaskContext context() {
+        return new RunningTaskContext(snapshot(), state(StatusEnum.SUBMITTING), "/runtime/task-1");
     }
 
     private WorkerTaskExecutionSnap snapshot() {
@@ -136,6 +132,9 @@ class K8sDataxPluginTaskExecutorTest {
         /** Cleanup mode. */
         private DataxKubernetesCleanupMode cleanupMode;
 
+        /** Cleaned runtime reference. */
+        private DataxKubernetesRuntimeRef cleanedRuntimeRef;
+
         /** Stop count. */
         private int stopCount;
 
@@ -151,6 +150,7 @@ class K8sDataxPluginTaskExecutorTest {
         public boolean cleanup(DataxKubernetesRuntimeRef runtimeRef, DataxKubernetesCleanupMode mode) {
             cleanupCount++;
             cleanupMode = mode;
+            cleanedRuntimeRef = runtimeRef;
             return true;
         }
 

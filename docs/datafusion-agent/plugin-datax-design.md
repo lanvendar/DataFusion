@@ -50,9 +50,8 @@ Manager scheduler
 - `DATAX + LOCAL`
 - `DATAX + K8S`
 
-重新提交覆盖新 `.snap` 前，`WorkerService` 把旧 `.snap/.state` 放入
-`RunningTaskContext.previousSnapshot/previousState`。K8S 执行器必须先用旧配置和旧 appId 清理旧资源，
-不能继续用“新配置 + 旧 appId”拼接 RuntimeRef。
+同一任务实例重新提交时，K8S 执行器使用当前快照重新计算确定性的 Job、Pod label 和 Secret 名称，
+先幂等清理同名旧资源，再创建新资源；不保存上一轮快照或状态。
 
 ## 参数契约
 
@@ -129,8 +128,8 @@ LOCAL 状态映射优先使用 `.state.status` 终态；`STOPPING/KILLING` 且 p
 ```text
 解析参数
     -> 生成 Job / Secret 名称
-    -> 用 previousSnapshot/previousState 构造旧 RuntimeRef
-    -> 如果旧 appId 存在, 按 BEFORE_SUBMIT 清理旧 Job、匹配 Pod 和 Secret；清理失败抛异常
+    -> 用当前参数构造确定性 RuntimeRef
+    -> 按 BEFORE_SUBMIT 幂等清理同名旧 Job、匹配 Pod 和 Secret；清理失败抛异常
     -> 在任务运行目录生成 job.json 快照
     -> 读取任务运行目录/job.json 生成 Secret data.job.json
     -> 渲染 plugins/datax/templates/datax-k8s-runtime.yml
@@ -155,9 +154,8 @@ Job 约定：
 - K8S 容器内 DataX 日志文件固定为 `/opt/datafusion/plugins/datax/logs/datax.log`；agent 终态采集的是 Pod 主容器日志，不直接读取容器文件系统。
 - 提交成功后只把 Job name 写入 `.state.appId`；runMode 使用 `.snap.runMode`，namespace、secretName、podLabelSelector、containerName 等运行引用
   由 `.snap` 中的 `pluginParam/taskData` 和 `.state.appId` 重建，stop / kill / finish 和周期状态映射都不能依赖当前控制请求携带完整参数。
-- 重新提交前如果 `previousState.appId` 存在，agent 使用 `previousSnapshot + previousState` 按
-  `BEFORE_SUBMIT` 幂等清理旧 Job、匹配 Pod 和 Secret，不能用新 Kubernetes 配置拼接旧 appId；
-  只有清理完成才创建新 Job，清理异常由 Coordinator 提交 `SUBMIT_FAILURE`。
+- 重新提交前，agent 使用当前参数生成的确定性 Job、Pod label 和 Secret 名称，按 `BEFORE_SUBMIT`
+  幂等清理同名旧资源；只有清理完成才创建新 Job，清理异常由 Coordinator 提交 `SUBMIT_FAILURE`。
 - 终态上报前只采集日志并写入最终结果；master 确认终态后，`finishTask` 按 `AFTER_FINISH` 清理资源。
 - `AFTER_FINISH` 会主动删除 Secret；`deleteJobOnFinish=true` 时删除 Job，否则 Job/Pod 由
   `ttlSecondsAfterFinished` 兜底清理。

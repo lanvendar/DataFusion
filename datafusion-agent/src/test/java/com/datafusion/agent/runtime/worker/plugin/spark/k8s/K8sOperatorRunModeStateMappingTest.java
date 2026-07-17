@@ -84,8 +84,7 @@ class K8sOperatorRunModeStateMappingTest {
         FakeKubernetesClient client = new FakeKubernetesClient();
         SparkPluginTaskExecutor executor = new SparkPluginTaskExecutor(new SparkParamResolver(), client);
         WorkerTaskExecutionState state = state(StatusEnum.KILLING);
-        RunningTaskContext context = new RunningTaskContext(snapshot(request()), state, null, null,
-                state.getWorkDirPath());
+        RunningTaskContext context = new RunningTaskContext(snapshot(request()), state, state.getWorkDirPath());
 
         WorkerResult result = executor.kill(context);
 

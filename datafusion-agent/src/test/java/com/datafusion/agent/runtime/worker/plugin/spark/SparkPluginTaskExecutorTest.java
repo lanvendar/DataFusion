@@ -35,24 +35,18 @@ class SparkPluginTaskExecutorTest {
      */
     private static final String CURRENT_WORK_DIR = "/tmp/datafusion/spark/current";
 
-    /**
-     * 历史任务工作目录.
-     */
-    private static final String PREVIOUS_WORK_DIR = "/tmp/datafusion/spark/previous";
-
     @Test
-    void shouldCleanupPreviousExecutionBeforeResubmit() {
+    void shouldCleanupDeterministicRuntimeBeforeSubmit() {
         FakeOperatorClient client = new FakeOperatorClient();
         SparkPluginTaskExecutor executor = new SparkPluginTaskExecutor(new SparkParamResolver(), client);
         WorkerTaskExecutionState candidate = candidateState();
-        RunningTaskContext context = new RunningTaskContext(snapshot("new-ns"), candidate,
-                snapshot("old-ns"), previousState(), CURRENT_WORK_DIR);
+        RunningTaskContext context = new RunningTaskContext(snapshot("new-ns"), candidate, CURRENT_WORK_DIR);
 
         WorkerResult result = executor.submit(context);
 
         assertTrue(client.submitRequested);
-        assertEquals("old-ns", client.cleanedRuntimeRef.getNamespace());
-        assertEquals("old-spark-application", client.cleanedRuntimeRef.getApplicationName());
+        assertEquals("new-ns", client.cleanedRuntimeRef.getNamespace());
+        assertEquals("df-spark-task-1", client.cleanedRuntimeRef.getApplicationName());
         assertEquals(StatusEnum.SUBMIT_SUCCESS, candidate.getStatus());
         assertEquals("df-spark-task-1", candidate.getAppId());
         assertEquals(CURRENT_WORK_DIR, candidate.getWorkDirPath());
@@ -60,13 +54,12 @@ class SparkPluginTaskExecutorTest {
     }
 
     @Test
-    void shouldRejectResubmitWhenPreviousCleanupFails() {
+    void shouldRejectSubmitWhenCleanupFails() {
         FakeOperatorClient client = new FakeOperatorClient();
         client.cleanupSuccess = false;
         SparkPluginTaskExecutor executor = new SparkPluginTaskExecutor(new SparkParamResolver(), client);
         WorkerTaskExecutionState candidate = candidateState();
-        RunningTaskContext context = new RunningTaskContext(snapshot("new-ns"), candidate,
-                snapshot("old-ns"), previousState(), CURRENT_WORK_DIR);
+        RunningTaskContext context = new RunningTaskContext(snapshot("new-ns"), candidate, CURRENT_WORK_DIR);
 
         WorkerResult result = executor.submit(context);
 
@@ -104,16 +97,6 @@ class SparkPluginTaskExecutorTest {
                 .workerId("worker-1")
                 .workDirPath(CURRENT_WORK_DIR)
                 .status(StatusEnum.SUBMITTING)
-                .build();
-    }
-
-    private WorkerTaskExecutionState previousState() {
-        return WorkerTaskExecutionState.builder()
-                .taskInstanceId("task-1")
-                .workerId("worker-1")
-                .appId("old-spark-application")
-                .workDirPath(PREVIOUS_WORK_DIR)
-                .status(StatusEnum.RUN_FAILURE)
                 .build();
     }
 

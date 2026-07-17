@@ -145,8 +145,7 @@ class K8sOperatorRunModeStateMappingTest {
         client.stopFailure = new IllegalArgumentException("invalid desired state");
         FlinkPluginTaskExecutor executor = new FlinkPluginTaskExecutor(new FlinkParamResolver(), client);
         WorkerTaskExecutionState state = state(StatusEnum.STOPPING);
-        RunningTaskContext context = new RunningTaskContext(snapshot(), state, null, null,
-                state.getWorkDirPath());
+        RunningTaskContext context = new RunningTaskContext(snapshot(), state, state.getWorkDirPath());
 
         WorkerResult result = executor.stop(context);
 

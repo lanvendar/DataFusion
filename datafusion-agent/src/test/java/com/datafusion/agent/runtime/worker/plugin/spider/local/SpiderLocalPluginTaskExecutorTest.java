@@ -28,7 +28,7 @@ class SpiderLocalPluginTaskExecutorTest {
         RunningTaskContext context = new RunningTaskContext(
                 WorkerTaskExecutionSnap.builder().taskInstanceId("task-1").build(),
                 WorkerTaskExecutionState.builder().taskInstanceId("task-1").build(),
-                null, null, "/runtime/task-1");
+                "/runtime/task-1");
         WorkerResult expected = new WorkerResult();
         when(shell.submit(context)).thenReturn(expected);
 

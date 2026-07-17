@@ -167,8 +167,7 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
         WorkerTaskExecutionSnap shellSnapshot = snapshot.copy();
         shellSnapshot.setTaskData(JacksonUtils.createObjectNode());
         shellSnapshot.setPluginParam(shellPluginParam(snapshot));
-        return new RunningTaskContext(shellSnapshot, context.getExecutionState(),
-                context.getPreviousSnapshot(), context.getPreviousState(), context.getWorkDirPath());
+        return new RunningTaskContext(shellSnapshot, context.getExecutionState(), context.getWorkDirPath());
     }
 
     private ObjectNode shellPluginParam(WorkerTaskExecutionSnap snapshot) {

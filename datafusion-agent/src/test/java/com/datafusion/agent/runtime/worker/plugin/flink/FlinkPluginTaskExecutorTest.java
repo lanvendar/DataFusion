@@ -88,7 +88,7 @@ class FlinkPluginTaskExecutorTest {
     }
 
     private RunningTaskContext context(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
-        return new RunningTaskContext(snapshot, state, null, null, WORK_DIR);
+        return new RunningTaskContext(snapshot, state, WORK_DIR);
     }
 
     private WorkerTaskExecutionSnap snapshot() {

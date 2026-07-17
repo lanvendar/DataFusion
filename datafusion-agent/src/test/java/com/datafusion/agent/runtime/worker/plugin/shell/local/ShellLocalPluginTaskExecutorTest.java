@@ -52,8 +52,7 @@ class ShellLocalPluginTaskExecutorTest {
         store.saveState(actionState, 0L);
         ShellLocalPluginTaskExecutor executor = executor(store);
 
-        WorkerResult result = executor.submit(new RunningTaskContext(snapshot, actionState,
-                null, null, workDir));
+        WorkerResult result = executor.submit(new RunningTaskContext(snapshot, actionState, workDir));
 
         assertEquals(StatusEnum.SUBMIT_SUCCESS, actionState.getStatus());
         assertEquals(workDir, result.getWorkDirPath());
@@ -74,8 +73,7 @@ class ShellLocalPluginTaskExecutorTest {
                 .status(StatusEnum.STOPPING)
                 .revision(1L)
                 .build();
-        RunningTaskContext context = new RunningTaskContext(snapshot(null), state,
-                null, null, tempDir.toString());
+        RunningTaskContext context = new RunningTaskContext(snapshot(null), state, tempDir.toString());
 
         WorkerResult result = executor.stop(context);
 

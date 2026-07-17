@@ -79,8 +79,8 @@ Manager scheduler
 
 清理 Pod 时先按任务标签查询，再按资源名称逐个删除，不依赖 Kubernetes `deletecollection` 权限。
 任务提交 `.snap` 由 `WorkerService` 在调用插件前整体保存，Spark 执行器不读写 Store。重新提交时，
-`RunningTaskContext.previousSnapshot/previousState` 保存覆盖前的旧配置和运行引用；Spark 先用旧数据幂等清理，
-再用当前 `snapshot/state` 创建新资源。
+Spark 使用当前快照重新计算确定性的 SparkApplication、ConfigMap 和 Pod label，先幂等清理同名旧资源，
+再创建新资源；不保存上一轮快照或状态。
 
 ## 6. 集成边界
 
