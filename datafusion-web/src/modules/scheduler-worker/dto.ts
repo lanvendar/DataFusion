@@ -1,8 +1,11 @@
 export enum PageActionEnum {
   ADD = "ADD",
   EDIT = "EDIT",
+  ACTIVE = "ACTIVE",
   DELETE = "DELETE",
 }
+
+export type WorkerActiveFlag = 0 | 1;
 
 export interface WorkerRegistryItem {
   id: string;
@@ -16,7 +19,7 @@ export interface WorkerRegistryItem {
   registerTime?: string;
   lastHeartbeatTime?: string;
   workerLogDir?: string;
-  isActive: number;
+  isActive: WorkerActiveFlag;
   remark?: string;
   creator?: string;
   updater?: string;
@@ -30,7 +33,7 @@ export interface WorkerRegistryPageOption {
   host?: string;
   status?: number;
   zone?: string;
-  isActive?: number;
+  isActive?: WorkerActiveFlag;
 }
 
 export interface WorkerRegistryPageReq {
@@ -55,12 +58,23 @@ export interface WorkerRegistrySaveReq {
   port?: number;
   zone?: string;
   plugins?: string;
-  isActive?: number;
+  isActive?: WorkerActiveFlag;
   remark?: string;
 }
 
-export interface WorkerRegistryUpdateReq extends Omit<WorkerRegistrySaveReq, "workerCode"> {
+export interface WorkerRegistryUpdateReq {
   id: string;
+  zone?: string;
+  remark?: string;
+}
+
+export interface WorkerRegistryActiveReq {
+  id: string;
+  isActive: WorkerActiveFlag;
+}
+
+export interface WorkerRegistryFormValues extends WorkerRegistrySaveReq {
+  status?: number;
 }
 
 export type WorkerRegistryFormMode = "add" | "edit";

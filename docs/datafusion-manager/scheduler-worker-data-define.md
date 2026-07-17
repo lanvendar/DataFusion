@@ -112,14 +112,10 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `isActive` | `Integer` | 可空，默认 `1` | 是否有效 |
 | `WorkerRegistrySaveDto` | `Request` | 新增 worker | `remark` | `String` | 可空 | 资源说明 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `id` | `UUID` | `@NotNull` | worker 注册记录 ID |
-| `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `workerCode` | `String` | 不允许修改，前端编辑时不提交 | 节点编码 |
-| `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `hostName` | `String` | 非空时合并 | 主机名称 |
-| `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `host` | `String` | 非空时合并并校验 `host + port` 唯一 | IP 地址 |
-| `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `port` | `Integer` | 非空时合并并校验 `host + port` 唯一 | 端口 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `zone` | `String` | 非 `null` 时合并 | 区域/分组 |
-| `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `plugins` | `String` | 非 `null` 时合并，长度不超过 256 | 插件类型列表 |
-| `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `isActive` | `Integer` | 非空时合并 | 是否有效 |
 | `WorkerRegistryUpdateDto` | `Request` | 修改 worker | `remark` | `String` | 非 `null` 时合并 | 资源说明 |
+| `WorkerRegistryActiveDto` | `Request` | 启用或禁用 worker | `id` | `UUID` | `@NotNull` | worker 注册记录 ID |
+| `WorkerRegistryActiveDto` | `Request` | 启用或禁用 worker | `isActive` | `Integer` | `@NotNull`，只允许 `0/1` | 人工调度开关 |
 | `WorkerRegistryDto` | `Response` | 查询响应 | `id` | `UUID` | 无 | 主键 |
 | `WorkerRegistryDto` | `Response` | 查询响应 | `workerCode` | `String` | 无 | 节点编码 |
 | `WorkerRegistryDto` | `Response` | 查询响应 | `hostName` | `String` | 无 | 主机名称 |
@@ -142,7 +138,8 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | `POST /api/scheduler/worker/page` | `PageQuery<WorkerRegistryQueryDto>` | `PageResponse<WorkerRegistryDto>` | `Result<T>` | 分页查询 worker |
 | `POST /api/scheduler/worker/list` | `WorkerRegistryQueryDto` | `List<WorkerRegistryDto>` | `Result<T>` | 列表查询 worker |
 | `POST /api/scheduler/worker/add` | `WorkerRegistrySaveDto` | `UUID` | `Result<T>` | 新增 worker |
-| `POST /api/scheduler/worker/update` | `WorkerRegistryUpdateDto` | `Boolean` | `Result<T>` | 修改 worker |
+| `POST /api/scheduler/worker/update` | `WorkerRegistryUpdateDto` | `Boolean` | `Result<T>` | 修改区域和备注 |
+| `POST /api/scheduler/worker/active` | `WorkerRegistryActiveDto` | `Boolean` | `Result<T>` | 启用或禁用 worker 调度 |
 | `GET /api/scheduler/worker/{id}` | path `UUID id` | `WorkerRegistryDto` | `Result<T>` | 查询详情 |
 | `DELETE /api/scheduler/worker/{id}` | path `UUID id` | `Boolean` | `Result<T>` | 真删除 worker，前端必须二次确认 |
 
@@ -151,7 +148,8 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 | 方向 | 转换规则 | 特殊处理 |
 |------|----------|----------|
 | `WorkerRegistrySaveDto` -> `WorkerRegistryEntity` | 复制主机、端口、分组、插件、有效标记和备注 | `id` 使用 `workerCode` 生成稳定 UUID；`status` 默认 `0`；`isActive` 默认 `1`；不接收 `workerLogDir`；审计字段由 Service 设置 |
-| `WorkerRegistryUpdateDto` -> existing `WorkerRegistryEntity` | 非空字符串/数值和非 `null` 可清空字段合并 | 不接收 `status`、`workerLogDir` 和 `workerCode` 修改；合并后校验有效值、端口、插件长度、`host + port` 唯一 |
+| `WorkerRegistryUpdateDto` -> existing `WorkerRegistryEntity` | 仅合并 `zone` 和 `remark` | 注册信息由 agent 维护；不接收 `workerCode`、主机、端口、插件、`status`、`isActive` 和 `workerLogDir` 修改 |
+| `WorkerRegistryActiveDto` -> `WorkerOperator` | `isActive=1` 调用 `active`，`isActive=0` 调用 `inactive` | 只修改人工调度开关，不改变 agent 在线状态 |
 | `WorkerRegistryService.delete` | 按 `id` 真删除记录 | 删除后同一 `workerCode` 再次注册会按稳定 UUID 重新插入记录 |
 | `WorkerRegistryEntity` -> `WorkerRegistryDto` | 字段逐一复制 | 不转换 `status/isActive`，由前端映射展示 |
 | `WorkerRegistryDto` -> 前端表格 | `registerTime`、`lastHeartbeatTime`、`updateTime` 按本地时区格式化为 `YYYY-MM-DD HH:mm:ss` | 后端可返回带 offset 的 ISO 时间字符串，前端不原样展示 |
@@ -167,7 +165,7 @@ COMMENT ON TABLE scheduler_worker_registry IS '调度 worker 注册表，记录 
 |------|----------|-----------|------|------|
 | `status` | `int4` | `Integer` | `0` 下线、`1` 上线 | 对应 `Worker.STATUS_DOWN/STATUS_UP` |
 | `is_active` | `int2` | `Integer` | `0` 无效、`1` 有效 | 调度查找必须过滤 `1` |
-| `plugins` | `varchar(256)` | `String` | 逗号分隔字符串 | 前端以文本维护，后端去除空白分隔项后保存 |
+| `plugins` | `varchar(256)` | `String` | 逗号分隔字符串 | 新增时可录入；注册后由 agent 维护，前端编辑时只读 |
 | `log_dir` | `text` | `String` | 目录路径 | worker 服务日志目录，不指向单个滚动日志文件 |
 | `tenant_id` | `uuid` | `UUID` | 无 | 暂无租户功能，不参与 API 维护和查询过滤 |
 

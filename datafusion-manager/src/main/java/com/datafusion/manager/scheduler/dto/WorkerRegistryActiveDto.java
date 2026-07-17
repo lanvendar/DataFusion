@@ -7,15 +7,15 @@ import javax.validation.constraints.NotNull;
 import java.util.UUID;
 
 /**
- * 调度-worker 管理信息修改Dto.
+ * 调度-worker 启停请求.
  *
  * @author datafusion
- * @version 1.0.0, 2026/6/6
+ * @version 1.0.0, 2026/7/18
  * @since 1.0.0
  */
 @Data
-@Schema(name = "WorkerRegistryUpdateDto", description = "worker 管理信息修改Dto")
-public class WorkerRegistryUpdateDto {
+@Schema(name = "WorkerRegistryActiveDto", description = "worker 启用或禁用请求")
+public class WorkerRegistryActiveDto {
 
     /**
      * worker 注册记录ID.
@@ -25,14 +25,9 @@ public class WorkerRegistryUpdateDto {
     private UUID id;
 
     /**
-     * 区域/分组.
+     * 是否参与新任务调度.
      */
-    @Schema(name = "zone", description = "区域/分组")
-    private String zone;
-
-    /**
-     * 资源说明.
-     */
-    @Schema(name = "remark", description = "资源说明")
-    private String remark;
+    @Schema(name = "isActive", description = "是否参与新任务调度: 1-启用 0-禁用")
+    @NotNull(message = "worker有效标记不能为空")
+    private Integer isActive;
 }

@@ -96,12 +96,12 @@ public class WorkerManager implements WorkerListener, WorkerOperator {
     }
 
     @Override
-    public Worker active(String workerId) {
+    public boolean active(String workerId) {
         return storage.active(workerId);
     }
 
     @Override
-    public Worker inactive(String workerId) {
+    public boolean inactive(String workerId) {
         return storage.inactive(workerId);
     }
 

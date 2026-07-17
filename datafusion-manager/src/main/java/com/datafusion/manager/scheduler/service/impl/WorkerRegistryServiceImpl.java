@@ -9,6 +9,7 @@ import com.datafusion.common.exception.ErrorCodeEnum;
 import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.manager.scheduler.dao.WorkerRegistryMapper;
+import com.datafusion.manager.scheduler.dto.WorkerRegistryActiveDto;
 import com.datafusion.manager.scheduler.dto.WorkerRegistryDto;
 import com.datafusion.manager.scheduler.dto.WorkerRegistryQueryDto;
 import com.datafusion.manager.scheduler.dto.WorkerRegistrySaveDto;
@@ -120,43 +121,28 @@ public class WorkerRegistryServiceImpl extends ServiceImpl<WorkerRegistryMapper,
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean updateWorkerRegistry(WorkerRegistryUpdateDto dto) {
-        WorkerRegistryEntity entity = getById(dto.getId());
-        if (entity == null) {
-            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker不存在");
-        }
-
-        if (StringUtils.isNotBlank(dto.getWorkerCode())) {
-            throw new CommonException(ErrorCodeEnum.SERVICE_ERROR_C0300, "worker编码不允许修改");
-        }
-        if (StringUtils.isNotBlank(dto.getHostName())) {
-            entity.setHostName(dto.getHostName());
-        }
-        if (StringUtils.isNotBlank(dto.getHost())) {
-            entity.setHost(dto.getHost());
-        }
-        if (dto.getPort() != null) {
-            entity.setPort(dto.getPort());
-        }
+        assertWorkerExists(dto.getId());
+        WorkerRegistryEntity entity = new WorkerRegistryEntity();
+        entity.setId(dto.getId());
         if (dto.getZone() != null) {
             entity.setZone(dto.getZone());
-        }
-        if (dto.getPlugins() != null) {
-            entity.setPlugins(normalizePlugins(dto.getPlugins()));
-        }
-        if (dto.getIsActive() != null) {
-            entity.setIsActive(dto.getIsActive());
         }
         if (dto.getRemark() != null) {
             entity.setRemark(dto.getRemark());
         }
-
-        validatePort(entity.getPort());
-        validateActive(entity.getIsActive());
-        checkWorkerCodeUnique(entity.getWorkerCode(), entity.getId());
-        checkHostPortUnique(entity.getHost(), entity.getPort(), entity.getId());
-
         fillUpdateAudit(entity);
         return updateById(entity);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean updateWorkerActive(WorkerRegistryActiveDto dto) {
+        assertWorkerExists(dto.getId());
+        validateActive(dto.getIsActive());
+        if (dto.getIsActive() == ACTIVE) {
+            return workerOperator.active(dto.getId().toString());
+        }
+        return workerOperator.inactive(dto.getId().toString());
     }
 
     @Override

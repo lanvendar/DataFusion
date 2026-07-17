@@ -14,13 +14,13 @@ export const defaultFilter: WorkerRegistryPageOption = {
 };
 
 export const workerStatusOptions = [
-  { label: "下线", value: 0 },
-  { label: "上线", value: 1 },
+  { label: "离线", value: 0 },
+  { label: "在线", value: 1 },
 ];
 
 export const activeOptions = [
-  { label: "有效", value: 1 },
-  { label: "无效", value: 0 },
+  { label: "启用", value: 1 },
+  { label: "禁用", value: 0 },
 ];
 
 export const demoWorkerRows: WorkerRegistryItem[] = [

@@ -64,7 +64,7 @@
 | `TaskResultHandler` | `asyncHandle` | worker 异步结果回调 |
 | `WorkerStorage` | `getWorker` / `getWorkers` / `updateWorker` / `register` / `heartbeat` / `offline` / `offlineAllWorkers` / `timeoutOffline` / `active` / `inactive` / `delete` / `getTaskInsByWorkerId` | worker 存储 |
 | `WorkerListener` | `register` / `heartbeat` / `offline` / `timeoutOffline` / `getTaskInsByWorkerId` / `getWorker` / `lookupWorker` | agent 生命周期和 worker 选择 |
-| `WorkerOperator` | `active` / `inactive` / `delete` | worker 人工操作 |
+| `WorkerOperator` | `active` / `inactive` / `delete` | worker 人工操作，均返回操作是否成功 |
 
 ## 前端数据模型
 

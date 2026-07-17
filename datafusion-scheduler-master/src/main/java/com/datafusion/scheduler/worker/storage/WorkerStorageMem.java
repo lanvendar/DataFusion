@@ -120,13 +120,13 @@ public class WorkerStorageMem implements WorkerStorage {
     }
 
     @Override
-    public Worker active(String workerId) {
-        return getWorker(workerId);
+    public boolean active(String workerId) {
+        return getWorker(workerId) != null;
     }
 
     @Override
-    public Worker inactive(String workerId) {
-        return getWorker(workerId);
+    public boolean inactive(String workerId) {
+        return getWorker(workerId) != null;
     }
 
     @Override

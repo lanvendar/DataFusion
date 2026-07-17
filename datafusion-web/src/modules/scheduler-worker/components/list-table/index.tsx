@@ -9,13 +9,20 @@ import { useWorkerRegistryListQuery } from "./use-list-query";
 
 interface WorkerRegistryListTableProps {
   loading?: boolean;
+  activeLoading?: boolean;
+  activeWorkerId?: string;
   onAction: (action: PageActionEnum, record?: WorkerRegistryItem) => void;
 }
 
-export function WorkerRegistryListTable({ loading, onAction }: WorkerRegistryListTableProps) {
+export function WorkerRegistryListTable({
+  loading,
+  activeLoading,
+  activeWorkerId,
+  onAction,
+}: WorkerRegistryListTableProps) {
   const { filter, setFilter, query, search, reset, setCurrent, setPageSize } =
     useWorkerRegistryListQuery();
-  const columns = useColumns({ onAction });
+  const columns = useColumns({ activeLoading, activeWorkerId, onAction });
   const pagination = getPagination(query.data);
 
   const handleTableChange = (next: TablePaginationConfig) => {

@@ -40,6 +40,11 @@ public class WorkerStorageImpl implements WorkerStorage {
     private static final int ACTIVE = 1;
 
     /**
+     * 无效标记.
+     */
+    private static final int INACTIVE = 0;
+
+    /**
      * worker 注册Mapper.
      */
     private final WorkerRegistryMapper workerRegistryMapper;
@@ -148,13 +153,13 @@ public class WorkerStorageImpl implements WorkerStorage {
     }
 
     @Override
-    public Worker active(String workerId) {
+    public boolean active(String workerId) {
         return updateActive(workerId, ACTIVE);
     }
 
     @Override
-    public Worker inactive(String workerId) {
-        return updateActive(workerId, 0);
+    public boolean inactive(String workerId) {
+        return updateActive(workerId, INACTIVE);
     }
 
     @Override
@@ -270,15 +275,16 @@ public class WorkerStorageImpl implements WorkerStorage {
         return UUID.nameUUIDFromBytes(workerCode.trim().getBytes(StandardCharsets.UTF_8));
     }
 
-    private Worker updateActive(String workerId, int active) {
-        WorkerRegistryEntity entity = getWorkerById(workerId);
-        if (entity == null) {
-            return null;
+    private boolean updateActive(String workerId, int active) {
+        UUID id = parseWorkerId(workerId);
+        if (id == null) {
+            return false;
         }
+        WorkerRegistryEntity entity = new WorkerRegistryEntity();
+        entity.setId(id);
         entity.setIsActive(active);
         fillSystemUpdateAudit(entity);
-        workerRegistryMapper.updateById(entity);
-        return toWorker(entity);
+        return workerRegistryMapper.updateById(entity) > 0;
     }
 
     private boolean isUnfinished(TaskInstanceEntity entity) {

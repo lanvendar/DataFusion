@@ -39,7 +39,7 @@ export function WorkerRegistryFilters({
       <Select
         allowClear
         className="filter-select"
-        placeholder="状态"
+        placeholder="在线状态"
         value={value.status}
         options={workerStatusOptions}
         onChange={(status) => onChange({ ...value, status })}
@@ -54,7 +54,7 @@ export function WorkerRegistryFilters({
       <Select
         allowClear
         className="filter-select"
-        placeholder="有效标记"
+        placeholder="调度状态"
         value={value.isActive}
         options={activeOptions}
         onChange={(isActive) => onChange({ ...value, isActive })}

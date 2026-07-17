@@ -1,7 +1,5 @@
 package com.datafusion.scheduler.worker;
 
-import com.datafusion.scheduler.model.Worker;
-
 /**
  * 工作节点人工操作接口.
  *
@@ -15,17 +13,17 @@ public interface WorkerOperator {
      * 将 worker 标记为有效.
      *
      * @param workerId worker ID
-     * @return 更新后的 worker
+     * @return 是否更新成功
      */
-    Worker active(String workerId);
+    boolean active(String workerId);
 
     /**
      * 将 worker 标记为无效.
      *
      * @param workerId worker ID
-     * @return 更新后的 worker
+     * @return 是否更新成功
      */
-    Worker inactive(String workerId);
+    boolean inactive(String workerId);
 
     /**
      * 删除 worker.

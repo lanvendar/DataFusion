@@ -3,6 +3,7 @@ package com.datafusion.manager.scheduler.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
+import com.datafusion.manager.scheduler.dto.WorkerRegistryActiveDto;
 import com.datafusion.manager.scheduler.dto.WorkerRegistryDto;
 import com.datafusion.manager.scheduler.dto.WorkerRegistryQueryDto;
 import com.datafusion.manager.scheduler.dto.WorkerRegistrySaveDto;
@@ -60,6 +61,14 @@ public interface WorkerRegistryService extends IService<WorkerRegistryEntity> {
      * @return 是否成功
      */
     boolean updateWorkerRegistry(WorkerRegistryUpdateDto dto);
+
+    /**
+     * 启用或禁用 worker 调度.
+     *
+     * @param dto 启停参数
+     * @return 是否成功
+     */
+    boolean updateWorkerActive(WorkerRegistryActiveDto dto);
 
     /**
      * 删除 worker 注册信息.

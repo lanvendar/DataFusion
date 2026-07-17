@@ -22,7 +22,8 @@ API 前缀：`/api/scheduler/worker`
 | `POST` | `/page` | 分页查询执行节点 |
 | `POST` | `/list` | 查询执行节点列表 |
 | `POST` | `/add` | 新增执行节点 |
-| `POST` | `/update` | 修改执行节点 |
+| `POST` | `/update` | 修改执行节点区域和备注 |
+| `POST` | `/active` | 启用或禁用执行节点调度 |
 | `GET` | `/{id}` | 查询执行节点详情 |
 | `DELETE` | `/{id}` | 真删除执行节点，前端必须二次确认 |
 
@@ -36,7 +37,7 @@ agent 注册、心跳、下线走内部接口：`/internal/schedule/worker/*`。
 - 调度可用节点必须满足 `isActive=1`、`status=1`，并且插件能力包含任务需要的 `pluginType`。
 - agent 注册只按 `workerCode` 定位旧记录；如果记录存在，不论 `isActive=1/0`，都刷新运行信息并置为上线，但不覆盖已有 `isActive`。
 - agent 心跳和主动下线只按 `id` 定位节点，避免重启后错误复活其他节点。
-- agent 注册可以刷新节点状态、插件能力和心跳时间；人工维护在线节点的地址或编码可能被后续注册覆盖。
+- 记录注册后，`workerCode`、主机、端口、插件能力、服务日志目录和运行状态由 agent 注册及心跳维护，页面编辑时只读展示。
 - `isActive` 是人工调度开关，注册和心跳不得覆盖已有记录的 `isActive`。
 - `status` 是系统运行态，不允许页面新增或修改；仅由注册、心跳、主动下线、manager 启动下线和心跳超时扫描维护。
 - `WorkerHeartbeatMonitorJob` 每 `datafusion.scheduler.worker.heartbeat-check-interval-ms` 扫描在线节点，默认 30000ms；当 `lastHeartbeatTime` 早于当前时间减 `datafusion.scheduler.worker.heartbeat-timeout-ms` 时标记为下线，默认超时 180000ms。
@@ -45,10 +46,11 @@ agent 注册、心跳、下线走内部接口：`/internal/schedule/worker/*`。
 ## 页面规则
 
 - 菜单：调度中心 / 执行节点管理。
-- 查询支持节点编码、主机名称、IP、状态、区域和有效标记。
-- 表格展示节点编码、主机、地址、端口、状态、插件能力、区域、心跳时间和更新时间。
-- `plugins` 使用逗号分隔文本维护和展示，不拆成多选字典。
-- 页面通过新增/编辑表单维护 `isActive`，用于控制节点是否可执行任务。
+- 查询支持节点编码、主机名称、IP、在线状态、区域和调度状态。
+- 表格分别展示 Agent 在线状态 `status` 和是否参与调度 `isActive`，不合并两者语义。
+- `plugins` 使用逗号分隔文本展示，新增时可录入，注册后不在编辑表单中维护。
+- 编辑表单只维护区域和备注；节点编码、主机、IP、端口、插件能力及在线状态只读展示。
+- `isActive` 通过独立的“启用/禁用”操作维护，不与普通编辑混用；禁用只阻止新任务调度，不影响已有任务的停止、终止和完成处理。
 - 页面不允许手动修改 `status`。
 - 删除操作必须二次确认，确认后真删除数据库记录。
 
@@ -56,7 +58,7 @@ agent 注册、心跳、下线走内部接口：`/internal/schedule/worker/*`。
 
 - `WorkerStorageImpl` 将数据库注册表适配为 master 的 `WorkerStorage`。
 - `WorkerRpcProvider` 通过 `WorkerManager` 处理 agent 注册、心跳和下线。
-- `WorkerOperator` 处理 UI 删除操作，不与 agent 生命周期接口混用。
+- `WorkerOperator` 处理 UI 启用、禁用和删除操作，不与 agent 生命周期接口混用。
 - `WorkerRegistryService` 只服务执行节点管理页面；master 运行时生命周期不经过该 UI 服务。
 - manager 启动时调用 `WorkerManager.offlineAllWorkers()` 将已有上线节点置为下线，并由运行中心跳超时扫描兜底；节点需要等待 agent 注册或心跳后再参与调度。
 - agent 注册成功后按返回的 `Worker.id` 请求属于自己的未完成任务清单，再结合本地 `.snap/.state` 恢复监听；agent 不扫描全部 `taskRuntimeDir` 作为恢复来源。

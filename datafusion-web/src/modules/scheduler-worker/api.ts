@@ -1,6 +1,7 @@
 import { request } from "@/api/http";
 import type {
   WorkerRegistryItem,
+  WorkerRegistryActiveReq,
   WorkerRegistryPageReq,
   WorkerRegistryPageRes,
   WorkerRegistrySaveReq,
@@ -32,6 +33,10 @@ export const workerRegistryApi = {
 
   update(params: WorkerRegistryUpdateReq): Promise<boolean> {
     return request<boolean>({ url: `${prefix}/update`, method: "POST", data: params });
+  },
+
+  active(params: WorkerRegistryActiveReq): Promise<boolean> {
+    return request<boolean>({ url: `${prefix}/active`, method: "POST", data: params });
   },
 
   detail(id: string): Promise<WorkerRegistryItem> {

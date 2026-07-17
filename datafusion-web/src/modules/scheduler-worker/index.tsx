@@ -30,6 +30,17 @@ export default function SchedulerWorkerPage() {
     },
   });
 
+  const activeMutation = useMutation({
+    mutationFn: workerRegistryApi.active,
+    onSuccess: (_, variables) => {
+      message.success(variables.isActive === 1 ? "启用成功" : "禁用成功");
+      refreshList();
+    },
+    onError: (error) => {
+      message.error(error instanceof Error ? error.message : "操作失败");
+    },
+  });
+
   const openForm = useCallback((mode: WorkerRegistryFormMode, record?: WorkerRegistryItem) => {
     setFormMode(mode);
     setCurrentRecord(record);
@@ -45,6 +56,14 @@ export default function SchedulerWorkerPage() {
         case PageActionEnum.EDIT:
           openForm("edit", record);
           break;
+        case PageActionEnum.ACTIVE:
+          if (record?.id) {
+            activeMutation.mutate({
+              id: record.id,
+              isActive: record.isActive === 1 ? 0 : 1,
+            });
+          }
+          break;
         case PageActionEnum.DELETE:
           if (record?.id) deleteMutation.mutate(record.id);
           break;
@@ -52,7 +71,7 @@ export default function SchedulerWorkerPage() {
           break;
       }
     },
-    [deleteMutation, openForm],
+    [activeMutation, deleteMutation, openForm],
   );
 
   return (
@@ -63,7 +82,12 @@ export default function SchedulerWorkerPage() {
         description="查看和维护调度执行节点注册状态、心跳时间、插件能力和运行元信息。"
       />
 
-      <WorkerRegistryListTable loading={deleteMutation.isPending} onAction={onAction} />
+      <WorkerRegistryListTable
+        loading={deleteMutation.isPending}
+        activeLoading={activeMutation.isPending}
+        activeWorkerId={activeMutation.variables?.id}
+        onAction={onAction}
+      />
 
       <WorkerRegistryForm
         open={formOpen}

@@ -136,17 +136,13 @@ public class CachedWorkerStorage implements WorkerStorage {
     }
 
     @Override
-    public Worker active(String workerId) {
-        Worker worker = workerStorage.active(workerId);
-        refreshCache(worker);
-        return worker;
+    public boolean active(String workerId) {
+        return workerStorage.active(workerId);
     }
 
     @Override
-    public Worker inactive(String workerId) {
-        Worker worker = workerStorage.inactive(workerId);
-        refreshCache(worker);
-        return worker;
+    public boolean inactive(String workerId) {
+        return workerStorage.inactive(workerId);
     }
 
     @Override

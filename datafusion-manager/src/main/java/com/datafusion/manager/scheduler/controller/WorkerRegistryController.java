@@ -3,6 +3,7 @@ package com.datafusion.manager.scheduler.controller;
 import com.datafusion.common.spring.dto.request.page.PageQuery;
 import com.datafusion.common.spring.dto.response.PageResponse;
 import com.datafusion.common.spring.dto.response.Result;
+import com.datafusion.manager.scheduler.dto.WorkerRegistryActiveDto;
 import com.datafusion.manager.scheduler.dto.WorkerRegistryDto;
 import com.datafusion.manager.scheduler.dto.WorkerRegistryQueryDto;
 import com.datafusion.manager.scheduler.dto.WorkerRegistrySaveDto;
@@ -87,6 +88,18 @@ public class WorkerRegistryController {
     @Operation(summary = "修改worker")
     public Result<Boolean> update(@RequestBody @Validated WorkerRegistryUpdateDto dto) {
         return Result.success(workerRegistryService.updateWorkerRegistry(dto));
+    }
+
+    /**
+     * 启用或禁用 worker 调度.
+     *
+     * @param dto 启停参数
+     * @return 是否成功
+     */
+    @PostMapping("/active")
+    @Operation(summary = "启用或禁用worker调度")
+    public Result<Boolean> active(@RequestBody @Validated WorkerRegistryActiveDto dto) {
+        return Result.success(workerRegistryService.updateWorkerActive(dto));
     }
 
     /**
