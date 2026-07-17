@@ -6,7 +6,6 @@ import com.datafusion.agent.runtime.worker.plugin.flink.FlinkParamResolver;
 import com.datafusion.agent.runtime.worker.plugin.flink.FlinkPluginTaskExecutor;
 import com.datafusion.agent.runtime.worker.plugin.flink.FlinkRunMode;
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
@@ -74,7 +73,7 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
                     state.getTaskInstanceId(), state.getAppId(), taskState);
             return StatusEnum.UNKNOWN;
         }
-        FlinkExecutionParam param = paramResolver.resolve(taskRequest(snapshot));
+        FlinkExecutionParam param = paramResolver.resolve(snapshot, state.getWorkDirPath());
         FlinkKubernetesRuntimeRef runtimeRef = runtimeRef(param, state);
         FlinkOperatorStatus operatorStatus = operatorClient.queryStatus(runtimeRef);
         return mapOperatorStatus(operatorStatus, state, runtimeRef);
@@ -85,9 +84,9 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
         if (isFinalized(state)) {
             return false;
         }
-        FlinkExecutionParam param = paramResolver.resolve(taskRequest(snapshot));
+        FlinkExecutionParam param = paramResolver.resolve(snapshot, state.getWorkDirPath());
         FlinkKubernetesRuntimeRef runtimeRef = runtimeRef(param, state);
-        String pluginLogUri = collectLogs(state, param, runtimeRef);
+        String pluginLogUri = collectLogs(state, runtimeRef);
         ObjectNode result = PluginResultJson.build("FLINK_K8S_OPERATOR Flink task finished", pluginType(), runMode(),
                 pluginLogUri, null);
         result.put("flinkWebUiUri", runtimeRef.getFlinkWebUiUri());
@@ -230,8 +229,7 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
         return operatorClient.runtimePodsExist(runtimeRef) ? StatusEnum.KILLING : StatusEnum.KILLED;
     }
 
-    private String collectLogs(WorkerTaskExecutionState state, FlinkExecutionParam param,
-            FlinkKubernetesRuntimeRef runtimeRef) {
+    private String collectLogs(WorkerTaskExecutionState state, FlinkKubernetesRuntimeRef runtimeRef) {
         if (!isBlank(runtimeRef.getLogStorageUri())) {
             return runtimeRef.getLogStorageUri();
         }
@@ -240,7 +238,7 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
         }
         try {
             String logs = operatorClient.collectLogs(runtimeRef);
-            Path logFile = taskRuntimeDir(state, param).resolve("k8s-flink.log");
+            Path logFile = Path.of(state.getWorkDirPath()).resolve("k8s-flink.log");
             Files.createDirectories(logFile.getParent());
             Files.writeString(logFile, logs, StandardCharsets.UTF_8);
             return logFile.toString();
@@ -248,25 +246,6 @@ public class K8sOperatorRunModeStateMapping implements PluginRunModeStateMapping
             log.warn("采集K8S_OPERATOR Flink日志失败, taskInstanceId={}", state.getTaskInstanceId(), e);
             return firstText(pluginLogUri(state), pluginLogUri(runtimeRef));
         }
-    }
-
-    private Path taskRuntimeDir(WorkerTaskExecutionState state, FlinkExecutionParam param) {
-        if (!isBlank(state.getWorkDirPath())) {
-            return Path.of(state.getWorkDirPath());
-        }
-        return param.getWorkDir();
-    }
-
-    private TaskRequest taskRequest(WorkerTaskExecutionSnap snapshot) {
-        TaskRequest request = new TaskRequest();
-        request.setFlowInstanceId(snapshot.getFlowInstanceId());
-        request.setTaskInstanceId(snapshot.getTaskInstanceId());
-        request.setTaskName(snapshot.getTaskName());
-        request.setPluginType(snapshot.getPluginType());
-        request.setRunMode(snapshot.getRunMode());
-        request.setTaskData(snapshot.getTaskData());
-        request.setPluginParam(snapshot.getPluginParam());
-        return request;
     }
 
     private String pluginLogUri(FlinkKubernetesRuntimeRef runtimeRef) {

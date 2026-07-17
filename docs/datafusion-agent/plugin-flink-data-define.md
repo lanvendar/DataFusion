@@ -19,10 +19,10 @@ Manager 侧继续复用 `scheduler_task_info.definition`、`scheduler_task_insta
 | `TaskRequest.taskData` | Manager 任务定义与实例上下文 | Manager | Manager | 单次调度请求；agent 保存到 `.snap` | 与 `defaultTaskData` 合并为 `effectiveTaskData` |
 | `effectiveTaskData` | Agent 参数解析 | Agent | Agent | 单次任务运行期 | 写入本地 `flink-job.json` |
 | `flinkConfig` | Agent 参数解析 | Agent | Agent | 单次任务运行期 | 写回 `effectiveTaskData.flinkConfig` 并渲染到 `FlinkDeployment` |
-| `FlinkExecutionParam` | Agent 参数解析 | Agent | Agent | 单次 submit / control / status 操作内存对象 | 执行器消费后转为 `.state` 与 Kubernetes 资源；`.snap` 由 Service 保存 |
+| `FlinkExecutionParam` | Agent 参数解析 | Agent | Agent | 单次 submit / control / status 操作内存对象 | 执行器消费后转为 Kubernetes 资源和 `WorkerResult`；`.snap/.state` 由 Worker 框架保存 |
 | `FlinkKubernetesRuntimeRef` | `.snap + .state` 重建 | Agent | Agent | 单次状态查询或控制动作 | 用于查询、停止、强杀、清理 Kubernetes 资源 |
-| `.snap` | `WorkerTaskService.submitTask` | Agent | Agent | 任务运行期 | agent finish / destroy 流程清理；Flink 执行器不重复覆盖 |
-| `.state` | 执行器与状态监听器 | Agent | Agent | 任务运行期 | 终态上报后由 agent 流程清理 |
+| `.snap` | `WorkerService.submitTask` | Agent | Worker 框架 | 任务运行期 | finish 成功后清理；Flink 执行器不读写 Store |
+| `.state` | `WorkerTaskStateCoordinator` | Agent | Worker 框架 | 任务运行期 | 动作结果和映射结果统一经过 revision CAS；finish 成功后清理 |
 
 Agent 不回写 Manager 的 `pluginParam` 或 `taskData`。
 
@@ -35,7 +35,7 @@ Agent 不回写 Manager 的 `pluginParam` 或 `taskData`。
 | `FlinkKubernetesParam` | `namespace`, `deploymentName`, `image`, `imagePullPolicy`, `serviceAccountName`, `sharedPvcName`, `sharedMountPath`, `flinkAppDir`, `flinkAppJar`, `jarUri`, `mainClass`, `flinkVersion`, `libDir`, `jobParallelism`, `upgradeMode`, `jobState`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish`, `labels`, `annotations`, `env`, `envFrom`, `jobManager`, `taskManager`, `nodeSelector` | 单次任务 | `upgradeMode` 来自配置；`jobState` 由 Agent 动作生成，用于渲染 `FlinkDeployment` |
 | `FlinkKubernetesRuntimeRef` | `namespace`, `deploymentName`, `podLabelSelector`, `logStorageUri`, `flinkWebUiUri`, `collectLogsOnFinish`, `deleteDeploymentOnFinish` | 状态查询 / 控制动作 | 从 `.snap + .state` 重建 |
 | `FlinkOperatorStatus` | `state`, `desiredState`, `jobManagerState`, `deploymentExists`, `generation`, `observedGeneration` | 单次状态查询 | FlinkDeployment spec/status 事实；不保存 DataFusion 控制指令 |
-| `FlinkTaskResult` | `status`, `appId`, `workDirPath`, `result` | 单次动作 | 转换为 `TaskResult.workerResult` |
+| `WorkerResult` | `appId`, `workDirPath`, `message`, `pluginLogUri`, `outputVars` | 单次动作 | Flink 执行器返回既有公共结果；不携带状态和 revision |
 
 ## 4. `pluginParam`
 

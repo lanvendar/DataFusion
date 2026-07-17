@@ -1,8 +1,8 @@
 package com.datafusion.scheduler.worker.context;
 
-import com.datafusion.scheduler.model.TaskRequest;
-import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Worker 任务执行状态存储接口.
@@ -17,8 +17,9 @@ public interface WorkerTaskExecutionStore {
      * 记录任务提交快照.
      *
      * @param snapshot 任务提交快照
+     * @return 任务工作目录
      */
-    void saveSnapshot(WorkerTaskExecutionSnap snapshot);
+    String saveSnapshot(WorkerTaskExecutionSnap snapshot);
 
     /**
      * 按任务实例 ID 读取任务提交快照.
@@ -48,12 +49,14 @@ public interface WorkerTaskExecutionStore {
     Optional<WorkerTaskExecutionState> readState(String taskInstanceId);
 
     /**
-     * 恢复待监听任务.
+     * 从指定任务实例中恢复本地执行记录.
      *
-     * @param requests 任务请求清单
+     * <p>实现只返回本地 {@code .snap} 和 {@code .state} 均存在且加载成功的任务实例 ID。
+     *
+     * @param taskInstanceIds 待恢复任务实例 ID
+     * @return 成功恢复的任务实例 ID
      */
-    default void restoreListeningTasks(List<TaskRequest> requests) {
-    }
+    Set<String> restoreExecutions(Collection<String> taskInstanceIds);
 
     /**
      * 删除任务执行记录.

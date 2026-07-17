@@ -1,15 +1,11 @@
 package com.datafusion.agent.runtime;
 
 import com.datafusion.agent.config.AgentProperties;
-import com.datafusion.agent.rpc.ManagerClient;
-import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateListenerRegistry;
 import com.datafusion.common.constant.SystemConstant;
-import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.Worker;
-import com.datafusion.scheduler.worker.plugin.WorkerTaskOperatorRouter;
+import com.datafusion.scheduler.worker.WorkerService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -18,161 +14,101 @@ import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /**
- * Agent 生命周期管理.
+ * Agent Spring 生命周期适配器.
+ *
+ * <p>本类只把 Agent 配置转换为初始 Worker，并将启动、恢复、心跳和停止委托给 {@link WorkerService}。
  *
  * @author datafusion
- * @version 1.0.0, 2026/6/2
+ * @version 1.0.0, 2026/7/18
  * @since 1.0.0
  */
 @Slf4j
 @Component
 public class AgentLifecycle implements ApplicationRunner, DisposableBean {
 
-    /**
-     * agent 配置.
-     */
+    /** Agent 配置. */
     private final AgentProperties properties;
 
-    /**
-     * manager client.
-     */
-    private final ManagerClient managerClient;
+    /** Worker 子系统入口. */
+    private final WorkerService workerService;
 
     /**
-     * agent 运行状态.
-     */
-    private final AgentRuntimeState runtimeState;
-
-    /**
-     * 插件路由.
-     */
-    private final WorkerTaskOperatorRouter router;
-
-    /**
-     * 心跳调度器.
-     */
-    private final ScheduledExecutorService heartbeatScheduler;
-
-    /**
-     * 任务状态上报计划.
-     */
-    private final AgentTaskStateListenerRegistry taskStateListenerRegistry;
-
-    /**
-     * worker 本地配置存储.
-     */
-    private final AgentWorkerConfigStore workerConfigStore;
-
-    /**
-     * 构造函数.
+     * 创建 Agent 生命周期适配器.
      *
-     * @param properties    agent 配置
-     * @param managerClient manager client
-     * @param runtimeState  agent 运行状态
-     * @param router        插件路由
-     * @param heartbeatScheduler 心跳调度器
-     * @param taskStateListenerRegistry 任务状态监听注册器
-     * @param workerConfigStore worker 本地配置存储
+     * @param properties    Agent 配置
+     * @param workerService Worker 子系统入口
      */
-    public AgentLifecycle(AgentProperties properties, ManagerClient managerClient, AgentRuntimeState runtimeState,
-            WorkerTaskOperatorRouter router, @Qualifier("agentHeartbeatScheduler") ScheduledExecutorService heartbeatScheduler,
-            AgentTaskStateListenerRegistry taskStateListenerRegistry, AgentWorkerConfigStore workerConfigStore) {
+    public AgentLifecycle(AgentProperties properties, WorkerService workerService) {
         this.properties = properties;
-        this.managerClient = managerClient;
-        this.runtimeState = runtimeState;
-        this.router = router;
-        this.heartbeatScheduler = heartbeatScheduler;
-        this.taskStateListenerRegistry = taskStateListenerRegistry;
-        this.workerConfigStore = workerConfigStore;
+        this.workerService = workerService;
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        initWorker();
-        long interval = Math.max(properties.getManager().getHeartbeatIntervalMs(), 1000L);
-        heartbeatScheduler.scheduleWithFixedDelay(this::registerOrHeartbeat, 0L, interval, TimeUnit.MILLISECONDS);
+        workerService.start(createWorker());
     }
 
     @Override
     public void destroy() {
-        Worker worker = runtimeState.getWorker();
-        if (worker != null && runtimeState.isReady()) {
-            managerClient.offline(offlineWorker(worker));
-        }
-        runtimeState.setReady(false);
+        workerService.stop();
     }
 
-    private void initWorker() {
+    private Worker createWorker() {
+        AgentProperties.Worker config = properties.getWorker();
+        String ip = firstText(config.getIp(), localAddress(), config.getDefaultIp());
+        String hostName = firstText(config.getHostName(), localHostName(), config.getDefaultHostName());
+        String workerCode = config.getWorkerCode();
+        if (isBlank(workerCode) && !isBlank(hostName) && !isBlank(ip) && config.getPort() != null) {
+            String identity = hostName + SystemConstant.COLON + ip + SystemConstant.COLON + config.getPort();
+            workerCode = UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8)).toString();
+        }
+
+        long now = System.currentTimeMillis();
         Worker worker = new Worker();
-        final long now = System.currentTimeMillis();
-        AgentProperties.Worker workerProperties = properties.getWorker();
-        String resolvedIp = resolveIp(workerProperties);
-        String resolvedHostName = resolveHostName(workerProperties);
-        Integer port = workerProperties.getPort();
-        worker.setWorkerCode(resolveWorkerCode(workerProperties, resolvedHostName, resolvedIp, port));
-        mergeLocalWorker(worker);
-        worker.setIp(firstNonBlank(resolvedIp, workerProperties.getDefaultIp()));
-        worker.setPort(workerProperties.getPort());
-        worker.setHostName(firstNonBlank(resolvedHostName, workerProperties.getDefaultHostName()));
-        worker.setPluginTypes(resolvePluginTypes(workerProperties));
+        worker.setWorkerCode(firstText(workerCode, config.getDefaultWorkerCode()));
+        worker.setIp(ip);
+        worker.setPort(config.getPort());
+        worker.setHostName(hostName);
+        worker.setPluginTypes(resolvePluginTypes(config.getPluginTypes()));
         worker.setStatus(Worker.STATUS_UP);
         worker.setRegisterTime(now);
         worker.setLastHeartbeatTime(now);
-        worker.setWorkerLogDir(resolveWorkerLogDir());
+        worker.setWorkerLogDir(config.getWorkerLogDir());
         worker.setUpdateTime(now);
-        runtimeState.setWorker(worker);
-        runtimeState.setPluginTypes(worker.getPluginTypes());
+        return worker;
     }
 
-    private void registerOrHeartbeat() {
-        Worker worker = runtimeState.getWorker();
-        if (worker == null) {
-            return;
+    private List<String> resolvePluginTypes(String configuredTypes) {
+        Set<String> loadedTypes = workerService.pluginTypes();
+        if (isBlank(configuredTypes)) {
+            return new ArrayList<>(loadedTypes);
         }
-        boolean wasReady = runtimeState.isReady();
-        long now = System.currentTimeMillis();
-        worker.setLastHeartbeatTime(now);
-        worker.setWorkerLogDir(resolveWorkerLogDir());
-        worker.setUpdateTime(now);
-        Worker savedWorker = wasReady ? managerClient.heartbeat(heartbeatWorker(worker)) : managerClient.register(worker);
-        boolean success = savedWorker != null;
-        if (success) {
-            mergeSavedWorker(worker, savedWorker);
-            workerConfigStore.save(worker);
-            if (!wasReady) {
-                // 恢复完成前保持未就绪，确保 restoreTasks 无需与任务控制接口并发。
-                success = restoreWorkerTasks(worker);
+        List<String> resolved = new ArrayList<>();
+        List<String> unknown = new ArrayList<>();
+        for (String item : configuredTypes.split(SystemConstant.COMMA)) {
+            String pluginType = item == null ? null : item.trim();
+            if (isBlank(pluginType)) {
+                continue;
+            }
+            String loadedType = loadedTypes.stream()
+                    .filter(type -> type.equalsIgnoreCase(pluginType)).findFirst().orElse(null);
+            if (loadedType != null && !resolved.contains(loadedType)) {
+                resolved.add(loadedType);
+            } else if (loadedType == null) {
+                unknown.add(pluginType);
             }
         }
-        runtimeState.setReady(success);
-        if (!success) {
-            log.warn("agent 注册、心跳或任务恢复失败, workerId={}", worker.getId());
+        if (!unknown.isEmpty()) {
+            log.warn("worker插件类型配置包含未加载插件, configured={}, loaded={}", unknown, loadedTypes);
         }
+        return resolved;
     }
 
-    private String resolveWorkerCode(AgentProperties.Worker workerProperties, String hostName, String ip, Integer port) {
-        if (workerProperties.getWorkerCode() != null && !workerProperties.getWorkerCode().trim().isEmpty()) {
-            return workerProperties.getWorkerCode().trim();
-        }
-        if (isNotBlank(hostName) && isNotBlank(ip) && port != null) {
-            String source = hostName + SystemConstant.COLON + ip + SystemConstant.COLON + port;
-            return UUID.nameUUIDFromBytes(source.getBytes(StandardCharsets.UTF_8)).toString();
-        }
-        return workerProperties.getDefaultWorkerCode();
-    }
-
-    private String resolveIp(AgentProperties.Worker workerProperties) {
-        if (workerProperties.getIp() != null && !workerProperties.getIp().trim().isEmpty()) {
-            return workerProperties.getIp();
-        }
+    private String localAddress() {
         try {
             return InetAddress.getLocalHost().getHostAddress();
         } catch (Exception e) {
@@ -180,10 +116,7 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         }
     }
 
-    private String resolveHostName(AgentProperties.Worker workerProperties) {
-        if (workerProperties.getHostName() != null && !workerProperties.getHostName().trim().isEmpty()) {
-            return workerProperties.getHostName();
-        }
+    private String localHostName() {
         try {
             return InetAddress.getLocalHost().getHostName();
         } catch (Exception e) {
@@ -191,110 +124,16 @@ public class AgentLifecycle implements ApplicationRunner, DisposableBean {
         }
     }
 
-    private String resolveWorkerLogDir() {
-        return properties.getWorker().getWorkerLogDir();
-    }
-
-    private List<String> resolvePluginTypes(AgentProperties.Worker workerProperties) {
-        List<String> loadedPluginTypes = new ArrayList<>(router.pluginTypes());
-        if (!isNotBlank(workerProperties.getPluginTypes())) {
-            return loadedPluginTypes;
-        }
-        Set<String> loadedPluginTypeSet = router.pluginTypes();
-        List<String> configuredPluginTypes = parsePluginTypes(workerProperties.getPluginTypes());
-        List<String> pluginTypes = configuredPluginTypes.stream()
-                .filter(loadedPluginTypeSet::contains)
-                .collect(Collectors.toList());
-        List<String> unknownPluginTypes = configuredPluginTypes.stream()
-                .filter(pluginType -> !loadedPluginTypeSet.contains(pluginType))
-                .collect(Collectors.toList());
-        if (!unknownPluginTypes.isEmpty()) {
-            log.warn("worker插件类型配置包含未加载插件, configured={}, loaded={}",
-                    unknownPluginTypes, loadedPluginTypes);
-        }
-        return pluginTypes;
-    }
-
-    private List<String> parsePluginTypes(String pluginTypes) {
-        String[] parts = pluginTypes.split(SystemConstant.COMMA);
-        List<String> result = new ArrayList<>();
-        for (String part : parts) {
-            String pluginType = part == null ? null : part.trim();
-            if (isNotBlank(pluginType) && !result.contains(pluginType)) {
-                result.add(pluginType);
+    private String firstText(String... values) {
+        for (String value : values) {
+            if (!isBlank(value)) {
+                return value.trim();
             }
         }
-        return result;
+        return null;
     }
 
-    private boolean isNotBlank(String value) {
-        return value != null && !value.trim().isEmpty();
-    }
-
-    private String firstNonBlank(String first, String second) {
-        return isNotBlank(first) ? first : second;
-    }
-
-    private void mergeSavedWorker(Worker worker, Worker savedWorker) {
-        if (savedWorker.getId() != null) {
-            worker.setId(savedWorker.getId());
-        }
-        if (savedWorker.getWorkerCode() != null) {
-            worker.setWorkerCode(savedWorker.getWorkerCode());
-        }
-        if (savedWorker.getRegisterTime() != null) {
-            worker.setRegisterTime(savedWorker.getRegisterTime());
-        }
-        if (savedWorker.getLastHeartbeatTime() != null) {
-            worker.setLastHeartbeatTime(savedWorker.getLastHeartbeatTime());
-        }
-        if (savedWorker.getWorkerLogDir() != null) {
-            worker.setWorkerLogDir(savedWorker.getWorkerLogDir());
-        }
-        if (savedWorker.getUpdateTime() != null) {
-            worker.setUpdateTime(savedWorker.getUpdateTime());
-        }
-    }
-
-    private void mergeLocalWorker(Worker worker) {
-        Worker localWorker = workerConfigStore.load();
-        if (localWorker == null || !worker.getWorkerCode().equals(localWorker.getWorkerCode())) {
-            return;
-        }
-        worker.setId(localWorker.getId());
-        if (localWorker.getRegisterTime() != null) {
-            worker.setRegisterTime(localWorker.getRegisterTime());
-        }
-    }
-
-    private Worker heartbeatWorker(Worker worker) {
-        Worker heartbeat = new Worker();
-        heartbeat.setId(worker.getId());
-        heartbeat.setLastHeartbeatTime(worker.getLastHeartbeatTime());
-        return heartbeat;
-    }
-
-    private Worker offlineWorker(Worker worker) {
-        Worker offline = new Worker();
-        offline.setId(worker.getId());
-        return offline;
-    }
-
-    private Worker workerIdOnly(Worker worker) {
-        Worker idOnly = new Worker();
-        idOnly.setId(worker.getId());
-        return idOnly;
-    }
-
-    private boolean restoreWorkerTasks(Worker worker) {
-        if (worker == null || worker.getId() == null) {
-            return false;
-        }
-        Optional<List<TaskRequest>> tasks = managerClient.getTaskInsByWorker(workerIdOnly(worker));
-        if (tasks.isEmpty()) {
-            return false;
-        }
-        taskStateListenerRegistry.restoreTasks(tasks.get());
-        return true;
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

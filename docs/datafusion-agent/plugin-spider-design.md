@@ -39,15 +39,15 @@ DATAFUSION_WORKER_PLUGIN_TYPES=SHELL
 
 ```text
 TaskRequest(pluginType=SPIDER, runMode=LOCAL, taskData, pluginParam)
-    -> WorkerTaskOperatorRouter.route("SPIDER", "LOCAL")
+    -> WorkerService / WorkerPluginRouter.routeExecutor("SPIDER", "LOCAL")
     -> SpiderLocalPluginTaskExecutor
-    -> ShellLocalPluginTaskExecutor.validateTaskRequest / submitTask
-    -> CAS 写 WorkerTaskExecutionState(status=SUBMIT_SUCCESS, appId=pid, workDirPath=任务运行目录)
-    -> watcher 等待退出码并更新 RUN_SUCCESS / RUN_FAILURE
+    -> ShellLocalPluginTaskExecutor.validate / submitTask
+    -> WorkerTaskStateCoordinator 提交 SUBMIT_SUCCESS
+    -> watcher 通过 Coordinator 提交终态
 ```
 
-`WorkerTaskService` 保存的 `.snap.pluginType` 保持 `SPIDER`；Shell LOCAL 执行器必须使用
-`TaskRequest.pluginType` 写入结果摘要，不能硬编码为 `SHELL`。这样 SPIDER 委托 Shell 执行时，状态刷新仍能按
+`WorkerService` 保存的 `.snap.pluginType` 保持 `SPIDER`；Shell LOCAL 执行器只能在本次调用内复用当前
+`RunningTaskContext`，不得持久化临时 `SHELL` 快照。这样 SPIDER 委托 Shell 执行时，状态刷新仍能按
 `SPIDER + LOCAL` 找到 Spider 状态映射。
 
 ## 状态映射

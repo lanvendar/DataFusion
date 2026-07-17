@@ -5,12 +5,10 @@ import com.datafusion.agent.runtime.worker.plugin.spark.k8s.K8sOperatorClient;
 import com.datafusion.agent.runtime.worker.plugin.spark.k8s.SparkKubernetesParam;
 import com.datafusion.agent.runtime.worker.plugin.spark.k8s.SparkKubernetesRuntimeRef;
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.model.TaskRequest;
-import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.WorkerResult;
+import com.datafusion.scheduler.worker.context.RunningTaskContext;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
-import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -19,6 +17,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Spark 插件任务执行器.
+ *
+ * <p>执行器只修改动作级上下文中的候选运行态，不读取或写入任务执行存储。
  *
  * @author datafusion
  * @version 1.0.0, 2026/7/9
@@ -39,11 +39,6 @@ public class SparkPluginTaskExecutor implements PluginTaskExecutor {
     private final SparkParamResolver paramResolver;
 
     /**
-     * 状态存储.
-     */
-    private final WorkerTaskExecutionStore stateStore;
-
-    /**
      * Operator 客户端.
      */
     private final K8sOperatorClient operatorClient;
@@ -51,14 +46,11 @@ public class SparkPluginTaskExecutor implements PluginTaskExecutor {
     /**
      * 构造函数.
      *
-     * @param paramResolver 参数解析器
-     * @param stateStore    状态存储
+     * @param paramResolver  参数解析器
      * @param operatorClient Operator 客户端
      */
-    public SparkPluginTaskExecutor(SparkParamResolver paramResolver, WorkerTaskExecutionStore stateStore,
-            K8sOperatorClient operatorClient) {
+    public SparkPluginTaskExecutor(SparkParamResolver paramResolver, K8sOperatorClient operatorClient) {
         this.paramResolver = paramResolver;
-        this.stateStore = stateStore;
         this.operatorClient = operatorClient;
     }
 
@@ -73,121 +65,130 @@ public class SparkPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
-    public void validateTaskRequest(TaskRequest request) {
-        paramResolver.resolve(request);
+    public void validate(RunningTaskContext context) {
+        resolve(context);
     }
 
     @Override
-    public TaskResult submitTask(TaskRequest request) {
-        SparkExecutionParam param = paramResolver.resolve(request);
-        SparkTaskResult result = submit(param);
-        WorkerTaskExecutionState state = currentState(request);
-        state.setAppId(result.getAppId());
-        state.setWorkDirPath(result.getWorkDirPath());
-        state.setStatus(result.getStatus());
-        state.setResult(result.getResult());
-        stateStore.saveState(state, state.getRevision());
-        return taskResult(request, result);
+    public WorkerResult submit(RunningTaskContext context) {
+        WorkerTaskExecutionState state = context.getExecutionState();
+        if (!cleanupPreviousExecution(context)) {
+            applyResult(state, StatusEnum.SUBMIT_FAILURE, null, context.getWorkDirPath(),
+                    PluginResultJson.build("SPARK_K8S_OPERATOR cleanup before submit failed", PLUGIN_TYPE,
+                            runMode(), null, null));
+            return workerResult(state);
+        }
+        SparkExecutionParam param = resolve(context);
+        try {
+            log.info("SPARK_K8S_OPERATOR任务开始提交, taskInstanceId={}, namespace={}, applicationName={}",
+                    param.getTaskInstanceId(), param.getKubernetes().getNamespace(),
+                    param.getKubernetes().getApplicationName());
+            SparkKubernetesRuntimeRef runtimeRef = operatorClient.submit(param);
+            applyResult(state, StatusEnum.SUBMIT_SUCCESS, runtimeRef.getApplicationName(), context.getWorkDirPath(),
+                    resultJson("SPARK_K8S_OPERATOR SparkApplication submitted", runtimeRef,
+                            pluginLogUri(runtimeRef)));
+        } catch (RuntimeException e) {
+            log.warn("SPARK_K8S_OPERATOR任务提交失败, taskInstanceId={}, error={}",
+                    param.getTaskInstanceId(), e.getMessage());
+            applyResult(state, StatusEnum.SUBMIT_FAILURE, null, context.getWorkDirPath(),
+                    PluginResultJson.build(e.getMessage(), PLUGIN_TYPE, runMode(), null, null));
+        }
+        return workerResult(state);
     }
 
     @Override
-    public TaskResult stopTask(TaskRequest request) {
-        WorkerTaskExecutionState state = currentState(request);
-        TaskRequest resolvedRequest = resolveRequest(request, state);
-        SparkExecutionParam param = paramResolver.resolve(resolvedRequest);
-        SparkTaskResult result = stop(param, state);
-        recordControlResult(resolvedRequest, state, result);
-        return taskResult(resolvedRequest, result);
+    public WorkerResult stop(RunningTaskContext context) {
+        SparkExecutionParam param = resolve(context);
+        WorkerTaskExecutionState state = context.getExecutionState();
+        try {
+            operatorClient.stop(runtimeRef(param, state));
+            applyControlResult(state, StatusEnum.STOPPING, "SPARK_K8S_OPERATOR stop requested",
+                    context.getWorkDirPath());
+        } catch (RuntimeException e) {
+            log.warn("SPARK_K8S_OPERATOR停止失败, taskInstanceId={}, appId={}, error={}",
+                    param.getTaskInstanceId(), state.getAppId(), e.getMessage());
+            applyControlResult(state, StatusEnum.STOP_FAILURE,
+                    "SPARK_K8S_OPERATOR stop failed: " + e.getMessage(), context.getWorkDirPath());
+        }
+        return workerResult(state);
     }
 
     @Override
-    public TaskResult killTask(TaskRequest request) {
-        WorkerTaskExecutionState state = currentState(request);
-        TaskRequest resolvedRequest = resolveRequest(request, state);
-        SparkExecutionParam param = paramResolver.resolve(resolvedRequest);
-        SparkTaskResult result = kill(param, state);
-        recordControlResult(resolvedRequest, state, result);
-        return taskResult(resolvedRequest, result);
+    public WorkerResult kill(RunningTaskContext context) {
+        SparkExecutionParam param = resolve(context);
+        WorkerTaskExecutionState state = context.getExecutionState();
+        if (isBlank(state.getAppId())) {
+            applyControlResult(state, StatusEnum.KILLED,
+                    "SPARK_K8S_OPERATOR runtime ref not found, nothing to kill", context.getWorkDirPath());
+            return workerResult(state);
+        }
+        try {
+            operatorClient.kill(runtimeRef(param, state));
+            applyControlResult(state, StatusEnum.KILLING, "SPARK_K8S_OPERATOR kill requested",
+                    context.getWorkDirPath());
+        } catch (RuntimeException e) {
+            log.warn("SPARK_K8S_OPERATOR强杀失败, taskInstanceId={}, appId={}, error={}",
+                    param.getTaskInstanceId(), state.getAppId(), e.getMessage());
+            applyControlResult(state, StatusEnum.UNKNOWN,
+                    "SPARK_K8S_OPERATOR kill failed: " + e.getMessage(), context.getWorkDirPath());
+        }
+        return workerResult(state);
     }
 
     @Override
-    public boolean finishTask(TaskRequest request) {
-        WorkerTaskExecutionState state = currentState(request);
-        TaskRequest resolvedRequest = resolveRequest(request, state);
-        if (resolvedRequest.getPluginParam() == null) {
+    public boolean finish(RunningTaskContext context) {
+        WorkerTaskExecutionState state = context.getExecutionState();
+        if (context.getSnapshot().getPluginParam() == null || isBlank(state.getAppId())) {
             return true;
         }
-        SparkExecutionParam param = paramResolver.resolve(resolvedRequest);
-        return finish(param, state);
+        return operatorClient.cleanup(runtimeRef(resolve(context), state));
     }
 
-    private WorkerTaskExecutionState currentState(TaskRequest request) {
-        WorkerResult requestWorkerResult = request.getWorkerResult();
-        return stateStore.readState(request.getTaskInstanceId())
-                .orElseGet(() -> WorkerTaskExecutionState.builder()
-                        .taskInstanceId(request.getTaskInstanceId())
-                        .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
-                        .appId(requestWorkerResult == null ? null : requestWorkerResult.getAppId())
-                        .status(request.getTaskState())
-                        .build());
-    }
-
-    private TaskRequest resolveRequest(TaskRequest request, WorkerTaskExecutionState state) {
-        if (request.getPluginParam() != null && request.getTaskData() != null) {
-            return request;
+    private SparkExecutionParam resolve(RunningTaskContext context) {
+        if (context == null) {
+            throw new IllegalArgumentException("context不能为空");
         }
-        WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(request.getTaskInstanceId()).orElse(null);
-        if (snapshot == null && state != null) {
-            snapshot = stateStore.readSnapshot(state.getTaskInstanceId()).orElse(null);
+        return paramResolver.resolve(context.getSnapshot(), context.getWorkDirPath());
+    }
+
+    private boolean cleanupPreviousExecution(RunningTaskContext context) {
+        WorkerTaskExecutionSnap previousSnapshot = context.getPreviousSnapshot();
+        WorkerTaskExecutionState previousState = context.getPreviousState();
+        if (previousSnapshot == null || previousState == null || isBlank(previousState.getAppId())) {
+            return true;
         }
-        if (snapshot == null) {
-            return request;
+        try {
+            SparkExecutionParam previousParam = paramResolver.resolve(previousSnapshot, previousState.getWorkDirPath());
+            return operatorClient.cleanup(runtimeRef(previousParam, previousState));
+        } catch (RuntimeException e) {
+            log.warn("SPARK_K8S_OPERATOR重提前清理失败, taskInstanceId={}, appId={}, error={}",
+                    previousState.getTaskInstanceId(), previousState.getAppId(), e.getMessage());
+            return false;
         }
-        TaskRequest resolvedRequest = new TaskRequest();
-        resolvedRequest.setFlowInstanceId(firstText(request.getFlowInstanceId(), snapshot.getFlowInstanceId()));
-        resolvedRequest.setTaskInstanceId(firstText(request.getTaskInstanceId(), snapshot.getTaskInstanceId()));
-        resolvedRequest.setTaskName(firstText(request.getTaskName(), snapshot.getTaskName()));
-        resolvedRequest.setPluginType(firstText(request.getPluginType(), snapshot.getPluginType()));
-        resolvedRequest.setRunMode(firstText(request.getRunMode(), snapshot.getRunMode()));
-        resolvedRequest.setWorkerResult(request.getWorkerResult());
-        resolvedRequest.setTaskState(request.getTaskState());
-        resolvedRequest.setSubmitMode(request.getSubmitMode());
-        resolvedRequest.setTaskData(request.getTaskData() == null ? snapshot.getTaskData() : request.getTaskData());
-        resolvedRequest.setPluginParam(request.getPluginParam() == null
-                ? snapshot.getPluginParam() : request.getPluginParam());
-        return resolvedRequest;
     }
 
-    private void recordControlResult(TaskRequest request, WorkerTaskExecutionState state, SparkTaskResult result) {
-        WorkerTaskExecutionState next = state == null ? currentState(request) : state;
-        WorkerResult requestWorkerResult = request.getWorkerResult();
-        next.setStatus(result.getStatus());
-        next.setWorkerId(firstText(next.getWorkerId(), requestWorkerResult == null ? null : requestWorkerResult.getWorkerId()));
-        next.setAppId(result.getAppId() == null ? next.getAppId() : result.getAppId());
-        next.setWorkDirPath(result.getWorkDirPath() == null ? next.getWorkDirPath() : result.getWorkDirPath());
-        next.setResult(result.getResult());
-        stateStore.saveState(next, next.getRevision());
+    private void applyControlResult(WorkerTaskExecutionState state, StatusEnum status, String message,
+            String workDirPath) {
+        applyResult(state, status, state.getAppId(), firstText(state.getWorkDirPath(), workDirPath),
+                resultJson(message, null, pluginLogUri(state)));
     }
 
-    private TaskResult taskResult(TaskRequest request, SparkTaskResult result) {
-        WorkerResult requestWorkerResult = request.getWorkerResult();
-        return TaskResult.builder()
-                .taskInstanceId(request.getTaskInstanceId())
-                .flowInstanceId(request.getFlowInstanceId())
-                .taskName(request.getTaskName())
-                .taskState(result.getStatus())
-                .workerResult(workerResult(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId(),
-                        result.getAppId(), result.getWorkDirPath(), result.getResult()))
-                .build();
+    private void applyResult(WorkerTaskExecutionState state, StatusEnum status, String appId, String workDirPath,
+            JsonNode result) {
+        state.setStatus(status);
+        state.setAppId(appId);
+        state.setWorkDirPath(workDirPath);
+        state.setResult(result);
     }
 
-    private WorkerResult workerResult(String workerId, String appId, String workDirPath, JsonNode result) {
+    private WorkerResult workerResult(WorkerTaskExecutionState state) {
         return WorkerResult.builder()
-                .workerId(workerId)
-                .appId(appId)
-                .workDirPath(workDirPath)
-                .message(resultText(result, "message"))
-                .pluginLogUri(resultText(result, "pluginLogUri"))
+                .outputVars(state.getOutputVars())
+                .workerId(state.getWorkerId())
+                .appId(state.getAppId())
+                .workDirPath(state.getWorkDirPath())
+                .message(resultText(state.getResult(), "message"))
+                .pluginLogUri(resultText(state.getResult(), "pluginLogUri"))
                 .build();
     }
 
@@ -196,71 +197,6 @@ public class SparkPluginTaskExecutor implements PluginTaskExecutor {
             return null;
         }
         return result.get(fieldName).asText();
-    }
-
-    private SparkTaskResult submit(SparkExecutionParam param) {
-        WorkerTaskExecutionState oldState = stateStore.readState(param.getTaskInstanceId()).orElse(null);
-        if (oldState != null && !isBlank(oldState.getAppId())
-                && !operatorClient.cleanup(runtimeRef(param, oldState))) {
-            return controlResult(oldState, StatusEnum.SUBMIT_FAILURE,
-                    "SPARK_K8S_OPERATOR cleanup before submit failed");
-        }
-        try {
-            log.info("SPARK_K8S_OPERATOR任务开始提交, taskInstanceId={}, namespace={}, applicationName={}",
-                    param.getTaskInstanceId(), param.getKubernetes().getNamespace(),
-                    param.getKubernetes().getApplicationName());
-            SparkKubernetesRuntimeRef runtimeRef = operatorClient.submit(param);
-            return SparkTaskResult.builder()
-                    .status(StatusEnum.SUBMIT_SUCCESS)
-                    .appId(runtimeRef.getApplicationName())
-                    .workDirPath(param.getWorkDir().toString())
-                    .result(resultJson("SPARK_K8S_OPERATOR SparkApplication submitted", runtimeRef,
-                            pluginLogUri(runtimeRef)))
-                    .build();
-        } catch (RuntimeException e) {
-            log.warn("SPARK_K8S_OPERATOR任务提交失败, taskInstanceId={}, error={}",
-                    param.getTaskInstanceId(), e.getMessage());
-            return SparkTaskResult.builder()
-                    .status(StatusEnum.SUBMIT_FAILURE)
-                    .workDirPath(param.getWorkDir().toString())
-                    .result(PluginResultJson.build(e.getMessage(), PLUGIN_TYPE, runMode(), null, null))
-                    .build();
-        }
-    }
-
-    private SparkTaskResult stop(SparkExecutionParam param, WorkerTaskExecutionState state) {
-        operatorClient.stop(runtimeRef(param, state));
-        return controlResult(state, StatusEnum.STOPPING, "SPARK_K8S_OPERATOR stop requested");
-    }
-
-    private SparkTaskResult kill(SparkExecutionParam param, WorkerTaskExecutionState state) {
-        if (state == null || isBlank(state.getAppId())) {
-            return controlResult(state, StatusEnum.KILLED,
-                    "SPARK_K8S_OPERATOR runtime ref not found, nothing to kill");
-        }
-        try {
-            operatorClient.kill(runtimeRef(param, state));
-            return controlResult(state, StatusEnum.KILLING, "SPARK_K8S_OPERATOR kill requested");
-        } catch (RuntimeException e) {
-            log.warn("SPARK_K8S_OPERATOR强杀失败, taskInstanceId={}, appId={}, error={}",
-                    param.getTaskInstanceId(), state.getAppId(), e.getMessage());
-            return controlResult(state, StatusEnum.UNKNOWN,
-                    "SPARK_K8S_OPERATOR kill failed: " + e.getMessage());
-        }
-    }
-
-    private boolean finish(SparkExecutionParam param, WorkerTaskExecutionState state) {
-        return state == null || isBlank(state.getAppId()) || operatorClient.cleanup(runtimeRef(param, state));
-    }
-
-    private SparkTaskResult controlResult(WorkerTaskExecutionState state, StatusEnum status, String message) {
-        String pluginLogUri = pluginLogUri(state);
-        return SparkTaskResult.builder()
-                .status(status)
-                .appId(state == null ? null : state.getAppId())
-                .workDirPath(state == null ? null : state.getWorkDirPath())
-                .result(resultJson(message, null, pluginLogUri))
-                .build();
     }
 
     private SparkKubernetesRuntimeRef runtimeRef(SparkExecutionParam param, WorkerTaskExecutionState state) {
@@ -281,7 +217,7 @@ public class SparkPluginTaskExecutor implements PluginTaskExecutor {
 
     private ObjectNode resultJson(String message, SparkKubernetesRuntimeRef runtimeRef, String pluginLogUri) {
         ObjectNode result = PluginResultJson.build(message, PLUGIN_TYPE, runMode(), pluginLogUri, null);
-        if (runtimeRef != null) {
+        if (runtimeRef != null && !isBlank(runtimeRef.getSparkWebUiUri())) {
             result.put("sparkWebUiUri", runtimeRef.getSparkWebUiUri());
         }
         return result;
@@ -299,20 +235,11 @@ public class SparkPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     private String pluginLogUri(WorkerTaskExecutionState state) {
-        JsonNode result = state == null ? null : state.getResult();
-        return result != null && result.hasNonNull("pluginLogUri") ? result.get("pluginLogUri").asText() : null;
+        return resultText(state == null ? null : state.getResult(), "pluginLogUri");
     }
 
-    private String firstText(String... values) {
-        if (values == null) {
-            return null;
-        }
-        for (String value : values) {
-            if (value != null && !value.trim().isEmpty()) {
-                return value;
-            }
-        }
-        return null;
+    private String firstText(String first, String second) {
+        return isBlank(first) ? second : first;
     }
 
     private boolean isBlank(String value) {

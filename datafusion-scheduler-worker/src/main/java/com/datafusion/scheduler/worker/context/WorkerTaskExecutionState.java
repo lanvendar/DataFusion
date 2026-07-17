@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -72,4 +73,44 @@ public class WorkerTaskExecutionState {
      * 输出变量列表.
      */
     private Map<String, Variable> outputVars;
+
+    /**
+     * 创建任务执行状态深副本.
+     *
+     * @return 任务执行状态深副本
+     */
+    public WorkerTaskExecutionState copy() {
+        return WorkerTaskExecutionState.builder()
+                .taskInstanceId(taskInstanceId)
+                .workerId(workerId)
+                .appId(appId)
+                .workDirPath(workDirPath)
+                .status(status)
+                .revision(revision)
+                .exitCode(exitCode)
+                .updateTime(updateTime)
+                .result(result == null ? null : result.deepCopy())
+                .outputVars(copyOutputVars())
+                .build();
+    }
+
+    private Map<String, Variable> copyOutputVars() {
+        if (outputVars == null) {
+            return null;
+        }
+        Map<String, Variable> copiedVars = new LinkedHashMap<>();
+        outputVars.forEach((name, variable) -> copiedVars.put(name, copyVariable(variable)));
+        return copiedVars;
+    }
+
+    private Variable copyVariable(Variable source) {
+        if (source == null) {
+            return null;
+        }
+        Variable target = new Variable();
+        target.setName(source.getName());
+        target.setType(source.getType());
+        target.setValue(source.getValue());
+        return target;
+    }
 }

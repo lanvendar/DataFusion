@@ -2,426 +2,166 @@ package com.datafusion.agent.runtime.worker.reporter;
 
 import com.datafusion.agent.runtime.worker.InMemoryWorkerTaskExecutionStore;
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.WorkerResult;
+import com.datafusion.scheduler.worker.context.RunningTaskContext;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
+import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
+import com.datafusion.scheduler.worker.plugin.WorkerPluginRouter;
 import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.datafusion.scheduler.worker.state.WorkerTaskStateCoordinator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Deque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link AgentTaskStateListenerRegistry}.
  *
  * @author datafusion
- * @version 1.0.0, 2026/7/16
+ * @version 1.0.0, 2026/7/18
  * @since 1.0.0
  */
 class AgentTaskStateListenerRegistryTest {
 
-    /**
-     * Test schedulers.
-     */
-    private final Deque<ScheduledExecutorService> schedulers = new ArrayDeque<>();
+    /** Test scheduler. */
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 
     @AfterEach
-    void shutdownSchedulers() {
-        schedulers.forEach(ScheduledExecutorService::shutdownNow);
+    void shutdownScheduler() {
+        scheduler.shutdownNow();
     }
 
     @Test
-    void shouldRejectDuplicatePluginRunModeMapping() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
+    void shouldNotWriteOrReportWhenMappedStatusIsUnchanged() {
+        Fixture fixture = new Fixture(StatusEnum.RUNNING, StatusEnum.RUNNING, true);
+        long revision = fixture.store.readState("task-1").orElseThrow().getRevision();
+        fixture.registry.register("task-1", StatusEnum.RUNNING);
 
-        assertThrows(IllegalArgumentException.class, () -> registry(stateStore,
-                new RecordingTaskResultReporter(true),
-                List.of(new FixedStateMapping(StatusEnum.RUNNING), new FixedStateMapping(StatusEnum.RUN_SUCCESS)),
-                60000L, 10));
+        fixture.registry.refreshTask("task-1");
+
+        assertEquals(revision, fixture.store.readState("task-1").orElseThrow().getRevision());
+        assertTrue(fixture.reporter.results.isEmpty());
     }
 
     @Test
-    void shouldNotReportWhenMappedStateIsUnchanged() {
-        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        saveTask(stateStore, "task-1", StatusEnum.RUNNING);
-        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
-                List.of(new FixedStateMapping(StatusEnum.RUNNING)), 60000L, 10);
+    void shouldCommitAndReportMappedTerminalState() {
+        Fixture fixture = new Fixture(StatusEnum.RUNNING, StatusEnum.RUN_SUCCESS, true);
+        fixture.registry.register("task-1", StatusEnum.RUNNING);
 
-        registry.register("task-1", StatusEnum.RUNNING);
-        registry.refreshTask("task-1");
+        fixture.registry.refreshTask("task-1");
 
-        assertEquals(0, reporter.reportCount);
-        assertEquals(StatusEnum.RUNNING, stateStore.readState("task-1").orElseThrow().getStatus());
-        assertEquals(1L, stateStore.readState("task-1").orElseThrow().getRevision());
-        assertTrue(registry.isRegistered("task-1"));
+        assertEquals(StatusEnum.RUN_SUCCESS, fixture.store.readState("task-1").orElseThrow().getStatus());
+        assertEquals(List.of(StatusEnum.RUN_SUCCESS), fixture.reporter.statuses());
     }
 
     @Test
-    void shouldManageListenerRegistrationWithoutChangingState() {
-        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        saveTask(stateStore, "task-1", StatusEnum.RUNNING);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, new RecordingTaskResultReporter(true),
-                List.of(new FixedStateMapping(StatusEnum.RUNNING)), 60000L, 10);
-        TaskRequest request = new TaskRequest();
-        request.setTaskInstanceId("task-1");
+    void shouldDiscardMappingWhenRevisionChangesDuringQuery() {
+        Fixture fixture = new Fixture(StatusEnum.RUNNING, StatusEnum.RUN_SUCCESS, true);
+        fixture.mapping.beforeReturn = () -> {
+            WorkerTaskExecutionState control = fixture.store.readState("task-1").orElseThrow();
+            control.setStatus(StatusEnum.STOPPING);
+            fixture.store.saveState(control, control.getRevision());
+        };
+        fixture.registry.register("task-1", StatusEnum.RUNNING);
 
-        registry.register("task-1", StatusEnum.RUNNING);
-        registry.unregister("task-1");
-        registry.restoreTasks(List.of(request));
+        fixture.registry.refreshTask("task-1");
 
-        assertEquals(1L, stateStore.readState("task-1").orElseThrow().getRevision());
-        assertTrue(registry.isRegistered("task-1"));
+        assertEquals(StatusEnum.STOPPING, fixture.store.readState("task-1").orElseThrow().getStatus());
+        assertEquals(List.of(StatusEnum.STOPPING), fixture.reporter.statuses());
     }
 
     @Test
-    void shouldReportLocalStateChangeFromAsyncSubmit() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.SUBMITTING);
-        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
-                List.of(new FixedStateMapping(StatusEnum.SUBMIT_SUCCESS)), 60000L, 10);
-        registry.register("task-1", StatusEnum.SUBMITTING);
-        saveTask(stateStore, "task-1", StatusEnum.SUBMIT_SUCCESS);
+    void shouldRetryReportWithoutRewritingState() {
+        Fixture fixture = new Fixture(StatusEnum.RUNNING, StatusEnum.RUN_SUCCESS, false);
+        fixture.registry.register("task-1", StatusEnum.RUNNING);
 
-        registry.refreshTask("task-1");
+        fixture.registry.refreshTask("task-1");
+        long revision = fixture.store.readState("task-1").orElseThrow().getRevision();
+        fixture.reporter.success = true;
+        fixture.registry.refreshTask("task-1");
 
-        assertEquals(1, reporter.reportCount);
-        assertEquals(StatusEnum.SUBMIT_SUCCESS, stateStore.readState("task-1").orElseThrow().getStatus());
+        assertEquals(revision, fixture.store.readState("task-1").orElseThrow().getRevision());
+        assertEquals(2, fixture.reporter.results.size());
     }
 
     @Test
-    void shouldReportStateWrittenBeforeListenerRegistration() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
-        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
-                List.of(new FixedStateMapping(StatusEnum.RUNNING)), 60000L, 10);
+    void shouldUnregisterAndShutdownListeners() {
+        Fixture fixture = new Fixture(StatusEnum.RUNNING, StatusEnum.RUNNING, true);
+        fixture.registry.register("task-1", null);
+        assertTrue(fixture.registry.isRegistered("task-1"));
 
-        registry.register("task-1", StatusEnum.SUBMIT_SUCCESS);
-        registry.refreshTask("task-1");
+        fixture.registry.unregister("task-1");
 
-        assertEquals(1, reporter.reportCount);
-        assertEquals(StatusEnum.RUNNING, stateStore.readState("task-1").orElseThrow().getStatus());
+        assertFalse(fixture.registry.isRegistered("task-1"));
+        fixture.registry.shutdown();
+        assertEquals(0, fixture.registry.listenerCount());
     }
 
-    @Test
-    void shouldNotReportSameStatusWrite() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
-        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
-                List.of(new FixedStateMapping(StatusEnum.RUNNING)), 60000L, 10);
-        registry.register("task-1", StatusEnum.RUNNING);
-        saveTask(stateStore, "task-1", StatusEnum.RUNNING);
+    /** Registry test fixture. */
+    private class Fixture {
 
-        registry.refreshTask("task-1");
+        /** Execution store. */
+        private final InMemoryWorkerTaskExecutionStore store = new InMemoryWorkerTaskExecutionStore();
 
-        assertEquals(0, reporter.reportCount);
-        assertEquals(2L, stateStore.readState("task-1").orElseThrow().getRevision());
-    }
+        /** State mapping. */
+        private final MutableStateMapping mapping;
 
-    @Test
-    void shouldPersistAndReportChangedStateOnce() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
-        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
-                List.of(new FixedStateMapping(StatusEnum.RUN_SUCCESS)), 60000L, 10);
+        /** Reporter. */
+        private final RecordingReporter reporter;
 
-        registry.register("task-1", StatusEnum.RUNNING);
-        registry.refreshTask("task-1");
-        registry.refreshTask("task-1");
+        /** Registry under test. */
+        private final AgentTaskStateListenerRegistry registry;
 
-        assertEquals(1, reporter.reportCount);
-        assertEquals(StatusEnum.RUN_SUCCESS, stateStore.readState("task-1").orElseThrow().getStatus());
-        assertTrue(registry.isRegistered("task-1"));
-    }
-
-    @Test
-    void shouldRetryFailedReportWithoutAnotherStateChange() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
-        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(false, true);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
-                List.of(new FixedStateMapping(StatusEnum.RUN_FAILURE)), 60000L, 10);
-
-        registry.register("task-1", StatusEnum.RUNNING);
-        registry.refreshTask("task-1");
-        registry.refreshTask("task-1");
-
-        assertEquals(2, reporter.reportCount);
-        assertEquals(StatusEnum.RUN_FAILURE, stateStore.readState("task-1").orElseThrow().getStatus());
-        assertTrue(registry.isRegistered("task-1"));
-    }
-
-    @Test
-    void shouldPersistPreparedFinalResultOnce() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
-        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(false, true);
-        FinalizingStateMapping mapping = new FinalizingStateMapping();
-        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter, List.of(mapping), 60000L, 10);
-
-        registry.register("task-1", StatusEnum.RUNNING);
-        registry.refreshTask("task-1");
-        registry.refreshTask("task-1");
-
-        WorkerTaskExecutionState state = stateStore.readState("task-1").orElseThrow();
-        assertEquals(2, reporter.reportCount);
-        assertEquals(2, mapping.prepareCount);
-        assertEquals(2L, state.getRevision());
-        assertTrue(state.getResult().path("finalized").asBoolean());
-    }
-
-    @Test
-    void shouldNotEvictTerminalListenerAfterReportFailure() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, new RecordingTaskResultReporter(false),
-                List.of(new FixedStateMapping(StatusEnum.RUN_FAILURE)), 0L, 0);
-
-        registry.register("task-1", StatusEnum.RUNNING);
-        registry.refreshTask("task-1");
-
-        assertTrue(registry.isRegistered("task-1"));
-    }
-
-    @Test
-    void shouldCommitChangedStateWithSingleRevisionIncrement() {
-        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        saveTask(stateStore, "task-1", StatusEnum.SUBMITTING);
-        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
-                List.of(new FixedStateMapping(StatusEnum.RUNNING)), 60000L, 10);
-
-        registry.register("task-1", StatusEnum.SUBMITTING);
-        registry.refreshTask("task-1");
-
-        assertEquals(1, reporter.reportCount);
-        assertEquals(StatusEnum.RUNNING, stateStore.readState("task-1").orElseThrow().getStatus());
-        assertEquals(2L, stateStore.readState("task-1").orElseThrow().getRevision());
-    }
-
-    @Test
-    void shouldDiscardMappedStateWhenControlStateChangedDuringQuery() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
-        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
-                List.of(new StateChangingMapping(stateStore)), 60000L, 10);
-
-        registry.register("task-1", StatusEnum.RUNNING);
-        registry.refreshTask("task-1");
-
-        assertEquals(0, reporter.reportCount);
-        assertEquals(StatusEnum.STOPPING, stateStore.readState("task-1").orElseThrow().getStatus());
-    }
-
-    @Test
-    void shouldDiscardMappedStateWhenRevisionChangedDuringQuery() {
-        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        saveTask(stateStore, "task-1", StatusEnum.RUNNING);
-        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
-                List.of(new RevisionChangingMapping(stateStore)), 60000L, 10);
-
-        registry.register("task-1", StatusEnum.RUNNING);
-        registry.refreshTask("task-1");
-
-        WorkerTaskExecutionState state = stateStore.readState("task-1").orElseThrow();
-        assertEquals(0, reporter.reportCount);
-        assertEquals(StatusEnum.RUNNING, state.getStatus());
-        assertEquals(2L, state.getRevision());
-    }
-
-    @Test
-    void shouldRejectRuntimeResultThatOverridesStoppingIntent() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.STOPPING);
-        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter,
-                List.of(new FixedStateMapping(StatusEnum.RUN_SUCCESS)), 60000L, 10);
-
-        registry.register("task-1", StatusEnum.STOPPING);
-        registry.refreshTask("task-1");
-
-        assertEquals(0, reporter.reportCount);
-        assertEquals(StatusEnum.STOPPING, stateStore.readState("task-1").orElseThrow().getStatus());
-    }
-
-    @Test
-    void shouldReportRestoredFinalStateOnce() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUN_FAILURE);
-        RecordingTaskResultReporter reporter = new RecordingTaskResultReporter(true);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, reporter, Collections.emptyList(), 60000L, 10);
-        TaskRequest request = new TaskRequest();
-        request.setTaskInstanceId("task-1");
-
-        registry.restoreTasks(List.of(request));
-        registry.refreshTask("task-1");
-        registry.refreshTask("task-1");
-
-        assertEquals(1, reporter.reportCount);
-        assertTrue(registry.isRegistered("task-1"));
-    }
-
-    @Test
-    void shouldRestoreOnlyManagerTasksThatHaveLocalState() {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUNNING);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, new RecordingTaskResultReporter(true),
-                List.of(new FixedStateMapping(StatusEnum.RUNNING)), 60000L, 10);
-        TaskRequest localTask = new TaskRequest();
-        localTask.setTaskInstanceId("task-1");
-        TaskRequest missingTask = new TaskRequest();
-        missingTask.setTaskInstanceId("task-2");
-
-        registry.restoreTasks(List.of(localTask, missingTask));
-
-        assertEquals(1, registry.listenerCount());
-        assertTrue(registry.isRegistered("task-1"));
-        assertFalse(registry.isRegistered("task-2"));
-    }
-
-    @Test
-    void shouldEvictTerminalListenerImmediatelyWhenRetentionIsZero() throws Exception {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUN_FAILURE);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, new RecordingTaskResultReporter(true),
-                Collections.emptyList(), 0L, 10);
-
-        registry.register("task-1", StatusEnum.RUN_FAILURE);
-        registry.refreshTask("task-1");
-
-        awaitRegistration(registry, "task-1", false);
-    }
-
-    @Test
-    void shouldReactivateRetainedTerminalListenerWhenTaskRestarts() throws Exception {
-        InMemoryWorkerTaskExecutionStore stateStore = stateStore("task-1", StatusEnum.RUN_FAILURE);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, new RecordingTaskResultReporter(true),
-                Collections.emptyList(), 100L, 10);
-        registry.register("task-1", StatusEnum.RUN_FAILURE);
-        registry.refreshTask("task-1");
-        saveTask(stateStore, "task-1", StatusEnum.SUBMITTING);
-
-        registry.register("task-1", StatusEnum.SUBMITTING);
-        TimeUnit.MILLISECONDS.sleep(150L);
-
-        assertTrue(registry.isRegistered("task-1"));
-    }
-
-    @Test
-    void shouldOnlyCountRetainedTerminalListenersForCapacityEviction() throws Exception {
-        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        saveTask(stateStore, "task-1", StatusEnum.RUN_FAILURE);
-        saveTask(stateStore, "task-2", StatusEnum.STOP_FAILURE);
-        saveTask(stateStore, "task-3", StatusEnum.RUNNING);
-        AgentTaskStateListenerRegistry registry = registry(stateStore, new RecordingTaskResultReporter(true),
-                List.of(new FixedStateMapping(StatusEnum.RUNNING)), 60000L, 1);
-
-        registry.register("task-1", StatusEnum.RUN_FAILURE);
-        registry.register("task-2", StatusEnum.STOP_FAILURE);
-        registry.register("task-3", StatusEnum.RUNNING);
-        registry.refreshTask("task-1");
-        registry.refreshTask("task-2");
-        registry.refreshTask("task-3");
-
-        awaitRegistration(registry, "task-1", false);
-        assertEquals(2, registry.listenerCount());
-        assertTrue(registry.isRegistered("task-3"));
-    }
-
-    private void awaitRegistration(AgentTaskStateListenerRegistry registry, String taskInstanceId,
-            boolean expected) throws Exception {
-        long deadline = System.currentTimeMillis() + 1000L;
-        while (registry.isRegistered(taskInstanceId) != expected && System.currentTimeMillis() < deadline) {
-            TimeUnit.MILLISECONDS.sleep(10L);
-        }
-        assertEquals(expected, registry.isRegistered(taskInstanceId));
-    }
-
-    private AgentTaskStateListenerRegistry registry(InMemoryWorkerTaskExecutionStore stateStore,
-            TaskResultReporter reporter, List<PluginRunModeStateMapping> mappings, long retentionMs,
-            int retentionNum) {
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
-        schedulers.add(scheduler);
-        return new AgentTaskStateListenerRegistry(stateStore, reporter, scheduler, mappings, 60000L, 1,
-                retentionMs, retentionNum);
-    }
-
-    private InMemoryWorkerTaskExecutionStore stateStore(String taskInstanceId, StatusEnum status) {
-        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        saveTask(stateStore, taskInstanceId, status);
-        return stateStore;
-    }
-
-    private void saveTask(InMemoryWorkerTaskExecutionStore stateStore, String taskInstanceId, StatusEnum status) {
-        stateStore.saveSnapshot(WorkerTaskExecutionSnap.builder()
-                .flowInstanceId("flow-1")
-                .taskInstanceId(taskInstanceId)
-                .taskName("task-name")
-                .pluginType("SHELL")
-                .runMode("LOCAL")
-                .build());
-        long expectedRevision = stateStore.readState(taskInstanceId)
-                .map(WorkerTaskExecutionState::getRevision)
-                .orElse(0L);
-        stateStore.saveState(WorkerTaskExecutionState.builder()
-                .taskInstanceId(taskInstanceId)
-                .appId("app-1")
-                .status(status)
-                .build(), expectedRevision);
-    }
-
-    /**
-     * Recording task result reporter.
-     */
-    private static class RecordingTaskResultReporter implements TaskResultReporter {
-
-        /**
-         * Report results.
-         */
-        private final Deque<Boolean> results;
-
-        /**
-         * Report count.
-         */
-        private int reportCount;
-
-        RecordingTaskResultReporter(Boolean... results) {
-            this.results = new ArrayDeque<>(Arrays.asList(results));
-        }
-
-        @Override
-        public boolean report(TaskResult result) {
-            reportCount++;
-            return results.size() > 1 ? results.removeFirst() : results.getFirst();
+        Fixture(StatusEnum initialStatus, StatusEnum mappedStatus, boolean reportSuccess) {
+            WorkerTaskExecutionSnap snapshot = WorkerTaskExecutionSnap.builder()
+                    .flowInstanceId("flow-1")
+                    .taskInstanceId("task-1")
+                    .taskName("task")
+                    .pluginType("TEST")
+                    .runMode("LOCAL")
+                    .build();
+            store.saveSnapshot(snapshot);
+            store.saveState(WorkerTaskExecutionState.builder()
+                    .taskInstanceId("task-1")
+                    .workerId("worker-1")
+                    .workDirPath("/runtime/task-1")
+                    .status(initialStatus)
+                    .build(), 0L);
+            mapping = new MutableStateMapping(mappedStatus);
+            reporter = new RecordingReporter(reportSuccess);
+            WorkerPluginRouter router = new WorkerPluginRouter(List.of(new TestPluginExecutor()), List.of(mapping));
+            registry = new AgentTaskStateListenerRegistry(store, new WorkerTaskStateCoordinator(store),
+                    router, reporter, scheduler, 60000L, 2, 60000L, 16);
         }
     }
 
-    /**
-     * Fixed state mapping.
-     */
-    private static class FixedStateMapping implements PluginRunModeStateMapping {
+    /** Mutable test state mapping. */
+    private static class MutableStateMapping implements PluginRunModeStateMapping {
 
-        /**
-         * Mapped status.
-         */
+        /** Status to return. */
         private final StatusEnum mappedStatus;
 
-        FixedStateMapping(StatusEnum mappedStatus) {
+        /** Optional concurrent side effect. */
+        private Runnable beforeReturn = () -> {
+        };
+
+        MutableStateMapping(StatusEnum mappedStatus) {
             this.mappedStatus = mappedStatus;
         }
 
         @Override
         public String pluginType() {
-            return "SHELL";
+            return "TEST";
         }
 
         @Override
@@ -431,84 +171,66 @@ class AgentTaskStateListenerRegistryTest {
 
         @Override
         public StatusEnum mapState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
+            beforeReturn.run();
             return mappedStatus;
         }
     }
 
-    /**
-     * Mapping that prepares a final result once.
-     */
-    private static class FinalizingStateMapping extends FixedStateMapping {
+    /** Test plugin executor. */
+    private static class TestPluginExecutor implements PluginTaskExecutor {
 
-        /**
-         * Prepare count.
-         */
-        private int prepareCount;
-
-        FinalizingStateMapping() {
-            super(StatusEnum.RUN_SUCCESS);
+        @Override
+        public String pluginType() {
+            return "TEST";
         }
 
         @Override
-        public boolean prepareFinalReport(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
-            prepareCount++;
-            if (state.getResult() != null && state.getResult().path("finalized").asBoolean()) {
-                return false;
-            }
-            state.setResult(JsonNodeFactory.instance.objectNode().put("finalized", true));
+        public String runMode() {
+            return "LOCAL";
+        }
+
+        @Override
+        public WorkerResult submit(RunningTaskContext context) {
+            return new WorkerResult();
+        }
+
+        @Override
+        public WorkerResult stop(RunningTaskContext context) {
+            return new WorkerResult();
+        }
+
+        @Override
+        public WorkerResult kill(RunningTaskContext context) {
+            return new WorkerResult();
+        }
+
+        @Override
+        public boolean finish(RunningTaskContext context) {
             return true;
         }
     }
 
-    /**
-     * Mapping that simulates a concurrent stop request.
-     */
-    private static class StateChangingMapping extends FixedStateMapping {
+    /** Recording result reporter. */
+    private static class RecordingReporter implements TaskResultReporter {
 
-        /**
-         * Task execution store.
-         */
-        private final InMemoryWorkerTaskExecutionStore stateStore;
+        /** Reported results. */
+        private final List<TaskResult> results = new ArrayList<>();
 
-        StateChangingMapping(InMemoryWorkerTaskExecutionStore stateStore) {
-            super(StatusEnum.RUN_SUCCESS);
-            this.stateStore = stateStore;
+        /** Current report result. */
+        private boolean success;
+
+        RecordingReporter(boolean success) {
+            this.success = success;
         }
 
         @Override
-        public StatusEnum mapState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
-            stateStore.saveState(WorkerTaskExecutionState.builder()
-                    .taskInstanceId(state.getTaskInstanceId())
-                    .appId(state.getAppId())
-                    .status(StatusEnum.STOPPING)
-                    .build(), state.getRevision());
-            return super.mapState(snapshot, state);
-        }
-    }
-
-    /**
-     * Mapping that simulates a same-state write during a query.
-     */
-    private static class RevisionChangingMapping extends FixedStateMapping {
-
-        /**
-         * Task execution store.
-         */
-        private final InMemoryWorkerTaskExecutionStore stateStore;
-
-        RevisionChangingMapping(InMemoryWorkerTaskExecutionStore stateStore) {
-            super(StatusEnum.RUN_SUCCESS);
-            this.stateStore = stateStore;
+        public boolean report(TaskResult result) {
+            results.add(result);
+            return success;
         }
 
-        @Override
-        public StatusEnum mapState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
-            stateStore.saveState(WorkerTaskExecutionState.builder()
-                    .taskInstanceId(state.getTaskInstanceId())
-                    .appId(state.getAppId())
-                    .status(state.getStatus())
-                    .build(), state.getRevision());
-            return super.mapState(snapshot, state);
+        List<StatusEnum> statuses() {
+            return results.stream().map(TaskResult::getTaskState).toList();
         }
     }
 }

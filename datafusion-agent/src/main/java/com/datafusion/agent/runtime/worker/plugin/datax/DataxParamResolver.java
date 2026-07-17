@@ -1,18 +1,15 @@
 package com.datafusion.agent.runtime.worker.plugin.datax;
 
-import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.datax.k8s.DataxK8sNameGenerator;
 import com.datafusion.agent.runtime.worker.plugin.datax.k8s.DataxKubernetesParam;
 import com.datafusion.agent.runtime.worker.plugin.datax.k8s.DataxKubernetesTemplateConstants;
-import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,11 +24,6 @@ import java.util.Map;
  */
 @Component
 public class DataxParamResolver {
-
-    /**
-     * Date formatter.
-     */
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 
     /**
      * Local DataX log file name.
@@ -117,34 +109,23 @@ public class DataxParamResolver {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
-     * Agent properties.
-     */
-    private final AgentProperties properties;
-
-    /**
-     * Constructor.
-     *
-     * @param properties agent properties
-     */
-    public DataxParamResolver(AgentProperties properties) {
-        this.properties = properties;
-    }
-
-    /**
      * Resolve execution param.
      *
-     * @param request task request
+     * @param snapshot task execution snapshot
+     * @param workDirPath fixed task work directory
      * @return execution param
      */
-    public DataxExecutionParam resolve(TaskRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("request不能为空");
+    public DataxExecutionParam resolve(WorkerTaskExecutionSnap snapshot, String workDirPath) {
+        if (snapshot == null) {
+            throw new IllegalArgumentException("snapshot不能为空");
         }
-        JsonNode taskData = request.getTaskData();
-        JsonNode pluginParam = request.getPluginParam();
-        DataxRunMode runMode = DataxRunMode.parse(request.getRunMode());
-        String date = LocalDate.now().format(DATE_FORMATTER);
-        final Path runtimeDir = taskRuntimeDir(date, request);
+        if (isBlank(workDirPath)) {
+            throw new IllegalArgumentException("workDirPath不能为空");
+        }
+        JsonNode taskData = snapshot.getTaskData();
+        JsonNode pluginParam = snapshot.getPluginParam();
+        DataxRunMode runMode = DataxRunMode.parse(snapshot.getRunMode());
+        Path runtimeDir = Path.of(workDirPath);
         JsonNode effectiveTaskData = effectiveTaskData(pluginParam, taskData);
         String dataxHome = text(pluginParam, "dataxHome");
         String dataxJar = text(pluginParam, "dataxJar");
@@ -156,13 +137,13 @@ public class DataxParamResolver {
             logbackConfigFile = Path.of(dataxHome, "conf", "logback.xml").toString();
         }
         validateJobSource(pluginParam, taskData, effectiveTaskData, runMode);
-        DataxKubernetesParam kubernetes = runMode == DataxRunMode.K8S ? resolveKubernetes(request, taskData,
+        DataxKubernetesParam kubernetes = runMode == DataxRunMode.K8S ? resolveKubernetes(snapshot, taskData,
                 pluginParam) : null;
         validateKubernetes(kubernetes);
         return DataxExecutionParam.builder()
                 .runMode(runMode)
-                .taskInstanceId(request.getTaskInstanceId())
-                .flowInstanceId(request.getFlowInstanceId())
+                .taskInstanceId(snapshot.getTaskInstanceId())
+                .flowInstanceId(snapshot.getFlowInstanceId())
                 .jobJson(jobJson(taskData))
                 .effectiveTaskData(effectiveTaskData)
                 .jobFile(text(pluginParam, "jobFile"))
@@ -185,12 +166,13 @@ public class DataxParamResolver {
                 .build();
     }
 
-    private DataxKubernetesParam resolveKubernetes(TaskRequest request, JsonNode taskData, JsonNode pluginParam) {
+    private DataxKubernetesParam resolveKubernetes(WorkerTaskExecutionSnap snapshot, JsonNode taskData,
+            JsonNode pluginParam) {
         JsonNode pluginKubernetes = object(pluginParam, "kubernetes");
         JsonNode taskKubernetes = object(taskData, "kubernetes");
         String namePrefix = firstText(text(pluginKubernetes, "namePrefix"), DEFAULT_NAME_PREFIX);
-        String jobName = DataxK8sNameGenerator.jobName(namePrefix, request.getTaskInstanceId());
-        String secretName = DataxK8sNameGenerator.secretName(namePrefix, request.getTaskInstanceId());
+        String jobName = DataxK8sNameGenerator.jobName(namePrefix, snapshot.getTaskInstanceId());
+        String secretName = DataxK8sNameGenerator.secretName(namePrefix, snapshot.getTaskInstanceId());
         String namespace = firstText(text(taskKubernetes, "namespace"), text(pluginKubernetes, "namespace"),
                 DEFAULT_K8S_NAMESPACE);
         Map<String, String> labels = mergeMap(object(pluginKubernetes, "labels"), object(taskKubernetes, "labels"));
@@ -227,7 +209,7 @@ public class DataxParamResolver {
                 .nodeSelector(mergeMap(object(pluginKubernetes, "nodeSelector"), object(taskKubernetes, "nodeSelector")))
                 .resources(firstNode(taskKubernetes == null ? null : taskKubernetes.get("resources"),
                         pluginKubernetes == null ? null : pluginKubernetes.get("resources")))
-                .podLabelSelector(DataxK8sNameGenerator.podLabelSelector(request.getTaskInstanceId()))
+                .podLabelSelector(DataxK8sNameGenerator.podLabelSelector(snapshot.getTaskInstanceId()))
                 .build();
     }
 
@@ -372,12 +354,4 @@ public class DataxParamResolver {
         return value == null || value.trim().isEmpty();
     }
 
-    private String safePath(String value) {
-        return isBlank(value) ? "unknown" : value;
-    }
-
-    private Path taskRuntimeDir(String date, TaskRequest request) {
-        return Path.of(properties.getStorage().getTaskRuntimeDir(), date, safePath(request.getFlowInstanceId()),
-                safePath(request.getTaskInstanceId()));
-    }
 }

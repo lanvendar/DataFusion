@@ -4,7 +4,7 @@ import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.spark.SparkExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.spark.SparkParamResolver;
 import com.datafusion.agent.runtime.worker.plugin.template.TemplateSpecRenderer;
-import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
@@ -38,7 +38,7 @@ class SparkKubernetesTemplateRendererTest {
     void shouldRenderSparkApplicationWithRestartPolicyNever() throws Exception {
         AgentProperties properties = new AgentProperties();
         properties.setPluginsRootDir(resolvePluginsRootDir());
-        SparkExecutionParam param = new SparkParamResolver(properties).resolve(request());
+        SparkExecutionParam param = new SparkParamResolver().resolve(snapshot(), "target/spark-task-1");
 
         SparkKubernetesTemplateRenderer renderer = new SparkKubernetesTemplateRenderer(
                 new TemplateSpecRenderer(properties));
@@ -106,16 +106,16 @@ class SparkKubernetesTemplateRendererTest {
                 .orElse(null);
     }
 
-    private TaskRequest request() {
-        TaskRequest request = new TaskRequest();
-        request.setFlowInstanceId("flow-1");
-        request.setTaskInstanceId("task-1");
-        request.setTaskName("Spark");
-        request.setPluginType("SPARK");
-        request.setRunMode("K8S_OPERATOR");
-        request.setPluginParam(pluginParam());
-        request.setTaskData(taskData());
-        return request;
+    private WorkerTaskExecutionSnap snapshot() {
+        return WorkerTaskExecutionSnap.builder()
+                .flowInstanceId("flow-1")
+                .taskInstanceId("task-1")
+                .taskName("Spark")
+                .pluginType("SPARK")
+                .runMode("K8S_OPERATOR")
+                .pluginParam(pluginParam())
+                .taskData(taskData())
+                .build();
     }
 
     private ObjectNode pluginParam() {

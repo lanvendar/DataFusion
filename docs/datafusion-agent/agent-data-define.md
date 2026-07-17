@@ -43,7 +43,10 @@
 | 对象 | 字段 | 生命周期 | 说明 |
 |------|------|----------|------|
 | `AgentTaskStateListenerRegistry.listeners` / `TaskStateListener` | `taskInstanceId -> TaskStateListener`；监听项包含 `future`, `reportedStatus`, `terminalSince` | 任务注册监听到 `finishTask` 或终态保留策略淘汰 | 活跃和终态保留监听共用唯一注册表；任务控制注册以本次 RPC 返回的 `TaskResult.taskState` 初始化 `reportedStatus`，不重读 `.state`，后续只在 Manager 成功接收状态后推进，上报失败时保持不变，启动恢复时初始为 `null`；注册和注销只使用并发 Map 原子操作，不获取任务状态锁；启动恢复在 Agent ready 前完成；`terminalSince > 0` 表示已进入终态保留期；终态上报成功后 `future` 从周期刷新切换为一次性延迟清理，任务重启注册时再切回周期刷新；容量检查只在终态进入事件发生时按 `terminalSince` 排序；不使用 `listenerToken`；注册项不写入 `.state` |
-| `WorkerTaskExecutionContext.taskLocks` | `taskInstanceId -> ReentrantLock` | Agent 进程内 `.state` CAS 写入期间 | 只在 `saveState(state, expectedRevision)` 内部串行化同一任务的 revision 复读、文件替换和缓存更新；不暴露为 Worker SPI；单次 `.state` 读取、删除、Manager 上报和 `.snap` 读写不持有该锁 |
+| `AgentTaskStateListenerRegistry.unknownCounters` | `taskInstanceId -> (revision, status, appId, count)` | 单次稳定查询基线 | UNKNOWN 连续次数只对同一基线累计；revision/status/appId 任一变化或映射恢复正常时清零，不能跨 submit/stop/kill 动作累计 |
+| `FileWorkerTaskExecutionStore.taskLocks` | `taskInstanceId -> ReentrantLock` | Agent 进程内 `.state` CAS 写入期间 | 只在 `saveState(state, expectedRevision)` 内部串行化同一任务的 revision 复读和文件替换；不暴露为 Worker SPI；单次 `.state` 读取、删除、Manager 上报和 `.snap` 读写不持有该锁 |
+| `FileWorkerTaskExecutionStore.executionDirs` | `Cache<String, Path>` | Agent 进程生命周期 | `taskInstanceId -> executionDir` 路径索引；`saveSnapshot` 返回该规范目录；启动扫描、保存或显式定位成功时写入，删除后失效；同一任务始终复用旧目录；不缓存 `RunningTaskContext`，不参与状态锁；使用普通 `Cache`，不使用隐藏文件扫描的 `LoadingCache` |
+| `FileWorkerTaskExecutionStore.states` | `Cache<String, WorkerTaskExecutionState>` | Agent 进程生命周期 | `.state` 的进程内投影；启动时只加载 Manager 未完成任务与本地完整记录的交集；文件原子替换成功后才更新，读取返回副本，容量淘汰后从文件回填，删除执行记录后失效 |
 
 监听注册项和任务锁都由 Agent 进程拥有。一个任务只属于一个 Agent，不处理多个 Agent 同时写同一任务 `.state` 的场景。
 
@@ -56,11 +59,11 @@ agent 对 manager 暴露：
 | `POST /internal/scheduler/submitTask` | `TaskRequest` | `TaskResult` | 提交任务 |
 | `POST /internal/scheduler/stopTask` | `TaskRequest` | `TaskResult` | 停止任务 |
 | `POST /internal/scheduler/killTask` | `TaskRequest` | `TaskResult` | 强制停止任务 |
-| `POST /internal/scheduler/finishTask` | `TaskRequest` | `TaskResult` | 任务终态后的本地清理入口 |
+| `POST /internal/scheduler/finishTask` | `TaskRequest` | `Boolean` | 任务终态后的本地清理入口；只有插件及执行记录清理完成才返回 `true` |
 
 `TaskRequest.pluginType` 与 `TaskRequest.runMode` 是执行器路由键；`pluginParam` 只承载插件配置。
 
-agent 调用 manager：
+Agent 通过 `AgentWorkerClient` 调用 Worker 管理协议：
 
 | RPC | 请求对象 | 说明 |
 |-----|----------|------|
@@ -68,7 +71,15 @@ agent 调用 manager：
 | `POST {manager}/internal/schedule/worker/heartbeat` | `Worker` | worker 心跳，只携带 `id/lastHeartbeatTime`，响应 `Result<Worker>` |
 | `POST {manager}/internal/schedule/worker/offline` | `Worker` | worker 下线，只携带 `id`，响应 `Result<Worker>` |
 | `POST {manager}/internal/schedule/worker/tasks` | `Worker` | 注册成功后按 `id` 获取属于当前 worker 的未完成 `TaskRequest` 清单 |
+
+Agent 通过独立的 `AgentTaskResultReporter` 调用任务结果协议：
+
+| RPC | 请求对象 | 说明 |
+|-----|----------|------|
 | `POST {manager}/internal/schedule/reportTaskResult` | `TaskResult` | 上报任务结果 |
+
+`AgentTaskResultReporter` 必须同时校验 HTTP/响应包装成功和 `Result<Boolean>.data == true`。`false` 表示 Manager
+没有接收结果，监听器不得推进 `reportedStatus`。
 
 agent 本地 worker 配置：
 
@@ -142,11 +153,15 @@ time:1780000001000|workerId:{workerId}|appId:123|revision:2|status:RUN_SUCCESS|e
 - `workerId` 使用 manager 返回的 `Worker.id`，即 `scheduler_worker_registry.id` 的 UUID 字符串，并随 `TaskRequest` / `TaskResult` / `.snap` / `.state` 透传。
 - `Worker.workerCode` 使用 agent 配置或推导出的稳定编码，落到 `scheduler_worker_registry.worker_code`，不在 `TaskRequest` 中新增顶层 `workerId` 字段。
 - `appId` 统一表示终端任务 ID。
-- `.snap` 只保存最近一次提交快照和插件配置参数，不保存运行时观测字段；由 `WorkerTaskService` 在调用插件前
-  整体原子覆盖，不读取旧快照、不做字段合并或对象复制，插件不重复保存，也不参与 `.state.revision` 和任务状态锁。
+- `.snap` 只保存最近一次提交快照和插件配置参数，不保存运行时观测字段；由 `WorkerService` 在调用插件前
+  整体原子覆盖，不做字段合并或深拷贝，插件不重复保存，也不参与 `.state.revision` 和任务状态锁。
+- 重新提交覆盖 `.snap` 前，`WorkerService` 先读取旧 `.snap/.state`，仅放入本次动作级
+  `RunningTaskContext.previousSnapshot/previousState`；旧上下文不进入缓存，也不新增 `.previous.snap`。
 - `.state` 只保存通用运行态，不回写 `taskData` / `pluginParam`。
-- `.state.revision` 是任务运行态版本号，首次写入为 `1`。每次调用方必须提供查询基线的
+- `.state.revision` 是任务运行态版本号，首次写入为 `1`。每次调用方必须提供状态基线的
   `expectedRevision`；存储层复读当前 revision，一致时写入并加一，不一致时记录 `warn`、返回 `false` 且不写入。
+- Store 不自动把旧 `appId/workDirPath/exitCode/result/outputVars` 合并进候选状态；字段保留或清空由
+  `WorkerTaskStateCoordinator` 明确构造。新 submit 必须清理旧运行引用，避免新快照继续查询旧资源。
 - `.state` 通过临时文件原子替换；监听周期只在第三方查询前读取一次 Q。映射状态不同时调用
   `saveState(state, Q.revision)`；查询或等锁期间的其他写入会使 CAS 失败，本轮映射结果被丢弃。
 - `.state` 不保存锁、监听器、`listenerToken` 或单独的控制代次；任务锁和监听注册项只存在于 Agent 内存。
@@ -154,11 +169,13 @@ time:1780000001000|workerId:{workerId}|appId:123|revision:2|status:RUN_SUCCESS|e
 - `stdout.log`、`stderr.log`、`state.log` 是 agent 标准任务日志，文件名由 `TaskRuntimeFiles` 统一定义。
 - `state.log` 每行的 `revision` 记录本条流水对应的 `.state.revision`，用于关联状态文件版本和并发写入顺序。
 - `TaskResult.workerResult.workDirPath` 表示任务运行目录；manager 查询任务日志时只使用该目录。
+- Flink/Spark/DataX/Shell/API 的参数解析器不得按 `LocalDate.now()` 重算任务目录，只能使用
+  `RunningTaskContext.workDirPath`；跨日 stop/kill/finish 和重新提交仍定位同一目录。
 - `TaskResult.workerResult.pluginLogUri` 表示插件日志入口。
 - `TaskResult.workerResult` 不返回 agent 自身服务日志入口；worker 服务日志目录由 `Worker.workerLogDir` 在注册时上报。
 - `saveState` 更新 `.state` 时同步比较旧 `.state`，当 `status`、`appId` 或 `exitCode` 变化时追加 `state.log`。
-- `finishTask` 确认终态后直接删除实际存在的 `.state` / `.snap` 并使 `executionCache` 失效，不占用状态写入锁；
-  继续保留 `stdout.log` / `stderr.log` / `state.log`。
+- `finishTask` 仅在插件清理返回 `true` 后注销监听、删除实际存在的 `.state/.snap` 并使路径索引失效；
+  返回 `false` 或抛异常时保留监听和执行文件。删除不占用状态写入锁，继续保留 `stdout.log/stderr.log/state.log`。
 - 监听注册项被终态保留策略淘汰时只取消内存监听，不删除 `.state` / `.snap`；后续 UI 强制成功仍可通过 `finishTask` 清理本地文件。
 
 ## 5. WorkerResult 结构
@@ -182,9 +199,12 @@ time:1780000001000|workerId:{workerId}|appId:123|revision:2|status:RUN_SUCCESS|e
 |------|------|------|
 | `Result<T>` | `datafusion-common-spring` | RPC 响应包装 |
 | `TaskRequest` / `TaskResult` / `Worker` | `datafusion-common-data` | manager/agent/worker 通信模型 |
-| `WorkerTaskOperator` / `WorkerTaskService` | `datafusion-scheduler-worker` | worker 框架入口 |
-| `RunningTaskContext` | `datafusion-scheduler-worker` | 运行上下文 |
+| `WorkerService` | `datafusion-scheduler-worker` | Worker 生命周期和任务统一入口 |
+| `WorkerClient` | `datafusion-scheduler-worker` | Worker 注册、心跳、下线和未完成任务查询端口 |
+| `WorkerIdentityStore` | `datafusion-scheduler-worker` | Worker.id 本地持久化端口，由 `AgentWorkerConfigStore` 实现 |
+| `RunningTaskContext` | `datafusion-scheduler-worker` | 单次插件动作上下文，不缓存；插件只修改独占的 executionState 候选副本 |
 | `WorkerTaskExecutionSnap` / `WorkerTaskExecutionState` / `WorkerTaskExecutionStore` | `datafusion-scheduler-worker` | 提交快照、运行态和状态存储 SPI |
-| `PluginTaskExecutor` / `PluginRunModeStateMapping` | `datafusion-scheduler-worker` | 插件执行和状态映射 SPI |
-| `TaskResultReporter` | `datafusion-scheduler-worker` | 任务结果上报端口 |
+| `WorkerTaskStateCoordinator` | `datafusion-scheduler-worker` | 唯一状态准入和迁移规则 |
+| `PluginTaskExecutor` / `PluginRunModeStateMapping` / `WorkerPluginRouter` | `datafusion-scheduler-worker` | 插件执行、状态映射和统一路由 |
+| `TaskResultReporter` / `TaskStateListenerRegistry` | `datafusion-scheduler-worker` | 单次结果上报及任务监听装饰端口 |
 | `TaskRuntimeFiles` | `datafusion-common-data` | agent 标准任务日志文件名和路径拼接工具 |

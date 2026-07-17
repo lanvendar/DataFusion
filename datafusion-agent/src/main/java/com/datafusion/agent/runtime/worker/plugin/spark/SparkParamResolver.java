@@ -1,18 +1,15 @@
 package com.datafusion.agent.runtime.worker.plugin.spark;
 
-import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.spark.k8s.SparkK8sNameGenerator;
 import com.datafusion.agent.runtime.worker.plugin.spark.k8s.SparkKubernetesParam;
 import com.datafusion.agent.runtime.worker.plugin.spark.k8s.SparkKubernetesTemplateConstants;
-import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,11 +24,6 @@ import java.util.Map;
  */
 @Component
 public class SparkParamResolver {
-
-    /**
-     * 日期格式.
-     */
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 
     /**
      * 默认 Spark 版本.
@@ -99,45 +91,35 @@ public class SparkParamResolver {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
-     * Agent 配置.
-     */
-    private final AgentProperties properties;
-
-    /**
-     * 构造函数.
-     *
-     * @param properties Agent 配置
-     */
-    public SparkParamResolver(AgentProperties properties) {
-        this.properties = properties;
-    }
-
-    /**
      * 解析执行参数.
      *
-     * @param request 任务请求
+     * @param snapshot    任务执行快照
+     * @param workDirPath 固定任务运行目录
      * @return 执行参数
      */
-    public SparkExecutionParam resolve(TaskRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("request不能为空");
+    public SparkExecutionParam resolve(WorkerTaskExecutionSnap snapshot, String workDirPath) {
+        if (snapshot == null) {
+            throw new IllegalArgumentException("snapshot不能为空");
         }
-        JsonNode pluginParam = request.getPluginParam();
-        JsonNode taskData = request.getTaskData();
-        SparkRunMode runMode = SparkRunMode.parse(request.getRunMode());
+        if (isBlank(workDirPath)) {
+            throw new IllegalArgumentException("workDirPath不能为空");
+        }
+        JsonNode pluginParam = snapshot.getPluginParam();
+        JsonNode taskData = snapshot.getTaskData();
+        SparkRunMode runMode = SparkRunMode.parse(snapshot.getRunMode());
         JsonNode effectiveTaskData = effectiveTaskData(pluginParam, taskData);
         SparkExecutionParam param = SparkExecutionParam.builder()
                 .runMode(runMode)
-                .flowInstanceId(request.getFlowInstanceId())
-                .taskInstanceId(request.getTaskInstanceId())
-                .workDir(taskRuntimeDir(LocalDate.now().format(DATE_FORMATTER), request))
+                .flowInstanceId(snapshot.getFlowInstanceId())
+                .taskInstanceId(snapshot.getTaskInstanceId())
+                .workDir(Path.of(workDirPath))
                 .effectiveTaskData(effectiveTaskData)
                 .sparkVersion(defaultText(text(pluginParam, "sparkVersion"), DEFAULT_SPARK_VERSION))
                 .mainClass(defaultText(text(pluginParam, "mainClass"), DEFAULT_MAIN_CLASS))
                 .sparkConf(mergeMap(object(pluginParam, "sparkConf"), object(taskData, "sparkConf")))
                 .hadoopConf(mergeMap(object(pluginParam, "hadoopConf"), object(taskData, "hadoopConf")))
                 .build();
-        param.setKubernetes(resolveKubernetes(request, pluginParam, taskData, param));
+        param.setKubernetes(resolveKubernetes(snapshot, pluginParam, taskData, param));
         param.setMainApplicationFile("local://" + param.getKubernetes().getJarMountPath()
                 + "/" + param.getKubernetes().getPluginJarName());
         param.setArguments(arguments(param.getKubernetes()));
@@ -145,15 +127,15 @@ public class SparkParamResolver {
         return param;
     }
 
-    private SparkKubernetesParam resolveKubernetes(TaskRequest request, JsonNode pluginParam, JsonNode taskData,
-            SparkExecutionParam param) {
+    private SparkKubernetesParam resolveKubernetes(WorkerTaskExecutionSnap snapshot, JsonNode pluginParam,
+            JsonNode taskData, SparkExecutionParam param) {
         JsonNode pluginKubernetes = object(pluginParam, "kubernetes");
         JsonNode taskKubernetes = object(taskData, "kubernetes");
         String namespace = firstText(text(taskKubernetes, "namespace"), text(pluginKubernetes, "namespace"),
                 DEFAULT_NAMESPACE);
         String namePrefix = firstText(text(pluginKubernetes, "namePrefix"), DEFAULT_NAME_PREFIX);
-        String applicationName = SparkK8sNameGenerator.applicationName(namePrefix, request.getTaskInstanceId());
-        String configMapName = SparkK8sNameGenerator.configMapName(namePrefix, request.getTaskInstanceId());
+        String applicationName = SparkK8sNameGenerator.applicationName(namePrefix, snapshot.getTaskInstanceId());
+        String configMapName = SparkK8sNameGenerator.configMapName(namePrefix, snapshot.getTaskInstanceId());
         String webUiTemplate = firstText(text(taskKubernetes, "sparkWebUiUriTemplate"), DEFAULT_WEB_UI_TEMPLATE);
         String pluginAppDir = firstText(text(taskKubernetes, "pluginAppDir"), text(pluginKubernetes, "pluginAppDir"),
                 DEFAULT_PLUGIN_APP_DIR);
@@ -178,7 +160,7 @@ public class SparkParamResolver {
                         DEFAULT_JAR_MOUNT_PATH))
                 .jobConfigMountPath(firstText(text(taskKubernetes, "jobConfigMountPath"),
                         text(pluginKubernetes, "jobConfigMountPath"), DEFAULT_JOB_CONFIG_MOUNT_PATH))
-                .podLabelSelector(SparkK8sNameGenerator.podLabelSelector(request.getTaskInstanceId()))
+                .podLabelSelector(SparkK8sNameGenerator.podLabelSelector(snapshot.getTaskInstanceId()))
                 .logStorageUri(firstText(text(taskKubernetes, "logStorageUri"), text(pluginKubernetes, "logStorageUri")))
                 .sparkWebUiUri(renderWebUiUri(webUiTemplate, namespace, applicationName))
                 .collectLogsOnFinish(booleanValue(taskKubernetes, "collectLogsOnFinish",
@@ -242,11 +224,6 @@ public class SparkParamResolver {
     private List<String> arguments(SparkKubernetesParam kubernetes) {
         return new ArrayList<>(List.of("--job-file",
                 kubernetes.getJobConfigMountPath() + "/" + SparkKubernetesTemplateConstants.JOB_JSON_FILE_NAME));
-    }
-
-    private Path taskRuntimeDir(String date, TaskRequest request) {
-        return Path.of(properties.getStorage().getTaskRuntimeDir(), date, request.getFlowInstanceId(),
-                request.getTaskInstanceId());
     }
 
     private String renderWebUiUri(String template, String namespace, String applicationName) {

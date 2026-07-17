@@ -1,23 +1,22 @@
 package com.datafusion.agent.runtime.worker.reporter;
 
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.model.TaskResult;
-import com.datafusion.scheduler.model.WorkerResult;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
+import com.datafusion.scheduler.worker.context.WorkerTaskResultMapper;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
+import com.datafusion.scheduler.worker.plugin.WorkerPluginRouter;
 import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.datafusion.scheduler.worker.reporter.TaskStateListenerRegistry;
+import com.datafusion.scheduler.worker.state.WorkerTaskStateCoordinator;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -26,128 +25,112 @@ import java.util.concurrent.TimeUnit;
 /**
  * Agent 任务状态监听注册器.
  *
- * <p>每个任务只注册一个周期监听。刷新过程只读取一次查询基线，在锁外查询并映射第三方状态；状态变化时由存储层
- * 使用 revision 完成 CAS 写入。Manager 上报不持有任务锁。
+ * <p>每个任务拥有独立的周期监听。第三方查询在锁外执行，状态变化统一交给
+ * {@link WorkerTaskStateCoordinator} 提交，Manager 上报也不占用任务状态锁。
  *
  * @author datafusion
- * @version 1.0.0, 2026/7/16
+ * @version 1.0.0, 2026/7/18
  * @since 1.0.0
  */
 @Slf4j
-public class AgentTaskStateListenerRegistry {
+public final class AgentTaskStateListenerRegistry implements TaskStateListenerRegistry {
 
-    /**
-     * 任务执行状态存储.
-     */
+    /** 任务执行存储. */
     private final WorkerTaskExecutionStore stateStore;
 
-    /**
-     * 任务结果上报器.
-     */
+    /** 状态协调器. */
+    private final WorkerTaskStateCoordinator stateCoordinator;
+
+    /** 插件路由器. */
+    private final WorkerPluginRouter pluginRouter;
+
+    /** 单次结果上报器. */
     private final TaskResultReporter resultReporter;
 
-    /**
-     * 任务监听调度器.
-     */
+    /** 任务监听调度器. */
     private final ScheduledExecutorService scheduler;
 
-    /**
-     * 插件运行模式状态映射.
-     */
-    private final Map<String, PluginRunModeStateMapping> stateMappings;
-
-    /**
-     * 任务监听注册项，包含活跃监听和处于终态保留期的监听.
-     */
+    /** 活跃和终态保留期内的监听项. */
     private final Map<String, TaskStateListener> listeners = new ConcurrentHashMap<>();
 
-    /**
-     * 查询失败计数.
-     */
-    private final Map<String, Integer> queryFailureCounts = new ConcurrentHashMap<>();
+    /** 与查询基线绑定的连续 UNKNOWN 计数. */
+    private final Map<String, QueryFailure> queryFailures = new ConcurrentHashMap<>();
 
-    /**
-     * 刷新间隔.
-     */
+    /** 刷新间隔. */
     private final long refreshIntervalMs;
 
-    /**
-     * UNKNOWN 推进阈值.
-     */
+    /** UNKNOWN 推进阈值. */
     private final int unknownThreshold;
 
-    /**
-     * 终态监听保留时间.
-     */
+    /** 终态监听保留时间. */
     private final long listenerRetentionMs;
 
-    /**
-     * 终态监听最大保留数量.
-     */
+    /** 终态监听最大保留数量. */
     private final int listenerRetentionNum;
 
     /**
-     * 构造函数.
+     * 创建 Agent 任务状态监听注册器.
      *
-     * @param stateStore           任务执行状态存储
-     * @param resultReporter       任务结果上报器
+     * @param stateStore           任务执行存储
+     * @param stateCoordinator     状态协调器
+     * @param pluginRouter         插件路由器
+     * @param resultReporter       单次结果上报器
      * @param scheduler            任务监听调度器
-     * @param mappings             插件运行模式状态映射
      * @param refreshIntervalMs    刷新间隔
      * @param unknownThreshold     UNKNOWN 推进阈值
      * @param listenerRetentionMs  终态监听保留时间
      * @param listenerRetentionNum 终态监听最大保留数量
      */
-    public AgentTaskStateListenerRegistry(WorkerTaskExecutionStore stateStore, TaskResultReporter resultReporter,
-            ScheduledExecutorService scheduler, List<PluginRunModeStateMapping> mappings, long refreshIntervalMs,
-            int unknownThreshold, long listenerRetentionMs, int listenerRetentionNum) {
-        this.stateStore = stateStore;
-        this.resultReporter = resultReporter;
-        this.scheduler = scheduler;
+    public AgentTaskStateListenerRegistry(WorkerTaskExecutionStore stateStore,
+            WorkerTaskStateCoordinator stateCoordinator, WorkerPluginRouter pluginRouter,
+            TaskResultReporter resultReporter, ScheduledExecutorService scheduler,
+            long refreshIntervalMs, int unknownThreshold, long listenerRetentionMs, int listenerRetentionNum) {
+        this.stateStore = Objects.requireNonNull(stateStore, "stateStore不能为空");
+        this.stateCoordinator = Objects.requireNonNull(stateCoordinator, "stateCoordinator不能为空");
+        this.pluginRouter = Objects.requireNonNull(pluginRouter, "pluginRouter不能为空");
+        this.resultReporter = Objects.requireNonNull(resultReporter, "resultReporter不能为空");
+        this.scheduler = Objects.requireNonNull(scheduler, "scheduler不能为空");
         this.refreshIntervalMs = Math.max(refreshIntervalMs, 1000L);
         this.unknownThreshold = Math.max(unknownThreshold, 1);
         this.listenerRetentionMs = Math.max(listenerRetentionMs, 0L);
         this.listenerRetentionNum = Math.max(listenerRetentionNum, 0);
-        Map<String, PluginRunModeStateMapping> mappingsByRoute = new LinkedHashMap<>();
-        for (PluginRunModeStateMapping mapping : mappings == null ? Collections.<PluginRunModeStateMapping>emptyList()
-                : mappings) {
-            if (mapping == null) {
-                continue;
-            }
-            if (isBlank(mapping.pluginType()) || isBlank(mapping.runMode())) {
-                throw new IllegalArgumentException("状态映射的pluginType和runMode不能为空");
-            }
-            String route = mappingKey(mapping.pluginType(), mapping.runMode());
-            if (mappingsByRoute.putIfAbsent(route, mapping) != null) {
-                throw new IllegalArgumentException("重复的插件状态映射: " + route);
-            }
-        }
-        this.stateMappings = Collections.unmodifiableMap(mappingsByRoute);
     }
 
     /**
-     * 注册任务状态监听.
-     *
-     * <p>该方法只维护线程安全的内存监听表，不参与 {@code .state} 复合写入。任务控制入口应先完成状态提交，
-     * 启动恢复入口应在 Agent 对外就绪前调用。
+     * 幂等注册单任务周期监听.
      *
      * @param taskInstanceId 任务实例 ID
-     * @param reportedStatus 当前任务控制响应返回给 Manager 的状态
+     * @param reportedStatus Manager 已通过当前 RPC 获知的状态；恢复注册时为 {@code null}
      */
+    @Override
     public void register(String taskInstanceId, StatusEnum reportedStatus) {
         if (isBlank(taskInstanceId)) {
             return;
         }
-        registerTask(taskInstanceId, reportedStatus);
+        listeners.compute(taskInstanceId, (key, current) -> {
+            if (current != null) {
+                current.reportedStatus = reportedStatus;
+                if (current.terminalSince > 0L) {
+                    current.future.cancel(false);
+                    current.terminalSince = 0L;
+                    current.future = schedule(taskInstanceId);
+                }
+                return current;
+            }
+            TaskStateListener listener = new TaskStateListener(taskInstanceId, reportedStatus);
+            listener.future = schedule(taskInstanceId);
+            log.info("注册任务状态监听, taskInstanceId={}, intervalMs={}, reportedStatus={}",
+                    taskInstanceId, refreshIntervalMs, reportedStatus);
+            return listener;
+        });
     }
 
     /**
-     * 注销任务状态监听.
-     *
-     * <p>监听删除和定时任务取消不修改任务运行态，因此不获取任务状态锁。
+     * 注销单任务监听.
      *
      * @param taskInstanceId 任务实例 ID
      */
+    @Override
     public void unregister(String taskInstanceId) {
         if (isBlank(taskInstanceId)) {
             return;
@@ -155,50 +138,46 @@ public class AgentTaskStateListenerRegistry {
         TaskStateListener listener = listeners.remove(taskInstanceId);
         if (listener != null) {
             listener.future.cancel(false);
-            queryFailureCounts.remove(taskInstanceId);
+            queryFailures.remove(taskInstanceId);
             log.info("注销任务状态监听, taskInstanceId={}", taskInstanceId);
         }
     }
 
     /**
-     * 恢复 Manager 返回的未完成任务.
+     * 委托底层传输实现上报一次任务结果.
      *
-     * <p>恢复由 Agent 未就绪阶段串行执行，此时任务控制接口尚未开放，因此只需读取已恢复的本地状态并注册监听。
-     *
-     * @param requests 任务请求清单
+     * @param result 任务结果
+     * @return 是否上报成功
      */
-    public void restoreTasks(List<TaskRequest> requests) {
-        List<TaskRequest> tasks = requests == null ? Collections.emptyList() : requests;
-        stateStore.restoreListeningTasks(tasks);
-        int restoredCount = 0;
-        for (TaskRequest task : tasks) {
-            if (task == null || isBlank(task.getTaskInstanceId())) {
-                continue;
-            }
-            WorkerTaskExecutionState state = stateStore.readState(task.getTaskInstanceId()).orElse(null);
-            if (state == null || state.getStatus() == null) {
-                continue;
-            }
-            registerTask(task.getTaskInstanceId(), null);
-            restoredCount++;
-        }
-        log.info("恢复agent任务状态监听, taskCount={}", restoredCount);
+    @Override
+    public boolean report(TaskResult result) {
+        return resultReporter.report(result);
+    }
+
+    /**
+     * 取消并清空全部任务监听.
+     */
+    @Override
+    public void shutdown() {
+        listeners.values().forEach(listener -> listener.future.cancel(false));
+        listeners.clear();
+        queryFailures.clear();
     }
 
     /**
      * 执行单个任务的一次状态刷新.
      *
-     * <p>关键流程如下：
+     * <p>固定流程如下：
      *
      * <ol>
-     *   <li>无锁读取查询基线 Q，包含 status 和 revision。</li>
-     *   <li>实现层查询本地进程或第三方系统，并映射为 {@link StatusEnum}。</li>
-     *   <li>将映射状态与 Q.status 比较。</li>
-     *   <li>状态一致时不写入；已上报的非终态直接结束。</li>
-     *   <li>状态不一致时校验 {@code canApplyMappedState}。</li>
-     *   <li>通过 {@code saveState(state, Q.revision)} 尝试 CAS 写入。</li>
-     *   <li>存储层在任务锁内复读 revision；不一致返回 {@code false}并丢弃映射结果。</li>
-     *   <li>revision 一致时写入状态并自增 1，然后在锁外上报 Manager。</li>
+     *   <li>无锁读取查询基线 Q：status 和 revision。</li>
+     *   <li>映射器查询第三方并转换为 {@link StatusEnum}。</li>
+     *   <li>Coordinator 再读取最新状态 S0。</li>
+     *   <li>Q.revision 与 S0.revision 不一致时丢弃本次查询。</li>
+     *   <li>映射状态与 S0.status 一致时不写入。</li>
+     *   <li>状态不一致时进入 Store 的任务级 CAS。</li>
+     *   <li>等待锁期间 revision 变化时丢弃结果。</li>
+     *   <li>revision 一致才校验迁移、写入状态并将 revision 加一。</li>
      * </ol>
      *
      * @param taskInstanceId 任务实例 ID
@@ -209,212 +188,128 @@ public class AgentTaskStateListenerRegistry {
             return;
         }
         try {
-            // 1. 无锁读取第三方查询基线 Q；status + revision 共同描述本次查询基于的本地运行态。
-            WorkerTaskExecutionState queryBaseline = stateStore.readState(taskInstanceId).orElse(null);
-            if (queryBaseline == null || queryBaseline.getStatus() == null) {
-                log.warn("任务运行态不存在, 注销状态监听, taskInstanceId={}", taskInstanceId);
+            WorkerTaskExecutionState baseline = stateStore.readState(taskInstanceId).orElse(null);
+            WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(taskInstanceId).orElse(null);
+            if (baseline == null || baseline.getStatus() == null || snapshot == null) {
+                log.warn("任务执行记录不完整, 注销状态监听, taskInstanceId={}", taskInstanceId);
                 unregister(taskInstanceId);
                 return;
             }
-            WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(taskInstanceId).orElse(null);
-            PluginRunModeStateMapping mapping = stateMapping(snapshot);
-            StatusEnum queryStatus = queryBaseline.getStatus();
-            if (!queryStatus.isFinalState()) {
-                listener.terminalSince = 0L;
+
+            WorkerTaskExecutionState actual = baseline;
+            PluginRunModeStateMapping mapping = pluginRouter.routeStateMapping(
+                    snapshot.getPluginType(), snapshot.getRunMode());
+            if (!baseline.getStatus().isFinalState()) {
                 if (mapping == null) {
-                    log.warn("未匹配到插件运行模式状态映射, taskInstanceId={}, pluginType={}, runMode={}",
-                            taskInstanceId, snapshot == null ? null : snapshot.getPluginType(),
-                            snapshot == null ? null : snapshot.getRunMode());
+                    log.warn("未匹配到插件状态映射, taskInstanceId={}, pluginType={}, runMode={}",
+                            taskInstanceId, snapshot.getPluginType(), snapshot.getRunMode());
                     return;
                 }
-                if (isWaitingForRuntimeRef(queryBaseline)) {
+                StatusEnum mappedStatus = normalizeUnknown(baseline, mapping.mapState(snapshot, baseline));
+                if (mappedStatus == null) {
                     return;
+                }
+                if (mappedStatus != baseline.getStatus()) {
+                    WorkerTaskExecutionState candidate = baseline.copy();
+                    candidate.setStatus(mappedStatus);
+                    if (mappedStatus.isFinalState()) {
+                        mapping.prepareFinalReport(snapshot, candidate);
+                    }
+                    actual = stateCoordinator.commitMappedState(baseline, candidate);
+                }
+            } else if (listener.reportedStatus != baseline.getStatus() && mapping != null) {
+                WorkerTaskExecutionState candidate = baseline.copy();
+                if (mapping.prepareFinalReport(snapshot, candidate)) {
+                    actual = stateCoordinator.commitFinalReport(baseline, candidate);
                 }
             }
 
-            // 2. 实现层查询本地进程或第三方系统，并将其状态映射为 Worker 的 StatusEnum。
-            StatusEnum mappedStatus = queryStatus.isFinalState() ? queryStatus : mapping.mapState(snapshot, queryBaseline);
-
-            // 3. 直接与 Q.status 比较；稳定且已上报的非终态不写入。
-            if (mappedStatus == queryStatus && listener.reportedStatus == queryStatus && !queryStatus.isFinalState()) {
-                queryFailureCounts.remove(taskInstanceId);
+            if (listener.reportedStatus == actual.getStatus()) {
+                retainIfFinal(listener, actual.getStatus());
                 return;
             }
-            // 4. 状态提交，保存和上报
-            commitAndReport(listener, snapshot, mapping, queryBaseline, mappedStatus);
+            TaskResult reportResult = WorkerTaskResultMapper.toTaskResult(snapshot, actual);
+            if (!resultReporter.report(reportResult)) {
+                log.warn("任务状态上报失败, 等待下次监听重试, taskInstanceId={}, status={}",
+                        taskInstanceId, reportResult.getTaskState());
+                return;
+            }
+            if (listeners.get(taskInstanceId) != listener) {
+                return;
+            }
+            listener.reportedStatus = reportResult.getTaskState();
+            log.info("任务状态上报成功, taskInstanceId={}, status={}",
+                    taskInstanceId, reportResult.getTaskState());
+            retainIfFinal(listener, reportResult.getTaskState());
         } catch (Exception e) {
             log.warn("刷新任务状态失败, taskInstanceId={}", taskInstanceId, e);
         }
     }
 
+    /**
+     * 获取当前监听数量.
+     *
+     * @return 监听数量
+     */
     int listenerCount() {
         return listeners.size();
     }
 
+    /**
+     * 判断任务是否已注册监听.
+     *
+     * @param taskInstanceId 任务实例 ID
+     * @return 是否已注册
+     */
     boolean isRegistered(String taskInstanceId) {
         return listeners.containsKey(taskInstanceId);
     }
 
-    /**
-     * 幂等注册任务监听.
-     *
-     * @param taskInstanceId 任务实例 ID
-     * @param reportedStatus Manager 已通过当前任务控制响应接收的状态；恢复注册时为 null
-     */
-    private void registerTask(String taskInstanceId, StatusEnum reportedStatus) {
-        if (isBlank(taskInstanceId)) {
-            return;
-        }
-        listeners.compute(taskInstanceId, (key, current) -> {
-            if (current != null) {
-                current.reportedStatus = reportedStatus;
-                if (current.terminalSince > 0L) {
-                    current.future.cancel(false);
-                    current.terminalSince = 0L;
-                    current.future = scheduler.scheduleWithFixedDelay(() -> refreshTask(taskInstanceId),
-                            refreshIntervalMs, refreshIntervalMs, TimeUnit.MILLISECONDS);
-                    log.info("重新激活任务状态监听, taskInstanceId={}, intervalMs={}, reportedStatus={}",
-                            taskInstanceId, refreshIntervalMs, reportedStatus);
-                }
-                return current;
-            }
-            TaskStateListener listener = new TaskStateListener(taskInstanceId, reportedStatus);
-            listener.future = scheduler.scheduleWithFixedDelay(() -> refreshTask(taskInstanceId), refreshIntervalMs,
-                    refreshIntervalMs, TimeUnit.MILLISECONDS);
-            log.info("注册任务状态监听, taskInstanceId={}, intervalMs={}, reportedStatus={}",
-                    taskInstanceId, refreshIntervalMs, reportedStatus);
-            return listener;
-        });
+    private ScheduledFuture<?> schedule(String taskInstanceId) {
+        return scheduler.scheduleWithFixedDelay(() -> refreshTask(taskInstanceId),
+                refreshIntervalMs, refreshIntervalMs, TimeUnit.MILLISECONDS);
     }
 
-    /**
-     * 使用 revision CAS 提交映射状态，并上报 Manager.
-     *
-     * <p>方法内不获取任务锁。状态写入的锁与 revision 校验由 {@link WorkerTaskExecutionStore#saveState(
-     * WorkerTaskExecutionState, long)} 内部完成。Manager 上报成功后才推进 {@code reportedStatus}，失败则在下一周期重试。
-     *
-     * @param listener         任务监听项
-     * @param snapshot         任务提交快照
-     * @param mapping          插件状态映射器
-     * @param state            查询基线 Q
-     * @param mappedStatus     第三方状态映射结果
-     */
-    private void commitAndReport(TaskStateListener listener, WorkerTaskExecutionSnap snapshot,
-            PluginRunModeStateMapping mapping, WorkerTaskExecutionState state, StatusEnum mappedStatus) {
-        if (listeners.get(listener.taskInstanceId) != listener) {
+    private StatusEnum normalizeUnknown(WorkerTaskExecutionState baseline, StatusEnum mappedStatus) {
+        if (mappedStatus != StatusEnum.UNKNOWN) {
+            queryFailures.remove(baseline.getTaskInstanceId());
+            return mappedStatus;
+        }
+        QueryFailure failure = queryFailures.compute(baseline.getTaskInstanceId(), (key, current) -> {
+            boolean sameBaseline = current != null && current.revision == baseline.getRevision()
+                    && current.status == baseline.getStatus() && Objects.equals(current.appId, baseline.getAppId());
+            return new QueryFailure(baseline.getRevision(), baseline.getStatus(), baseline.getAppId(),
+                    sameBaseline ? current.count + 1 : 1);
+        });
+        return failure.count < unknownThreshold ? baseline.getStatus() : StatusEnum.UNKNOWN;
+    }
+
+    private void retainIfFinal(TaskStateListener listener, StatusEnum status) {
+        if (status == null || !status.isFinalState() || listener.terminalSince > 0L) {
             return;
         }
-        StatusEnum currentStatus = state.getStatus();
-        StatusEnum nextStatus = currentStatus.isFinalState() ? currentStatus : normalizeUnknown(state, mappedStatus);
-        if (nextStatus == null) {
-            return;
-        }
-        boolean statusChanged = nextStatus != currentStatus;
-        if (statusChanged && !canApplyMappedState(currentStatus, nextStatus)) {
-            log.warn("拒绝插件状态覆盖当前任务状态, taskInstanceId={}, currentStatus={}, mappedStatus={}",
-                    listener.taskInstanceId, currentStatus, nextStatus);
-            return;
-        }
-        if (statusChanged) {
-            state.setStatus(nextStatus);
-        }
-        boolean shouldReport = listener.reportedStatus != nextStatus;
-        boolean finalResultChanged = shouldReport && nextStatus.isFinalState() && mapping != null
-                && mapping.prepareFinalReport(snapshot, state);
-        if (statusChanged || finalResultChanged) {
-            if (!stateStore.saveState(state, state.getRevision())) {
-                if (mappedStatus == StatusEnum.UNKNOWN) {
-                    queryFailureCounts.remove(listener.taskInstanceId);
-                }
+        List<String> overflowTaskIds;
+        synchronized (listeners) {
+            if (listener.terminalSince > 0L || listeners.get(listener.taskInstanceId) != listener) {
                 return;
             }
+            listener.terminalSince = System.currentTimeMillis();
+            listener.future.cancel(false);
+            listener.future = scheduler.schedule(() -> evictTerminalListener(listener.taskInstanceId),
+                    listenerRetentionMs, TimeUnit.MILLISECONDS);
+            queryFailures.remove(listener.taskInstanceId);
+            List<TaskStateListener> terminalListeners = listeners.values().stream()
+                    .filter(item -> item.terminalSince > 0L)
+                    .sorted(Comparator.comparingLong((TaskStateListener item) -> item.terminalSince)
+                            .thenComparing(item -> item.taskInstanceId))
+                    .toList();
+            int overflow = Math.max(terminalListeners.size() - listenerRetentionNum, 0);
+            overflowTaskIds = terminalListeners.stream().limit(overflow)
+                    .map(item -> item.taskInstanceId).toList();
         }
-        if (statusChanged) {
-            log.info("提交任务状态变化, taskInstanceId={}, oldStatus={}, newStatus={}",
-                    listener.taskInstanceId, currentStatus, nextStatus);
-        }
-        if (!shouldReport) {
-            retainIfFinal(listener, nextStatus);
-            return;
-        }
-        listener.terminalSince = 0L;
-        TaskResult reportResult = toTaskResult(snapshot, state);
-        if (reportResult == null) {
-            return;
-        }
-        boolean reported;
-        try {
-            reported = resultReporter.report(reportResult);
-        } catch (RuntimeException e) {
-            log.warn("任务状态上报异常, 等待下次监听重试, taskInstanceId={}, status={}",
-                    listener.taskInstanceId, reportResult.getTaskState(), e);
-            return;
-        }
-        if (!reported) {
-            log.warn("任务状态上报失败, 等待下次监听重试, taskInstanceId={}, status={}",
-                    listener.taskInstanceId, reportResult.getTaskState());
-            return;
-        }
-        if (listeners.get(listener.taskInstanceId) != listener) {
-            return;
-        }
-        StatusEnum reportedStatus = reportResult.getTaskState();
-        listener.reportedStatus = reportedStatus;
-        log.info("任务状态上报成功, taskInstanceId={}, status={}", listener.taskInstanceId, reportedStatus);
-        retainIfFinal(listener, reportedStatus);
+        overflowTaskIds.forEach(taskInstanceId -> scheduler.execute(() -> evictTerminalListener(taskInstanceId)));
     }
 
-    /**
-     * 将已完成上报的终态监听切换为一次性延迟清理任务.
-     *
-     * <p>{@link #listeners} 是唯一监听注册表，{@code terminalSince > 0} 表示监听已进入终态保留期。
-     * 只有终态进入事件会按该时间排序并检查容量，不执行周期性全表扫描。
-     *
-     * @param listener 任务监听项
-     * @param status   当前任务状态
-     */
-    private void retainIfFinal(TaskStateListener listener, StatusEnum status) {
-        if (status != null && status.isFinalState()) {
-            List<String> overflowTaskIds;
-            synchronized (listeners) {
-                if (listener.terminalSince > 0L) {
-                    return;
-                }
-                listener.terminalSince = System.currentTimeMillis();
-                queryFailureCounts.remove(listener.taskInstanceId);
-                ScheduledFuture<?> retentionFuture = scheduler.schedule(
-                        () -> evictTerminalListener(listener.taskInstanceId), listenerRetentionMs,
-                        TimeUnit.MILLISECONDS);
-                listener.future.cancel(false);
-                listener.future = retentionFuture;
-
-                List<TaskStateListener> terminalListeners = listeners.values()
-                        .stream()
-                        .filter(item -> item.terminalSince > 0L)
-                        .sorted(Comparator.comparingLong((TaskStateListener item) -> item.terminalSince)
-                                .thenComparing(item -> item.taskInstanceId))
-                        .toList();
-                int overflow = Math.max(terminalListeners.size() - listenerRetentionNum, 0);
-                overflowTaskIds = terminalListeners.stream()
-                        .limit(overflow)
-                        .map(item -> item.taskInstanceId)
-                        .toList();
-            }
-            overflowTaskIds.forEach(taskInstanceId -> scheduler.execute(
-                    () -> evictTerminalListener(taskInstanceId)));
-            return;
-        }
-        listener.terminalSince = 0L;
-    }
-
-    /**
-     * 从唯一监听注册表原子淘汰一个已完成上报的终态监听.
-     *
-     * <p>终态监听不再参与状态写入，因此这里只使用 {@link ConcurrentHashMap#computeIfPresent(Object,
-     * java.util.function.BiFunction)} 与终态容量临界区协调内存删除，不获取任务状态锁。
-     *
-     * @param taskInstanceId 任务实例 ID
-     */
     private void evictTerminalListener(String taskInstanceId) {
         synchronized (listeners) {
             listeners.computeIfPresent(taskInstanceId, (key, listener) -> {
@@ -422,7 +317,7 @@ public class AgentTaskStateListenerRegistry {
                     return listener;
                 }
                 listener.future.cancel(false);
-                queryFailureCounts.remove(taskInstanceId);
+                queryFailures.remove(taskInstanceId);
                 log.info("清理终态任务监听, taskInstanceId={}, status={}",
                         taskInstanceId, listener.reportedStatus);
                 return null;
@@ -430,112 +325,39 @@ public class AgentTaskStateListenerRegistry {
         }
     }
 
-    /**
-     * 按连续失败阈值归一 UNKNOWN，避免一次查询抖动直接推进终态.
-     *
-     * @param state        当前本地运行态
-     * @param mappedStatus 第三方状态映射结果
-     * @return 本次允许参与状态迁移的状态
-     */
-    private StatusEnum normalizeUnknown(WorkerTaskExecutionState state, StatusEnum mappedStatus) {
-        if (mappedStatus != StatusEnum.UNKNOWN) {
-            queryFailureCounts.remove(state.getTaskInstanceId());
-            return mappedStatus;
-        }
-        int failureCount = queryFailureCounts.merge(state.getTaskInstanceId(), 1, Integer::sum);
-        return failureCount < unknownThreshold ? state.getStatus() : StatusEnum.UNKNOWN;
-    }
-
-    /**
-     * 校验第三方映射状态是否可以覆盖当前控制意图.
-     *
-     * @param currentStatus 当前本地状态
-     * @param mappedStatus  第三方映射状态
-     * @return 是否允许提交映射状态
-     */
-    private boolean canApplyMappedState(StatusEnum currentStatus, StatusEnum mappedStatus) {
-        return switch (currentStatus) {
-            case SUBMITTING, SUBMIT_SUCCESS -> mappedStatus == StatusEnum.RUNNING
-                    || mappedStatus == StatusEnum.RUN_SUCCESS || mappedStatus == StatusEnum.SUBMIT_FAILURE
-                    || mappedStatus == StatusEnum.RUN_FAILURE || mappedStatus == StatusEnum.UNKNOWN;
-            case RUNNING -> mappedStatus == StatusEnum.RUN_SUCCESS || mappedStatus == StatusEnum.RUN_FAILURE
-                    || mappedStatus == StatusEnum.UNKNOWN;
-            case STOPPING -> mappedStatus == StatusEnum.STOP_SUCCESS || mappedStatus == StatusEnum.STOP_FAILURE
-                    || mappedStatus == StatusEnum.UNKNOWN;
-            case KILLING -> mappedStatus == StatusEnum.KILLED || mappedStatus == StatusEnum.UNKNOWN;
-            default -> false;
-        };
-    }
-
-    private PluginRunModeStateMapping stateMapping(WorkerTaskExecutionSnap snapshot) {
-        if (snapshot == null || isBlank(snapshot.getPluginType()) || isBlank(snapshot.getRunMode())) {
-            return null;
-        }
-        return stateMappings.get(mappingKey(snapshot.getPluginType(), snapshot.getRunMode()));
-    }
-
-    private TaskResult toTaskResult(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
-        return TaskResult.builder()
-                .taskInstanceId(state.getTaskInstanceId())
-                .flowInstanceId(snapshot == null ? null : snapshot.getFlowInstanceId())
-                .taskName(snapshot == null ? null : snapshot.getTaskName())
-                .taskState(state.getStatus())
-                .workerResult(WorkerResult.builder()
-                        .outputVars(state.getOutputVars())
-                        .workerId(state.getWorkerId() == null && snapshot != null ? snapshot.getWorkerId() : state.getWorkerId())
-                        .appId(state.getAppId())
-                        .workDirPath(state.getWorkDirPath())
-                        .message(resultText(state.getResult(), "message"))
-                        .pluginLogUri(resultText(state.getResult(), "pluginLogUri"))
-                        .build())
-                .build();
-    }
-
-    private String resultText(JsonNode result, String fieldName) {
-        return result == null || !result.hasNonNull(fieldName) ? null : result.get(fieldName).asText();
-    }
-
-    private boolean isWaitingForRuntimeRef(WorkerTaskExecutionState state) {
-        return isBlank(state.getAppId()) && isBlank(state.getWorkDirPath())
-                && (state.getStatus() == StatusEnum.SUBMITTING || state.getStatus() == StatusEnum.SUBMIT_SUCCESS);
-    }
-
-    private static String mappingKey(String pluginType, String runMode) {
-        return pluginType.trim().toUpperCase(Locale.ROOT) + ':' + runMode.trim().toUpperCase(Locale.ROOT);
-    }
-
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
 
-    /**
-     * 单任务监听注册项.
-     */
+    /** 单任务监听注册项. */
     private static final class TaskStateListener {
 
-        /**
-         * 任务实例 ID.
-         */
+        /** 任务实例 ID. */
         private final String taskInstanceId;
 
-        /**
-         * 周期监听句柄.
-         */
+        /** 当前计划句柄. */
         private ScheduledFuture<?> future;
 
-        /**
-         * 最近一次已成功上报给 Manager 的状态.
-         */
+        /** Manager 已成功接收的最近状态. */
         private volatile StatusEnum reportedStatus;
 
-        /**
-         * 首次确认终态时间.
-         */
+        /** 进入终态保留期的时间. */
         private volatile long terminalSince;
 
         private TaskStateListener(String taskInstanceId, StatusEnum reportedStatus) {
             this.taskInstanceId = taskInstanceId;
             this.reportedStatus = reportedStatus;
         }
+    }
+
+    /**
+     * 与一次查询基线绑定的 UNKNOWN 计数.
+     *
+     * @param revision 查询基线 revision
+     * @param status   查询基线状态
+     * @param appId    查询基线运行引用
+     * @param count    连续 UNKNOWN 次数
+     */
+    private record QueryFailure(long revision, StatusEnum status, String appId, int count) {
     }
 }

@@ -1,7 +1,6 @@
 package com.datafusion.agent.runtime.worker.plugin.spark;
 
-import com.datafusion.agent.config.AgentProperties;
-import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
@@ -44,15 +43,17 @@ class SparkParamResolverTest {
         taskKubernetes.put("namespace", "task-ns");
         taskKubernetes.put("collectLogsOnFinish", false);
 
-        TaskRequest request = new TaskRequest();
-        request.setFlowInstanceId("flow-1");
-        request.setTaskInstanceId("task-1");
-        request.setRunMode(SparkRunMode.K8S_OPERATOR.name());
-        request.setPluginParam(pluginParam);
-        request.setTaskData(taskData);
+        WorkerTaskExecutionSnap snapshot = WorkerTaskExecutionSnap.builder()
+                .flowInstanceId("flow-1")
+                .taskInstanceId("task-1")
+                .runMode(SparkRunMode.K8S_OPERATOR.name())
+                .pluginParam(pluginParam)
+                .taskData(taskData)
+                .build();
 
-        SparkExecutionParam param = new SparkParamResolver(new AgentProperties()).resolve(request);
+        SparkExecutionParam param = new SparkParamResolver().resolve(snapshot, "/tmp/datafusion/spark/task-1");
 
+        assertEquals("/tmp/datafusion/spark/task-1", param.getWorkDir().toString());
         assertEquals("task-ns", param.getKubernetes().getNamespace());
         assertEquals("custom-spark-task-1", param.getKubernetes().getApplicationName());
         assertEquals("custom-spark-job-config-task-1", param.getKubernetes().getConfigMapName());

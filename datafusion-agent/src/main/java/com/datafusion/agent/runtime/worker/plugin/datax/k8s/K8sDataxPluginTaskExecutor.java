@@ -5,12 +5,11 @@ import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxParamResolver;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxPluginTaskExecutor;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxRunMode;
-import com.datafusion.agent.runtime.worker.plugin.datax.DataxTaskResult;
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.model.TaskRequest;
-import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.WorkerResult;
+import com.datafusion.scheduler.worker.context.RunningTaskContext;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
-import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -36,11 +35,9 @@ public class K8sDataxPluginTaskExecutor extends DataxPluginTaskExecutor {
      *
      * @param paramResolver 参数解析器
      * @param kubernetesClient Kubernetes 客户端
-     * @param stateStore 状态存储
      */
-    public K8sDataxPluginTaskExecutor(DataxParamResolver paramResolver, DataxKubernetesClient kubernetesClient,
-            WorkerTaskExecutionStore stateStore) {
-        super(paramResolver, stateStore);
+    public K8sDataxPluginTaskExecutor(DataxParamResolver paramResolver, DataxKubernetesClient kubernetesClient) {
+        super(paramResolver);
         this.kubernetesClient = kubernetesClient;
     }
 
@@ -50,80 +47,79 @@ public class K8sDataxPluginTaskExecutor extends DataxPluginTaskExecutor {
     }
 
     @Override
-    protected TaskResult submit(TaskRequest request, DataxExecutionParam param, WorkerTaskExecutionState state) {
-        WorkerTaskExecutionState oldState = stateStore().readState(param.getTaskInstanceId()).orElse(null);
-        if (oldState != null && !isBlank(oldState.getAppId())) {
-            DataxTaskResult cleanupFailure = null;
+    protected WorkerResult submit(RunningTaskContext context, DataxExecutionParam param) {
+        WorkerTaskExecutionState state = context.getExecutionState();
+        WorkerTaskExecutionState previousState = context.getPreviousState();
+        WorkerTaskExecutionSnap previousSnapshot = context.getPreviousSnapshot();
+        if (previousSnapshot != null && previousState != null && !isBlank(previousState.getAppId())) {
             try {
-                if (!kubernetesClient.cleanup(runtimeRef(param, oldState), DataxKubernetesCleanupMode.BEFORE_SUBMIT)) {
-                    cleanupFailure = result(oldState, StatusEnum.SUBMIT_FAILURE,
-                            "K8S DataX cleanup before submit unfinished", null);
+                DataxExecutionParam previousParam = resolve(previousSnapshot, previousState.getWorkDirPath());
+                if (!kubernetesClient.cleanup(runtimeRef(previousParam, previousState),
+                        DataxKubernetesCleanupMode.BEFORE_SUBMIT)) {
+                    applyResult(state, StatusEnum.SUBMIT_FAILURE, null, context.getWorkDirPath(),
+                            resultJson("K8S DataX cleanup before submit unfinished", null));
+                    return workerResult(state);
                 }
             } catch (RuntimeException e) {
-                cleanupFailure = result(oldState, StatusEnum.SUBMIT_FAILURE, "K8S DataX cleanup before submit failed: "
-                        + e.getMessage(), null);
-            }
-            if (cleanupFailure != null) {
-                return recordSubmitResult(request, state, cleanupFailure);
+                applyResult(state, StatusEnum.SUBMIT_FAILURE, null, context.getWorkDirPath(),
+                        resultJson("K8S DataX cleanup before submit failed: " + e.getMessage(), null));
+                return workerResult(state);
             }
         }
-        DataxTaskResult submitResult;
         try {
             DataxKubernetesRuntimeRef runtimeRef = kubernetesClient.submit(param);
-            submitResult = DataxTaskResult.builder()
-                    .status(StatusEnum.SUBMIT_SUCCESS)
-                    .appId(runtimeRef.getJobName())
-                    .workDirPath(param.getWorkDir().toString())
-                    .result(resultJson("K8S DataX job submitted", pluginLogUri(runtimeRef)))
-                    .build();
+            applyResult(state, StatusEnum.SUBMIT_SUCCESS, runtimeRef.getJobName(), param.getWorkDir().toString(),
+                    resultJson("K8S DataX job submitted", pluginLogUri(runtimeRef)));
         } catch (Exception e) {
-            submitResult = DataxTaskResult.builder()
-                    .status(StatusEnum.SUBMIT_FAILURE)
-                    .result(PluginResultJson.build(e.getMessage(), "DATAX", DataxRunMode.K8S.name(), null, null))
-                    .build();
+            applyResult(state, StatusEnum.SUBMIT_FAILURE, null, context.getWorkDirPath(),
+                    PluginResultJson.build(e.getMessage(), "DATAX", DataxRunMode.K8S.name(), null, null));
         }
-        return recordSubmitResult(request, state, submitResult);
+        return workerResult(state);
     }
 
     @Override
-    protected DataxTaskResult stop(DataxExecutionParam param, WorkerTaskExecutionState state) {
+    protected WorkerResult stop(RunningTaskContext context, DataxExecutionParam param) {
+        WorkerTaskExecutionState state = context.getExecutionState();
         DataxKubernetesRuntimeRef runtimeRef = runtimeRef(param, state);
         kubernetesClient.stop(runtimeRef, false);
-        return result(state, StatusEnum.STOPPING, "K8S DataX stop requested", null);
+        applyControlResult(state, StatusEnum.STOPPING, "K8S DataX stop requested", context.getWorkDirPath());
+        return workerResult(state);
     }
 
     @Override
-    protected DataxTaskResult kill(DataxExecutionParam param, WorkerTaskExecutionState state) {
-        if (state == null || isBlank(state.getAppId())) {
-            return result(state, StatusEnum.KILLED, "K8S DataX runtime ref not found, nothing to kill", null);
+    protected WorkerResult kill(RunningTaskContext context, DataxExecutionParam param) {
+        WorkerTaskExecutionState state = context.getExecutionState();
+        if (isBlank(state.getAppId())) {
+            applyControlResult(state, StatusEnum.KILLED,
+                    "K8S DataX runtime ref not found, nothing to kill", context.getWorkDirPath());
+            return workerResult(state);
         }
         try {
             DataxKubernetesRuntimeRef runtimeRef = runtimeRef(param, state);
             kubernetesClient.stop(runtimeRef, true);
-            return result(state, StatusEnum.KILLING, "K8S DataX kill requested", null);
+            applyControlResult(state, StatusEnum.KILLING, "K8S DataX kill requested", context.getWorkDirPath());
         } catch (RuntimeException e) {
             log.warn("DataX K8S强杀失败, taskInstanceId={}, appId={}, error={}",
                     param.getTaskInstanceId(), state.getAppId(), e.getMessage());
-            return result(state, StatusEnum.UNKNOWN, "K8S DataX kill failed: " + e.getMessage(), null);
+            applyControlResult(state, StatusEnum.UNKNOWN,
+                    "K8S DataX kill failed: " + e.getMessage(), context.getWorkDirPath());
         }
+        return workerResult(state);
     }
 
     @Override
-    protected boolean finish(DataxExecutionParam param, WorkerTaskExecutionState state) {
-        if (state == null || isBlank(state.getAppId())) {
+    protected boolean finish(RunningTaskContext context, DataxExecutionParam param) {
+        WorkerTaskExecutionState state = context.getExecutionState();
+        if (isBlank(state.getAppId())) {
             return true;
         }
         return kubernetesClient.cleanup(runtimeRef(param, state), DataxKubernetesCleanupMode.AFTER_FINISH);
     }
 
-    private DataxTaskResult result(WorkerTaskExecutionState state, StatusEnum status, String message, String pluginLogPath) {
-        String pluginLogUri = firstText(pluginLogPath, pluginLogUri(state));
-        return DataxTaskResult.builder()
-                .status(status)
-                .appId(state == null ? null : state.getAppId())
-                .workDirPath(state == null ? null : state.getWorkDirPath())
-                .result(resultJson(message, pluginLogUri))
-                .build();
+    private void applyControlResult(WorkerTaskExecutionState state, StatusEnum status, String message,
+            String workDirPath) {
+        applyResult(state, status, state.getAppId(), firstText(state.getWorkDirPath(), workDirPath),
+                resultJson(message, pluginLogUri(state)));
     }
 
     private DataxKubernetesRuntimeRef runtimeRef(DataxExecutionParam param, WorkerTaskExecutionState state) {

@@ -39,14 +39,25 @@ public class ShellLocalRunModeStateMapping implements PluginRunModeStateMapping 
         if (pid.isEmpty()) {
             log.warn("Shell LOCAL的pid为空, taskInstanceId={}, appId={}",
                     state.getTaskInstanceId(), state.getAppId());
-            return StatusEnum.UNKNOWN;
+            return missingProcessStatus(state.getStatus());
         }
         if (ProcessHandle.of(pid.get()).map(ProcessHandle::isAlive).orElse(false)) {
-            return StatusEnum.RUNNING;
+            return state.getStatus() == StatusEnum.STOPPING || state.getStatus() == StatusEnum.KILLING
+                    ? state.getStatus() : StatusEnum.RUNNING;
         }
         log.warn("Shell LOCAL的进程不存在, taskInstanceId={}, pid={}",
                 state.getTaskInstanceId(), pid.get());
-        return StatusEnum.UNKNOWN;
+        return missingProcessStatus(state.getStatus());
+    }
+
+    private StatusEnum missingProcessStatus(StatusEnum status) {
+        if (status == StatusEnum.STOPPING) {
+            return StatusEnum.STOP_SUCCESS;
+        }
+        if (status == StatusEnum.KILLING) {
+            return StatusEnum.KILLED;
+        }
+        return status == StatusEnum.SUBMITTING ? StatusEnum.SUBMIT_FAILURE : StatusEnum.UNKNOWN;
     }
 
     private Optional<Long> parsePid(String appId) {

@@ -1,7 +1,6 @@
 package com.datafusion.agent.runtime.worker.plugin.datax;
 
-import com.datafusion.agent.config.AgentProperties;
-import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
@@ -27,11 +26,11 @@ class DataxParamResolverTest {
 
     @Test
     void shouldRequireRunMode() {
-        DataxParamResolver resolver = new DataxParamResolver(new AgentProperties());
-        TaskRequest request = request(OBJECT_MAPPER.createObjectNode());
+        DataxParamResolver resolver = new DataxParamResolver();
+        WorkerTaskExecutionSnap request = request(OBJECT_MAPPER.createObjectNode());
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> resolver.resolve(request));
+                () -> resolver.resolve(request, "/runtime/task-1"));
 
         assertEquals("runMode不能为空", exception.getMessage());
     }
@@ -44,9 +43,9 @@ class DataxParamResolverTest {
         pluginParam.put("logConfigFile", "/opt/plugins/datax/conf/logback.xml");
         pluginParam.put("javaBin", "/usr/bin/java");
         pluginParam.put("logLevel", "WARN");
-        DataxParamResolver resolver = new DataxParamResolver(new AgentProperties());
+        DataxParamResolver resolver = new DataxParamResolver();
 
-        DataxExecutionParam param = resolver.resolve(request(DataxRunMode.LOCAL, pluginParam));
+        DataxExecutionParam param = resolver.resolve(request(DataxRunMode.LOCAL, pluginParam), "/runtime/task-1");
 
         assertEquals(DataxRunMode.LOCAL, param.getRunMode());
         assertEquals("/opt/plugins/datax", param.getDataxHome());
@@ -56,7 +55,7 @@ class DataxParamResolverTest {
         assertEquals("WARN", param.getLogLevel());
         assertEquals("OWNER_READ,OWNER_WRITE,OWNER_EXECUTE,GROUP_READ,GROUP_EXECUTE,OTHERS_READ,OTHERS_EXECUTE",
                 param.getWriteJobFilePermissions());
-        assertTrue(param.getWorkDir().toString().contains("task-runtime"));
+        assertEquals("/runtime/task-1", param.getWorkDir().toString());
     }
 
     @Test
@@ -87,9 +86,10 @@ class DataxParamResolverTest {
         taskKubernetesEnv.put("TASK_K8S_ENV", "task-k8s");
         taskKubernetes.set("env", taskKubernetesEnv);
         taskData.set("kubernetes", taskKubernetes);
-        DataxParamResolver resolver = new DataxParamResolver(new AgentProperties());
+        DataxParamResolver resolver = new DataxParamResolver();
 
-        DataxExecutionParam param = resolver.resolve(request(DataxRunMode.K8S, pluginParam, taskData));
+        DataxExecutionParam param = resolver.resolve(request(DataxRunMode.K8S, pluginParam, taskData),
+                "/runtime/task-1");
 
         assertEquals(DataxRunMode.K8S, param.getRunMode());
         assertEquals("task-ns", param.getKubernetes().getNamespace());
@@ -122,9 +122,10 @@ class DataxParamResolverTest {
         ObjectNode taskJob = OBJECT_MAPPER.createObjectNode();
         taskJob.set("content", OBJECT_MAPPER.createArrayNode().add(contentItem));
         taskData.set("job", taskJob);
-        DataxParamResolver resolver = new DataxParamResolver(new AgentProperties());
+        DataxParamResolver resolver = new DataxParamResolver();
 
-        DataxExecutionParam param = resolver.resolve(request(DataxRunMode.LOCAL, pluginParam, taskData));
+        DataxExecutionParam param = resolver.resolve(request(DataxRunMode.LOCAL, pluginParam, taskData),
+                "/runtime/task-1");
 
         assertEquals(1, param.getEffectiveTaskData().path("job").path("setting").path("speed")
                 .path("channel").asInt());
@@ -137,11 +138,11 @@ class DataxParamResolverTest {
     @Test
     void shouldRequireJobSource() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
-        DataxParamResolver resolver = new DataxParamResolver(new AgentProperties());
+        DataxParamResolver resolver = new DataxParamResolver();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> resolver.resolve(request(DataxRunMode.LOCAL, pluginParam,
-                        OBJECT_MAPPER.createObjectNode())));
+                        OBJECT_MAPPER.createObjectNode()), "/runtime/task-1"));
 
         assertEquals("pluginParam.jobFile、pluginParam.defaultTaskData、taskData.jobJson、taskData至少配置一个",
                 exception.getMessage());
@@ -151,28 +152,28 @@ class DataxParamResolverTest {
     void shouldRequireKubernetesImage() {
         ObjectNode pluginParam = OBJECT_MAPPER.createObjectNode();
         pluginParam.set("kubernetes", OBJECT_MAPPER.createObjectNode());
-        DataxParamResolver resolver = new DataxParamResolver(new AgentProperties());
+        DataxParamResolver resolver = new DataxParamResolver();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> resolver.resolve(request(DataxRunMode.K8S, pluginParam)));
+                () -> resolver.resolve(request(DataxRunMode.K8S, pluginParam), "/runtime/task-1"));
 
         assertEquals("pluginParam.kubernetes.image或taskData.kubernetes.image不能为空", exception.getMessage());
     }
 
-    private TaskRequest request(ObjectNode pluginParam) {
+    private WorkerTaskExecutionSnap request(ObjectNode pluginParam) {
         ObjectNode taskData = OBJECT_MAPPER.createObjectNode();
         taskData.set("jobJson", OBJECT_MAPPER.createObjectNode());
         return request(null, pluginParam, taskData);
     }
 
-    private TaskRequest request(DataxRunMode runMode, ObjectNode pluginParam) {
+    private WorkerTaskExecutionSnap request(DataxRunMode runMode, ObjectNode pluginParam) {
         ObjectNode taskData = OBJECT_MAPPER.createObjectNode();
         taskData.set("jobJson", OBJECT_MAPPER.createObjectNode());
         return request(runMode, pluginParam, taskData);
     }
 
-    private TaskRequest request(DataxRunMode runMode, ObjectNode pluginParam, ObjectNode taskData) {
-        TaskRequest request = new TaskRequest();
+    private WorkerTaskExecutionSnap request(DataxRunMode runMode, ObjectNode pluginParam, ObjectNode taskData) {
+        WorkerTaskExecutionSnap request = new WorkerTaskExecutionSnap();
         request.setFlowInstanceId("flow-1");
         request.setTaskInstanceId("task-1");
         request.setTaskName("DataX");

@@ -64,4 +64,23 @@ public class WorkerTaskExecutionSnap {
      * 提交模式.
      */
     private SubmitModeEnum submitMode;
+
+    /**
+     * 创建任务提交快照副本.
+     *
+     * @return 任务提交快照副本
+     */
+    public WorkerTaskExecutionSnap copy() {
+        return WorkerTaskExecutionSnap.builder()
+                .flowInstanceId(flowInstanceId)
+                .taskInstanceId(taskInstanceId)
+                .taskName(taskName)
+                .pluginType(pluginType)
+                .runMode(runMode)
+                .workerId(workerId)
+                .taskData(taskData == null ? null : taskData.deepCopy())
+                .pluginParam(pluginParam == null ? null : pluginParam.deepCopy())
+                .submitMode(submitMode)
+                .build();
+    }
 }

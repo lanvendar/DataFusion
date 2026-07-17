@@ -1,6 +1,5 @@
 package com.datafusion.agent.runtime.worker.plugin.datax.k8s;
 
-import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxParamResolver;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxPluginTaskExecutor;
@@ -43,9 +42,8 @@ class DataxK8sRunModeStateMappingTest {
     @Test
     void shouldCollectLogsBeforeFinalStateReport() throws Exception {
         FakeKubernetesClient client = new FakeKubernetesClient();
-        AgentProperties properties = properties();
         DataxK8sRunModeStateMapping mapping = new DataxK8sRunModeStateMapping(client,
-                new DataxParamResolver(properties));
+                new DataxParamResolver());
         TaskRequest request = request();
         WorkerTaskExecutionSnap snapshot = snapshot(request);
         WorkerTaskExecutionState state = state();
@@ -65,7 +63,7 @@ class DataxK8sRunModeStateMappingTest {
     void shouldMapKubernetesStatus() {
         FakeKubernetesClient client = new FakeKubernetesClient();
         DataxK8sRunModeStateMapping mapping = new DataxK8sRunModeStateMapping(client,
-                new DataxParamResolver(properties()));
+                new DataxParamResolver());
         TaskRequest request = request();
         WorkerTaskExecutionSnap snapshot = snapshot(request);
 
@@ -83,12 +81,6 @@ class DataxK8sRunModeStateMappingTest {
 
         client.status = status(DataxKubernetesStatus.State.NONE, false, false, true, false);
         assertEquals(StatusEnum.KILLING, mapping.mapState(snapshot, state(StatusEnum.KILLING)));
-    }
-
-    private AgentProperties properties() {
-        AgentProperties properties = new AgentProperties();
-        properties.getStorage().setTaskRuntimeDir(tempDir.resolve("task-runtime").toString());
-        return properties;
     }
 
     private TaskRequest request() {

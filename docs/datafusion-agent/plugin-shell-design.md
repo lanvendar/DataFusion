@@ -19,18 +19,21 @@ POST /internal/scheduler/finishTask
 
 ```text
 TaskRequest(pluginType=SHELL, runMode=LOCAL, taskData, pluginParam)
-    -> WorkerTaskOperatorRouter.route("SHELL", "LOCAL")
-    -> ShellLocalPluginTaskExecutor.validateTaskRequest
+    -> WorkerService / WorkerPluginRouter.routeExecutor("SHELL", "LOCAL")
+    -> ShellLocalPluginTaskExecutor.validate(snapshot)
     -> 渲染 plugins/shell/templates/shell-local-runtime.yml 得到 LocalShellProcess
     -> 创建 ${taskRuntimeDir}/{yyyyMMdd}/{flowInstanceId}/{taskInstanceId}/
     -> ProcessBuilder 启动本地进程
     -> stdout 写入 stdout.log，stderr 写入 stderr.log
-    -> CAS 写 WorkerTaskExecutionState(status=SUBMIT_SUCCESS, appId=pid, workDirPath=任务运行目录)
-    -> watcher 等待退出码并更新 RUN_SUCCESS / RUN_FAILURE
+    -> 取得 pid 后立即注册 watcher(actionRevision + appId)
+    -> 返回 WorkerResult(appId, workDirPath)
+    -> WorkerTaskStateCoordinator CAS 写 SUBMIT_SUCCESS
+    -> watcher 通过 Coordinator 提交运行终态或控制终态
 ```
 
 模板只描述 `kind + command`。工作目录、环境变量、stdout 和 stderr 都由执行器生成。
-完整 `.snap` 由 `WorkerTaskService` 在调用插件前保存；Shell watcher 只在提交状态保存后启动，不使用额外提交后钩子。
+完整 `.snap` 由 `WorkerService` 在调用插件前保存；Shell watcher 在进程创建并取得 appId 后立即注册，
+再返回 `WorkerResult`，不使用 `afterSubmitStateSaved` 钩子。
 
 ## 参数规则
 
@@ -44,9 +47,9 @@ TaskRequest(pluginType=SHELL, runMode=LOCAL, taskData, pluginParam)
 
 | 动作 | 行为 | 返回状态 |
 |------|------|----------|
-| stop | `ProcessHandle.destroy()` | `STOP_SUCCESS`；进程不存在也返回成功，保证幂等 |
-| kill | `ProcessHandle.destroyForcibly()` | `KILLED`；进程不存在也返回已强杀 |
-| finish | 读取当前终态；状态文件清理由 agent 终态上报规则决定 | 当前终态 |
+| stop | `ProcessHandle.destroy()` | 目标语义为保持 `STOPPING`；watcher/映射器确认退出后写 `STOP_SUCCESS` |
+| kill | `ProcessHandle.destroyForcibly()` | 目标语义为保持 `KILLING`；watcher/映射器确认退出后写 `KILLED` |
+| finish | 清理插件侧资源 | 成功返回 `true`；失败保留监听和 `.snap/.state` |
 
 stop / kill / finish 支持最小控制请求。只要请求携带 `taskInstanceId`，agent 会通过 `.snap + .state`
 恢复 `pluginType`、`taskData`、`pluginParam`、`appId` 和任务运行目录。
@@ -58,12 +61,15 @@ stop / kill / finish 支持最小控制请求。只要请求携带 `taskInstance
 | 条件 | 状态 |
 |------|------|
 | `.state.status` 已是终态 | 返回该终态 |
+| `.state.status=STOPPING` 且进程不存在 | `STOP_SUCCESS` |
+| `.state.status=KILLING` 且进程不存在 | `KILLED` |
 | watcher 已写入 `exitCode=0` | `RUN_SUCCESS` |
 | watcher 已写入 `exitCode!=0` | `RUN_FAILURE` |
 | 顶层 shell PID 仍存活 | `RUNNING` |
 | 顶层 shell PID 不存在且无 `exitCode` | `UNKNOWN` |
 
-watcher 在顶层 shell 退出时会 best-effort 检查 `ProcessHandle.descendants()`。如果顶层 shell 已退出但仍能观察到
+watcher 在顶层 shell 退出时先读取最新控制状态：`STOPPING` 映射 `STOP_SUCCESS`，`KILLING` 映射 `KILLED`，
+其他状态才按退出码映射 `RUN_SUCCESS/RUN_FAILURE`。它会 best-effort 检查 `ProcessHandle.descendants()`；如果顶层 shell 已退出但仍能观察到
 存活后代进程，状态先保持 `RUNNING`。agent 不持久化后代 PID，重启后只能依赖顶层 PID 和已记录退出码判断状态。
 
 ## 日志

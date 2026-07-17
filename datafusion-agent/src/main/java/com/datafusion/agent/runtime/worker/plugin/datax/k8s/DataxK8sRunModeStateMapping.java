@@ -6,7 +6,6 @@ import com.datafusion.agent.runtime.worker.plugin.datax.DataxParamResolver;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxPluginTaskExecutor;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxRunMode;
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.model.TaskRequest;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
@@ -62,11 +61,10 @@ public class DataxK8sRunModeStateMapping implements PluginRunModeStateMapping {
 
     @Override
     public StatusEnum mapState(WorkerTaskExecutionSnap snapshot, WorkerTaskExecutionState state) {
-        if (state.getAppId() == null) {
-            log.warn("DataX K8S的appId为空, taskState={}", state);
-            return StatusEnum.UNKNOWN;
+        DataxExecutionParam param = paramResolver.resolve(snapshot, state.getWorkDirPath());
+        if (isBlank(state.getAppId())) {
+            state.setAppId(param.getKubernetes().getJobName());
         }
-        DataxExecutionParam param = paramResolver.resolve(taskRequest(snapshot));
         return mapKubernetesStatus(kubernetesClient.queryStatus(runtimeRef(param, state)), state);
     }
 
@@ -75,7 +73,7 @@ public class DataxK8sRunModeStateMapping implements PluginRunModeStateMapping {
         if (isFinalized(state)) {
             return false;
         }
-        DataxExecutionParam param = paramResolver.resolve(taskRequest(snapshot));
+        DataxExecutionParam param = paramResolver.resolve(snapshot, state.getWorkDirPath());
         DataxKubernetesRuntimeRef runtimeRef = runtimeRef(param, state);
         String pluginLogUri = collectLogs(state, param, runtimeRef);
         ObjectNode result = PluginResultJson.build("K8S DataX task finished", pluginType(), runMode(), pluginLogUri, null);
@@ -121,7 +119,7 @@ public class DataxK8sRunModeStateMapping implements PluginRunModeStateMapping {
         if (!kubernetesStatus.isJobExists()) {
             log.warn("DataX K8S的Job不存在, taskInstanceId={}, appId={}, localState={}",
                     state.getTaskInstanceId(), state.getAppId(), localState);
-            return StatusEnum.UNKNOWN;
+            return localState == StatusEnum.SUBMITTING ? StatusEnum.SUBMIT_FAILURE : StatusEnum.UNKNOWN;
         }
         if (!kubernetesStatus.isJobStatusExists()) {
             log.warn("DataX K8S的Job状态为空, taskInstanceId={}, appId={}, localState={}",
@@ -165,18 +163,6 @@ public class DataxK8sRunModeStateMapping implements PluginRunModeStateMapping {
             return Path.of(state.getWorkDirPath());
         }
         return param.getWorkDir();
-    }
-
-    private TaskRequest taskRequest(WorkerTaskExecutionSnap snapshot) {
-        TaskRequest request = new TaskRequest();
-        request.setFlowInstanceId(snapshot.getFlowInstanceId());
-        request.setTaskInstanceId(snapshot.getTaskInstanceId());
-        request.setTaskName(snapshot.getTaskName());
-        request.setPluginType(snapshot.getPluginType());
-        request.setRunMode(snapshot.getRunMode());
-        request.setTaskData(snapshot.getTaskData());
-        request.setPluginParam(snapshot.getPluginParam());
-        return request;
     }
 
     private String pluginLogUri(DataxKubernetesRuntimeRef runtimeRef) {

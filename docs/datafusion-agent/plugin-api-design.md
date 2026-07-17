@@ -33,22 +33,22 @@ ApiLocalRunModeStateMapping(API + LOCAL)
     -> delegate ShellLocalRunModeStateMapping
 ```
 
-API executor 的 `validateTaskRequest` 只做参数和命令模板校验；`submitTask` 写入
-`api-job.json` 后再归一化为 Shell 请求提交。`WorkerTaskService` 在调用插件前保存原始 API 请求快照，
-`.snap.pluginType` 保持 `API`，状态刷新按 `API + LOCAL` 路由。
+API executor 的 `validate` 只对 `WorkerTaskExecutionSnap` 做参数和命令模板校验；`submitTask` 写入
+`api-job.json` 后，在本次调用内构造 Shell 进程规格并复用 Shell 执行能力。`WorkerService` 保存原始 API 快照，
+`.snap.pluginType` 始终保持 `API`，临时 Shell Context 不持久化，状态刷新按 `API + LOCAL` 路由。
 
 ## 提交流程
 
 ```text
 TaskRequest(pluginType=API, runMode=LOCAL, taskData, pluginParam)
-    -> WorkerTaskOperatorRouter.route("API", "LOCAL")
-    -> ApiLocalPluginTaskExecutor.validateTaskRequest
+    -> WorkerService / WorkerPluginRouter.routeExecutor("API", "LOCAL")
+    -> ApiLocalPluginTaskExecutor.validate(snapshot)
     -> submitTask 时写入 effective job 到 api-job.json
     -> 按 launchMode 渲染 API LOCAL 命令
     -> 归一化为 Shell command/args/env
-    -> ShellLocalPluginTaskExecutor.submitTask
-    -> CAS 写 WorkerTaskExecutionState(status=SUBMIT_SUCCESS, appId=pid, workDirPath=任务运行目录)
-    -> watcher 等待退出码并更新 RUN_SUCCESS / RUN_FAILURE
+    -> ShellLocalPluginTaskExecutor 启动进程并返回 WorkerResult
+    -> WorkerTaskStateCoordinator 提交 SUBMIT_SUCCESS
+    -> watcher 通过 Coordinator 提交终态
 ```
 
 ## 部署方式

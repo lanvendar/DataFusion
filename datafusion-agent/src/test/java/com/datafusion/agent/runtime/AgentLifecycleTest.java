@@ -1,28 +1,16 @@
 package com.datafusion.agent.runtime;
 
 import com.datafusion.agent.config.AgentProperties;
-import com.datafusion.agent.rpc.ManagerClient;
-import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateListenerRegistry;
-import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.model.TaskRequest;
-import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.Worker;
-import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
-import com.datafusion.scheduler.worker.plugin.WorkerTaskOperatorRouter;
+import com.datafusion.scheduler.worker.WorkerService;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.boot.DefaultApplicationArguments;
 
-import java.lang.reflect.Method;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,138 +18,47 @@ import static org.mockito.Mockito.when;
  * Tests for {@link AgentLifecycle}.
  *
  * @author datafusion
- * @version 1.0.0, 2026/6/29
+ * @version 1.0.0, 2026/7/18
  * @since 1.0.0
  */
 class AgentLifecycleTest {
 
     @Test
-    void shouldUseLoadedPluginTypesWhenWorkerPluginTypesNotConfigured() throws Exception {
-        AgentRuntimeState runtimeState = initWorker(null);
+    void shouldCreateConfiguredWorkerAndStartService() throws Exception {
+        AgentProperties properties = properties();
+        WorkerService workerService = mock(WorkerService.class);
+        when(workerService.pluginTypes()).thenReturn(Set.of("DATAX", "SHELL"));
+        AgentLifecycle lifecycle = new AgentLifecycle(properties, workerService);
 
-        assertEquals(List.of("SHELL", "DATAX"), runtimeState.getWorker().getPluginTypes());
+        lifecycle.run(new DefaultApplicationArguments());
+
+        ArgumentCaptor<Worker> captor = ArgumentCaptor.forClass(Worker.class);
+        verify(workerService).start(captor.capture());
+        Worker worker = captor.getValue();
+        assertEquals("worker-code", worker.getWorkerCode());
+        assertEquals("127.0.0.2", worker.getIp());
+        assertEquals("agent-host", worker.getHostName());
+        assertEquals(18081, worker.getPort());
+        assertEquals(java.util.List.of("DATAX"), worker.getPluginTypes());
     }
 
     @Test
-    void shouldFilterWorkerPluginTypesByConfiguration() throws Exception {
-        AgentRuntimeState runtimeState = initWorker("DATAX,UNKNOWN,DATAX");
+    void shouldStopWorkerServiceOnDestroy() {
+        WorkerService workerService = mock(WorkerService.class);
+        AgentLifecycle lifecycle = new AgentLifecycle(properties(), workerService);
 
-        assertEquals(List.of("DATAX"), runtimeState.getWorker().getPluginTypes());
+        lifecycle.destroy();
+
+        verify(workerService).stop();
     }
 
-    @Test
-    void shouldRemainUnreadyUntilTaskListenersAreRestored() throws Exception {
+    private AgentProperties properties() {
         AgentProperties properties = new AgentProperties();
-        properties.getWorker().setWorkerCode("worker-1");
-        properties.getWorker().setIp("127.0.0.1");
-        properties.getWorker().setHostName("localhost");
-        final AgentRuntimeState runtimeState = new AgentRuntimeState();
-        ManagerClient managerClient = mock(ManagerClient.class);
-        final AgentTaskStateListenerRegistry listenerRegistry = mock(AgentTaskStateListenerRegistry.class);
-        AgentWorkerConfigStore workerConfigStore = mock(AgentWorkerConfigStore.class);
-        Worker savedWorker = new Worker();
-        savedWorker.setId("worker-id");
-        when(workerConfigStore.load()).thenReturn(null);
-        when(managerClient.register(any(Worker.class))).thenReturn(savedWorker);
-        when(managerClient.heartbeat(any(Worker.class))).thenReturn(savedWorker);
-        when(managerClient.getTaskInsByWorker(any(Worker.class)))
-                .thenReturn(Optional.empty(), Optional.of(List.of()));
-        AgentLifecycle lifecycle = new AgentLifecycle(properties, managerClient, runtimeState,
-                workerTaskOperatorRouter(), mock(ScheduledExecutorService.class), listenerRegistry, workerConfigStore);
-        invoke(lifecycle, "initWorker");
-
-        invoke(lifecycle, "registerOrHeartbeat");
-        assertFalse(runtimeState.isReady());
-        verify(managerClient, never()).heartbeat(any(Worker.class));
-
-        invoke(lifecycle, "registerOrHeartbeat");
-        assertTrue(runtimeState.isReady());
-        verify(managerClient, times(2)).register(any(Worker.class));
-        verify(listenerRegistry).restoreTasks(List.of());
-
-        invoke(lifecycle, "registerOrHeartbeat");
-        verify(managerClient).heartbeat(any(Worker.class));
-        verify(listenerRegistry).restoreTasks(List.of());
-    }
-
-    private AgentRuntimeState initWorker(String pluginTypes) throws Exception {
-        AgentProperties properties = new AgentProperties();
-        properties.getWorker().setWorkerCode("worker-1");
-        properties.getWorker().setIp("127.0.0.1");
-        properties.getWorker().setHostName("localhost");
-        properties.getWorker().setPluginTypes(pluginTypes);
-        AgentRuntimeState runtimeState = new AgentRuntimeState();
-        AgentWorkerConfigStore workerConfigStore = mock(AgentWorkerConfigStore.class);
-        when(workerConfigStore.load()).thenReturn(null);
-        AgentLifecycle lifecycle = new AgentLifecycle(properties, mock(ManagerClient.class), runtimeState,
-                workerTaskOperatorRouter(), mock(ScheduledExecutorService.class),
-                mock(AgentTaskStateListenerRegistry.class), workerConfigStore);
-        invoke(lifecycle, "initWorker");
-        return runtimeState;
-    }
-
-    private void invoke(AgentLifecycle lifecycle, String methodName) throws Exception {
-        Method method = AgentLifecycle.class.getDeclaredMethod(methodName);
-        method.setAccessible(true);
-        method.invoke(lifecycle);
-    }
-
-    private WorkerTaskOperatorRouter workerTaskOperatorRouter() {
-        return new WorkerTaskOperatorRouter(List.of(new TestPluginTaskExecutor("SHELL"),
-                new TestPluginTaskExecutor("DATAX")));
-    }
-
-    /**
-     * Test plugin task executor.
-     */
-    private static class TestPluginTaskExecutor implements PluginTaskExecutor {
-
-        /**
-         * Plugin type.
-         */
-        private final String pluginType;
-
-        TestPluginTaskExecutor(String pluginType) {
-            this.pluginType = pluginType;
-        }
-
-        @Override
-        public String pluginType() {
-            return pluginType;
-        }
-
-        @Override
-        public String runMode() {
-            return "LOCAL";
-        }
-
-        @Override
-        public TaskResult submitTask(TaskRequest request) {
-            return taskResult(request, StatusEnum.SUBMIT_SUCCESS);
-        }
-
-        @Override
-        public TaskResult stopTask(TaskRequest request) {
-            return taskResult(request, StatusEnum.STOP_SUCCESS);
-        }
-
-        @Override
-        public TaskResult killTask(TaskRequest request) {
-            return taskResult(request, StatusEnum.KILLED);
-        }
-
-        @Override
-        public boolean finishTask(TaskRequest request) {
-            return true;
-        }
-
-        private TaskResult taskResult(TaskRequest request, StatusEnum state) {
-            return TaskResult.builder()
-                    .taskInstanceId(request.getTaskInstanceId())
-                    .flowInstanceId(request.getFlowInstanceId())
-                    .taskName(request.getTaskName())
-                    .taskState(state)
-                    .build();
-        }
+        properties.getWorker().setWorkerCode("worker-code");
+        properties.getWorker().setIp("127.0.0.2");
+        properties.getWorker().setHostName("agent-host");
+        properties.getWorker().setPort(18081);
+        properties.getWorker().setPluginTypes("DATAX,UNKNOWN,DATAX");
+        return properties;
     }
 }

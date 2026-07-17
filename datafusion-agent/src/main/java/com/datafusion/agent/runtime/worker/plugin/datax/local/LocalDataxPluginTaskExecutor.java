@@ -9,12 +9,11 @@ import com.datafusion.agent.runtime.worker.plugin.datax.DataxJobFileService;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxParamResolver;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxPluginTaskExecutor;
 import com.datafusion.agent.runtime.worker.plugin.datax.DataxRunMode;
-import com.datafusion.agent.runtime.worker.plugin.datax.DataxTaskResult;
 import com.datafusion.scheduler.enums.StatusEnum;
-import com.datafusion.scheduler.model.TaskRequest;
-import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.WorkerResult;
+import com.datafusion.scheduler.worker.context.RunningTaskContext;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
-import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
+import com.datafusion.scheduler.worker.state.WorkerTaskStateCoordinator;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -58,22 +57,26 @@ public class LocalDataxPluginTaskExecutor extends DataxPluginTaskExecutor {
      */
     private final Executor watcherExecutor;
 
+    /** State coordinator. */
+    private final WorkerTaskStateCoordinator stateCoordinator;
+
     /**
      * Constructor.
      *
      * @param paramResolver 参数解析器
      * @param jobFileService job file service
-     * @param stateStore state store
      * @param templateRenderer template renderer
      * @param watcherExecutor watcher executor
+     * @param stateCoordinator state coordinator
      */
     public LocalDataxPluginTaskExecutor(DataxParamResolver paramResolver, DataxJobFileService jobFileService,
-            WorkerTaskExecutionStore stateStore, TemplateSpecRenderer templateRenderer,
-            @Qualifier("agentTaskPool") Executor watcherExecutor) {
-        super(paramResolver, stateStore);
+            TemplateSpecRenderer templateRenderer, @Qualifier("agentTaskPool") Executor watcherExecutor,
+            WorkerTaskStateCoordinator stateCoordinator) {
+        super(paramResolver);
         this.jobFileService = jobFileService;
         this.templateRenderer = templateRenderer;
         this.watcherExecutor = watcherExecutor;
+        this.stateCoordinator = stateCoordinator;
     }
 
     @Override
@@ -82,9 +85,9 @@ public class LocalDataxPluginTaskExecutor extends DataxPluginTaskExecutor {
     }
 
     @Override
-    protected TaskResult submit(TaskRequest request, DataxExecutionParam param, WorkerTaskExecutionState state) {
+    protected WorkerResult submit(RunningTaskContext context, DataxExecutionParam param) {
+        WorkerTaskExecutionState state = context.getExecutionState();
         Process process;
-        DataxTaskResult result;
         try {
             Path jobFile = jobFileService.resolveJobFile(param);
             Files.createDirectories(param.getWorkDir());
@@ -95,32 +98,27 @@ public class LocalDataxPluginTaskExecutor extends DataxPluginTaskExecutor {
             builder.redirectError(ProcessBuilder.Redirect.appendTo(param.getLogFile().toFile()));
             process = builder.start();
             String appId = String.valueOf(process.pid());
-            result = DataxTaskResult.builder()
-                    .status(StatusEnum.SUBMIT_SUCCESS)
-                    .appId(appId)
-                    .workDirPath(param.getWorkDir().toString())
-                    .result(resultJson("LOCAL DataX task submitted", param.getLogFile().toString(), null))
-                    .build();
+            WorkerTaskExecutionState actionState = state.copy();
+            actionState.setAppId(appId);
+            actionState.setWorkDirPath(param.getWorkDir().toString());
+            watchExit(process, actionState, param.getLogFile().toString());
+            applyResult(state, StatusEnum.SUBMIT_SUCCESS, appId, param.getWorkDir().toString(),
+                    resultJson("LOCAL DataX task submitted", param.getLogFile().toString(), null));
         } catch (Exception e) {
-            result = DataxTaskResult.builder()
-                    .status(StatusEnum.SUBMIT_FAILURE)
-                    .result(resultJson(e.getMessage(), null, null))
-                    .build();
-            return recordSubmitResult(request, state, result);
+            applyResult(state, StatusEnum.SUBMIT_FAILURE, null, context.getWorkDirPath(),
+                    resultJson(e.getMessage(), null, null));
         }
-        TaskResult taskResult = recordSubmitResult(request, state, result);
-        watchExit(process, param.getTaskInstanceId());
-        return taskResult;
+        return workerResult(state);
     }
 
     @Override
-    protected DataxTaskResult stop(DataxExecutionParam param, WorkerTaskExecutionState state) {
-        return stopProcess(state, false);
+    protected WorkerResult stop(RunningTaskContext context, DataxExecutionParam param) {
+        return stopProcess(context, false);
     }
 
     @Override
-    protected DataxTaskResult kill(DataxExecutionParam param, WorkerTaskExecutionState state) {
-        return stopProcess(state, true);
+    protected WorkerResult kill(RunningTaskContext context, DataxExecutionParam param) {
+        return stopProcess(context, true);
     }
 
     private LocalProcessSpec localProcessSpec(DataxExecutionParam param, Path jobFile) {
@@ -146,7 +144,8 @@ public class LocalDataxPluginTaskExecutor extends DataxPluginTaskExecutor {
         return spec;
     }
 
-    private DataxTaskResult stopProcess(WorkerTaskExecutionState state, boolean forcibly) {
+    private WorkerResult stopProcess(RunningTaskContext context, boolean forcibly) {
+        WorkerTaskExecutionState state = context.getExecutionState();
         StatusEnum targetStatus = forcibly ? StatusEnum.KILLED : StatusEnum.STOP_SUCCESS;
         ProcessHandle handle = processHandle(resolveAppId(state));
         if (handle != null) {
@@ -156,31 +155,27 @@ public class LocalDataxPluginTaskExecutor extends DataxPluginTaskExecutor {
                 handle.destroy();
             }
         }
-        return DataxTaskResult.builder()
-                .status(targetStatus)
-                .appId(resolveAppId(state))
-                .workDirPath(state == null ? null : state.getWorkDirPath())
-                .result(resultJson(handle == null ? "LOCAL DataX process not found" : "LOCAL DataX process stopped",
-                        pluginLogUri(state), null))
-                .build();
+        applyResult(state, targetStatus, resolveAppId(state), context.getWorkDirPath(),
+                resultJson(handle == null ? "LOCAL DataX process not found" : "LOCAL DataX process stopped",
+                        pluginLogUri(state), null));
+        return workerResult(state);
     }
 
-    private void watchExit(Process process, String taskInstanceId) {
+    private void watchExit(Process process, WorkerTaskExecutionState actionState, String pluginLogUri) {
         CompletableFuture.runAsync(() -> {
             try {
                 int exitCode = process.waitFor();
-                WorkerTaskExecutionState state = stateStore().readState(taskInstanceId).orElse(null);
-                if (state == null || state.getStatus() != null && state.getStatus().isFinalState()) {
-                    return;
-                }
-                state.setExitCode(exitCode);
-                state.setStatus(exitCode == 0 ? StatusEnum.RUN_SUCCESS : StatusEnum.RUN_FAILURE);
-                state.setResult(resultJson("LOCAL DataX process exited, exitCode=" + exitCode, pluginLogUri(state),
-                        exitCode));
-                stateStore().saveState(state, state.getRevision());
+                WorkerTaskExecutionState exitState = actionState.copy();
+                exitState.setExitCode(exitCode);
+                exitState.setStatus(exitCode == 0 ? StatusEnum.RUN_SUCCESS : StatusEnum.RUN_FAILURE);
+                exitState.setResult(resultJson("LOCAL DataX process exited, exitCode=" + exitCode,
+                        pluginLogUri, exitCode));
+                stateCoordinator.commitLocalProcessExit(actionState, exitState);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                log.warn("LOCAL DataX watcher interrupted, taskInstanceId={}", taskInstanceId, e);
+                log.warn("LOCAL DataX watcher interrupted, taskInstanceId={}", actionState.getTaskInstanceId(), e);
+            } catch (RuntimeException e) {
+                log.warn("LOCAL DataX watcher failed, taskInstanceId={}", actionState.getTaskInstanceId(), e);
             }
         }, watcherExecutor);
     }

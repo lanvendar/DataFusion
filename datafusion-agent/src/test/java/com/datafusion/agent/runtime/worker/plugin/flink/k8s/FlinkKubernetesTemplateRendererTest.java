@@ -4,7 +4,7 @@ import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.flink.FlinkExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.flink.FlinkParamResolver;
 import com.datafusion.agent.runtime.worker.plugin.template.TemplateSpecRenderer;
-import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
@@ -34,8 +34,8 @@ class FlinkKubernetesTemplateRendererTest {
     void shouldRenderOperatorYamlWithDerivedRuntimeDefaults() throws Exception {
         AgentProperties properties = new AgentProperties();
         properties.setPluginsRootDir(resolvePluginsRootDir());
-        FlinkParamResolver resolver = new FlinkParamResolver(properties);
-        FlinkExecutionParam param = resolver.resolve(request());
+        FlinkParamResolver resolver = new FlinkParamResolver();
+        FlinkExecutionParam param = resolver.resolve(snapshot(), "target/flink-task-1");
         FlinkKubernetesTemplateRenderer renderer = new FlinkKubernetesTemplateRenderer(new TemplateSpecRenderer(properties));
         String yaml = renderer.render(param, OBJECT_MAPPER.writeValueAsString(param.getEffectiveTaskData()));
         Files.createDirectories(Path.of("target"));
@@ -67,16 +67,16 @@ class FlinkKubernetesTemplateRendererTest {
         assertFalse(yaml.contains("must-not-render"));
     }
 
-    private TaskRequest request() {
-        TaskRequest request = new TaskRequest();
-        request.setFlowInstanceId("flow-1");
-        request.setTaskInstanceId("task-1");
-        request.setTaskName("Flink");
-        request.setPluginType("FLINK");
-        request.setRunMode("K8S_OPERATOR");
-        request.setPluginParam(pluginParam());
-        request.setTaskData(taskData());
-        return request;
+    private WorkerTaskExecutionSnap snapshot() {
+        return WorkerTaskExecutionSnap.builder()
+                .flowInstanceId("flow-1")
+                .taskInstanceId("task-1")
+                .taskName("Flink")
+                .pluginType("FLINK")
+                .runMode("K8S_OPERATOR")
+                .pluginParam(pluginParam())
+                .taskData(taskData())
+                .build();
     }
 
     private ObjectNode pluginParam() {

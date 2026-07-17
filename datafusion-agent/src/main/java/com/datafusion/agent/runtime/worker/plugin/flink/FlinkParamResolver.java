@@ -1,19 +1,16 @@
 package com.datafusion.agent.runtime.worker.plugin.flink;
 
-import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.flink.k8s.FlinkK8sNameGenerator;
 import com.datafusion.agent.runtime.worker.plugin.flink.k8s.FlinkKubernetesParam;
 import com.datafusion.agent.runtime.worker.plugin.flink.k8s.FlinkKubernetesTemplateConstants;
 import com.datafusion.agent.runtime.worker.plugin.flink.k8s.FlinkOperatorStatus;
-import com.datafusion.scheduler.model.TaskRequest;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
 
 import java.nio.file.Path;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,11 +25,6 @@ import java.util.Map;
  */
 @Component
 public class FlinkParamResolver {
-
-    /**
-     * Date formatter.
-     */
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 
     /**
      * Default launch mode.
@@ -155,41 +147,31 @@ public class FlinkParamResolver {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
-     * Agent properties.
-     */
-    private final AgentProperties properties;
-
-    /**
-     * Constructor.
-     *
-     * @param properties agent properties
-     */
-    public FlinkParamResolver(AgentProperties properties) {
-        this.properties = properties;
-    }
-
-    /**
      * Resolve execution param.
      *
-     * @param request task request
+     * @param snapshot    task execution snapshot
+     * @param workDirPath fixed task work directory
      * @return execution parameter
      */
-    public FlinkExecutionParam resolve(TaskRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("request不能为空");
+    public FlinkExecutionParam resolve(WorkerTaskExecutionSnap snapshot, String workDirPath) {
+        if (snapshot == null) {
+            throw new IllegalArgumentException("snapshot不能为空");
         }
-        JsonNode taskData = request.getTaskData();
-        JsonNode pluginParam = request.getPluginParam();
-        FlinkRunMode runMode = FlinkRunMode.parse(request.getRunMode());
-        Path runtimeDir = taskRuntimeDir(LocalDate.now().format(DATE_FORMATTER), request);
+        if (isBlank(workDirPath)) {
+            throw new IllegalArgumentException("workDirPath不能为空");
+        }
+        JsonNode taskData = snapshot.getTaskData();
+        JsonNode pluginParam = snapshot.getPluginParam();
+        FlinkRunMode runMode = FlinkRunMode.parse(snapshot.getRunMode());
+        Path runtimeDir = Path.of(workDirPath);
         JsonNode effectiveTaskData = effectiveTaskData(pluginParam, taskData);
-        Map<String, String> flinkConfig = effectiveFlinkConfig(request, pluginParam, effectiveTaskData);
+        Map<String, String> flinkConfig = effectiveFlinkConfig(snapshot, pluginParam, effectiveTaskData);
         writeFlinkConfig(effectiveTaskData, flinkConfig);
         List<String> args = resolvedArgs(taskData);
         FlinkExecutionParam param = FlinkExecutionParam.builder()
                 .runMode(runMode)
-                .flowInstanceId(request.getFlowInstanceId())
-                .taskInstanceId(request.getTaskInstanceId())
+                .flowInstanceId(snapshot.getFlowInstanceId())
+                .taskInstanceId(snapshot.getTaskInstanceId())
                 .jobJson(jobJson(taskData))
                 .effectiveTaskData(effectiveTaskData)
                 .workDir(runtimeDir)
@@ -203,18 +185,18 @@ public class FlinkParamResolver {
                 .libDir(defaultText(text(pluginParam, "libDir"), DEFAULT_LIB_DIR))
                 .args(args)
                 .build();
-        param.setKubernetes(runMode == FlinkRunMode.K8S_OPERATOR ? resolveKubernetes(request, taskData, pluginParam,
+        param.setKubernetes(runMode == FlinkRunMode.K8S_OPERATOR ? resolveKubernetes(snapshot, taskData, pluginParam,
                 param, args) : null);
         validate(param);
         return param;
     }
 
-    private FlinkKubernetesParam resolveKubernetes(TaskRequest request, JsonNode taskData, JsonNode pluginParam,
-            FlinkExecutionParam param, List<String> args) {
+    private FlinkKubernetesParam resolveKubernetes(WorkerTaskExecutionSnap snapshot, JsonNode taskData,
+            JsonNode pluginParam, FlinkExecutionParam param, List<String> args) {
         JsonNode pluginKubernetes = object(pluginParam, "kubernetes");
         JsonNode taskKubernetes = object(taskData, "kubernetes");
         String namePrefix = firstText(text(pluginKubernetes, "namePrefix"), DEFAULT_NAME_PREFIX);
-        String deploymentName = FlinkK8sNameGenerator.deploymentName(namePrefix, request.getTaskInstanceId());
+        String deploymentName = FlinkK8sNameGenerator.deploymentName(namePrefix, snapshot.getTaskInstanceId());
         String namespace = firstText(text(taskKubernetes, "namespace"), text(pluginKubernetes, "namespace"),
                 DEFAULT_K8S_NAMESPACE);
         String flinkAppDir = param.getFlinkAppDir();
@@ -261,7 +243,7 @@ public class FlinkParamResolver {
                         integerValue(object(pluginKubernetes, "taskManager"), "replicas")))
                 .taskManagerResource(resource(object(pluginKubernetes, "taskManager"),
                         object(taskKubernetes, "taskManager")))
-                .podLabelSelector(FlinkK8sNameGenerator.podLabelSelector(request.getTaskInstanceId()))
+                .podLabelSelector(FlinkK8sNameGenerator.podLabelSelector(snapshot.getTaskInstanceId()))
                 .flinkAppDir(flinkAppDir)
                 .jarUri(jarUri)
                 .args(args)
@@ -327,13 +309,13 @@ public class FlinkParamResolver {
         return override;
     }
 
-    private Map<String, String> effectiveFlinkConfig(TaskRequest request, JsonNode pluginParam,
+    private Map<String, String> effectiveFlinkConfig(WorkerTaskExecutionSnap snapshot, JsonNode pluginParam,
             JsonNode effectiveTaskData) {
         Map<String, String> map = mergeMap(object(pluginParam, "flinkConfig"));
         map.putAll(mergeMap(object(effectiveTaskData, "flinkConfig")));
         normalizeStateBackend(map);
         applyS3Options(map, object(object(effectiveTaskData, "sink"), "options"));
-        applyCheckpointDirs(map, pluginParam, effectiveTaskData, request);
+        applyCheckpointDirs(map, pluginParam, effectiveTaskData, snapshot);
         return map;
     }
 
@@ -446,11 +428,11 @@ public class FlinkParamResolver {
     }
 
     private void applyCheckpointDirs(Map<String, String> flinkConfig, JsonNode pluginParam, JsonNode effectiveTaskData,
-            TaskRequest request) {
+            WorkerTaskExecutionSnap snapshot) {
         String checkpointRootDir = trimRight(defaultText(text(pluginParam, FLINK_CHECKPOINT_ROOT_DIR_FIELD),
                 DEFAULT_FLINK_CHECKPOINT_ROOT_DIR));
         String jobPath = safeS3Path(firstText(text(object(effectiveTaskData, "job"), "id"),
-                request == null ? null : request.getTaskInstanceId()));
+                snapshot.getTaskInstanceId()));
         String checkpointDir = checkpointRootDir + "/checkpoints/" + jobPath;
         String savepointDir = checkpointRootDir + "/savepoints/" + jobPath;
         flinkConfig.put(CHECKPOINT_DIR_KEY, checkpointDir);
@@ -570,10 +552,6 @@ public class FlinkParamResolver {
         return value == null || value.trim().isEmpty();
     }
 
-    private String safePath(String value) {
-        return isBlank(value) ? "unknown" : value;
-    }
-
     private String safeS3Path(String value) {
         if (isBlank(value)) {
             return "unknown";
@@ -582,10 +560,5 @@ public class FlinkParamResolver {
         normalized = normalized.replaceAll("-+", "-");
         normalized = normalized.replaceAll("^-+", "").replaceAll("-+$", "");
         return normalized.isEmpty() ? "unknown" : normalized;
-    }
-
-    private Path taskRuntimeDir(String date, TaskRequest request) {
-        return Path.of(properties.getStorage().getTaskRuntimeDir(), date, safePath(request.getFlowInstanceId()),
-                safePath(request.getTaskInstanceId()));
     }
 }

@@ -1,8 +1,8 @@
 package com.datafusion.agent.runtime.worker.plugin.spider.local;
 
 import com.datafusion.agent.runtime.worker.plugin.shell.local.ShellLocalPluginTaskExecutor;
-import com.datafusion.scheduler.model.TaskRequest;
-import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.WorkerResult;
+import com.datafusion.scheduler.worker.context.RunningTaskContext;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import org.springframework.stereotype.Component;
 
@@ -54,32 +54,27 @@ public class SpiderLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
-    public void validateTaskRequest(TaskRequest request) {
-        delegate.validateTaskRequest(request);
+    public void validate(RunningTaskContext context) {
+        delegate.validate(context);
     }
 
     @Override
-    public TaskResult submitTask(TaskRequest request) {
-        return delegate.submitTask(request);
+    public WorkerResult submit(RunningTaskContext context) {
+        return delegate.submit(context);
     }
 
     @Override
-    public TaskResult stopTask(TaskRequest request) {
-        return delegate.stopTask(request);
+    public WorkerResult stop(RunningTaskContext context) {
+        return delegate.stop(context);
     }
 
     @Override
-    public TaskResult killTask(TaskRequest request) {
-        return delegate.killTask(request);
+    public WorkerResult kill(RunningTaskContext context) {
+        return delegate.kill(context);
     }
 
     @Override
-    public boolean finishTask(TaskRequest request) {
-        return delegate.finishTask(request);
-    }
-
-    @Override
-    public void destroyTask(TaskRequest request) {
-        delegate.destroyTask(request);
+    public boolean finish(RunningTaskContext context) {
+        return delegate.finish(context);
     }
 }

@@ -1,47 +1,38 @@
 package com.datafusion.agent.runtime.worker.plugin.datax;
 
-import com.datafusion.scheduler.model.TaskRequest;
-import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.WorkerResult;
+import com.datafusion.scheduler.worker.context.RunningTaskContext;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
-import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
- * DataX 插件任务执行器公共实现.
+ * DataX 插件任务执行器公共入口.
+ *
+ * <p>公共类只解析固定快照参数并分发到运行模式实现；子类修改动作上下文中的候选状态，
+ * 不读取或写入任务执行存储。
  *
  * @author datafusion
- * @version 1.0.0, 2026/6/8
+ * @version 1.0.0, 2026/7/18
  * @since 1.0.0
  */
 public abstract class DataxPluginTaskExecutor implements PluginTaskExecutor {
 
-    /**
-     * 插件类型.
-     */
+    /** 插件类型. */
     public static final String PLUGIN_TYPE = "DATAX";
 
-    /**
-     * 参数解析器.
-     */
+    /** 参数解析器. */
     private final DataxParamResolver paramResolver;
 
     /**
-     * 状态存储.
-     */
-    private final WorkerTaskExecutionStore stateStore;
-
-    /**
-     * 构造函数.
+     * 创建 DataX 插件执行器.
      *
      * @param paramResolver 参数解析器
-     * @param stateStore 状态存储
      */
-    protected DataxPluginTaskExecutor(DataxParamResolver paramResolver, WorkerTaskExecutionStore stateStore) {
+    protected DataxPluginTaskExecutor(DataxParamResolver paramResolver) {
         this.paramResolver = paramResolver;
-        this.stateStore = stateStore;
     }
 
     @Override
@@ -50,179 +41,128 @@ public abstract class DataxPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
-    public final void validateTaskRequest(TaskRequest request) {
-        paramResolver.resolve(request);
+    public final void validate(RunningTaskContext context) {
+        resolve(context);
     }
 
     @Override
-    public final TaskResult submitTask(TaskRequest request) {
-        DataxExecutionParam param = paramResolver.resolve(request);
-        WorkerTaskExecutionState state = currentState(request);
-        return submit(request, param, state);
+    public final WorkerResult submit(RunningTaskContext context) {
+        return submit(context, resolve(context));
     }
 
     @Override
-    public final TaskResult stopTask(TaskRequest request) {
-        WorkerTaskExecutionState state = currentState(request);
-        TaskRequest resolvedRequest = resolveRequest(request);
-        DataxTaskResult result = stop(paramResolver.resolve(resolvedRequest), state);
-        recordControlResult(resolvedRequest, state, result);
-        return taskResult(resolvedRequest, result);
+    public final WorkerResult stop(RunningTaskContext context) {
+        return stop(context, resolve(context));
     }
 
     @Override
-    public final TaskResult killTask(TaskRequest request) {
-        WorkerTaskExecutionState state = currentState(request);
-        TaskRequest resolvedRequest = resolveRequest(request);
-        DataxTaskResult result = kill(paramResolver.resolve(resolvedRequest), state);
-        recordControlResult(resolvedRequest, state, result);
-        return taskResult(resolvedRequest, result);
+    public final WorkerResult kill(RunningTaskContext context) {
+        return kill(context, resolve(context));
     }
 
     @Override
-    public final boolean finishTask(TaskRequest request) {
-        WorkerTaskExecutionState state = currentState(request);
-        TaskRequest resolvedRequest = resolveRequest(request);
-        return resolvedRequest.getPluginParam() == null
-                || finish(paramResolver.resolve(resolvedRequest), state);
+    public final boolean finish(RunningTaskContext context) {
+        return context.getSnapshot().getPluginParam() == null || finish(context, resolve(context));
     }
 
     /**
      * 提交当前运行模式任务.
      *
-     * <p>子类应使用传入的状态基线记录提交结果，LOCAL 模式需在记录完成后再注册进程监听。
-     *
-     * @param request 任务请求
-     * @param param   执行参数
-     * @param state   第三方动作执行前的状态基线
-     * @return 任务响应
+     * @param context 动作上下文
+     * @param param   DataX 参数
+     * @return Worker 执行结果
      */
-    protected abstract TaskResult submit(TaskRequest request, DataxExecutionParam param,
-            WorkerTaskExecutionState state);
+    protected abstract WorkerResult submit(RunningTaskContext context, DataxExecutionParam param);
 
     /**
      * 停止当前运行模式任务.
      *
-     * @param param 执行参数
-     * @param state 当前状态
-     * @return 执行结果
+     * @param context 动作上下文
+     * @param param   DataX 参数
+     * @return Worker 执行结果
      */
-    protected abstract DataxTaskResult stop(DataxExecutionParam param, WorkerTaskExecutionState state);
+    protected abstract WorkerResult stop(RunningTaskContext context, DataxExecutionParam param);
 
     /**
      * 强杀当前运行模式任务.
      *
-     * @param param 执行参数
-     * @param state 当前状态
-     * @return 执行结果
+     * @param context 动作上下文
+     * @param param   DataX 参数
+     * @return Worker 执行结果
      */
-    protected abstract DataxTaskResult kill(DataxExecutionParam param, WorkerTaskExecutionState state);
+    protected abstract WorkerResult kill(RunningTaskContext context, DataxExecutionParam param);
 
     /**
      * 清理当前运行模式任务.
      *
-     * @param param 执行参数
-     * @param state 当前状态
+     * @param context 动作上下文
+     * @param param   DataX 参数
      * @return 是否清理完成
      */
-    protected boolean finish(DataxExecutionParam param, WorkerTaskExecutionState state) {
+    protected boolean finish(RunningTaskContext context, DataxExecutionParam param) {
         return true;
     }
 
     /**
-     * 获取状态存储.
+     * 更新动作候选状态.
      *
-     * @return 状态存储
+     * @param state       动作候选状态
+     * @param status      目标状态
+     * @param appId       运行引用
+     * @param workDirPath 工作目录
+     * @param result      结果 JSON
      */
-    protected final WorkerTaskExecutionStore stateStore() {
-        return stateStore;
+    protected final void applyResult(WorkerTaskExecutionState state, StatusEnum status, String appId,
+            String workDirPath, JsonNode result) {
+        state.setStatus(status);
+        state.setAppId(appId);
+        state.setWorkDirPath(workDirPath);
+        state.setResult(result);
     }
 
     /**
-     * 记录提交结果并转换为任务响应.
+     * 将候选状态转换为既有 WorkerResult.
      *
-     * @param request 任务请求
-     * @param state   第三方动作执行前的状态基线
-     * @param result  DataX 执行结果
-     * @return 任务响应
+     * @param state 动作候选状态
+     * @return Worker 执行结果
      */
-    protected final TaskResult recordSubmitResult(TaskRequest request, WorkerTaskExecutionState state,
-            DataxTaskResult result) {
-        state.setAppId(result.getAppId());
-        state.setWorkDirPath(result.getWorkDirPath());
-        state.setStatus(result.getStatus());
-        state.setResult(result.getResult());
-        stateStore.saveState(state, state.getRevision());
-        return taskResult(request, result);
-    }
-
-    private WorkerTaskExecutionState currentState(TaskRequest request) {
-        WorkerResult workerResult = request.getWorkerResult();
-        return stateStore.readState(request.getTaskInstanceId())
-                .orElseGet(() -> WorkerTaskExecutionState.builder()
-                        .taskInstanceId(request.getTaskInstanceId())
-                        .workerId(workerResult == null ? null : workerResult.getWorkerId())
-                        .appId(workerResult == null ? null : workerResult.getAppId())
-                        .status(request.getTaskState())
-                        .build());
-    }
-
-    private TaskRequest resolveRequest(TaskRequest request) {
-        if (request.getPluginParam() != null && request.getTaskData() != null) {
-            return request;
-        }
-        WorkerTaskExecutionSnap snapshot = stateStore.readSnapshot(request.getTaskInstanceId()).orElse(null);
-        if (snapshot == null) {
-            return request;
-        }
-        TaskRequest resolvedRequest = new TaskRequest();
-        resolvedRequest.setFlowInstanceId(firstText(request.getFlowInstanceId(), snapshot.getFlowInstanceId()));
-        resolvedRequest.setTaskInstanceId(firstText(request.getTaskInstanceId(), snapshot.getTaskInstanceId()));
-        resolvedRequest.setTaskName(firstText(request.getTaskName(), snapshot.getTaskName()));
-        resolvedRequest.setPluginType(firstText(request.getPluginType(), snapshot.getPluginType()));
-        resolvedRequest.setRunMode(firstText(request.getRunMode(), snapshot.getRunMode()));
-        resolvedRequest.setWorkerResult(request.getWorkerResult());
-        resolvedRequest.setTaskState(request.getTaskState());
-        resolvedRequest.setSubmitMode(request.getSubmitMode());
-        resolvedRequest.setTaskData(request.getTaskData() == null ? snapshot.getTaskData() : request.getTaskData());
-        resolvedRequest.setPluginParam(request.getPluginParam() == null
-                ? snapshot.getPluginParam() : request.getPluginParam());
-        return resolvedRequest;
-    }
-
-    private void recordControlResult(TaskRequest request, WorkerTaskExecutionState state, DataxTaskResult result) {
-        WorkerResult workerResult = request.getWorkerResult();
-        state.setStatus(result.getStatus());
-        state.setWorkerId(firstText(state.getWorkerId(), workerResult == null ? null : workerResult.getWorkerId()));
-        state.setAppId(firstText(result.getAppId(), state.getAppId()));
-        state.setWorkDirPath(firstText(result.getWorkDirPath(), state.getWorkDirPath()));
-        state.setResult(result.getResult());
-        stateStore.saveState(state, state.getRevision());
-    }
-
-    private TaskResult taskResult(TaskRequest request, DataxTaskResult result) {
-        WorkerResult requestWorkerResult = request.getWorkerResult();
-        JsonNode resultJson = result.getResult();
-        return TaskResult.builder()
-                .taskInstanceId(request.getTaskInstanceId())
-                .flowInstanceId(request.getFlowInstanceId())
-                .taskName(request.getTaskName())
-                .taskState(result.getStatus())
-                .workerResult(WorkerResult.builder()
-                        .workerId(requestWorkerResult == null ? null : requestWorkerResult.getWorkerId())
-                        .appId(result.getAppId())
-                        .workDirPath(result.getWorkDirPath())
-                        .message(resultText(resultJson, "message"))
-                        .pluginLogUri(resultText(resultJson, "pluginLogUri"))
-                        .build())
+    protected final WorkerResult workerResult(WorkerTaskExecutionState state) {
+        return WorkerResult.builder()
+                .workerId(state.getWorkerId())
+                .appId(state.getAppId())
+                .workDirPath(state.getWorkDirPath())
+                .message(resultText(state.getResult(), "message"))
+                .pluginLogUri(resultText(state.getResult(), "pluginLogUri"))
+                .outputVars(state.getOutputVars())
                 .build();
     }
 
-    private String resultText(JsonNode result, String fieldName) {
+    /**
+     * 读取结果 JSON 文本字段.
+     *
+     * @param result    结果 JSON
+     * @param fieldName 字段名
+     * @return 字段值
+     */
+    protected final String resultText(JsonNode result, String fieldName) {
         return result != null && result.hasNonNull(fieldName) ? result.get(fieldName).asText() : null;
     }
 
-    private String firstText(String first, String second) {
-        return first == null || first.trim().isEmpty() ? second : first;
+    /**
+     * 解析指定快照的 DataX 参数.
+     *
+     * @param snapshot    任务提交快照
+     * @param workDirPath 固定工作目录
+     * @return DataX 参数
+     */
+    protected final DataxExecutionParam resolve(WorkerTaskExecutionSnap snapshot, String workDirPath) {
+        return paramResolver.resolve(snapshot, workDirPath);
+    }
+
+    private DataxExecutionParam resolve(RunningTaskContext context) {
+        if (context == null) {
+            throw new IllegalArgumentException("context不能为空");
+        }
+        return resolve(context.getSnapshot(), context.getWorkDirPath());
     }
 }

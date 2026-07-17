@@ -1,14 +1,13 @@
 package com.datafusion.agent.runtime.worker.plugin.api.local;
 
-import com.datafusion.agent.config.AgentProperties;
 import com.datafusion.agent.runtime.worker.plugin.shell.local.ShellLocalPluginTaskExecutor;
 import com.datafusion.agent.runtime.worker.plugin.template.LocalProcessSpec;
 import com.datafusion.agent.runtime.worker.plugin.template.TemplateSpecRenderer;
 import com.datafusion.agent.runtime.worker.plugin.template.TemplateYamlFragments;
 import com.datafusion.common.utils.JacksonUtils;
-import com.datafusion.scheduler.model.TaskRequest;
-import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.WorkerResult;
+import com.datafusion.scheduler.worker.context.RunningTaskContext;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -18,8 +17,6 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,11 +44,6 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
      * 运行模式.
      */
     public static final String RUN_MODE = "LOCAL";
-
-    /**
-     * 日期格式.
-     */
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 
     /**
      * API job file name.
@@ -112,11 +104,6 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
     private static final String LOCAL_TEMPLATE_PATH = "api/templates/api-local-runtime.yml";
 
     /**
-     * agent 配置.
-     */
-    private final AgentProperties properties;
-
-    /**
      * Shell LOCAL 执行器.
      */
     private final ShellLocalPluginTaskExecutor delegate;
@@ -129,13 +116,11 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
     /**
      * 构造函数.
      *
-     * @param properties       agent 配置
      * @param delegate         Shell LOCAL 执行器
      * @param templateRenderer 模板渲染器
      */
-    public ApiLocalPluginTaskExecutor(AgentProperties properties, ShellLocalPluginTaskExecutor delegate,
+    public ApiLocalPluginTaskExecutor(ShellLocalPluginTaskExecutor delegate,
             TemplateSpecRenderer templateRenderer) {
-        this.properties = properties;
         this.delegate = delegate;
         this.templateRenderer = templateRenderer;
     }
@@ -151,60 +136,44 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
     }
 
     @Override
-    public void validateTaskRequest(TaskRequest request) {
-        effectiveJob(request);
-        delegate.validateTaskRequest(shellRequest(request));
+    public void validate(RunningTaskContext context) {
+        effectiveJob(context.getSnapshot());
+        delegate.validate(shellContext(context));
     }
 
     @Override
-    public TaskResult submitTask(TaskRequest request) {
-        writeJobFile(request);
-        return delegate.submitTask(shellRequest(request));
+    public WorkerResult submit(RunningTaskContext context) {
+        writeJobFile(context);
+        return delegate.submit(shellContext(context));
     }
 
     @Override
-    public TaskResult stopTask(TaskRequest request) {
-        return delegate.stopTask(request);
+    public WorkerResult stop(RunningTaskContext context) {
+        return delegate.stop(context);
     }
 
     @Override
-    public TaskResult killTask(TaskRequest request) {
-        return delegate.killTask(request);
+    public WorkerResult kill(RunningTaskContext context) {
+        return delegate.kill(context);
     }
 
     @Override
-    public boolean finishTask(TaskRequest request) {
-        return delegate.finishTask(request);
+    public boolean finish(RunningTaskContext context) {
+        return delegate.finish(context);
     }
 
-    @Override
-    public void destroyTask(TaskRequest request) {
-        delegate.destroyTask(request);
+    private RunningTaskContext shellContext(RunningTaskContext context) {
+        WorkerTaskExecutionSnap snapshot = context.getSnapshot();
+        WorkerTaskExecutionSnap shellSnapshot = snapshot.copy();
+        shellSnapshot.setTaskData(JacksonUtils.createObjectNode());
+        shellSnapshot.setPluginParam(shellPluginParam(snapshot));
+        return new RunningTaskContext(shellSnapshot, context.getExecutionState(),
+                context.getPreviousSnapshot(), context.getPreviousState(), context.getWorkDirPath());
     }
 
-    private TaskRequest shellRequest(TaskRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("TaskRequest不能为空");
-        }
-        ObjectNode shellPluginParam = shellPluginParam(request);
-        ObjectNode shellTaskData = shellTaskData(request);
-        TaskRequest shellRequest = new TaskRequest();
-        shellRequest.setFlowInstanceId(request.getFlowInstanceId());
-        shellRequest.setTaskInstanceId(request.getTaskInstanceId());
-        shellRequest.setTaskName(request.getTaskName());
-        shellRequest.setTaskState(request.getTaskState());
-        shellRequest.setTaskData(shellTaskData);
-        shellRequest.setPluginType(PLUGIN_TYPE);
-        shellRequest.setRunMode(RUN_MODE);
-        shellRequest.setPluginParam(shellPluginParam);
-        shellRequest.setSubmitMode(request.getSubmitMode());
-        shellRequest.setWorkerResult(copyWorkerResult(request.getWorkerResult()));
-        return shellRequest;
-    }
-
-    private ObjectNode shellPluginParam(TaskRequest request) {
-        JsonNode pluginParam = request.getPluginParam();
-        List<String> command = apiLocalProcessSpec(request).getCommand();
+    private ObjectNode shellPluginParam(WorkerTaskExecutionSnap snapshot) {
+        JsonNode pluginParam = snapshot.getPluginParam();
+        List<String> command = apiLocalProcessSpec(snapshot).getCommand();
         ObjectNode node = JacksonUtils.createObjectNode();
         node.put("command", command.get(0));
         ArrayNode args = node.putArray("args");
@@ -214,12 +183,8 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
         return node;
     }
 
-    private ObjectNode shellTaskData(TaskRequest request) {
-        return JacksonUtils.createObjectNode();
-    }
-
-    private LocalProcessSpec apiLocalProcessSpec(TaskRequest request) {
-        JsonNode pluginParam = request.getPluginParam();
+    private LocalProcessSpec apiLocalProcessSpec(WorkerTaskExecutionSnap snapshot) {
+        JsonNode pluginParam = snapshot.getPluginParam();
         ApiLaunchMode launchMode = ApiLaunchMode.parse(text(pluginParam, "launchMode"));
         Map<String, String> values = new LinkedHashMap<>();
         values.put("javaBin", firstText(text(pluginParam, "javaBin"), DEFAULT_JAVA_BIN));
@@ -249,11 +214,12 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
         return List.of("-jar", apiJar);
     }
 
-    private void writeJobFile(TaskRequest request) {
-        Path jobFile = jobFile(request);
+    private void writeJobFile(RunningTaskContext context) {
+        Path jobFile = Path.of(context.getWorkDirPath(), JOB_FILE_NAME);
         try {
             Files.createDirectories(jobFile.getParent());
-            Files.writeString(jobFile, JacksonUtils.compactJson(effectiveJob(request)), StandardCharsets.UTF_8);
+            Files.writeString(jobFile, JacksonUtils.compactJson(effectiveJob(context.getSnapshot())),
+                    StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw new IllegalStateException("准备API job文件失败: " + e.getMessage(), e);
         }
@@ -265,37 +231,18 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
         }
     }
 
-    private JsonNode effectiveJob(TaskRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("TaskRequest不能为空");
+    private JsonNode effectiveJob(WorkerTaskExecutionSnap snapshot) {
+        if (snapshot == null) {
+            throw new IllegalArgumentException("snapshot不能为空");
         }
-        JsonNode defaultTaskData = object(request.getPluginParam(), "defaultTaskData");
+        JsonNode defaultTaskData = object(snapshot.getPluginParam(), "defaultTaskData");
         ObjectNode result = defaultTaskData == null ? JacksonUtils.createObjectNode() : defaultTaskData.deepCopy();
-        JsonNode taskData = request.getTaskData();
+        JsonNode taskData = snapshot.getTaskData();
         if (taskData != null && taskData.isObject()) {
             deepMerge(result, taskData);
         }
         validateJob(result);
         return result;
-    }
-
-    private Path jobFile(TaskRequest request) {
-        String date = LocalDate.now().format(DATE_FORMATTER);
-        return Path.of(properties.getStorage().getTaskRuntimeDir(), date, safePath(request.getFlowInstanceId()),
-                safePath(request.getTaskInstanceId()), JOB_FILE_NAME);
-    }
-
-    private WorkerResult copyWorkerResult(WorkerResult workerResult) {
-        if (workerResult == null) {
-            return null;
-        }
-        return WorkerResult.builder()
-                .workerId(workerResult.getWorkerId())
-                .appId(workerResult.getAppId())
-                .workDirPath(workerResult.getWorkDirPath())
-                .message(workerResult.getMessage())
-                .pluginLogUri(workerResult.getPluginLogUri())
-                .build();
     }
 
     private void copyObject(ObjectNode target, String field, JsonNode value) {
@@ -375,10 +322,6 @@ public class ApiLocalPluginTaskExecutor implements PluginTaskExecutor {
 
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
-    }
-
-    private String safePath(String value) {
-        return isBlank(value) ? "unknown" : value;
     }
 
     /**

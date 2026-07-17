@@ -1,13 +1,16 @@
 package com.datafusion.scheduler.worker.plugin;
 
-import com.datafusion.scheduler.model.TaskRequest;
-import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.WorkerResult;
+import com.datafusion.scheduler.worker.context.RunningTaskContext;
 
 /**
- * 插件任务执行器.
+ * Worker 插件任务执行器.
+ *
+ * <p>执行器只负责校验参数和调用本地或第三方运行时。执行状态由调用方通过上下文候选副本和状态协调器统一提交，
+ * 插件不得直接读写任务执行存储。
  *
  * @author datafusion
- * @version 1.0.0, 2026/6/2
+ * @version 1.0.0, 2026/7/18
  * @since 1.0.0
  */
 public interface PluginTaskExecutor {
@@ -27,52 +30,42 @@ public interface PluginTaskExecutor {
     String runMode();
 
     /**
-     * 校验任务请求参数.
+     * 校验任务动作上下文.
      *
-     * @param request 任务请求
+     * @param context 任务动作上下文
      */
-    default void validateTaskRequest(TaskRequest request) {
-
+    default void validate(RunningTaskContext context) {
     }
 
     /**
      * 提交任务.
      *
-     * @param request 任务请求
-     * @return 任务结果
+     * @param context 任务动作上下文
+     * @return Worker 执行结果
      */
-    TaskResult submitTask(TaskRequest request);
+    WorkerResult submit(RunningTaskContext context);
 
     /**
      * 停止任务.
      *
-     * @param request 任务请求
-     * @return 任务结果
+     * @param context 任务动作上下文
+     * @return Worker 执行结果
      */
-    TaskResult stopTask(TaskRequest request);
+    WorkerResult stop(RunningTaskContext context);
 
     /**
      * 强制停止任务.
      *
-     * @param request 任务请求
-     * @return 任务结果
+     * @param context 任务动作上下文
+     * @return Worker 执行结果
      */
-    TaskResult killTask(TaskRequest request);
+    WorkerResult kill(RunningTaskContext context);
 
     /**
-     * 任务完成后的插件侧收尾动作.
+     * 完成插件侧任务清理.
      *
-     * @param request 任务请求
+     * @param context 任务动作上下文
      * @return 是否完成清理
      */
-    boolean finishTask(TaskRequest request);
-
-    /**
-     * 销毁任务级执行资源.
-     *
-     * @param request 任务请求
-     */
-    default void destroyTask(TaskRequest request) {
-
-    }
+    boolean finish(RunningTaskContext context);
 }

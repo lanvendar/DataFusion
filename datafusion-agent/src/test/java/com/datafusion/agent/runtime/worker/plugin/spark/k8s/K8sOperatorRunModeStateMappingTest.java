@@ -1,14 +1,13 @@
 package com.datafusion.agent.runtime.worker.plugin.spark.k8s;
 
-import com.datafusion.agent.config.AgentProperties;
-import com.datafusion.agent.runtime.worker.InMemoryWorkerTaskExecutionStore;
 import com.datafusion.agent.runtime.worker.plugin.spark.SparkExecutionParam;
 import com.datafusion.agent.runtime.worker.plugin.spark.SparkParamResolver;
 import com.datafusion.agent.runtime.worker.plugin.spark.SparkPluginTaskExecutor;
 import com.datafusion.agent.runtime.worker.plugin.spark.SparkRunMode;
 import com.datafusion.scheduler.enums.StatusEnum;
 import com.datafusion.scheduler.model.TaskRequest;
-import com.datafusion.scheduler.model.TaskResult;
+import com.datafusion.scheduler.model.WorkerResult;
+import com.datafusion.scheduler.worker.context.RunningTaskContext;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionSnap;
 import com.datafusion.scheduler.worker.context.WorkerTaskExecutionState;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,7 +36,7 @@ class K8sOperatorRunModeStateMappingTest {
     void shouldMapSparkOperatorStates() {
         FakeKubernetesClient client = new FakeKubernetesClient();
         K8sOperatorRunModeStateMapping mapping = new K8sOperatorRunModeStateMapping(client,
-                new SparkParamResolver(new AgentProperties()));
+                new SparkParamResolver());
         TaskRequest request = request();
         WorkerTaskExecutionSnap snapshot = snapshot(request);
 
@@ -50,11 +49,20 @@ class K8sOperatorRunModeStateMappingTest {
         client.status = status(SparkOperatorStatus.State.SUSPENDED, true, false, false);
         assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(snapshot, state(StatusEnum.STOPPING)));
 
+        client.status = status(SparkOperatorStatus.State.COMPLETED, true, false, false);
+        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(snapshot, state(StatusEnum.STOPPING)));
+
         client.status = status(SparkOperatorStatus.State.SUSPENDED, true, false, false);
         assertEquals(StatusEnum.UNKNOWN, mapping.mapState(snapshot, state(StatusEnum.RUNNING)));
 
         client.status = status(SparkOperatorStatus.State.NONE, false, false, false);
         assertEquals(StatusEnum.UNKNOWN, mapping.mapState(snapshot, state(StatusEnum.SUBMIT_SUCCESS)));
+
+        client.status = status(SparkOperatorStatus.State.NONE, false, false, false);
+        assertEquals(StatusEnum.STOP_SUCCESS, mapping.mapState(snapshot, state(StatusEnum.STOPPING)));
+
+        client.status = status(SparkOperatorStatus.State.NONE, false, true, false);
+        assertEquals(StatusEnum.STOPPING, mapping.mapState(snapshot, state(StatusEnum.STOPPING)));
 
         client.status = status(SparkOperatorStatus.State.NONE, false, false, false);
         assertEquals(StatusEnum.KILLED, mapping.mapState(snapshot, state(StatusEnum.KILLING)));
@@ -63,7 +71,7 @@ class K8sOperatorRunModeStateMappingTest {
     @Test
     void shouldPrepareFinalResultOnce() {
         K8sOperatorRunModeStateMapping mapping = new K8sOperatorRunModeStateMapping(new FakeKubernetesClient(),
-                new SparkParamResolver(new AgentProperties()));
+                new SparkParamResolver());
         WorkerTaskExecutionState state = state(StatusEnum.RUN_SUCCESS);
 
         assertTrue(mapping.prepareFinalReport(snapshot(request()), state));
@@ -74,15 +82,15 @@ class K8sOperatorRunModeStateMappingTest {
     @Test
     void shouldKeepKillingUntilKubernetesResourcesDisappear() {
         FakeKubernetesClient client = new FakeKubernetesClient();
-        InMemoryWorkerTaskExecutionStore stateStore = new InMemoryWorkerTaskExecutionStore();
-        stateStore.saveSnapshot(snapshot(request()));
-        stateStore.saveState(state(StatusEnum.RUNNING), 0L);
-        SparkPluginTaskExecutor executor = new SparkPluginTaskExecutor(new SparkParamResolver(new AgentProperties()),
-                stateStore, client);
+        SparkPluginTaskExecutor executor = new SparkPluginTaskExecutor(new SparkParamResolver(), client);
+        WorkerTaskExecutionState state = state(StatusEnum.KILLING);
+        RunningTaskContext context = new RunningTaskContext(snapshot(request()), state, null, null,
+                state.getWorkDirPath());
 
-        TaskResult result = executor.killTask(request());
+        WorkerResult result = executor.kill(context);
 
-        assertEquals(StatusEnum.KILLING, result.getTaskState());
+        assertEquals(StatusEnum.KILLING, state.getStatus());
+        assertEquals("df-spark-task-1", result.getAppId());
         assertTrue(client.killRequested);
     }
 
@@ -126,6 +134,7 @@ class K8sOperatorRunModeStateMappingTest {
         return WorkerTaskExecutionState.builder()
                 .taskInstanceId("task-1")
                 .appId("df-spark-task-1")
+                .workDirPath("/tmp/datafusion/spark/task-1")
                 .status(status)
                 .build();
     }

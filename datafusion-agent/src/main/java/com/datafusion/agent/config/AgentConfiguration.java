@@ -1,22 +1,22 @@
 package com.datafusion.agent.config;
 
-import com.datafusion.agent.rpc.HttpManagerClient;
-import com.datafusion.agent.rpc.ManagerClient;
-import com.datafusion.agent.rpc.ManagerTaskResultReporter;
-import com.datafusion.agent.runtime.AgentRuntimeState;
+import com.datafusion.agent.rpc.AgentTaskResultReporter;
+import com.datafusion.agent.rpc.AgentWorkerClient;
+import com.datafusion.agent.runtime.AgentWorkerConfigStore;
+import com.datafusion.agent.runtime.worker.context.FileWorkerTaskExecutionStore;
 import com.datafusion.agent.runtime.worker.reporter.AgentTaskStateListenerRegistry;
-import com.datafusion.agent.runtime.worker.context.WorkerTaskExecutionContext;
 import com.datafusion.common.threadpool.NamedThreadFactory;
 import com.datafusion.common.threadpool.ThreadPoolBuilder;
 import com.datafusion.scheduler.enums.SubmitModeEnum;
-import com.datafusion.scheduler.worker.WorkerTaskOperator;
-import com.datafusion.scheduler.worker.WorkerTaskService;
+import com.datafusion.scheduler.worker.WorkerService;
+import com.datafusion.scheduler.worker.client.WorkerClient;
+import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
 import com.datafusion.scheduler.worker.plugin.PluginRunModeStateMapping;
 import com.datafusion.scheduler.worker.plugin.PluginTaskExecutor;
-import com.datafusion.scheduler.worker.plugin.WorkerPluginLoader;
-import com.datafusion.scheduler.worker.plugin.WorkerTaskOperatorRouter;
+import com.datafusion.scheduler.worker.plugin.WorkerPluginRouter;
 import com.datafusion.scheduler.worker.reporter.TaskResultReporter;
-import com.datafusion.scheduler.worker.context.WorkerTaskExecutionStore;
+import com.datafusion.scheduler.worker.reporter.TaskStateListenerRegistry;
+import com.datafusion.scheduler.worker.state.WorkerTaskStateCoordinator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
@@ -25,7 +25,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -36,27 +35,32 @@ import java.util.concurrent.ThreadPoolExecutor;
  * Agent 运行时装配.
  *
  * @author datafusion
- * @version 1.0.0, 2026/6/2
+ * @version 1.0.0, 2026/7/18
  * @since 1.0.0
  */
 @Configuration
 public class AgentConfiguration {
 
     /**
-     * 任务运行线程池.
+     * 创建任务动作和本地进程 watcher 共用线程池.
      *
-     * <p>同时作为本地 Shell 和 DataX 进程退出 watcher 的执行器；watcher 只等待外部进程，不在该线程池内运行任务进程。</p>
-     *
-     * @param properties agent 配置
-     * @return 任务运行线程池
+     * @param properties Agent 配置
+     * @return 任务线程池
      */
     @Bean(name = "agentTaskPool", destroyMethod = "shutdown")
     public ThreadPoolExecutor agentTaskPool(AgentProperties properties) {
-        return buildThreadPool("agent-task", properties.getTaskPool());
+        AgentProperties.ThreadPoolConfig config = properties.getTaskPool();
+        return ThreadPoolBuilder.create()
+                .setCorePoolSize(config.getCorePoolSize())
+                .setMaxPoolSize(config.getMaxPoolSize())
+                .setQueueCapacity(config.getQueueCapacity())
+                .setKeepAliveSeconds(config.getKeepAliveSeconds())
+                .setPoolName("agent-task")
+                .build();
     }
 
     /**
-     * 心跳调度器.
+     * 创建 Worker 心跳调度器.
      *
      * @return 心跳调度器
      */
@@ -66,9 +70,9 @@ public class AgentConfiguration {
     }
 
     /**
-     * 状态刷新调度器.
+     * 创建任务状态监听调度器.
      *
-     * @param properties agent 配置
+     * @param properties Agent 配置
      * @return 状态监听调度器
      */
     @Bean(name = "agentStateRefreshScheduler", destroyMethod = "shutdown")
@@ -81,10 +85,10 @@ public class AgentConfiguration {
     }
 
     /**
-     * manager 普通 HTTP RestTemplate.
+     * 创建普通 Manager RestTemplate.
      *
-     * @param properties agent 配置
-     * @return RestTemplate
+     * @param properties Agent 配置
+     * @return HTTP 客户端
      */
     @Bean("agentManagerRestTemplate")
     @ConditionalOnProperty(prefix = "spring.cloud.nacos.discovery", name = "enabled", havingValue = "false",
@@ -94,10 +98,10 @@ public class AgentConfiguration {
     }
 
     /**
-     * manager 负载均衡 RestTemplate.
+     * 创建负载均衡 Manager RestTemplate.
      *
-     * @param properties agent 配置
-     * @return RestTemplate
+     * @param properties Agent 配置
+     * @return HTTP 客户端
      */
     @Bean("agentManagerRestTemplate")
     @LoadBalanced
@@ -107,122 +111,123 @@ public class AgentConfiguration {
     }
 
     /**
-     * manager client.
+     * 创建 Worker 协议客户端.
      *
-     * @param restTemplate RestTemplate
-     * @param properties   agent 配置
-     * @return manager client
+     * @param restTemplate HTTP 客户端
+     * @param properties   Agent 配置
+     * @return Worker 协议客户端
      */
     @Bean
-    public ManagerClient managerClient(@Qualifier("agentManagerRestTemplate") RestTemplate restTemplate,
+    public WorkerClient workerClient(@Qualifier("agentManagerRestTemplate") RestTemplate restTemplate,
             AgentProperties properties) {
-        return new HttpManagerClient(restTemplate, properties);
+        return new AgentWorkerClient(restTemplate, properties);
     }
 
     /**
-     * agent 运行状态.
+     * 创建单次任务结果上报器.
      *
-     * @return agent 运行状态
-     */
-    @Bean
-    public AgentRuntimeState agentRuntimeState() {
-        return new AgentRuntimeState();
-    }
-
-    /**
-     * 插件加载器.
-     *
-     * @param executors 插件执行器列表
-     * @return 插件加载器
-     */
-    @Bean
-    public WorkerPluginLoader workerPluginLoader(List<PluginTaskExecutor> executors) {
-        List<PluginTaskExecutor> plugins = executors == null ? Collections.emptyList() : executors;
-        return () -> plugins;
-    }
-
-    /**
-     * worker 插件路由.
-     *
-     * @param loader 插件加载器
-     * @return worker 插件路由
-     */
-    @Bean
-    public WorkerTaskOperatorRouter workerTaskOperatorRouter(WorkerPluginLoader loader) {
-        return WorkerTaskOperatorRouter.fromLoader(loader);
-    }
-
-    /**
-     * worker 任务执行状态存储.
-     *
-     * @param properties agent 配置
-     * @return worker 任务执行状态存储
-     */
-    @Bean
-    public WorkerTaskExecutionContext workerTaskExecutionStore(AgentProperties properties) {
-        return new WorkerTaskExecutionContext(properties);
-    }
-
-    /**
-     * 任务结果上报器.
-     *
-     * @param managerClient manager client
+     * @param restTemplate HTTP 客户端
+     * @param properties   Agent 配置
      * @return 任务结果上报器
      */
-    @Bean
-    public TaskResultReporter taskResultReporter(ManagerClient managerClient) {
-        return new ManagerTaskResultReporter(managerClient);
+    @Bean("agentTaskResultReporter")
+    public TaskResultReporter taskResultReporter(
+            @Qualifier("agentManagerRestTemplate") RestTemplate restTemplate, AgentProperties properties) {
+        return new AgentTaskResultReporter(restTemplate, properties);
     }
 
     /**
-     * agent 任务状态监听注册器.
+     * 创建插件执行器和状态映射统一路由器.
      *
-     * @param stateStore    任务执行状态存储
-     * @param reporter      任务结果上报器
-     * @param scheduler     状态刷新调度器
-     * @param stateMappings 插件运行模式状态映射
-     * @param properties    agent 配置
-     * @return agent 任务状态监听注册器
+     * @param executors 插件执行器
+     * @param mappings  状态映射器
+     * @return 插件路由器
      */
     @Bean
-    public AgentTaskStateListenerRegistry agentTaskStateListenerRegistry(WorkerTaskExecutionStore stateStore,
-            TaskResultReporter reporter, @Qualifier("agentStateRefreshScheduler") ScheduledExecutorService scheduler,
-            List<PluginRunModeStateMapping> stateMappings, AgentProperties properties) {
+    public WorkerPluginRouter workerPluginRouter(List<PluginTaskExecutor> executors,
+            List<PluginRunModeStateMapping> mappings) {
+        return new WorkerPluginRouter(executors, mappings);
+    }
+
+    /**
+     * 创建文件任务执行存储.
+     *
+     * @param properties Agent 配置
+     * @return 任务执行存储
+     */
+    @Bean
+    public WorkerTaskExecutionStore workerTaskExecutionStore(AgentProperties properties) {
+        return new FileWorkerTaskExecutionStore(properties);
+    }
+
+    /**
+     * 创建任务状态协调器.
+     *
+     * @param executionStore 任务执行存储
+     * @return 状态协调器
+     */
+    @Bean
+    public WorkerTaskStateCoordinator workerTaskStateCoordinator(WorkerTaskExecutionStore executionStore) {
+        return new WorkerTaskStateCoordinator(executionStore);
+    }
+
+    /**
+     * 创建任务状态监听注册器.
+     *
+     * @param executionStore  任务执行存储
+     * @param coordinator     状态协调器
+     * @param pluginRouter    插件路由器
+     * @param resultReporter  单次结果上报器
+     * @param scheduler       状态监听调度器
+     * @param properties      Agent 配置
+     * @return 任务监听注册器
+     */
+    @Bean
+    public TaskStateListenerRegistry taskStateListenerRegistry(WorkerTaskExecutionStore executionStore,
+            WorkerTaskStateCoordinator coordinator, WorkerPluginRouter pluginRouter,
+            @Qualifier("agentTaskResultReporter") TaskResultReporter resultReporter,
+            @Qualifier("agentStateRefreshScheduler") ScheduledExecutorService scheduler,
+            AgentProperties properties) {
         AgentProperties.StateRefresh config = properties.getStateRefresh();
-        return new AgentTaskStateListenerRegistry(stateStore, reporter, scheduler, stateMappings,
-                config.getIntervalMs(), config.getUnknownThreshold(), config.getListenerRetentionMs(),
-                config.getListenerRetentionNum());
+        return new AgentTaskStateListenerRegistry(executionStore, coordinator, pluginRouter,
+                resultReporter, scheduler, config.getIntervalMs(), config.getUnknownThreshold(),
+                config.getListenerRetentionMs(), config.getListenerRetentionNum());
     }
 
     /**
-     * worker 任务操作入口.
+     * 创建 Worker 子系统入口.
      *
-     * @param router        插件路由
-     * @param stateStore    任务执行状态存储
-     * @param taskPool      任务运行线程池
-     * @return worker 任务操作入口
+     * @param workerClient       Worker 协议客户端
+     * @param identityStore      Worker 本地身份存储
+     * @param pluginRouter       插件路由器
+     * @param executionStore     任务执行存储
+     * @param coordinator        状态协调器
+     * @param listenerRegistry   任务监听注册器
+     * @param taskPool           任务动作线程池
+     * @param heartbeatScheduler 心跳调度器
+     * @param properties         Agent 配置
+     * @return Worker 子系统入口
      */
     @Bean
-    public WorkerTaskOperator workerTaskOperator(WorkerTaskOperatorRouter router, WorkerTaskExecutionContext stateStore,
-            @Qualifier("agentTaskPool") ThreadPoolExecutor taskPool) {
-        return new WorkerTaskService(router, stateStore, taskPool, SubmitModeEnum.SYNC);
-    }
-
-    private ThreadPoolExecutor buildThreadPool(String poolName, AgentProperties.ThreadPoolConfig config) {
-        return ThreadPoolBuilder.create()
-                .setCorePoolSize(config.getCorePoolSize())
-                .setMaxPoolSize(config.getMaxPoolSize())
-                .setQueueCapacity(config.getQueueCapacity())
-                .setKeepAliveSeconds(config.getKeepAliveSeconds())
-                .setPoolName(poolName)
-                .build();
+    public WorkerService workerService(WorkerClient workerClient, AgentWorkerConfigStore identityStore,
+            WorkerPluginRouter pluginRouter, WorkerTaskExecutionStore executionStore,
+            WorkerTaskStateCoordinator coordinator, TaskStateListenerRegistry listenerRegistry,
+            @Qualifier("agentTaskPool") ThreadPoolExecutor taskPool,
+            @Qualifier("agentHeartbeatScheduler") ScheduledExecutorService heartbeatScheduler,
+            AgentProperties properties) {
+        return new WorkerService(workerClient, identityStore, pluginRouter, executionStore, coordinator,
+                listenerRegistry, taskPool, heartbeatScheduler, SubmitModeEnum.SYNC,
+                properties.getManager().getHeartbeatIntervalMs(),
+                properties.getWorker().isAcceptTasksBeforeRegistered());
     }
 
     private RestTemplate managerRestTemplate(AgentProperties properties) {
         AgentProperties.Manager manager = properties.getManager();
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout((int) Math.min(Math.max(manager.getConnectTimeoutMs(), 1L), Integer.MAX_VALUE));
-        requestFactory.setReadTimeout((int) Math.min(Math.max(manager.getReadTimeoutMs(), 1L), Integer.MAX_VALUE));
+        requestFactory.setConnectTimeout((int) Math.min(Math.max(manager.getConnectTimeoutMs(), 1L),
+                Integer.MAX_VALUE));
+        requestFactory.setReadTimeout((int) Math.min(Math.max(manager.getReadTimeoutMs(), 1L),
+                Integer.MAX_VALUE));
         return new RestTemplate(requestFactory);
     }
 }

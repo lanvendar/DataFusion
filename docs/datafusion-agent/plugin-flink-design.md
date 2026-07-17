@@ -23,17 +23,19 @@
 Manager scheduler
     -> TaskRequest(pluginType=FLINK, runMode, pluginParam, taskData)
     -> AgentExecutorRpcProvider
-    -> WorkerTaskService
+    -> WorkerService
+    -> WorkerPluginRouter(FLINK + K8S_OPERATOR)
     -> FlinkPluginTaskExecutor
     -> FlinkParamResolver
     -> flink-job.json
     -> FlinkDeployment
-    -> WorkerTaskExecutionStore
+    -> WorkerTaskStateCoordinator / FileWorkerTaskExecutionStore
     -> AgentTaskStateListenerRegistry
-    -> ManagerTaskResultReporter
+    -> AgentTaskResultReporter
 ```
 
-`WorkerTaskOperatorRouter` 按 `FLINK + K8S_OPERATOR` 直接选择 `FlinkPluginTaskExecutor`。
+`WorkerPluginRouter` 按 `FLINK + K8S_OPERATOR` 选择 `FlinkPluginTaskExecutor` 和
+`K8sOperatorRunModeStateMapping`。
 
 ## 3. K8S_OPERATOR 提交流程
 
@@ -45,7 +47,8 @@ Manager scheduler
     -> 生成 FlinkDeployment 名称和 REST service 地址
     -> 渲染 plugins/flink/templates/flink-k8s-operator-deployment.yml
     -> Fabric8 createOrReplace
-    -> 写入 .snap/.state
+    -> 返回 WorkerResult(appId, workDirPath, message, pluginLogUri)
+    -> WorkerTaskStateCoordinator 提交动作结果 .state
 ```
 
 核心规则：
@@ -80,13 +83,13 @@ Manager scheduler
 
 | 动作 | 行为 | 返回 |
 |------|------|------|
-| `submit` | 将 job state 设为 `running`，校验共享盘依赖目录和主 jar，创建或更新 `FlinkDeployment`，写动作结果 `.state` | 成功返回 `SUBMIT_SUCCESS`；失败返回 `SUBMIT_FAILURE` |
+| `submit` | 将 job state 设为 `running`，校验共享盘依赖目录和主 jar，创建或更新 `FlinkDeployment` | 插件返回 `WorkerResult`；Coordinator 成功写 `SUBMIT_SUCCESS`，异常写 `SUBMIT_FAILURE` |
 | `stop` | 发起温和停止，将 `FlinkDeployment.spec.job.state` 更新为小写 `suspended` | 返回 `STOPPING`，由状态刷新推进终态 |
 | `kill` | 强制清理 FlinkDeployment、Pod、Service 等运行资源 | 删除请求成功返回 `KILLING`，由状态刷新确认资源消失后推进 `KILLED` |
 | `finish` | master 确认终态后按配置清理 `FlinkDeployment` | 返回清理结果 |
 
 `kill` 和 `finish` 的清理逻辑必须幂等。状态刷新只查询状态和采集终态日志，不触发 stop、kill 或重新提交。
-任务提交 `.snap` 由 `WorkerTaskService` 在调用插件前整体保存，Flink 执行器不重复覆盖。
+任务提交 `.snap` 由 `WorkerService` 在调用插件前整体保存，Flink 执行器不读写 Store。
 清理 Pod 和 Service 时先按任务标签查询，再按资源名称逐个删除，不依赖 Kubernetes `deletecollection` 权限。
 `kill` 发出删除请求后保持 `KILLING`，直到状态刷新确认 FlinkDeployment 和运行 Pod 都已不存在；Service 残留只影响清理结果，不阻塞任务终态。
 
