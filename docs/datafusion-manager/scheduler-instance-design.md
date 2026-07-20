@@ -114,13 +114,13 @@ FileBrowser 地址，也不保存或展示 FileBrowser 用户名密码。
 
 - 只迁移 `StatusEnum.isSuccess()` 的流程实例。
 - 非成功流程实例不迁移，任务实例不独立判断状态。
-- 仅当 `scheduler_flow_info.enabled = true`，且流程实例的 `flow_id + publish_version` 与当前流程定义版本匹配时，
+- 仅当 `scheduler_flow_info.enabled = true`、`publish_state = true`，且流程实例的 `flow_id + publish_version` 与当前流程定义版本匹配时，
   保护该流程定义版本下 `schedule_time` 最新的流程实例，不迁移到历史表。
-- 当流程未调度、流程定义不存在或发布版本不匹配时，不保护最新实例，满足成功状态的调度实例均迁移到历史表。
+- 当流程未调度、未发布、流程定义不存在或发布版本不匹配时，不保护最新实例，满足成功状态的调度实例均迁移到历史表。
 - 只处理 `schedule_time is not null` 的调度实例。
 - 同一批归档需要在事务中完成历史表插入和实时表删除。
 
-该约束保证调度中的流程在 master 重启恢复时能从实时表最新 `scheduleTime` 继续调度；未调度、已删除或版本不匹配的
+该约束保证已启用且已发布的调度流程在 master 重启恢复时能从实时表最新 `scheduleTime` 继续调度；未调度、未发布、已删除或版本不匹配的
 流程定义不再保留实时成功实例。
 
 ## 非目标

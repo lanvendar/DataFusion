@@ -91,6 +91,7 @@
               on flow_info.id = fi.flow_id
              and flow_info.publish_version = fi.publish_version
              and flow_info.enabled = true
+             and flow_info.publish_state = true
             where fi.schedule_time is not null
             group by fi.flow_id, fi.publish_version
         )
