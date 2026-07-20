@@ -79,10 +79,15 @@ manager 重启后可以从数据库恢复有效节点记录，但恢复出的节
 | 发布且勾选开始调度 | `publishState=true`、`enabled=true` | `addSchedule` |
 | 发布但不开始调度 | `publishState=true`、`enabled=false` | 不加入队列 |
 | 开始调度 | `enabled=true` | `addSchedule` |
-| 取消调度 | `enabled=false` | `stopSchedule` |
-| 取消发布 | `publishState=false`、`enabled=false` | 先 `stopSchedule` |
+| 取消调度 | `enabled=false` | `stopSchedule`，暂停当前发布版本，不立即删除未到期初始化实例 |
+| 取消发布 | `publishState=false`、`enabled=false` | `unpublishSchedule`，清理当前发布版本初始化实例 |
 
 启用调度必须存在有效触发器，否则应失败并回滚数据库状态。`TriggerStorageImpl` 读取触发器时优先使用 `scheduler_flow_info.trigger_id`。
+Trigger 可调度标志按 `enabled=true AND publishState=true` 计算，与启动加载条件保持一致。
+
+取消调度后如果在原调度时间前重新启用，沿用原 `publishVersion` 的初始化实例可以继续分发；如果到期仍未启用，
+`DispatchTriggerThread` 清理该批次初始化实例。取消发布不改变正在运行实例，只回收当前 `publishVersion` 下
+`INITIALIZING` / `INIT_SUCCESS` 的流程和任务实例。重新发布会生成新 `publishVersion`，旧内存 TriggerInstance 由版本校验淘汰。
 
 ## 启动恢复
 

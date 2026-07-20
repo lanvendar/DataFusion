@@ -55,10 +55,11 @@ API 前缀：`/api/scheduler/flow`
 - 发布流程前必须至少绑定一个任务节点；空流程禁止发布。
 - 独立发布只生成新的 `publishVersion`，不填写调度配置，也不自动开始调度。
 - 取消发布时不二次确认；先取消调度，再取消发布，最终 `enabled=false`、`publishState=false`。
+- 取消发布表示当前发布版本永久失效，立即清理该版本 `INITIALIZING` / `INIT_SUCCESS` 的流程实例及其任务实例；已经进入等待、提交或运行阶段的实例不受影响。
 - 开始调度要求至少绑定一个任务节点，且必须提交有效触发器和完整调度窗口；未发布流程自动发布并生成 `publishVersion`。
 - 已发布流程重新开始调度时只更新调度配置和 `enabled`，不生成新的发布版本。
 - 调度窗口要求 `startTime/endTime` 同时存在，且 `endTime` 晚于 `startTime`。
-- 取消调度只修改当前流程调度启用状态，并调用 master 停止后续调度生成。
+- 取消调度只暂停当前发布版本并调用 master 停止后续调度生成，不立即清理尚未到期的初始化实例；原调度时间到达仍未恢复时，由调度分发线程丢弃该批次。
 - 流程分页、列表和详情响应需要根据 `triggerId` 批量关联 `scheduler_trigger_info.name`，返回 `triggerName` 供页面展示。
 
 ## 页面交互

@@ -25,6 +25,16 @@ public interface SchedulerTrigger {
     void dispatchSubmit(TriggerInstance triggerInstance);
 
     /**
+     * 精确清理尚未进入执行阶段的初始化实例.
+     *
+     * @param instanceId 流程实例ID
+     * @param payloadId  调度对象ID
+     * @param version    调度版本
+     * @return 是否实际清理实例
+     */
+    boolean cleanInitializationInstance(String instanceId, String payloadId, String version);
+
+    /**
      * 覆盖执行策略,停止调度实例.
      *
      * @param payloadId 调度对象id

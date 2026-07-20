@@ -178,6 +178,7 @@
 | `SchedulerInstanceQueryDto` | 后端分页过滤 | 查询条件字段 | `String/Long` | 请求内 | 被 Flow/Task 实例查询复用 |
 | `FlowInstanceTaskQueryDto` | 展开流程实例任务 | `flowInstanceId`、`viewType` | `UUID/String` | 请求内 | `viewType` 只决定任务实例表路由 |
 | `SchedulerInstanceArchiveBatch` | 成功实例归档 | `batchSize`、成功状态集合、流程调度状态、发布状态、流程定义版本匹配结果 | `Integer/List<String>/Boolean` | 定时任务内 | 成功状态集合来自 `StatusEnum.isSuccess()`；仅保护 `enabled=true`、`publishState=true` 且定义版本匹配的最新调度实例，其余成功实例不再保留实时记录 |
+| `InitializationInstanceCleanup` | 调度暂停到期或取消发布 | `flowId`、`publishVersion`、`flowInstanceId`、实例状态 | `String` / `StatusEnum` | Trigger 分发或取消发布请求内 | 只删除 `INITIALIZING` / `INIT_SUCCESS` 流程实例及其任务实例；取消调度按到期实例精准清理，取消发布按当前发布版本批量清理 |
 | `TaskInstanceLogDto` | 日志读取响应 | 日志内容和偏移 | `String/Long/Boolean` | 请求内 | 不持久化 |
 | `SchedulerInstanceActionDto` | 流程/任务实例操作 | `flowInstanceId`、`taskInstanceId`、`actionType` | `UUID/String` | 请求内 | 操作入口复用 `ActionType`，Service 根据流程或任务实例加载实时表实体并转换为 scheduler model |
 | `SchedulerInstanceAvailableActionDto` | 流程/任务实例可用操作 | `actionType`、`label`、`confirmRequired` | `String/String/Boolean` | 响应内 | 后端根据实例类型和 `StatusEnum` 统一计算；前端不自行维护状态矩阵 |

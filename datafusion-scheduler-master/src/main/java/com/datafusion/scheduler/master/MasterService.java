@@ -220,7 +220,7 @@ public class MasterService {
      * 恢复调度计划和未完成实例运行态.
      */
     public void reloadSchedules() {
-        Map<String, Long> cleanedScheduleTimes = flowAction.cleanInitializationInstances();
+        Map<String, Long> cleanedScheduleTimes = flowAction.cleanInitializationInstances(null, null);
         List<TriggerInfo> triggerInfos = masterStorage.getTriggerStorage().getAllScheduledTriggerInfo();
         long now = System.currentTimeMillis();
         for (TriggerInfo triggerInfo : triggerInfos) {
@@ -307,6 +307,18 @@ public class MasterService {
             masterStorage.invalidateSchedulerInfo(payloadId);
             log.warn("停止调度失败,未找到调度信息: payloadId={}", payloadId);
         }
+    }
+
+    /**
+     * 取消发布调度版本并清理该版本尚未执行的初始化实例.
+     *
+     * @param payloadId 调度载体id（即 flowId）
+     * @param version   取消发布版本
+     */
+    public void unpublishSchedule(String payloadId, String version) {
+        masterStorage.invalidateSchedulerInfo(payloadId);
+        flowAction.cleanInitializationInstances(payloadId, version);
+        log.info("取消发布调度版本: payloadId={},version={}", payloadId, version);
     }
 
     /**

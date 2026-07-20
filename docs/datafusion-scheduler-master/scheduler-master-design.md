@@ -31,6 +31,15 @@ TriggerInfo
 `FlowActor` 创建时需要从 `TaskStorage` 初始化当前流程实例下全部任务状态，作为流程聚合的基线；后续任务状态变化再通过
 `FlowMsg.taskState` 增量更新该基线。
 
+取消调度只暂停当前发布版本，不删除尚未到期的初始化实例，也不遍历 TriggerInstance 内存队列。同一发布版本在原调度时间前重新启用时，
+原实例仍可进入 `dispatchSubmit`；到达调度时间仍不可调度时，`DispatchTriggerThread` 通过
+`SchedulerTrigger.cleanInitializationInstance` 精准删除该 `TriggerInstance` 对应的 `INITIALIZING` / `INIT_SUCCESS` 流程实例及其任务实例。
+取消发布表示当前发布版本永久失效，由 `MasterService.unpublishSchedule` 立即清理该 `flowId + publishVersion` 下全部初始化阶段实例；
+旧 TriggerInstance 后续通过版本校验自然失效，不主动遍历并发队列。
+
+初始化实例清理由批量和单实例两层组成：`cleanInitializationInstances` 只负责按 `flowId + version` 筛选、遍历和汇总最早调度时间，
+每个候选实例统一调用 `cleanInitializationInstance` 完成身份、状态校验以及任务实例和流程实例删除。
+
 任务实例 id 由 `flowInstanceId + "_" + taskId` 稳定生成 UUID。任务定义 DAG 使用 `TaskLink` 从 task id 转为 task instance id，再写入 `lastInstanceIds` 和 `nextInstanceIds`。
 
 ## Worker 协作

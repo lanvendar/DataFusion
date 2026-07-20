@@ -85,6 +85,11 @@ public class DispatchTriggerThread extends TriggerThread {
             }
         } else {
             log.warn("未启动实例:flowInsId={}", instance.getInstanceId());
+            // 清理前再次确认调度仍不可用，避免暂停后立即恢复时误删同版本实例.
+            if (!handler.checkScheduleAvailable(instance)) {
+                trigger.cleanInitializationInstance(instance.getInstanceId(), instance.getPayloadId(),
+                        instance.getVersion());
+            }
         }
     }
 

@@ -56,6 +56,7 @@
 | 端口 | 方法 | 说明 |
 |------|------|------|
 | `MasterStorage` | `getTriggerStorage` / `getFlowStorage` / `getTaskStorage` / `getEventStorage` / `invalidateSchedulerInfo` | 调度存储聚合 |
+| `SchedulerTrigger` | `fetchInit` / `dispatchSubmit` / `cleanInitializationInstance` / `killDelay` | Trigger 线程驱动流程初始化、提交和未执行初始化实例精准清理 |
 | `TriggerStorage` | `getAllScheduledTriggerInfo` / `getTriggerInfo` / `saveTriggerInfo` / `getTriggerInstance` / `getLastTriggerInstance` / `saveTriggerInstance` | 触发器存储 |
 | `FlowStorage` | `getFlowInfo` / `getAllFlowInfo` / `getInstanceById` / `saveInstance` / `removeInstanceById` / `getAvailableInstance` / `getLastInstance` | 流程存储 |
 | `TaskStorage` | `getTaskInfo` / `getTaskInfoByFlowId` / `getTaskInfoLink` / `getInstanceById` / `saveInstance` / `removeInstanceById` / `getTaskInsIdsByFlowInsId` / `removeTaskInsByFlowInsId` | 任务存储 |

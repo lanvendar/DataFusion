@@ -33,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * 流程动作处理类.
@@ -221,34 +222,82 @@ public class FlowAction implements SchedulerTrigger {
     }
 
     /**
-     * 清理初始化阶段流程实例及其下属任务实例.
+     * 批量清理初始化阶段流程实例及其下属任务实例.
      *
+     * <p>flowId 和 version 同时为空时清理所有初始化实例；同时非空时只清理指定发布版本。
+     *
+     * @param flowId  流程ID
+     * @param version 发布版本
      * @return key为flowId_version,value为被清理实例最小调度时间
      */
-    public Map<String, Long> cleanInitializationInstances() {
-        List<FlowInstance> flowInstances = masterStorage.getFlowStorage().getAvailableInstance(null);
+    public Map<String, Long> cleanInitializationInstances(String flowId, String version) {
         Map<String, Long> cleanedScheduleTimes = new HashMap<>(2);
+        boolean cleanAll = StrUtil.isEmpty(flowId) && StrUtil.isEmpty(version);
+        if (!cleanAll && (StrUtil.isEmpty(flowId) || StrUtil.isEmpty(version))) {
+            return cleanedScheduleTimes;
+        }
+        List<FlowInstance> flowInstances = masterStorage.getFlowStorage()
+                .getAvailableInstance(cleanAll ? null : flowId);
+        if (CollectionUtil.isEmpty(flowInstances)) {
+            return cleanedScheduleTimes;
+        }
         int cleanedCount = 0;
         for (FlowInstance flowInstance : flowInstances) {
-            if (flowInstance == null || !isInitializationState(flowInstance.getState())) {
+            if (flowInstance == null || !isInitializationState(flowInstance.getState())
+                    || (!cleanAll && !Objects.equals(version, flowInstance.getVersion()))) {
                 continue;
             }
-            try {
-                Long scheduleTime = flowInstance.getScheduleTime();
-                masterStorage.getTaskStorage().removeTaskInsByFlowInsId(flowInstance.getInstanceId());
-                masterStorage.getFlowStorage().removeInstanceById(flowInstance.getInstanceId());
+            Long scheduleTime = flowInstance.getScheduleTime();
+            if (cleanInitializationInstance(flowInstance.getInstanceId(), flowInstance.getFlowId(),
+                    flowInstance.getVersion())) {
                 mergeCleanedScheduleTime(cleanedScheduleTimes, flowInstance, scheduleTime);
                 cleanedCount++;
-                log.info("清理初始化阶段流程实例成功,flowInstanceId={},flowId={},version={},state={},scheduleTime={}",
-                        flowInstance.getInstanceId(), flowInstance.getFlowId(), flowInstance.getVersion(),
-                        flowInstance.getState(), scheduleTime);
-            } catch (Exception e) {
-                log.warn("清理初始化阶段流程实例失败,flowInstanceId={}",
-                        flowInstance.getInstanceId(), e);
             }
         }
-        log.info("清理初始化阶段流程实例数量: {}", cleanedCount);
+        log.info("批量清理初始化阶段流程实例完成,flowId={},version={},cleanedCount={}", flowId, version, cleanedCount);
         return cleanedScheduleTimes;
+    }
+
+    /**
+     * 精确清理单个初始化阶段流程实例及其下属任务实例.
+     *
+     * @param instanceId 流程实例ID
+     * @param payloadId  调度对象ID
+     * @param version    调度版本
+     * @return 是否实际清理实例
+     */
+    @Override
+    public boolean cleanInitializationInstance(String instanceId, String payloadId, String version) {
+        if (StrUtil.isEmpty(instanceId) || StrUtil.isEmpty(payloadId) || StrUtil.isEmpty(version)) {
+            return false;
+        }
+        FlowInstance flowInstance = masterStorage.getFlowStorage().getInstanceById(instanceId);
+        if (flowInstance == null) {
+            return false;
+        }
+        if (!Objects.equals(payloadId, flowInstance.getFlowId()) || !Objects.equals(version, flowInstance.getVersion())) {
+            log.warn("跳过不匹配的初始化实例清理,flowInstanceId={},triggerFlowId={},instanceFlowId={},"
+                            + "triggerVersion={},instanceVersion={}",
+                    instanceId, payloadId, flowInstance.getFlowId(), version, flowInstance.getVersion());
+            return false;
+        }
+        if (!isInitializationState(flowInstance.getState())) {
+            log.warn("跳过非初始化阶段实例清理,flowInstanceId={},state={}",
+                    flowInstance.getInstanceId(), flowInstance.getState());
+            return false;
+        }
+        try {
+            masterStorage.getTaskStorage().removeTaskInsByFlowInsId(flowInstance.getInstanceId());
+            masterStorage.getFlowStorage().removeInstanceById(flowInstance.getInstanceId());
+            log.info("清理初始化阶段流程实例成功,flowInstanceId={},flowId={},version={},state={},scheduleTime={}",
+                    flowInstance.getInstanceId(), flowInstance.getFlowId(), flowInstance.getVersion(),
+                    flowInstance.getState(), flowInstance.getScheduleTime());
+            return true;
+        } catch (Exception e) {
+            log.warn("清理初始化阶段流程实例失败,flowInstanceId={}",
+                    flowInstance.getInstanceId(), e);
+            return false;
+        }
     }
 
     private void mergeCleanedScheduleTime(Map<String, Long> cleanedScheduleTimes, FlowInstance flowInstance,

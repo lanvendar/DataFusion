@@ -401,7 +401,7 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
         entity.setUpdateTime(new Date());
         boolean updated = updateById(entity);
         if (updated) {
-            invalidateSchedulerInfo(id);
+            unpublishSchedule(id, entity.getPublishVersion());
         }
         return updated;
     }
@@ -675,14 +675,16 @@ public class FlowInfoServiceImpl extends ServiceImpl<FlowInfoMapper, FlowInfoEnt
     }
 
     /**
-     * 失效运行中 master 的调度定义缓存.
+     * 通知 master 取消发布并清理当前发布版本的初始化实例.
      *
-     * @param flowId 流程ID
+     * @param flowId         流程ID
+     * @param publishVersion 取消发布版本
      */
-    private void invalidateSchedulerInfo(UUID flowId) {
+    private void unpublishSchedule(UUID flowId, Long publishVersion) {
         MasterService masterService = masterServiceProvider.getIfAvailable();
         if (masterService != null) {
-            masterService.getMasterStorage().invalidateSchedulerInfo(flowId.toString());
+            masterService.unpublishSchedule(flowId.toString(),
+                    publishVersion == null ? null : String.valueOf(publishVersion));
         }
     }
 

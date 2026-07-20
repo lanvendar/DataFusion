@@ -149,7 +149,7 @@ public class TriggerStorageImpl implements TriggerStorage {
         // 来自flow_info
         info.setPayloadId(uuidToStr(flow.getId()));
         info.setVersion(flow.getPublishVersion() != null ? String.valueOf(flow.getPublishVersion()) : null);
-        info.setScheduleFlag(Boolean.TRUE.equals(flow.getEnabled()));
+        info.setScheduleFlag(Boolean.TRUE.equals(flow.getEnabled()) && Boolean.TRUE.equals(flow.getPublishState()));
         info.setStartTime(flow.getStartTime() != null ? flow.getStartTime() : 0L);
         info.setEndTime(flow.getEndTime() != null ? flow.getEndTime() : Long.MAX_VALUE);
 

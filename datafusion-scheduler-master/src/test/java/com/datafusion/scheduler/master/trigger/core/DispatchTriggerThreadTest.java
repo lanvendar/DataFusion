@@ -19,22 +19,40 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * DispatchTriggerThread 单元测试.
+ *
+ * @author datafusion
+ * @version 1.0.0, 2026/7/20
+ * @since 1.0.0
  */
 @ExtendWith(MockitoExtension.class)
 class DispatchTriggerThreadTest {
 
+    /**
+     * 调度实例处理器.
+     */
     @Mock
     private TriggerInstanceHandler handler;
 
+    /**
+     * 调度动作接口.
+     */
     @Mock
     private SchedulerTrigger schedulerTrigger;
 
+    /**
+     * Dispatch 线程.
+     */
     private DispatchTriggerThread dispatchThread;
 
+    /**
+     * 测试线程池.
+     */
     private ThreadPoolExecutor executor;
 
     @BeforeEach
@@ -71,7 +89,19 @@ class DispatchTriggerThreadTest {
         Boolean result = dispatchThread.triggerAction(instance);
 
         assertFalse(result);
+        verify(schedulerTrigger, never()).cleanInitializationInstance("ins-001", "flow-001", "v1");
         verify(schedulerTrigger, never()).dispatchSubmit(instance);
+    }
+
+    @Test
+    void testActionSuccessKeepsInitializationWhenScheduleResumesBeforeCleanup() {
+        TriggerInstance instance = createInstance("flow-001", "ins-001", "v1");
+        when(handler.checkScheduleAvailable(instance)).thenReturn(true);
+
+        dispatchThread.actionSuccess(false, instance);
+
+        verify(schedulerTrigger, never()).cleanInitializationInstance("ins-001", "flow-001", "v1");
+        verify(handler, never()).saveLastScheduleInstance(instance);
     }
 
     @Test
@@ -109,11 +139,13 @@ class DispatchTriggerThreadTest {
     }
 
     @Test
-    void testActionSuccessDoesNothingOnFalse() {
+    void testActionSuccessCleansInitializationWhenScheduleRemainsUnavailable() {
         TriggerInstance instance = createInstance("flow-001", "ins-001", "v1");
+        when(handler.checkScheduleAvailable(instance)).thenReturn(false);
 
         dispatchThread.actionSuccess(false, instance);
 
+        verify(schedulerTrigger).cleanInitializationInstance("ins-001", "flow-001", "v1");
         verify(handler, never()).saveLastScheduleInstance(instance);
     }
 
