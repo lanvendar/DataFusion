@@ -19,6 +19,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DummyMasterTaskOperator implements MasterTaskOperator {
 
+    /**
+     * 停止请求返回状态.
+     */
+    private StatusEnum stopResultState = StatusEnum.STOP_SUCCESS;
+
     @Override
     public TaskResult submitTask(TaskInstance taskIns) throws SchedulerException {
         log.info("submitTask: InstanceId={},Name={},State={}", taskIns.getInstanceId(), taskIns.getTaskName(), taskIns.getState());
@@ -28,7 +33,7 @@ public class DummyMasterTaskOperator implements MasterTaskOperator {
     @Override
     public TaskResult stopTask(TaskInstance taskIns) throws SchedulerException {
         log.info("stopTask: InstanceId={},Name={},State={}", taskIns.getInstanceId(), taskIns.getTaskName(), taskIns.getState());
-        return buildResult(taskIns, StatusEnum.STOP_SUCCESS);
+        return buildResult(taskIns, stopResultState);
     }
 
     @Override
@@ -41,6 +46,15 @@ public class DummyMasterTaskOperator implements MasterTaskOperator {
     public boolean finishTask(TaskInstance taskIns) throws SchedulerException {
         log.info("finishTask: InstanceId={},Name={},State={}", taskIns.getInstanceId(), taskIns.getTaskName(), taskIns.getState());
         return true;
+    }
+
+    /**
+     * 设置停止请求返回状态.
+     *
+     * @param stopResultState 停止请求返回状态
+     */
+    public void setStopResultState(StatusEnum stopResultState) {
+        this.stopResultState = stopResultState;
     }
 
     private TaskResult buildResult(TaskInstance taskIns, StatusEnum state) {

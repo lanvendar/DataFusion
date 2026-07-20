@@ -141,6 +141,24 @@ class SimpleFlowTest extends StateMachineTestBase {
     }
 
     @Test
+    @DisplayName("手动停止与自然成功竞态 → 停止响应 RUN_SUCCESS → 任务和流程都收敛为 RUN_SUCCESS")
+    void testTaskStopReturnsRunSuccess() {
+        masterTaskOperator.setStopResultState(StatusEnum.RUN_SUCCESS);
+        masterService.start();
+        addSchedule(SimpleFlowExample.FLOW_ID);
+
+        TaskInstance taskIns = awaitAnyTaskState(SimpleFlowExample.FLOW_ID, StatusEnum.SUBMIT_SUCCESS);
+
+        masterService.getTaskAction().taskStop(taskIns);
+
+        awaitTaskState(taskIns.getInstanceId(), StatusEnum.RUN_SUCCESS);
+        TaskInstance completed = taskStorage.getInstanceById(taskIns.getInstanceId());
+        assertNotNull(completed.getEndTime());
+        FlowInstance flowIns = awaitFlowState(SimpleFlowExample.FLOW_ID, StatusEnum.RUN_SUCCESS);
+        assertEquals(StatusEnum.RUN_SUCCESS, flowIns.getState());
+    }
+
+    @Test
     @DisplayName("手动强制成功失败任务 → ENFORCING_SUCCESS → ENFORCE_SUCCESS")
     void testTaskEnforceSuccess() {
         masterService.start();

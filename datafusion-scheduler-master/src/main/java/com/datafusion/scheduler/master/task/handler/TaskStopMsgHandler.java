@@ -49,8 +49,8 @@ public class TaskStopMsgHandler extends AbstractTaskMsgHandler {
 
     @Override
     public EnumSet<StatusEnum> getManualPreState() {
-        // 手工动作可以从多个状态停止
-        return EnumSet.of(StatusEnum.INIT_SUCCESS, StatusEnum.INIT_FAILURE, StatusEnum.WAIT_DEPENDENT, //StateEnum.WAIT_RESOURCES,
+        // SUBMITTING 无法确认是否已与 worker 完成交互，不允许手工停止，需等待进入其他可停止状态后再处理
+        return EnumSet.of(StatusEnum.INIT_SUCCESS, StatusEnum.INIT_FAILURE, StatusEnum.WAIT_DEPENDENT,
                 StatusEnum.SUBMIT_SUCCESS, StatusEnum.SUBMIT_FAILURE, StatusEnum.RUNNING);
     }
 
@@ -61,112 +61,166 @@ public class TaskStopMsgHandler extends AbstractTaskMsgHandler {
             handleRecoveryStop(taskIns, context);
             return;
         }
-        //更新成[STOPPING]后统一由TaskRunMsgHandle处理
-        handleStopResult(taskIns, msg.getTaskResult(), context);
-    }
-
-    /**
-     * 处理不携带 worker 结果的自动停止指令，包括 Master 重启恢复和流程停止广播.
-     *
-     * @param taskIns 任务实例
-     * @param context Actor 上下文
-     */
-    private void handleRecoveryStop(TaskInstance taskIns, ActorSysContext context) {
-        StatusEnum state = taskIns.getState();
-        if (state == StatusEnum.INIT_SUCCESS || state == StatusEnum.INIT_FAILURE || state == StatusEnum.WAIT_DEPENDENT) {
-            taskIns.setState(StatusEnum.STOP_SUCCESS);
-            super.saveTaskInstance(taskIns);
-            notifyFlow(taskIns, StatusEnum.STOP_SUCCESS, context);
-            return;
-        }
-        try {
-            if (state != StatusEnum.STOPPING) {
-                taskIns.setState(StatusEnum.STOPPING);
-                super.saveTaskInstance(taskIns);
-                notifyFlow(taskIns, StatusEnum.STOPPING, context);
-            }
-            TaskResult taskResult = super.masterTaskOperator.stopTask(taskIns);
-            if (taskResult != null && taskResult.getTaskState() != null) {
-                handleStopResult(taskIns, taskResult, context);
-            }
-        } catch (Exception e) {
-            taskIns.setState(StatusEnum.STOP_FAILURE);
-            super.saveTaskInstance(taskIns);
-            notifyFlow(taskIns, StatusEnum.STOP_FAILURE, context);
-        }
-    }
-
-    private void handleStopResult(TaskInstance taskIns, TaskResult taskResult, ActorSysContext context) {
-        StatusEnum acceptState = taskResult.getTaskState();
-        if (acceptState == StatusEnum.STOP_SUCCESS || acceptState == StatusEnum.STOP_FAILURE) {
-            taskIns.setState(acceptState);
-            taskIns.setTaskResult(taskResult);
-            super.saveTaskInstance(taskIns);
-        }
-        log.warn("[{}] - 任务停止结果: {}", taskIns.getInstanceId(), acceptState);
-        notifyFlow(taskIns, acceptState, context);
-    }
-
-    private void notifyFlow(TaskInstance taskIns, StatusEnum state, ActorSysContext context) {
-        FlowMsg flowMsg = FlowMsg.builder()//
-                .flowInstanceId(taskIns.getFlowInstanceId())//
-                //.flowId(taskIns.getFlowId())//
-                .taskState(Pair.of(taskIns.getInstanceId(), state))//
-                .actionType(ActionType.RUN)//
-                .isManualAction(false)//
-                .build();
-        super.notifyFlowActor(flowMsg, context);
+        handleWorkerStopResult(taskIns, msg.getTaskResult(), context);
     }
 
     @Override
     protected void handleManualAction(TaskMsg msg, ActorSysContext context) {
         TaskInstance taskIns = getTaskInstance(msg.getTaskInstanceId());
-        StatusEnum state = taskIns.getState();
-        //提交中[SUBMITTING] 因不确认是否与worker完成交互,故需要延迟处理
-        if (state == StatusEnum.INIT_SUCCESS || state == StatusEnum.INIT_FAILURE || state == StatusEnum.WAIT_DEPENDENT) {
-            //|| state == StateEnum.WAIT_RESOURCES){
-            taskIns.setState(StatusEnum.STOP_SUCCESS);
-            super.saveTaskInstance(taskIns);
-            FlowMsg flowMsg = FlowMsg.builder()//
-                    .flowInstanceId(taskIns.getFlowInstanceId())//
-                    //.flowId(taskIns.getFlowId())//
-                    .taskState(Pair.of(taskIns.getInstanceId(), StatusEnum.STOP_SUCCESS))//
-                    .actionType(ActionType.RUN)//
-                    .isManualAction(false)//
-                    .build();
-            super.notifyFlowActor(flowMsg, context);
+        handleManualStop(taskIns, context);
+    }
+
+    /**
+     * 根据恢复时保存的任务状态继续停止流程，已处于 {@link StatusEnum#STOPPING} 的任务会幂等重试 Worker 停止请求.
+     *
+     * @param taskIns 任务实例
+     * @param context Actor 上下文
+     */
+    private void handleRecoveryStop(TaskInstance taskIns, ActorSysContext context) {
+        switch (taskIns.getState()) {
+            case INIT_SUCCESS:
+            case INIT_FAILURE:
+            case WAIT_DEPENDENT:
+                stopDirectly(taskIns, context);
+                break;
+            case SUBMIT_SUCCESS:
+            case SUBMIT_FAILURE:
+            case RUNNING:
+            case STOPPING:
+                requestWorkerStop(taskIns, context);
+                break;
+            default:
+                log.warn("[{}] - 当前状态不支持恢复停止: {}", taskIns.getInstanceId(), taskIns.getState());
+                break;
+        }
+    }
+
+    /**
+     * 处理手工停止，未提交的任务直接停止，已与 Worker 交互的任务请求 Worker 停止.
+     *
+     * @param taskIns 任务实例
+     * @param context Actor 上下文
+     */
+    private void handleManualStop(TaskInstance taskIns, ActorSysContext context) {
+        switch (taskIns.getState()) {
+            case INIT_SUCCESS:
+            case INIT_FAILURE:
+            case WAIT_DEPENDENT:
+                stopDirectly(taskIns, context);
+                break;
+            case SUBMIT_SUCCESS:
+            case SUBMIT_FAILURE:
+            case RUNNING:
+                requestWorkerStop(taskIns, context);
+                break;
+            default:
+                log.warn("[{}] - 当前状态不支持手工停止: {}", taskIns.getInstanceId(), taskIns.getState());
+                break;
+        }
+    }
+
+    /**
+     * 将无需与 Worker 交互的任务直接完成为 {@link StatusEnum#STOP_SUCCESS}.
+     *
+     * @param taskIns 任务实例
+     * @param context Actor 上下文
+     */
+    private void stopDirectly(TaskInstance taskIns, ActorSysContext context) {
+        updateStateAndNotifyFlow(taskIns, StatusEnum.STOP_SUCCESS, null, context);
+    }
+
+    /**
+     * 将任务推进到 {@link StatusEnum#STOPPING} 并请求 Worker 停止，同步返回的结果会立即进入状态分流.
+     *
+     * @param taskIns 任务实例
+     * @param context Actor 上下文
+     */
+    private void requestWorkerStop(TaskInstance taskIns, ActorSysContext context) {
+        try {
+            if (taskIns.getState() != StatusEnum.STOPPING) {
+                updateStateAndNotifyFlow(taskIns, StatusEnum.STOPPING, null, context);
+            }
+            TaskResult taskResult = super.masterTaskOperator.stopTask(taskIns);
+            if (taskResult != null && taskResult.getTaskState() != null) {
+                handleWorkerStopResult(taskIns, taskResult, context);
+            }
+        } catch (Exception e) {
+            log.warn("[{}] - 停止任务失败", taskIns.getInstanceId(), e);
+            updateStateAndNotifyFlow(taskIns, StatusEnum.STOP_FAILURE, null, context);
+        }
+    }
+
+    /**
+     * 处理 Worker 停止结果：停止终态直接收敛，运行终态转交 RUN handler，STOPPING 等待异步上报.
+     *
+     * @param taskIns   任务实例
+     * @param taskResult Worker 返回的任务结果
+     * @param context   Actor 上下文
+     */
+    private void handleWorkerStopResult(TaskInstance taskIns, TaskResult taskResult, ActorSysContext context) {
+        StatusEnum acceptState = taskResult.getTaskState();
+        if (acceptState == null) {
+            log.warn("[{}] - 收到无状态的停止结果", taskIns.getInstanceId());
             return;
         }
-
-        if (state == StatusEnum.SUBMIT_SUCCESS || state == StatusEnum.SUBMIT_FAILURE || state == StatusEnum.RUNNING) {
-            try {
-                taskIns.setState(StatusEnum.STOPPING);
-                super.saveTaskInstance(taskIns);
-                FlowMsg flowMsg = FlowMsg.builder()//
-                        .flowInstanceId(taskIns.getFlowInstanceId())//
-                        //.flowId(taskIns.getFlowId())//
-                        .taskState(Pair.of(taskIns.getInstanceId(), StatusEnum.STOPPING))//
-                        .actionType(ActionType.RUN)//
-                        .isManualAction(false)//
-                        .build();
-                super.notifyFlowActor(flowMsg, context);
-                TaskResult taskResult = super.masterTaskOperator.stopTask(taskIns);
-                if (taskResult != null && taskResult.getTaskState() != null) {
-                    handleStopResult(taskIns, taskResult, context);
-                }
-            } catch (Exception e) {
-                taskIns.setState(StatusEnum.STOP_FAILURE);
-                super.saveTaskInstance(taskIns);
-                FlowMsg flowMsg = FlowMsg.builder()//
-                        .flowInstanceId(taskIns.getFlowInstanceId())//
-                        //.flowId(taskIns.getFlowId())//
-                        .taskState(Pair.of(taskIns.getInstanceId(), StatusEnum.STOP_FAILURE))//
-                        .actionType(ActionType.RUN)//
-                        .isManualAction(false)//
-                        .build();
-                super.notifyFlowActor(flowMsg, context);
-                //TODO 是否需要自动进入强制停止?
-            }
+        switch (acceptState) {
+            case STOPPING:
+                log.debug("[{}] - 停止请求处理中，等待 worker 异步上报", taskIns.getInstanceId());
+                break;
+            case STOP_SUCCESS:
+            case STOP_FAILURE:
+                updateStateAndNotifyFlow(taskIns, acceptState, taskResult, context);
+                break;
+            case RUN_SUCCESS:
+            case RUN_FAILURE:
+            case UNKNOWN:
+                forwardToRunHandler(taskIns, taskResult, context);
+                break;
+            default:
+                log.warn("[{}] - 收到停止协议外状态: {}", taskIns.getInstanceId(), acceptState);
+                break;
         }
+    }
+
+    /**
+     * 将停止竞态产生的运行终态转交 RUN handler 处理.
+     *
+     * @param taskIns   任务实例
+     * @param taskResult Worker 返回的运行终态结果
+     * @param context   Actor 上下文
+     */
+    private void forwardToRunHandler(TaskInstance taskIns, TaskResult taskResult, ActorSysContext context) {
+        log.debug("[{}] - 转交 runHandler 处理: {}", taskIns.getInstanceId(), taskResult.getTaskState());
+        TaskMsg runMsg = TaskMsg.builder()
+                .flowInstanceId(taskIns.getFlowInstanceId())
+                .taskInstanceId(taskIns.getInstanceId())
+                .actionType(ActionType.RUN)
+                .isManualAction(false)
+                .taskResult(taskResult)
+                .build();
+        context.notify(runMsg);
+    }
+
+    /**
+     * 更新任务状态和可选任务结果，持久化后通知流程 Actor.
+     *
+     * @param taskIns   任务实例
+     * @param state     目标状态
+     * @param taskResult Worker 返回的任务结果，可为空
+     * @param context   Actor 上下文
+     */
+    private void updateStateAndNotifyFlow(TaskInstance taskIns, StatusEnum state, TaskResult taskResult, ActorSysContext context) {
+        taskIns.setState(state);
+        if (taskResult != null) {
+            taskIns.setTaskResult(taskResult);
+        }
+        super.saveTaskInstance(taskIns);
+        FlowMsg flowMsg = FlowMsg.builder()
+                .flowInstanceId(taskIns.getFlowInstanceId())
+                .taskState(Pair.of(taskIns.getInstanceId(), state))
+                .actionType(ActionType.RUN)
+                .isManualAction(false)
+                .build();
+        super.notifyFlowActor(flowMsg, context);
     }
 }

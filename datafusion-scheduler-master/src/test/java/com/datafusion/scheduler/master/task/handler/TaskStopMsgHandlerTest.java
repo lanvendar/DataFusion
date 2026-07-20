@@ -1,6 +1,7 @@
 package com.datafusion.scheduler.master.task.handler;
 
 import com.datafusion.scheduler.enums.StatusEnum;
+import com.datafusion.scheduler.master.actor.ActorSysContext;
 import com.datafusion.scheduler.master.task.MasterTaskOperator;
 import com.datafusion.scheduler.master.task.TaskMsg;
 import com.datafusion.scheduler.master.task.model.TaskInstance;
@@ -8,9 +9,14 @@ import com.datafusion.scheduler.master.task.storage.TaskStorage;
 import com.datafusion.scheduler.model.TaskResult;
 import com.datafusion.scheduler.model.WorkerResult;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
+import static com.datafusion.scheduler.enums.ActionType.RUN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -23,6 +29,13 @@ import static org.mockito.Mockito.when;
  * @since 1.0.0
  */
 class TaskStopMsgHandlerTest {
+
+    @Test
+    void shouldRejectManualStopWhileSubmitting() {
+        TaskStopMsgHandler handler = new TaskStopMsgHandler(mock(TaskStorage.class), null, mock(MasterTaskOperator.class));
+
+        assertFalse(handler.getManualPreState().contains(StatusEnum.SUBMITTING));
+    }
 
     @Test
     void shouldPersistReportedStopFailureResult() {
@@ -53,6 +66,42 @@ class TaskStopMsgHandlerTest {
         assertEquals(StatusEnum.STOP_SUCCESS, taskInstance.getState());
         assertSame(taskResult, taskInstance.getTaskResult());
         assertEquals("Flink stopped", taskInstance.getTaskResult().getWorkerResult().getMessage());
+    }
+
+    @Test
+    void shouldForwardRunSuccessReturnedByStopRequest() throws Exception {
+        TaskInstance taskInstance = taskInstance(StatusEnum.RUNNING);
+        TaskStorage taskStorage = taskStorage(taskInstance);
+        TaskResult taskResult = taskResult(StatusEnum.RUN_SUCCESS, "Task already completed");
+        MasterTaskOperator masterTaskOperator = mock(MasterTaskOperator.class);
+        ActorSysContext context = mock(ActorSysContext.class);
+        when(masterTaskOperator.stopTask(taskInstance)).thenReturn(taskResult);
+        TaskStopMsgHandler handler = new TaskStopMsgHandler(taskStorage, null, masterTaskOperator);
+
+        handler.handleManualAction(taskMsg(null), context);
+
+        ArgumentCaptor<TaskMsg> messageCaptor = ArgumentCaptor.forClass(TaskMsg.class);
+        verify(context).notify(messageCaptor.capture());
+        TaskMsg forwarded = messageCaptor.getValue();
+        assertEquals(RUN, forwarded.getActionType());
+        assertSame(taskResult, forwarded.getTaskResult());
+        assertEquals(StatusEnum.STOPPING, taskInstance.getState());
+    }
+
+    @Test
+    void shouldWaitForReportWhenStopRequestReturnsStopping() throws Exception {
+        TaskInstance taskInstance = taskInstance(StatusEnum.RUNNING);
+        TaskStorage taskStorage = taskStorage(taskInstance);
+        TaskResult taskResult = taskResult(StatusEnum.STOPPING, "Stopping");
+        MasterTaskOperator masterTaskOperator = mock(MasterTaskOperator.class);
+        ActorSysContext context = mock(ActorSysContext.class);
+        when(masterTaskOperator.stopTask(taskInstance)).thenReturn(taskResult);
+        TaskStopMsgHandler handler = new TaskStopMsgHandler(taskStorage, null, masterTaskOperator);
+
+        handler.handleManualAction(taskMsg(null), context);
+
+        assertEquals(StatusEnum.STOPPING, taskInstance.getState());
+        verify(context, never()).notify(any(TaskMsg.class));
     }
 
     private TaskStorage taskStorage(TaskInstance taskInstance) {

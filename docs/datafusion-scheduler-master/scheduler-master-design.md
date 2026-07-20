@@ -47,6 +47,12 @@ worker 结果通过 `TaskResultHandler.asyncHandle` 回到 master。当前状态
 | `ENFORCE_SUCCESS` | `ENFORCE_SUCCESS` |
 
 停止进入 `STOP_SUCCESS` 或 `STOP_FAILURE` 时，任务实例保存完整 `TaskResult`，保留 worker 返回的错误信息和运行上下文。
+停止请求与任务自然结束并发时，worker 可以在同步停止响应中直接返回已经落盘的 `RUN_SUCCESS`、`RUN_FAILURE` 或
+`UNKNOWN`，不能把已有终态回退成 `STOPPING`。`TaskStopMsgHandler` 收到这些运行终态后必须转发为 `RUN` 消息，
+由 `TaskRunMsgHandler` 执行对应终态的保存、流程通知、下游推进或重试；不能只通知流程而保留任务的 `STOPPING` 状态。
+同步响应是本次状态收敛的主路径，异步上报只承担后续状态推进和失败重试，不负责补偿 Master 未处理的同步结果。
+同步停止响应为 `STOPPING` 时保持停止中并等待 worker 异步上报；协议外状态只记录告警，不覆盖任务状态。
+手工停止不接受 `SUBMITTING`，因为此时无法确认任务是否已经完成与 worker 的提交交互；需等待任务进入其他可停止状态后再处理。
 
 `WorkerManager` 实现 `WorkerListener` 和 `WorkerOperator`。启动时调用 `offlineAllWorkers()`，注册和心跳后 worker 才重新参与调度。人工启用、禁用和删除操作返回明确的成功标记；禁用只从新任务候选中排除 worker，不删除运行信息。`lookupWorker(pluginType)` 当前从在线、启用且支持该插件的 worker 中随机选择。
 

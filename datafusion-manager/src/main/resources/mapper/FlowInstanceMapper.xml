@@ -81,30 +81,32 @@
     </delete>
 
     <select id="listArchiveCandidates" resultType="com.datafusion.manager.scheduler.po.FlowInstanceEntity">
-        select *
-        from (
+        with protected_latest as (
             select
-                fi.*,
-                flow_info.id as active_flow_id,
-                row_number() over (
-                    partition by fi.flow_id, fi.publish_version
-                    order by fi.schedule_time desc
-                ) as rn
+                fi.flow_id,
+                fi.publish_version,
+                max(fi.schedule_time) as schedule_time
             from scheduler_flow_instance fi
-            left join scheduler_flow_info flow_info
+            inner join scheduler_flow_info flow_info
               on flow_info.id = fi.flow_id
              and flow_info.publish_version = fi.publish_version
+             and flow_info.enabled = true
             where fi.schedule_time is not null
-        ) archive_candidate
-        where archive_candidate.status in
+            group by fi.flow_id, fi.publish_version
+        )
+        select fi.*
+        from scheduler_flow_instance fi
+        left join protected_latest protected
+          on protected.flow_id = fi.flow_id
+         and protected.publish_version = fi.publish_version
+         and protected.schedule_time = fi.schedule_time
+        where fi.schedule_time is not null
+          and fi.status in
           <foreach collection="statuses" item="status" open="(" separator="," close=")">
               #{status}
           </foreach>
-          and (
-              archive_candidate.rn &gt; 1
-              or archive_candidate.active_flow_id is null
-          )
-        order by archive_candidate.update_time asc
+          and protected.flow_id is null
+        order by fi.update_time asc
         limit #{limit}
     </select>
 
